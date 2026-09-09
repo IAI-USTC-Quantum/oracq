@@ -1,5 +1,7 @@
 # 第二阶段：寄存器级模拟、算术与微分方程组装
 
+当前 QPDE/QODE 的具体实现、oracle 绑定和 protocol 替换请看 [实作指南](qpde-qode-howto.md)，配套示例覆盖 LCHS、Schrödingerization 与 Carleman 的多种输入范式。本文保留第二阶段的实现记录。
+
 一般阶数与规则化 PDE 的 QHAM 新实现见 [数学推导](qham-general-derivation.md) 和 [实现说明](qham-general-implementation.md)；下文 m=1 部分为早期特例记录。
 
 QFVM 的当前输入模型与 QLSS 替换契约已更新，见 [独立审查与修正记录](qfvm-qlss-input-model-review.md)。本文中旧的 QFVM 组装描述保留为阶段历史，不代表当前问题级入口。

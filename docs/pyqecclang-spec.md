@@ -350,6 +350,8 @@ QFVM 路径（`qfvm.py`、`qfvm_sparse.py`、`roe.py`、`flow_data.py`）实现�
 
 ### 16.3 QODE 输入模型与两级开放
 
+线性 QODE、Carleman 与空间离散化的具体调用签名，以及多种 given-oracle 的适配方式，见 [QPDE/QODE 实作指南](qpde-qode-howto.md)。其中区分 `make_qpde` 的三参数线性接口与 `qpde_solver` 的 model/time 接口；这些组合不增加新的 RIR 节点。
+
 `qham_input_model(plan, bindings, eta)` 返回 `QHAMInputModel`：携带生成元块编码、提升初态制备、状态宽度、η 与初始范数，`solve(qode, time)` 调用任意 QODE 生成器并选择 `qham_physical_sum` 输出通道。`dissipative_shift()` 施加显式整体移位 G − μI（μ ≥ α_G ≥ ‖G‖）供 LCHS/CBMD 使用，保存 growth_shift·t 作为对数幅值恢复因子——它保持归一化方向但可能显著影响成功概率与成本。有限 Taylor QODE 是打通门级执行与对照的普通候选，不要求 Hermitian 或耗散前提，也不代表高效最优算法。
 
 实现边界有两级：`QHAMBindings.declare` 逐个声明 L/F/B_tau/初态等基础端口再生成 G 与 QODE 调用，可以逐个绑定；`open_qham_input` 把整个生成元保留为未完成模块（属性携带完整 QCL plan），适合没有高效全局端口或超出显式块预算的场合。更换端口算法若改变 alpha 或辅助位宽度，应从同一数学计划重新生成上层 RIR；只有保持实例化签名与 alpha 时才适合在已有 IR 上晚绑定。稀疏输入不是从块编码自动恢复的：`qcl_row/qcl_entry` 是可审阅的经典参考，选择稀疏输入型求解器需要另行提供满足约定的稀疏访问（强迫注入可产生稠密列，行稀疏不保证 CKS 双边稀疏假设成立）。

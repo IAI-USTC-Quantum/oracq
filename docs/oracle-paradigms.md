@@ -1,5 +1,7 @@
 # Oracle 范式与普通实现
 
+在微分方程算法中如何使用这些范式，见 [QPDE/QODE 实作指南](qpde-qode-howto.md)：包含直接 BE、Hermitian parts、XOR/QRAM、CKS sparse、结构化算子和多线性系数输入，并说明每种适配的前提。
+
 QFVM 的当前输入模型与 QLSS 替换契约已更新，见 [独立审查与修正记录](qfvm-qlss-input-model-review.md)。本文中旧的 QFVM 组装描述保留为阶段历史，不代表当前问题级入口。
 
 本轮目标是确定接口、开放实现、可替换实现和组装方式。下表列出已提供的范式与构造。编译器检查结构，数学契约由库文档和下一阶段的验证支持。

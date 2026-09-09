@@ -6,6 +6,8 @@ pyqecclang 是基于 Python 的量子操作生成语言。生成函数返回可�
 
 本仓库独立于 QECC.Lang，不继承其文本语法或扁平 CLIR 约束。当前版本为 0.6.0。
 
+实现自己的 QPDE/QODE，请先看 [QPDE/QODE 实作指南](docs/qpde-qode-howto.md)：以 LCHS、Schrödingerization、Carleman 为主线，说明多种 given-oracle 输入范式、显式适配、分批绑定和 protocol 替换。[可运行示例](examples/ode_input_models.py) 生成 11 组开放/闭合 RIR 与 OriginIR-ext。
+
 新增一般 QHAM 自动生成：有限多项式 PDE → 任意阶 HAM → 惰性张量闭包 → 模块化 QODE 输入。先看 [数学推导](docs/qham-general-derivation.md)，再看 [实现与运行说明](docs/qham-general-implementation.md)。支持强迫、耦合分量和高次项；数学恒等式与小型真实后端已验证，收敛与量子精度仍单独保留。
 
 QFVM / QLSS 的输入模型已重新审查并修正。请看独立文档 [QFVM 中替换 QLSS](docs/qfvm-qlss-input-model-review.md)：QFVM 提供稀疏 oracle，CKS 和 Costa 通过显式 protocol/适配器接入；alpha、谱声明、物理输出通道和范数探针均独立记录。算法数值等价和完整求解正确性仍待核验。
@@ -140,7 +142,7 @@ assert d.alpha == 6
 
 `alpha` 保存在模块属性 `be_alpha` 中，经过 JSON 往返仍然存在。乘积保留独立信号空间；加权和按归一化常数选择分支幅度，并保留复系数的相对相位。语言不内建 `eps`，不保证目标矩阵近似误差或求解器收敛性。
 
-Python 的普通函数、闭包或可调用对象即可作为 protocol 的实现。生成结果必须是可验证的 `Operation`，不能把任意 Python callback 当作未定义的 IR 指令。本版还提供 Costa general walk 与相干 filtering、QODE/QPDE、QFVM 和 m=1 QHAM 的组装原型。它们可以保留开放 oracle，也提供普通 gate/QRAM 小绑定；数值正确性未在本阶段认证。
+Python 的普通函数、闭包或可调用对象即可作为 protocol 的实现。生成结果必须形成可验证的 `Operation`，不能把任意 Python callback 当作未定义的 IR 指令。本版还提供 Costa general walk 与相干 filtering、QODE/QPDE、QFVM 和一般有限阶 QHAM 的组装原型。它们可以保留开放 oracle，也提供普通 gate/QRAM 小绑定；完整算法数值正确性未在本阶段认证。
 
 ## CLI
 
