@@ -1,0 +1,43 @@
+{
+  "version": "0.7.0",
+  "rir_version": "0.3",
+  "scope": "algorithm-owned Python structural protocols and engineering hardening; not numerical certification",
+  "core_schema": {
+    "tests_passed": 123,
+    "subtests_passed": 135,
+    "skipped": 0
+  },
+  "native": {
+    "tests_passed": 28,
+    "skipped": 0,
+    "backends": [
+      "real pysparq",
+      "real uniqc OriginIR"
+    ],
+    "references": "backend-revisions.json"
+  },
+  "ode_examples": {
+    "generated_and_native_parsed": 11,
+    "xor_gate_vs_qram_max_amplitude_difference": 0.0
+  },
+  "algorithm_contracts_example": "passed",
+  "cli_inspect": "passed",
+  "lint": "passed",
+  "packaging": {
+    "sdist": "built",
+    "wheel": "built",
+    "isolated_wheel_import": "passed",
+    "optional_backends_not_imported": true
+  },
+  "ci": {
+    "configuration": ".gitea/workflows/python-ci.yml",
+    "remote_execution": "not_run_in_this_session"
+  },
+  "pending": [
+    "QLSS solution accuracy and success channel",
+    "general QSP Hamiltonian simulation kernel",
+    "LCHS quadrature and Schrödingerization recovery accuracy",
+    "Carleman/HAM convergence and physical readout",
+    "quantum advantage and resource certification"
+  ]
+}

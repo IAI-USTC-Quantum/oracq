@@ -7,13 +7,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    path = ROOT / "docs/workboard.json"
+    path = ROOT / "docs/archive/workboard.json"
     board = json.loads(path.read_text())
     board["updated"] = "2026-09-09"
     evidence = {
-        "P0": ["docs/coverage.json", "docs/coverage.md"],
-        "P1": ["src/pyqecclang/linking.py", "docs/open-ir.md", "tests/core/test_open_ir.py"],
-        "P2": ["src/pyqecclang/oracles.py", "docs/oracle-paradigms.md"],
+        "P0": ["docs/archive/coverage.json", "docs/archive/coverage.md"],
+        "P1": ["src/pyqecclang/linking.py", "docs/reference/open-ir.md", "tests/core/test_open_ir.py"],
+        "P2": ["src/pyqecclang/oracles.py", "docs/archive/oracle-paradigms.md"],
         "P3": ["src/pyqecclang/access.py", "src/pyqecclang/combinators.py"],
         "P4": ["src/pyqecclang/algorithms/elementary.py"],
         "P5": ["src/pyqecclang/algorithms/costa.py"],
@@ -30,7 +30,7 @@ def main():
         task["evidence"] = evidence[task["id"]]
     index_path = ROOT / "out/catalog/index.json"
     cases = json.loads(index_path.read_text())["cases"] if index_path.exists() else []
-    verification_path = ROOT / "docs/phase-validation.json"
+    verification_path = ROOT / "docs/archive/phase-validation.json"
     verification = json.loads(verification_path.read_text()) if verification_path.exists() else {}
     if (
         cases
@@ -38,7 +38,7 @@ def main():
         and verification.get("status") == "passed"
     ):
         board["tasks"][-1]["status"] = "done"
-        board["tasks"][-1]["evidence"].append("docs/phase-validation.json")
+        board["tasks"][-1]["evidence"].append("docs/archive/phase-validation.json")
     board["case_count"] = len(cases)
     board["native_parsed_count"] = sum(row["native_parsed"] for row in cases)
     path.write_text(json.dumps(board, ensure_ascii=False, indent=2) + "\n")
@@ -98,7 +98,7 @@ def render(board, cases):
         "先检查普通 oracle 的矩阵和位语义，再检查 BE 与 state prep，随后是 Costa 初态/反射/filtering，最后验证 QODE/PDE、Roe 物理核与 QHAM 的条件输出和外层行为。",
         "",
     ]
-    (ROOT / "docs/workboard.md").write_text("\n".join(lines))
+    (ROOT / "docs/archive/workboard.md").write_text("\n".join(lines))
 
 
 if __name__ == "__main__":

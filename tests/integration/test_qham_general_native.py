@@ -5,7 +5,7 @@ import unittest
 from functools import partial
 
 from pyqecclang import arithmetic_native_registry, export_toffoli_u3_cz, run_pysparq
-from pyqecclang.qham import (
+from pyqecclang.applications.qham import (
     Block,
     Discretization,
     Field,

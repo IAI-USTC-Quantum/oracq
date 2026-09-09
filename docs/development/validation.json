@@ -1,0 +1,93 @@
+{
+  "version": "0.8.0",
+  "rir_version": "0.3",
+  "core_schema": {
+    "passed": 144,
+    "subtests": 135,
+    "skipped": 0
+  },
+  "native": {
+    "passed": 29,
+    "gallery_cases": 22,
+    "backends": [
+      "pysparq",
+      "uniqc OriginIR"
+    ],
+    "skipped": 0
+  },
+  "gallery_max_amplitude_difference": 3.885780586188048e-16,
+  "documentation": {
+    "api_modules": 56,
+    "tutorial_pages": 7,
+    "doctests": 10,
+    "search_tests": 2,
+    "html_warnings": 0,
+    "doctest_warnings": 0
+  },
+  "browser": {
+    "home": "passed",
+    "tutorial": "passed",
+    "api": "passed",
+    "search_english": "passed",
+    "search_chinese": "passed",
+    "math_equations_rendered": 12,
+    "mermaid_diagrams_rendered": 1,
+    "page_errors_after_fixes": 0
+  },
+  "packaging": {
+    "sdist": "built",
+    "wheel": "built",
+    "isolated_wheel_import": "passed",
+    "old_import_compatibility": "passed",
+    "optional_backends_not_imported": true
+  },
+  "check_runner": {
+    "native_requested": true,
+    "docs_requested": true,
+    "checks": [
+      {
+        "name": "lint",
+        "exit_code": 0
+      },
+      {
+        "name": "core_schema",
+        "exit_code": 0
+      },
+      {
+        "name": "contracts_example",
+        "exit_code": 0
+      },
+      {
+        "name": "ode_examples",
+        "exit_code": 0
+      },
+      {
+        "name": "algorithm_gallery",
+        "exit_code": 0
+      },
+      {
+        "name": "docs_search",
+        "exit_code": 0
+      },
+      {
+        "name": "sphinx_html",
+        "exit_code": 0
+      },
+      {
+        "name": "sphinx_doctest",
+        "exit_code": 0
+      },
+      {
+        "name": "native",
+        "exit_code": 0
+      }
+    ]
+  },
+  "pending": [
+    "general QSP-HamSim kernel",
+    "full QLSS/QODE/PDE solver accuracy and success channels",
+    "Carleman/HAM convergence",
+    "scalable Shor arithmetic",
+    "classical optimization strategy for VQE/QAOA"
+  ]
+}

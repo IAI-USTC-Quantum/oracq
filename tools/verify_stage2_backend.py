@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from pyqecclang import Program, loads
-from pyqecclang.backends.basis import export_toffoli_u3_cz
+from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
 
 
 def main():

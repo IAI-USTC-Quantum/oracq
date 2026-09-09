@@ -1,0 +1,5 @@
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+.content { max-width: 58rem; }
+.main .content article { line-height: 1.8; }
+table.docutils { font-size: .94rem; }
+pre, code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }

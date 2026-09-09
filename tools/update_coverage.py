@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from pyqecclang.workloads import CASES
+from pyqecclang.applications.catalog import CASES
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -75,7 +75,7 @@ def positive(case):
 
 
 def main():
-    inventory = json.loads((ROOT / "docs/case-inventory.json").read_text())
+    inventory = json.loads((ROOT / "docs/archive/case-inventory.json").read_text())
     changes = {
         "ancilla-clean": "工作区显式进入接口；不继承旧版 clean_ancilla 静态证明。",
         "measure-reset": "由显式宿主 ReadoutAction 生成末端测量和重置；不混入酉 oracle 主体。",
@@ -120,7 +120,7 @@ def main():
         "negative": sum(r["kind"] == "negative" for r in rows),
         "cases": rows,
     }
-    (ROOT / "docs/coverage.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    (ROOT / "docs/archive/coverage.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     lines = [
         "# 旧案例与新范式覆盖矩阵",
         "",
@@ -138,7 +138,7 @@ def main():
         "Roe 物理核、一般高阶 QHAM、严格 QSVT 相位与 PDE 收敛证明保留为下一阶段工作，已定义对应的开放接口。",
         "",
     ]
-    (ROOT / "docs/coverage.md").write_text("\n".join(lines))
+    (ROOT / "docs/archive/coverage.md").write_text("\n".join(lines))
 
 
 if __name__ == "__main__":

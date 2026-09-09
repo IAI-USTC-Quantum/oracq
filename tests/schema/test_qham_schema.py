@@ -7,7 +7,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from pyqecclang import ValidationError
-from pyqecclang.qham import Field, Known, PolynomialPDE, QHAMPlan
+from pyqecclang.applications.qham import Field, Known, PolynomialPDE, QHAMPlan
 
 
 class QhamSchemaTests(unittest.TestCase):
@@ -17,7 +17,7 @@ class QhamSchemaTests(unittest.TestCase):
         pde = PolynomialPDE.from_equations({"u": u.d("x", 2) - u * u.d("x") + Known("f")})
         plan = QHAMPlan(pde, 3)
         for name, value in (("pde", pde), ("qcl-plan", plan)):
-            schema = json.loads((root / f"docs/{name}.schema.json").read_text())
+            schema = json.loads((root / f"docs/reference/schemas/{name}.schema.json").read_text())
             Draft202012Validator.check_schema(schema)
             Draft202012Validator(schema).validate(json.loads(value.dumps()))
 

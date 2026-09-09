@@ -25,22 +25,13 @@ from pyqecclang import (
     unresolved,
     zero,
 )
-from pyqecclang.algorithms.differential import (
-    HermitianParts,
-    LinearODE,
-    PDEInput,
-    PolynomialODE,
-    QuadraturePlan,
-    SchrodingerPlan,
-    carleman_qode,
-    lchs_qode,
-    linear_qode,
-    qpde_solver,
-    taylor_hamiltonian,
-)
-from pyqecclang.algorithms.solvers import DiscretePDE, make_qpde
-from pyqecclang.combinators import lcu
-from pyqecclang.oracles import (
+from pyqecclang.algorithms.block_encoding import lcu
+from pyqecclang.algorithms.carleman import PolynomialODE, carleman_qode
+from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.lchs import QuadraturePlan, lchs_qode
+from pyqecclang.algorithms.ode import linear_qode
+from pyqecclang.algorithms.ode_models import HermitianParts, LinearODE
+from pyqecclang.algorithms.oracles import (
     abstract_block_encoding,
     abstract_database,
     abstract_sparse_access,
@@ -55,9 +46,17 @@ from pyqecclang.oracles import (
     sparse_location_gate,
     sparse_location_qram,
 )
-from pyqecclang.qham import Discretization, Field, Grid, PolynomialPDE, structured_fd_bindings
-from pyqecclang.qham.stencils import derivative_encoding
-from pyqecclang.sparse_models import real_symmetric_sparse_encoding
+from pyqecclang.algorithms.pde import DiscretePDE, PDEInput, make_qpde, qpde_solver
+from pyqecclang.algorithms.schrodingerization import SchrodingerPlan
+from pyqecclang.algorithms.sparse import real_symmetric_sparse_encoding
+from pyqecclang.applications.qham import (
+    Discretization,
+    Field,
+    Grid,
+    PolynomialPDE,
+    structured_fd_bindings,
+)
+from pyqecclang.applications.qham.stencils import derivative_encoding
 
 
 def save_case(root, name, state, bindings=None, memory=None, *, notes=None, native_parse=False):

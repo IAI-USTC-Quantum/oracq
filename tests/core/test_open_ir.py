@@ -13,13 +13,18 @@ from pyqecclang import (
     loads,
     unresolved,
 )
-from pyqecclang.oracles import abstract_database, abstract_state_prep, basis_state, qram_database
+from pyqecclang.algorithms.oracles import (
+    abstract_database,
+    abstract_state_prep,
+    basis_state,
+    qram_database,
+)
 
 
 class OpenIRTests(unittest.TestCase):
     def test_open_roundtrip_and_export_boundary(self):
         slot = abstract_database("Function", 2, 1)
-        from pyqecclang.algorithms.elementary import deutsch_jozsa
+        from pyqecclang.algorithms.oracle_algorithms import deutsch_jozsa
 
         p = deutsch_jozsa(slot).program()
         restored = loads(dumps(p))

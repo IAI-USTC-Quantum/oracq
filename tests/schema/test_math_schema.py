@@ -7,14 +7,14 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from pyqecclang import ValidationError
-from pyqecclang.mathfunc import MathProgram, compile_function
+from pyqecclang.infrastructure.mathfunc import MathProgram, compile_function
 
 
 class MathSchemaTests(unittest.TestCase):
     def test_generated_math_graph(self):
         root = Path(__file__).resolve().parents[2]
         validator = Draft202012Validator(
-            json.loads((root / "docs/math-ir.schema.json").read_text())
+            json.loads((root / "docs/reference/schemas/math-ir.schema.json").read_text())
         )
         result = compile_function(
             "import cmath\ndef square(z):\n return z*z\ndef f(z:complex):\n return cmath.exp(square(z)),z.real>0"

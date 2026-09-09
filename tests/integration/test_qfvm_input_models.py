@@ -3,8 +3,12 @@
 import unittest
 
 from pyqecclang import Bits, Builder, FixedFormat, arithmetic_native_registry, run_pysparq
-from pyqecclang.qfvm import bind_qfvm, geometry_cells, roe_qfvm_inputs
-from pyqecclang.qfvm_sparse import qfvm_sparse_access
+from pyqecclang.applications.qfvm import (
+    bind_qfvm,
+    geometry_cells,
+    qfvm_sparse_access,
+    roe_qfvm_inputs,
+)
 
 
 class QfvmInputNativeTests(unittest.TestCase):
@@ -81,16 +85,21 @@ class QfvmInputNativeTests(unittest.TestCase):
         from uniqc.compile.originir.originir_base_parser import OriginIR_BaseParser
 
         from pyqecclang import export_toffoli_u3_cz
-        from pyqecclang.algorithms.cks import make_cks_qlss
-        from pyqecclang.algorithms.costa import CostaConfig, make_costa_qlss
-        from pyqecclang.oracles import (
+        from pyqecclang.algorithms.oracles import (
             SparseAccess,
             basis_state,
             gate_database,
             sparse_entry,
             sparse_location_gate,
         )
-        from pyqecclang.qlss import LinearSystem, SparseSystem, SpectralPromise
+        from pyqecclang.algorithms.qlss import (
+            CostaConfig,
+            LinearSystem,
+            SparseSystem,
+            SpectralPromise,
+            make_cks_qlss,
+            make_costa_qlss,
+        )
 
         fmt = FixedFormat(4, 2)
         access = SparseAccess(

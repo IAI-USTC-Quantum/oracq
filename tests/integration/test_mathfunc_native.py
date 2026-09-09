@@ -10,7 +10,7 @@ from pyqecclang import (
     run_pysparq,
     simulate,
 )
-from pyqecclang.mathfunc import MathConfig, compile_function
+from pyqecclang.infrastructure.mathfunc import MathConfig, compile_function
 
 
 class MathFunctionNativeTests(unittest.TestCase):

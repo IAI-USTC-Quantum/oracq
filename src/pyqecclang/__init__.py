@@ -1,12 +1,48 @@
-"""pyqecclang：Python 生成器与模块化寄存器级 IR。"""
+"pyqecclang：Python 生成器与模块化寄存器级 IR。"
 
-from .arithmetic import FixedFormat, arithmetic_native_registry, fixed_arithmetic
-from .backends import OriginIRArtifact, export_originir, run_originir
-from .backends.basis import export_toffoli_u3_cz
-from .backends.pysparq import run_pysparq
-from .builder import Builder, Operation
-from .execution import RegisterState, simulate
-from .ir import (
+from pyqecclang.algorithms.arithmetic import (
+    FixedFormat,
+    arithmetic_native_registry,
+    fixed_arithmetic,
+)
+from pyqecclang.algorithms.contracts import (
+    ContractError,
+    ContractIssue,
+    ContractReport,
+    InputRequirement,
+    OracleCapabilities,
+    OracleSpec,
+    ProtocolContract,
+    describe_oracle,
+    requires,
+)
+from pyqecclang.algorithms.ode import QODEProblem, QODEProtocol
+from pyqecclang.algorithms.operators import (
+    BlockEncoding,
+    Generator,
+    block_encoding,
+    identity,
+    linear_combination,
+    pauli_x,
+    product,
+    scale,
+    zero,
+)
+from pyqecclang.algorithms.oracles import declare
+from pyqecclang.algorithms.qlss import (
+    BlockSystem,
+    LinearSystem,
+    QLSSProtocol,
+    SolveResult,
+    SparseSystem,
+    SpectralPromise,
+)
+from pyqecclang.infrastructure.backends import OriginIRArtifact, export_originir, run_originir
+from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
+from pyqecclang.infrastructure.backends.pysparq import run_pysparq
+from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.execution import RegisterState, simulate
+from pyqecclang.infrastructure.ir import (
     QRAM,
     VERSION,
     Adjoint,
@@ -29,19 +65,14 @@ from .ir import (
     ValidationError,
     fuse,
 )
-from .library import (
-    BlockEncoding,
-    Generator,
-    block_encoding,
-    identity,
-    linear_combination,
-    pauli_x,
-    product,
-    scale,
-    zero,
+from pyqecclang.infrastructure.linking import (
+    Binding,
+    OracleRequirement,
+    bind,
+    capabilities,
+    unresolved,
 )
-from .linking import Binding, OracleRequirement, bind, capabilities, unresolved
-from .mathfunc import (
+from pyqecclang.infrastructure.mathfunc import (
     CompiledFunction,
     FunctionCompileError,
     Index,
@@ -50,18 +81,11 @@ from .mathfunc import (
     compile_function,
     lower_math_ir,
 )
-from .native import DynamicCppFactory, NativeRegistry
-from .oracles import declare
-from .qlss import (
-    BlockSystem,
-    LinearSystem,
-    QLSSProtocol,
-    SolveResult,
-    SparseSystem,
-    SpectralPromise,
-)
-from .serialization import dumps, loads
-from .validation import validate
+from pyqecclang.infrastructure.native import DynamicCppFactory, NativeRegistry
+from pyqecclang.infrastructure.serialization import dumps, loads
+from pyqecclang.infrastructure.validation import validate
+
+from ._compat import install as _install_compatibility
 
 __all__ = [
     "VERSION",
@@ -138,3 +162,22 @@ __all__ += [
     "SparseSystem",
     "SpectralPromise",
 ]
+
+__all__ += [
+    "ContractError",
+    "ContractIssue",
+    "ContractReport",
+    "InputRequirement",
+    "OracleCapabilities",
+    "OracleSpec",
+    "ProtocolContract",
+    "describe_oracle",
+    "QODEProblem",
+    "QODEProtocol",
+]
+
+__all__ += ["requires"]
+
+
+_install_compatibility()
+del _install_compatibility

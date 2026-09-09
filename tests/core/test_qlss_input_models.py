@@ -4,12 +4,7 @@ import math
 import unittest
 
 from pyqecclang import FixedFormat, ValidationError, simulate, unresolved
-from pyqecclang.algorithms.cks import CKSConfig, make_cks_qlss
-from pyqecclang.algorithms.costa import CostaConfig, make_costa_qlss
-from pyqecclang.execution import events
-from pyqecclang.flow_data import RoeFlowData
-from pyqecclang.ir import Load
-from pyqecclang.oracles import (
+from pyqecclang.algorithms.oracles import (
     SparseAccess,
     basis_state,
     gate_database,
@@ -18,9 +13,21 @@ from pyqecclang.oracles import (
     sparse_entry,
     sparse_location_gate,
 )
-from pyqecclang.qfvm import roe_qfvm_inputs, roe_qfvm_problem, roe_qfvm_step
-from pyqecclang.qlss import BlockSystem, LinearSystem, SparseSystem, SpectralPromise
-from pyqecclang.sparse_models import chebyshev_block
+from pyqecclang.algorithms.qlss import (
+    BlockSystem,
+    CKSConfig,
+    CostaConfig,
+    LinearSystem,
+    SparseSystem,
+    SpectralPromise,
+    make_cks_qlss,
+    make_costa_qlss,
+)
+from pyqecclang.algorithms.sparse import chebyshev_block
+from pyqecclang.applications.flow_data import RoeFlowData
+from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem, roe_qfvm_step
+from pyqecclang.infrastructure.execution import events
+from pyqecclang.infrastructure.ir import Load
 
 
 def small_problem():
@@ -95,8 +102,8 @@ class QLSSInputTests(unittest.TestCase):
 
     def test_costa_rhs_reflection_is_independent_of_unitary_extension(self):
         from pyqecclang import Bits, Builder, identity
-        from pyqecclang.algorithms.costa import costa_walk
-        from pyqecclang.oracles import StatePreparation, annotate
+        from pyqecclang.algorithms.oracles import StatePreparation, annotate
+        from pyqecclang.algorithms.qlss import costa_walk
 
         first = basis_state(1, work_width=1)
         builder = Builder("alternate_rhs_extension", {"target": Bits(1), "work": Bits(1)})

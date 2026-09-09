@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 
 from pyqecclang import FixedFormat, arithmetic_native_registry, run_pysparq
-from pyqecclang.flow_data import RoeFlowData
-from pyqecclang.qfvm import bind_qfvm, qfvm_memories, roe_entry, roe_qfvm_inputs
+from pyqecclang.applications.flow_data import RoeFlowData
+from pyqecclang.applications.qfvm import bind_qfvm, qfvm_memories, roe_entry, roe_qfvm_inputs
 
 
 def main():

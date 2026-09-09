@@ -3,7 +3,13 @@
 import unittest
 
 from pyqecclang import Bits, Builder, FixedFormat, ValidationError, dumps, loads, simulate
-from pyqecclang.mathfunc import Index, MathConfig, MathProgram, compile_function, lower_math_ir
+from pyqecclang.infrastructure.mathfunc import (
+    Index,
+    MathConfig,
+    MathProgram,
+    compile_function,
+    lower_math_ir,
+)
 
 
 class MathFunctionTests(unittest.TestCase):
@@ -119,7 +125,7 @@ class MathFunctionTests(unittest.TestCase):
         program.finish()
 
     def test_roe_is_a_compiled_pure_function(self):
-        from pyqecclang.roe import roe_face
+        from pyqecclang.applications.roe import roe_face
 
         op = roe_face(fmt=FixedFormat(4, 1))
         self.assertEqual(dict(op.module.attributes)["math_function"], "frozen_roe_face")

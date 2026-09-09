@@ -14,12 +14,12 @@ ROOT = Path(__file__).resolve().parents[2]
 class SchemaTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.schema = json.loads((ROOT / "docs/rir.schema.json").read_text())
+        cls.schema = json.loads((ROOT / "docs/reference/schemas/rir.schema.json").read_text())
         Draft202012Validator.check_schema(cls.schema)
         cls.validator = Draft202012Validator(cls.schema)
 
     def test_open_application_modules_are_schema_valid(self):
-        from pyqecclang.workloads import build_case
+        from pyqecclang.applications.catalog import build_case
 
         for name in ("costa_qram", "qfvm_qram", "qham_qode"):
             with self.subTest(case=name):

@@ -1,177 +1,68 @@
 # pyqecclang
 
-pyqecclang 是基于 Python 的量子操作生成语言。生成函数返回可组合的操作对象；它们最终形成 **模块化、register-level 的 RIR**，而不是必须展开的量子位门列表。
+pyqecclang 用 Python 编写可组合的量子算法，生成模块化、register-level 的中间表示（RIR）。算法可以保留尚未实现的 oracle；提供具体实现后，可以导出 OriginIR-ext，或交给 PySparQ 执行。
 
-首个导出后端是 UnifiedQuantum 的 **OriginIR-ext**。导出结果保留 `DEF`、嵌套调用和 `QRAMDECL`。仓库另外提供独立的寄存器参考执行器和可选的 PySparQ 执行适配器，用于交叉验证。
+当前包版本为 **0.8.0**，RIR 格式为 **0.3**。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
 
-本仓库独立于 QECC.Lang，不继承其文本语法或扁平 CLIR 约束。当前版本为 0.6.0。
+## 文档
 
-实现自己的 QPDE/QODE，请先看 [QPDE/QODE 实作指南](docs/qpde-qode-howto.md)：以 LCHS、Schrödingerization、Carleman 为主线，说明多种 given-oracle 输入范式、显式适配、分批绑定和 protocol 替换。[可运行示例](examples/ode_input_models.py) 生成 11 组开放/闭合 RIR 与 OriginIR-ext。
+文档使用 Sphinx 生成，包含两条阅读路径和自动生成的 API 参考：
 
-新增一般 QHAM 自动生成：有限多项式 PDE → 任意阶 HAM → 惰性张量闭包 → 模块化 QODE 输入。先看 [数学推导](docs/qham-general-derivation.md)，再看 [实现与运行说明](docs/qham-general-implementation.md)。支持强迫、耦合分量和高次项；数学恒等式与小型真实后端已验证，收敛与量子精度仍单独保留。
-
-QFVM / QLSS 的输入模型已重新审查并修正。请看独立文档 [QFVM 中替换 QLSS](docs/qfvm-qlss-input-model-review.md)：QFVM 提供稀疏 oracle，CKS 和 Costa 通过显式 protocol/适配器接入；alpha、谱声明、物理输出通道和范数探针均独立记录。算法数值等价和完整求解正确性仍待核验。
-
-新增 [普通数学函数自动量子编译](docs/function-compiler.md)：compile_function 将受限的纯 Python math/cmath 函数编译为可逆 XOR 模块，支持实数、复数、helper 调用和分支；自动生成工作区与反算。QFVM 的 Roe face 已改用普通 Python 公式自动编译。MIR 0.1 和 RIR 0.3 都可独立序列化，近似精度仍由生成配置决定且待核验。
-
-第二阶段已实现 PySparQ 自定义算子、14 类算术的 Toffoli/U3/CZ 分解、QRAM + Roe 算术 QFVM，以及 Carleman / Schrödingerization / LCHS / CBMD 的开放 QODE/QPDE 组装。请先看 [实施说明与使用方式](docs/stage2-implementation.md)、[工作面板](docs/stage2-board.md) 和 [验收记录](docs/stage2-validation.json)。算法正确性仍待核验。
-
-## 本轮范式面板
-
-- [实现工作面板](docs/workboard.md)列出 P0–P8 计划和每个案例的开放、部分绑定、闭合 IR 与 OriginIR 产物。
-- [开放 IR 0.2](docs/open-ir.md)定义 null 主体、分批绑定、缺口报告和资源提升。
-- [Oracle 范式目录](docs/oracle-paradigms.md)说明 BE、XOR database、state-prep isometry 和 CKS sparse。
-- [旧用例覆盖矩阵](docs/coverage.md)逐项对应 61 个正例与 16 个负例。
-- [应用组装说明](docs/application-assemblies.md)说明 Costa/filter、QFVM 和 QHAM 的当前范围。
-
-本阶段评价语言范式和组装可用性，不认证算法精度、成功概率或流体数值结果。未完成的 oracle 是有效 IR，不会用空线路代替。
+- [完整文档](docs/manual/index.md)：操作、oracle、算法约定、微分方程、应用与后端。
+- [教程](docs/tutorials/index.md)：从第一个寄存器程序开始，逐步完成绑定、搜索、估计、Hamiltonian 与 QHAM 任务。
+- [API 参考](docs/api/index.rst)：按照规范源码目录生成。
+- [验证与适用范围](docs/manual/limits.md)：区分接口可用、线路见证和完整数值认证。
 
 ```bash
-uv run python tools/build_catalog.py
-uv run pyqecclang requirements out/catalog/costa_qram/open.rir.json
-uv run pyqecclang bind out/catalog/costa_qram/open.rir.json --bindings out/catalog/costa_qram/bindings.json -o out/costa-bound.rir.json
-uv run pyqecclang emit out/costa-bound.rir.json -o out/costa.originir
+uv sync --locked --extra dev --extra docs
+uv run sphinx-build -W --keep-going -b html docs out/docs/html
+uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
 ```
 
-如需使用真实后端验收全部描述，请在已安装 uniqc 的环境运行 tools/build_catalog.py --native-parse。读出/重置计划独立保存，只有显式宿主读出适配会使用下游要求的末端展平。
+打开 `out/docs/html/index.html` 浏览生成站点。
 
-## 安装和验证
-
-语言核心没有第三方运行依赖，要求 Python 3.11 或更新版本。
-
-```bash
-uv sync --all-extras
-uv run python -m unittest discover -s tests/core -v
-uv run python -m unittest discover -s tests/schema -v
-uv run ruff check src tests examples tools
-uv run python examples/qram_modules.py
-```
-
-也可以不安装包，直接用标准库运行：
-
-```bash
-PYTHONPATH=src python3 -m unittest discover -s tests/core -v
-PYTHONPATH=src python3 examples/qram_modules.py
-```
-
-真实后端集成测试要求解释器已安装 `uniqc` 与 `pysparq`。请使用已有后端环境运行：
-
-```bash
-PYTHONPATH=src /path/to/backend/python -m unittest discover -s tests/integration -v
-```
-
-该集成测试不以缺少后端为理由跳过。测试环境必须真正提供两个后端。本工作区审阅和验证的后端提交见 [backend-revisions.json](backend-revisions.json)。
-
-## 一个模块化 QRAM 程序
-
-下面的 Python 函数在生成阶段执行。它没有执行量子查询，也没有把生成函数保存在 IR 中。
+## 一个最小程序
 
 ```python
-from pyqecclang import Builder, QRAM, UInt, dumps, export_originir, simulate
+from pyqecclang import Bits, Builder, export_originir, simulate
 
-def make_lookup():
-    b = Builder("lookup",
-                {"address": UInt(2), "data": UInt(3)},
-                {"table": QRAM(2, 3)})
-    b.qram("table", b["address"], b["data"])
-    return b.finish()
-
-lookup = make_lookup()
-
-b = Builder("main",
-            {"address": UInt(2), "data": UInt(3)},
-            {"values": QRAM(2, 3)})
-b.h(b["address"])
-b.x(b["data"][0])
-b.call(lookup, address=b["address"], data=b["data"],
-       resources={"table": "values"})
+b = Builder("bell_pair", {"pair": Bits(2)})
+b.h(b["pair"][0])
+b.xor(b["pair"][0], b["pair"][1])
 program = b.finish().program()
 
-rir_json = dumps(program)
-artifact = export_originir(program)
-state = simulate(program, {"values": [1, 2, 4, 7]})
-
-print(artifact.text)
-print(state.amplitudes)
+print(simulate(program).amplitudes)
+print(export_originir(program).text)
 ```
 
-结果中的寄存器元组按入口签名的顺序排列。此例产生 `(0,0)`、`(1,3)`、`(2,5)`、`(3,6)` 四个分量，每个幅度为 1/2。数据目标初始为 1，查询采用 XOR，不是覆盖赋值。
+结果在 `00` 与 `11` 上具有相等幅度。寄存器下标 0 是最低位；模块调用和 Repeat 在 RIR 与 JSON 中保留。
 
-RIR 中一个 `h(address)` 仍然是一条作用于整个寄存器的指令。只有导出到 OriginIR-ext 时，它才降低为逐比特 H 门。模块调用在这一步仍然保留。
+## 源码分类
 
-## 模块、视图和控制
-
-```python
-from pyqecclang import Builder, Bits, UInt, fuse
-
-b = Builder("arithmetic", {"word": UInt(8), "flag": Bits(1)})
-with b.control(b["flag"], 0):
-    with b.repeat(1000):
-        b.add_const(b["word"], 7)
-
-with b.adjoint():
-    b.rz(b["word"][:2], 0.3)
-
-operation = b.finish()
+```text
+src/pyqecclang/
+├── infrastructure/   RIR、构造器、验证、序列化、数学前端和后端
+├── algorithms/       按类别组织的量子算法与组合工具
+└── applications/     QFVM、Roe、QHAM 数学支持和案例目录
 ```
 
-`Repeat`、`Control`、`Adjoint` 都是显式 IR 节点。大重复导出为对数数量的复用 DEF 定义。执行器按需遍历调用，不修改原始 IR。
+算法库包括查询、Fourier 算术、搜索与振幅放大、估计、变分电路、量子行走、求阶、简单纠错、Hamiltonian 演化、QLSS 和多种 QODE 方法。各类别的实现位于独立文件，详见[算法目录](docs/manual/algorithms.md)。
 
-寄存器存储模型对齐 PySparQ：
+旧导入路径集中转发到同一份实现，新代码使用规范路径。迁移说明见[导入路径](docs/manual/compatibility.md)。
 
-- 每个整数寄存器或合并视图的宽度为 0..64。零宽度只表达空接口，不分配原生寄存器。
-- 寄存器数量及总量子位数不受 64 限制。
-- 支持 `Bits`、`UInt`、`SInt` 和 `Rational` 的存储解释。
-- 下标零表示最低位。连续切片与 `fuse` 是零成本的逻辑视图。
-- 视图不能重叠，调用实参不能相互别名，受保护控制位不能被调用修改。
-- QRAM 具有独立的地址、数据位宽和模块资源参数。
-
-## 块编码生成器
-
-```python
-from pyqecclang import identity, pauli_x, product, linear_combination, scale
-
-a = scale(2, identity(1))
-b = scale(3, pauli_x(1))
-c = linear_combination(-0.5, a, 2, b)
-assert c.alpha == 7
-
-d = product(a, b)
-assert d.alpha == 6
-```
-
-`alpha` 保存在模块属性 `be_alpha` 中，经过 JSON 往返仍然存在。乘积保留独立信号空间；加权和按归一化常数选择分支幅度，并保留复系数的相对相位。语言不内建 `eps`，不保证目标矩阵近似误差或求解器收敛性。
-
-Python 的普通函数、闭包或可调用对象即可作为 protocol 的实现。生成结果必须形成可验证的 `Operation`，不能把任意 Python callback 当作未定义的 IR 指令。本版还提供 Costa general walk 与相干 filtering、QODE/QPDE、QFVM 和一般有限阶 QHAM 的组装原型。它们可以保留开放 oracle，也提供普通 gate/QRAM 小绑定；完整算法数值正确性未在本阶段认证。
-
-## CLI
+## 运行与检查
 
 ```bash
-pyqecclang validate examples/qram.rir.json
-pyqecclang emit examples/qram.rir.json -o out.originir
-pyqecclang run examples/qram.rir.json --memory examples/memory.json
-pyqecclang run examples/qram.rir.json --memory examples/memory.json --backend originir
-pyqecclang run examples/qram.rir.json --memory examples/memory.json --backend pysparq
+uv run python examples/algorithm_gallery.py
+uv run python tools/check_project.py --docs
 ```
 
-编译导出不需要安装任何量子模拟器。执行后端在调用时才导入其依赖。
+算法展示目录生成 22 个小实例的 RIR、OriginIR-ext 和读出说明。完整原生检查要求另一个已安装 `pysparq` 与 `uniqc` 的环境：
 
-## 文档与边界
+```bash
+PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
+```
 
-先读两份总览文档：
+语言核心没有第三方运行时依赖。可选后端在执行入口导入；生成产物、环境和构建文件均不提交。开发流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-- [pyqecclang 完整规范](docs/pyqecclang-spec.md)统一描述语言核心、四层生成性表示、算法组装层与后端契约。
-- [pyqecclang 指南与案例集](docs/pyqecclang-guide.md)用九个可运行案例（QRAM 模块、开放绑定、块编码、Grover、定点算术、数学函数编译、QFVM 替换 QLSS、一般 QHAM）串起全部用法。
-
-专题文档：
-
-- [RIR v0.1 规范](docs/rir-spec.md) 定义对象模型、JSON 编码和每条指令的语义。
-- [JSON Schema](docs/rir.schema.json) 提供结构校验，跨节点规则由 `validate` 检查。
-- [后端审阅与映射](docs/backend-review.md) 记录实际 OriginIR-ext 和 PySparQ 行为。
-- [架构](docs/architecture.md) 解释生成阶段、模块依赖和后端分工。
-
-0.3 保留开放 oracle，并新增模块私有 locals、PySparQ 原生算子注册以及模块内的算术分解。私有工作区由后端分配并在模拟返回时检查复净；语言不证明复净或算法精度。测量反馈和符号形状尚未纳入，读出与后选择属于宿主层。
-
-当前 UnifiedQuantum 解析器会展开 DEF。该限制影响它的执行阶段，不影响 pyqecclang 保存和导出的模块化结构。适配器在执行前检查展开预算，避免把巨大模块图意外交给扁平解析器。
-
-本地参考执行器会截去幅度绝对值小于等于 `1e-15` 的分量，并限制稀疏态数量；它服务于小规模验证，不提供精度保证。
+QLSS/QODE/QHAM 等高级算法仍有数值精度、成功通道或收敛性待核验项。通用 QSP-HamSim 内核尚需提供；当前模乘采用有限规模置换合成，VQE/QAOA 的经典优化器由应用选择。

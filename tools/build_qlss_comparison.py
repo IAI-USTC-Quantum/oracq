@@ -4,11 +4,15 @@ import json
 from pathlib import Path
 
 from pyqecclang import FixedFormat, dumps, export_originir, export_toffoli_u3_cz, unresolved
-from pyqecclang.algorithms.cks import CKSConfig, make_cks_qlss
-from pyqecclang.algorithms.costa import CostaConfig, make_costa_qlss
-from pyqecclang.flow_data import RoeFlowData
-from pyqecclang.qfvm import bind_qfvm, qfvm_memories, roe_qfvm_inputs, roe_qfvm_problem
-from pyqecclang.qlss import SpectralPromise
+from pyqecclang.algorithms.qlss import (
+    CKSConfig,
+    CostaConfig,
+    SpectralPromise,
+    make_cks_qlss,
+    make_costa_qlss,
+)
+from pyqecclang.applications.flow_data import RoeFlowData
+from pyqecclang.applications.qfvm import bind_qfvm, qfvm_memories, roe_qfvm_inputs, roe_qfvm_problem
 
 
 def main():

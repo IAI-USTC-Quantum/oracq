@@ -7,13 +7,11 @@ from functools import partial
 from pathlib import Path
 
 from pyqecclang import bind, dumps, export_originir, export_toffoli_u3_cz, unresolved
-from pyqecclang.algorithms.differential import (
-    ContourPlan,
-    SchrodingerPlan,
-    linear_qode,
-    taylor_hamiltonian,
-)
-from pyqecclang.qham import (
+from pyqecclang.algorithms.cbmd import ContourPlan
+from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.ode import linear_qode
+from pyqecclang.algorithms.schrodingerization import SchrodingerPlan
+from pyqecclang.applications.qham import (
     Discretization,
     Grid,
     QHAMBindings,
@@ -22,8 +20,8 @@ from pyqecclang.qham import (
     structured_fd_bindings,
     taylor_qode,
 )
-from pyqecclang.qham.examples import example_pde
-from pyqecclang.qham.report import export_derivation
+from pyqecclang.applications.qham.examples import example_pde
+from pyqecclang.applications.qham.report import export_derivation
 
 
 def main():

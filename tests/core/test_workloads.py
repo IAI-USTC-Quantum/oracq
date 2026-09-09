@@ -3,12 +3,12 @@
 import unittest
 
 from pyqecclang import ValidationError, bind, dumps, export_originir, loads, unresolved, validate
-from pyqecclang.algorithms.costa import dolph_chebyshev_plan
-from pyqecclang.combinators import pad_signal
-from pyqecclang.library import identity, scale
-from pyqecclang.linking import calls
-from pyqecclang.oracles import abstract_block_encoding, banked_database
-from pyqecclang.workloads import CASES, build_case
+from pyqecclang.algorithms.block_encoding import pad_signal
+from pyqecclang.algorithms.operators import identity, scale
+from pyqecclang.algorithms.oracles import abstract_block_encoding, banked_database
+from pyqecclang.algorithms.qlss import dolph_chebyshev_plan
+from pyqecclang.applications.catalog import CASES, build_case
+from pyqecclang.infrastructure.linking import calls
 
 
 class WorkloadTests(unittest.TestCase):

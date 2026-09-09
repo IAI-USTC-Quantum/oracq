@@ -1,14 +1,15 @@
-"""已序列化 RIR 的验证、后端导出与小规模执行。"""
+"已序列化 RIR 的验证、后端导出与小规模执行。"
 
 import argparse
 import json
 from dataclasses import asdict
 from pathlib import Path
 
-from . import (
+from pyqecclang import (
     Binding,
     Operation,
     bind,
+    describe_oracle,
     dumps,
     export_originir,
     loads,
@@ -25,6 +26,7 @@ def main():
         "command",
         choices=[
             "validate",
+            "inspect",
             "canonicalize",
             "emit",
             "run",
@@ -53,8 +55,8 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == "compile-function":
-            from .arithmetic import FixedFormat
-            from .mathfunc import Index, MathConfig, compile_function
+            from pyqecclang.algorithms.arithmetic import FixedFormat
+            from pyqecclang.infrastructure.mathfunc import Index, MathConfig, compile_function
 
             inputs = json.loads(args.inputs) if args.inputs else None
             if inputs is not None and not isinstance(inputs, dict):
@@ -84,7 +86,16 @@ def main():
                 print(dumps(compiled.program()), end="")
             return
         program = loads(args.input.read_text())
-        if args.command == "validate":
+        if args.command == "inspect":
+            result = (
+                json.dumps(
+                    describe_oracle(Operation.from_program(program)).to_dict(),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n"
+            )
+        elif args.command == "validate":
             missing = unresolved(program)
             state = f"open ({len(missing)} unresolved oracles)" if missing else "closed"
             result = f"RIR {program.version}: {len(program.modules)} modules; valid; {state}\n"
@@ -112,7 +123,7 @@ def main():
         elif args.command == "canonicalize":
             result = dumps(program)
         elif args.command == "emit":
-            from .backends.basis import export_toffoli_u3_cz
+            from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
 
             exporter = export_toffoli_u3_cz if args.basis == "toffoli-u3-cz" else export_originir
             result = exporter(program).text
@@ -144,7 +155,7 @@ def main():
                 if args.native_arithmetic:
                     if args.backend != "pysparq":
                         raise ValueError("--native-arithmetic 需要 --backend pysparq")
-                    from .arithmetic import arithmetic_native_registry
+                    from pyqecclang.algorithms.arithmetic import arithmetic_native_registry
 
                     options = {
                         "native_registry": arithmetic_native_registry(

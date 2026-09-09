@@ -8,34 +8,25 @@ from functools import partial
 from pathlib import Path
 
 from pyqecclang import bind, dumps, identity, scale
-from pyqecclang.algorithms.costa import CostaConfig, make_costa_qlss
-from pyqecclang.algorithms.differential import (
-    ContourPlan,
-    PDEInput,
-    PolynomialODE,
-    QuadraturePlan,
-    SchrodingerPlan,
-    carleman_qode,
-    linear_qode,
-    qpde_solver,
-    taylor_hamiltonian,
-)
-from pyqecclang.algorithms.solvers import make_qpde
-from pyqecclang.applications import qham_initial_vector, qham_m1
-from pyqecclang.arithmetic import FixedFormat, fixed_arithmetic
-from pyqecclang.backends.basis import export_toffoli_u3_cz
-from pyqecclang.backends.originir import export_originir
-from pyqecclang.combinators import matrix_pauli_encoding, pad_signal
-from pyqecclang.flow_data import RoeFlowData
-from pyqecclang.layout import workspace_table
-from pyqecclang.linking import unresolved
-from pyqecclang.oracles import (
+from pyqecclang.algorithms.arithmetic import FixedFormat, fixed_arithmetic
+from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding, pad_signal
+from pyqecclang.algorithms.carleman import PolynomialODE, carleman_qode
+from pyqecclang.algorithms.cbmd import ContourPlan
+from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.lchs import QuadraturePlan
+from pyqecclang.algorithms.ode import linear_qode
+from pyqecclang.algorithms.oracles import (
     abstract_block_encoding,
     abstract_state_prep,
     basis_state,
     gate_state_prep,
 )
-from pyqecclang.qfvm import (
+from pyqecclang.algorithms.pde import PDEInput, make_qpde, qpde_solver
+from pyqecclang.algorithms.qlss import CostaConfig, SpectralPromise, make_costa_qlss
+from pyqecclang.algorithms.schrodingerization import SchrodingerPlan
+from pyqecclang.applications.flow_data import RoeFlowData
+from pyqecclang.applications.legacy import qham_initial_vector, qham_m1
+from pyqecclang.applications.qfvm import (
     bind_qfvm,
     qfvm_memories,
     roe_entry,
@@ -43,8 +34,11 @@ from pyqecclang.qfvm import (
     roe_qfvm_inputs,
     roe_qfvm_step,
 )
-from pyqecclang.qlss import SpectralPromise
-from pyqecclang.roe import roe_face
+from pyqecclang.applications.roe import roe_face
+from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
+from pyqecclang.infrastructure.backends.originir import export_originir
+from pyqecclang.infrastructure.layout import workspace_table
+from pyqecclang.infrastructure.linking import unresolved
 
 
 def save_case(root, name, opened, closed=None, memory=None):
@@ -176,7 +170,7 @@ def main():
         p = state.operation.program()
         reports.append(save_case(root, method + "_qode", p, bind(p, bindings)))
         # PDE 入口只负责空间离散化到开放算子；同一 oracle 图可来自非矩阵输入。
-        from pyqecclang.algorithms.solvers import DiscretePDE
+        from pyqecclang.algorithms.pde import DiscretePDE
 
         state = make_qpde(qode)(DiscretePDE(a, initial, "heat_equation_open_space"), 0.1)
         p = state.operation.program()

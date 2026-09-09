@@ -2,7 +2,7 @@
 
 import unittest
 
-from pyqecclang.workloads import build_case
+from pyqecclang.applications.catalog import build_case
 
 
 class CatalogSyntaxTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class CatalogSyntaxTests(unittest.TestCase):
                 if case.readout:
                     from uniqc.circuit_builder.classical_program import parse_originir_ext_dynamic
 
-                    from pyqecclang.readout import export_with_readout
+                    from pyqecclang.infrastructure.readout import export_with_readout
 
                     execution = export_with_readout(case.closed(), case.readout)
                     self.assertIsNotNone(parse_originir_ext_dynamic(execution.text))

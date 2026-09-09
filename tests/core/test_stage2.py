@@ -4,11 +4,11 @@ import unittest
 from dataclasses import replace
 
 from pyqecclang import Bits, Builder, dumps, loads
-from pyqecclang.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
-from pyqecclang.backends.basis import export_toffoli_u3_cz
-from pyqecclang.execution import simulate
-from pyqecclang.ir import ValidationError
-from pyqecclang.layout import workspace_table
+from pyqecclang.algorithms.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
+from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
+from pyqecclang.infrastructure.execution import simulate
+from pyqecclang.infrastructure.ir import ValidationError
+from pyqecclang.infrastructure.layout import workspace_table
 
 
 class Stage2StructureTests(unittest.TestCase):

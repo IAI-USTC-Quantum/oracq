@@ -11,10 +11,10 @@ from pyqecclang import (
     export_originir,
     export_toffoli_u3_cz,
 )
-from pyqecclang.layout import workspace_table
-from pyqecclang.mathfunc import Index
-from pyqecclang.mathfunc.roe_formulas import frozen_roe_face
-from pyqecclang.qfvm import bind_qfvm, roe_qfvm_block_encoding, roe_qfvm_inputs
+from pyqecclang.applications.qfvm import bind_qfvm, roe_qfvm_block_encoding, roe_qfvm_inputs
+from pyqecclang.applications.roe_formulas import frozen_roe_face
+from pyqecclang.infrastructure.layout import workspace_table
+from pyqecclang.infrastructure.mathfunc import Index
 
 
 def main():

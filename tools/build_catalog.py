@@ -8,8 +8,8 @@ from dataclasses import asdict
 from pathlib import Path
 
 from pyqecclang import bind, dumps, unresolved
-from pyqecclang.linking import Binding
-from pyqecclang.workloads import CASES, build_case
+from pyqecclang.applications.catalog import CASES, build_case
+from pyqecclang.infrastructure.linking import Binding
 
 
 def main():
@@ -58,7 +58,7 @@ def main():
             if case.readout:
                 from uniqc.circuit_builder.classical_program import parse_originir_ext_dynamic
 
-                from pyqecclang.readout import export_with_readout
+                from pyqecclang.infrastructure.readout import export_with_readout
 
                 execution = export_with_readout(closed, case.readout)
                 parse_originir_ext_dynamic(execution.text)
