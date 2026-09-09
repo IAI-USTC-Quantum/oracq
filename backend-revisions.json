@@ -1,0 +1,12 @@
+{
+  "reviewed_on": "2026-09-09",
+  "unified_quantum": {
+    "commit": "5555b2c29731c0ed06e5bc5c864a4589e59c3849",
+    "interface": "OriginIR-ext DEF/QRAMDECL; uniqc.simulator.Simulator"
+  },
+  "qram_simulator": {
+    "commit": "111630a1ee0db63789eaf994c896db36fab49ccc",
+    "interface": "pysparq System, Rot_Bool, QRAMLoad; dynamic_operator.compile_operator, split_systems/combine_systems; CPU System.registers"
+  },
+  "note": "记录实际审阅与原生测试基准，不通过包索引自动安装或更换这两个后端。"
+}

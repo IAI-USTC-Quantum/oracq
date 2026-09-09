@@ -1,0 +1,16 @@
+QRAMDECL ram_values 2,3
+QINIT 5
+CREG 0
+DEF m_lookup_2_3_54524a0d1220cf4bd723f2aa(v_address[2], v_data[3])
+ram_values v_address[0], v_address[1], v_data[0], v_data[1], v_data[2]
+ENDDEF
+DEF m_wrapped_lookup_16dc443ca6e4d78bd9ef03a6(v_a[2], v_d[3])
+m_lookup_2_3_54524a0d1220cf4bd723f2aa(v_a[0], v_a[1], v_d[0], v_d[1], v_d[2])
+ENDDEF
+DEF m_demo_b89906731f4fe79582ed7931(v_address[2], v_data[3])
+H v_address[0]
+H v_address[1]
+X v_data[0]
+m_wrapped_lookup_16dc443ca6e4d78bd9ef03a6(v_address[0], v_address[1], v_data[0], v_data[1], v_data[2])
+ENDDEF
+m_demo_b89906731f4fe79582ed7931(q[0], q[1], q[2], q[3], q[4])

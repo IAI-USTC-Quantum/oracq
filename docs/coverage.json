@@ -1,0 +1,843 @@
+{
+  "mode": "paradigm_coverage_not_golden_equivalence",
+  "source": "QECC.Lang/spec-tests/cases",
+  "positive": 61,
+  "negative": 16,
+  "cases": [
+    {
+      "case": "00-primitives/adjoint-block.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "oaa"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "00-primitives/bell-pair.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "bell"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "00-primitives/control-nested.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_gate"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "00-primitives/dagger-self-inverse.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "oaa"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "00-primitives/ghz.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "ghz"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "00-primitives/measure-reset.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "measure_reset"
+      ],
+      "note": "由显式宿主 ReadoutAction 生成末端测量和重置；不混入酉 oracle 主体。"
+    },
+    {
+      "case": "00-primitives/rot-angle.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "qsvt"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "00-primitives/slice-ops.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "paradigm_mapped",
+      "examples": [
+        "register_views"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "01-registers/ancilla-clean.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_gate"
+      ],
+      "note": "工作区显式进入接口；不继承旧版 clean_ancilla 静态证明。"
+    },
+    {
+      "case": "01-registers/fixed-point-add.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "arithmetic"
+      ],
+      "note": "可逆算术接口与小型查表实现；RNE/溢出算法语义待下一阶段。"
+    },
+    {
+      "case": "01-registers/fuse-basic.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "register_views"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "01-registers/qram-paged.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "batch_qram",
+        "banked_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "01-registers/register-array.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "batch_qram",
+        "banked_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "01-registers/reinterpret-fixed.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "arithmetic"
+      ],
+      "note": "定点解释作为存储位模式和库元数据，不内建数值精度证明。"
+    },
+    {
+      "case": "01-registers/split-basic.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "register_views"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "01-registers/split-in-fuse.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "paradigm_mapped",
+      "examples": [
+        "register_views"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "02-generics-const/const-fn-iters.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "paradigm_mapped",
+      "examples": [
+        "python_generators",
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "02-generics-const/const-recursion.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "paradigm_mapped",
+      "examples": [
+        "python_generators",
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "02-generics-const/external-fn-phases.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "paradigm_mapped",
+      "examples": [
+        "python_generators",
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "02-generics-const/generic-explicit.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "paradigm_mapped",
+      "examples": [
+        "python_generators",
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "02-generics-const/generic-float-alpha.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "paradigm_mapped",
+      "examples": [
+        "python_generators",
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "02-generics-const/generic-infer-width.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "paradigm_mapped",
+      "examples": [
+        "python_generators",
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "02-generics-const/op-recursion.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "paradigm_mapped",
+      "examples": [
+        "python_generators",
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "03-oracle/grover2.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "paradigm_mapped",
+      "examples": [
+        "grover_gate",
+        "grover_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "03-oracle/phase-oracle-custom.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "paradigm_mapped",
+      "examples": [
+        "grover_gate",
+        "grover_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "03-oracle/qram-lookup.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "paradigm_mapped",
+      "examples": [
+        "dj_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "03-oracle/requires-controlled-ok.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "paradigm_mapped",
+      "examples": [
+        "grover_gate",
+        "grover_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "03-oracle/sparse-entry-pair.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "paradigm_mapped",
+      "examples": [
+        "sparse_gate",
+        "sparse_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "03-oracle/state-prep-isometry.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "paradigm_mapped",
+      "examples": [
+        "stateprep_gate",
+        "stateprep_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "04-block-encoding/cfd-fuse-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "paradigm_mapped",
+      "examples": [
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "04-block-encoding/lcu-select.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "paradigm_mapped",
+      "examples": [
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "04-block-encoding/mybe-wrapper.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "paradigm_mapped",
+      "examples": [
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "04-block-encoding/product-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "paradigm_mapped",
+      "examples": [
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "04-block-encoding/sparse-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "paradigm_mapped",
+      "examples": [
+        "sparse_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "04-block-encoding/sum-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "paradigm_mapped",
+      "examples": [
+        "be_algebra"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "04-block-encoding/walk-operator.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "paradigm_mapped",
+      "examples": [
+        "qpe"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "05-qsvt-qpe/eigen-filter.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_gate",
+        "costa_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "05-qsvt-qpe/oaa-std.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "paradigm_mapped",
+      "examples": [
+        "oaa"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "05-qsvt-qpe/qpe-walk.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "paradigm_mapped",
+      "examples": [
+        "qpe"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "05-qsvt-qpe/qsp-phases-roundtrip.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "paradigm_mapped",
+      "examples": [
+        "qsvt",
+        "python_generators"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "05-qsvt-qpe/qsvt-monomial.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "paradigm_mapped",
+      "examples": [
+        "qsvt",
+        "python_generators"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "05-qsvt-qpe/walk-pow2.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "paradigm_mapped",
+      "examples": [
+        "qpe"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/dependency-upload.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_qram",
+        "qham_qode"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/hamsim-qsvt-bind.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_qram",
+        "qham_qode"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/hamsim-trotter.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "trotter_hamsim"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/protocol-generic-oracle.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_qram",
+        "qham_qode"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/qlss-nested-require.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_qram",
+        "qham_qode"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/solver-wrapper-step.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "costa_qram",
+        "qham_qode"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/two-implementations-order1.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "dj_gate",
+        "dj_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "06-protocols/two-implementations-order2.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "paradigm_mapped",
+      "examples": [
+        "dj_gate",
+        "dj_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "07-scientific/carleman-step.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "paradigm_mapped",
+      "examples": [
+        "carleman_step"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "07-scientific/cfd-implicit-step.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "paradigm_mapped",
+      "examples": [
+        "qfvm_qram"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "07-scientific/heat-equation.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "paradigm_mapped",
+      "examples": [
+        "heat_qode"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "07-scientific/lchs-ode.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "paradigm_mapped",
+      "examples": [
+        "lchs"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "07-scientific/poisson-qlss.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "paradigm_mapped",
+      "examples": [
+        "poisson_qlss"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "07-scientific/schrodingerization.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "paradigm_mapped",
+      "examples": [
+        "schrodingerisation"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "07-scientific/stateprep-vs-oracle.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "paradigm_mapped",
+      "examples": [
+        "stateprep_gate",
+        "costa_gate"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "08-modules/cross-module-protocol/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "paradigm_mapped",
+      "examples": [
+        "dj_gate",
+        "dj_qram",
+        "qham_qpde"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "08-modules/import-alias/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "paradigm_mapped",
+      "examples": [
+        "dj_gate",
+        "dj_qram",
+        "qham_qpde"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "08-modules/qualified-binding-key/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "paradigm_mapped",
+      "examples": [
+        "dj_gate",
+        "dj_qram",
+        "qham_qpde"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "08-modules/two-module-grover/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "paradigm_mapped",
+      "examples": [
+        "dj_gate",
+        "dj_qram",
+        "qham_qpde"
+      ],
+      "note": "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+    },
+    {
+      "case": "20-errors/alias-violation.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "structural_rejection",
+      "examples": [],
+      "note": "对应 RIR 的签名、类型、别名、常量或调用图验证。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/ancilla-not-clean.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "所有工作区显式持有；不继承未实现的自动复净判定。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/cyclic-dependency.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "structural_rejection",
+      "examples": [],
+      "note": "对应 RIR 的签名、类型、别名、常量或调用图验证。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/fused-source-use.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "逻辑视图不进行持久冻结；同次调用的重叠和控制修改仍拒绝。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/generic-infer-fail.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "structural_rejection",
+      "examples": [],
+      "note": "对应 RIR 的签名、类型、别名、常量或调用图验证。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/implements-mismatch-effect.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "structural_rejection",
+      "examples": [],
+      "note": "对应 RIR 的签名、类型、别名、常量或调用图验证。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/implements-mismatch-signature.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "structural_rejection",
+      "examples": [],
+      "note": "对应 RIR 的签名、类型、别名、常量或调用图验证。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/isometry-adjoint-cap.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "等距角色可以提供 unitary 扩张；无声明逆能力时拒绝逆调用。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/isometry-nonzero-input.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "零输入是接口契约，本阶段不证明零态。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/measure-in-if.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "量子结果读出在宿主层，RIR 没有动态经典分支。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/oracle-takes-operation.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "由 Python 高阶生成函数承担，旧语法限制不继承。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/param-in-static-position.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "structural_rejection",
+      "examples": [],
+      "note": "对应 RIR 的签名、类型、别名、常量或调用图验证。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/partial-application.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "允许 Python 绑定和闭包；生成后 IR 不保留 Python callback。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/require-in-program.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "require 文本语法不迁移，依赖通过 Python 参数和显式绑定表达。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/require-mid-body.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "require 文本语法不迁移。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    },
+    {
+      "case": "20-errors/unbound-require-program.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "intentional_design_change",
+      "examples": [],
+      "note": "现在允许保存开放 IR，在后端导出时报告缺口。",
+      "evidence": [
+        "tests/core/test_language.py",
+        "tests/core/test_open_ir.py"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+include README.md LICENSE AGENTS.md backend-revisions.json uv.lock
+recursive-include docs *.md *.json
+recursive-include examples *.py *.json *.originir
+recursive-include tests *.py
+recursive-include tools *.py

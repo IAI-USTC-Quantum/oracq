@@ -1,0 +1,100 @@
+{
+  "stage": "register-native simulation, arithmetic lowering and open differential-equation algorithms",
+  "date": "2026-09-09",
+  "correctness": "pending; not an implementation gate",
+  "assumptions": [
+    "CBMD 采用 QST 11, 035027 (2026), DOI 10.1088/2058-9565/ae7b7e；对应 arXiv:2511.10267v3。",
+    "QFVM 先实现 1D Euler 三守恒量的 frozen-Roe 专门化，并保留几何/数据访问接口。",
+    "固定点字长和舍入策略显式配置；本阶段只做接口、构造和后端运行冒烟。"
+  ],
+  "tasks": [
+    {
+      "id": "S0",
+      "title": "审阅 PySparQ 自定义算子、QFVM/Roe 和 CBMD 输入模型",
+      "status": "done",
+      "evidence": [
+        "docs/stage2-implementation.md",
+        "docs/backend-review.md"
+      ],
+      "correctness": "pending"
+    },
+    {
+      "id": "S1",
+      "title": "RIR 局部工作区、PySparQ 模块级 native registry 与动态 C++ 适配",
+      "status": "done",
+      "evidence": [
+        "src/pyqecclang/native.py",
+        "src/pyqecclang/layout.py",
+        "tests/integration/test_stage2_native.py"
+      ],
+      "correctness": "pending"
+    },
+    {
+      "id": "S2",
+      "title": "Boolean 算术合成与 Toffoli/U3/CZ 目标门集降低",
+      "status": "done",
+      "evidence": [
+        "src/pyqecclang/arithmetic.py",
+        "src/pyqecclang/backends/basis.py",
+        "out/stage2/arithmetic_div/toffoli_u3_cz.originir"
+      ],
+      "correctness": "pending"
+    },
+    {
+      "id": "S3",
+      "title": "定点 Roe 物理量、特征结构和接口 Jacobian 的算术生成",
+      "status": "done",
+      "evidence": [
+        "src/pyqecclang/roe.py",
+        "out/stage2/roe_face/open.rir.json"
+      ],
+      "correctness": "pending"
+    },
+    {
+      "id": "S4",
+      "title": "QRAM 数据结构、经典 Riemann 残差和局部增量更新",
+      "status": "done",
+      "evidence": [
+        "src/pyqecclang/flow_data.py",
+        "out/stage2/qfvm_patch.json",
+        "tests/core/test_differential.py"
+      ],
+      "correctness": "pending"
+    },
+    {
+      "id": "S5",
+      "title": "几何查询、量子矩阵元、P_Theta 与 T_L† S T_R/QFVM 组装",
+      "status": "done",
+      "evidence": [
+        "src/pyqecclang/qfvm.py",
+        "out/stage2/qfvm_costa_filter/toffoli_u3_cz.originir",
+        "out/stage2/qfvm-native-result.json"
+      ],
+      "correctness": "pending"
+    },
+    {
+      "id": "S6",
+      "title": "Carleman、Schrodingerization、LCHS、CBMD 的开放输入模型与生成器",
+      "status": "done",
+      "evidence": [
+        "src/pyqecclang/algorithms/differential.py",
+        "out/stage2/carleman_qode/open.rir.json",
+        "out/stage2/qham_cbmd_qpde/toffoli_u3_cz.originir"
+      ],
+      "correctness": "pending"
+    },
+    {
+      "id": "S7",
+      "title": "案例面板、gate/native 描述产物、实际后端冒烟和待核验清单",
+      "status": "done",
+      "evidence": [
+        "tools/build_stage2.py",
+        "tools/verify_stage2_backend.py",
+        "docs/stage2-validation.json"
+      ],
+      "correctness": "pending"
+    }
+  ],
+  "status": "implemented_for_stage_scope",
+  "artifact_count": 28
+}

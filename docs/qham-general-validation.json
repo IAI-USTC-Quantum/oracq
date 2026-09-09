@@ -1,0 +1,224 @@
+{
+  "version": "0.6.0",
+  "date": "2026-09-09",
+  "rir_version": "0.3",
+  "pde_schema": "0.1",
+  "qcl_plan_schema": "0.1",
+  "scope": "autonomous finite polynomial evolution PDEs; generic HAM order and ordered tensor QCL",
+  "mathematics": {
+    "recurrence": "D_i=(1+eta)*D_(i-1)-eta*C_(i-1); D_1=-eta*C_0",
+    "closure": "max(1,D-1)*sum(a)+rank <= max(1,D-1)*m+1",
+    "equivalence": "finite QCL equals the chosen truncated HAM system, not automatically the original nonlinear PDE",
+    "max_chain_rule_residual": 1.1102230246251565e-16,
+    "checks": [
+      "general eta beyond -1",
+      "nonzero forcing and constant augmentation",
+      "cubic and coupled systems",
+      "multidimensional spatial derivatives",
+      "m=1 legacy BE corner equivalence",
+      "lazy row entries equal materialized small G",
+      "rectangular input and output windows",
+      "relative tensor initial norms and clean shared work"
+    ]
+  },
+  "tests": {
+    "core_and_schema": {
+      "passed": 100,
+      "subtests": 117,
+      "failed": 0,
+      "skipped": 0,
+      "command": ".venv/bin/pytest tests/core tests/schema -q"
+    },
+    "real_backends": {
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "command": "PATH=\"$PWD/out/toolchain:$PATH\" PYTHONPATH=src ../QECC.Lang/.venv/bin/python -B -m unittest discover -s tests/integration -v"
+    },
+    "lint": {
+      "status": "passed",
+      "command": ".venv/bin/ruff check src tests examples tools"
+    }
+  },
+  "real_qham_witnesses": [
+    "structured six-qubit nonlinear port beyond dense-port budget",
+    "forced m=2 G columns in real PySparQ",
+    "full m=2 QHAM to finite Taylor QODE to physical channel in real PySparQ",
+    "actual OriginIR parser consumes forced m=2 solution description"
+  ],
+  "cases": [
+    {
+      "case": "burgers",
+      "order": 2,
+      "degree": 2,
+      "fields": [
+        "u"
+      ],
+      "axes": [
+        "x"
+      ],
+      "state_dimension": 4,
+      "raw_dimension": 129,
+      "blocks": 9,
+      "chain_rule_residual": 6.938893903907228e-18,
+      "generator_alpha": 9.420000000000005,
+      "log_initial_norm": 0.0198064719565233,
+      "rir_modules": 81,
+      "open_oracles": [
+        "Input_burgers_B_2",
+        "Input_burgers_F",
+        "Input_burgers_L",
+        "Input_burgers_initial"
+      ],
+      "strict_bytes": 582471,
+      "port_implementation": "structured shifts/component projections/contractions; no dense matrix",
+      "global_matrix_materialized": false,
+      "solver_accuracy": "pending",
+      "qode_alternatives": {
+        "schrodingerization": {
+          "modules": 97,
+          "growth_shift": 0.0,
+          "growth_rescale_log": 0.0,
+          "accuracy": "pending"
+        },
+        "cbmd": {
+          "modules": 87,
+          "growth_shift": 9.420000000000005,
+          "growth_rescale_log": 0.09420000000000006,
+          "accuracy": "pending"
+        }
+      }
+    },
+    {
+      "case": "kdv",
+      "order": 3,
+      "degree": 2,
+      "fields": [
+        "u"
+      ],
+      "axes": [
+        "x"
+      ],
+      "state_dimension": 4,
+      "raw_dimension": 628,
+      "blocks": 16,
+      "chain_rule_residual": 1.1102230246251565e-16,
+      "generator_alpha": 134.44800000000004,
+      "log_initial_norm": -1.6043617671061332,
+      "rir_modules": 107,
+      "open_oracles": [
+        "Input_kdv_B_1",
+        "Input_kdv_L",
+        "Input_kdv_initial"
+      ],
+      "strict_bytes": 2458364,
+      "port_implementation": "structured shifts/component projections/contractions; no dense matrix",
+      "global_matrix_materialized": false,
+      "solver_accuracy": "pending"
+    },
+    {
+      "case": "reaction",
+      "order": 2,
+      "degree": 3,
+      "fields": [
+        "u"
+      ],
+      "axes": [
+        "x"
+      ],
+      "state_dimension": 2,
+      "raw_dimension": 101,
+      "blocks": 14,
+      "chain_rule_residual": 2.7755575615628914e-17,
+      "generator_alpha": 50.098233764908606,
+      "log_initial_norm": 0.019806550387286424,
+      "rir_modules": 139,
+      "open_oracles": [
+        "Input_reaction_B_2",
+        "Input_reaction_F",
+        "Input_reaction_L",
+        "Input_reaction_initial"
+      ],
+      "strict_bytes": 1804351,
+      "port_implementation": "structured shifts/component projections/contractions; no dense matrix",
+      "global_matrix_materialized": false,
+      "solver_accuracy": "pending"
+    },
+    {
+      "case": "coupled",
+      "order": 2,
+      "degree": 2,
+      "fields": [
+        "u",
+        "v"
+      ],
+      "axes": [
+        "x"
+      ],
+      "state_dimension": 4,
+      "raw_dimension": 129,
+      "blocks": 9,
+      "chain_rule_residual": 6.938893903907228e-18,
+      "generator_alpha": 10.585837661840737,
+      "log_initial_norm": 0.03756579937596596,
+      "rir_modules": 94,
+      "open_oracles": [
+        "Input_coupled_B_1",
+        "Input_coupled_B_5",
+        "Input_coupled_F",
+        "Input_coupled_L",
+        "Input_coupled_initial"
+      ],
+      "strict_bytes": 830430,
+      "port_implementation": "structured shifts/component projections/contractions; no dense matrix",
+      "global_matrix_materialized": false,
+      "solver_accuracy": "pending"
+    },
+    {
+      "case": "vector_burgers_2d",
+      "order": 2,
+      "degree": 2,
+      "fields": [
+        "u",
+        "v"
+      ],
+      "axes": [
+        "x",
+        "y"
+      ],
+      "state_dimension": 32,
+      "raw_dimension": 35968,
+      "blocks": 8,
+      "chain_rule_residual": 2.7755575615628914e-17,
+      "generator_alpha": 35.519999999999996,
+      "log_initial_norm": -0.5253455366769879,
+      "rir_modules": 118,
+      "open_oracles": [
+        "Input_vector_burgers_2d_B_2",
+        "Input_vector_burgers_2d_B_3",
+        "Input_vector_burgers_2d_B_4",
+        "Input_vector_burgers_2d_B_7",
+        "Input_vector_burgers_2d_L",
+        "Input_vector_burgers_2d_initial"
+      ],
+      "strict_bytes": 2825837,
+      "port_implementation": "structured shifts/component projections/contractions; no dense matrix",
+      "global_matrix_materialized": false,
+      "solver_accuracy": "pending"
+    }
+  ],
+  "incomplete": [
+    "HAM convergence and automatic h/m selection",
+    "generic time-dependent QODE inputs",
+    "full quantum solver accuracy and norm estimation",
+    "IQHAM restarts",
+    "efficient quantum sparse generator oracle from lazy row rules",
+    "theoretical performance/advantage guarantees",
+    "wide BE target/work interfaces beyond 64 bits"
+  ],
+  "source": {
+    "arxiv": "https://arxiv.org/html/2411.06759v2",
+    "doi": "10.1007/s11433-024-2584-2"
+  },
+  "artifacts": "out/qham-general/index.json"
+}

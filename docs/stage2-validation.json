@@ -1,0 +1,167 @@
+{
+  "schema": "pyqecclang-stage-validation-v1",
+  "stage": 2,
+  "version": "0.3.0",
+  "rir": "0.3",
+  "validated_on": "2026-09-09",
+  "correctness": "pending",
+  "scope": "paradigm construction, serialization, backend syntax and execution smoke",
+  "tests": {
+    "core_and_schema": {
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0,
+      "subtests": 75,
+      "command": ".venv/bin/pytest tests/core tests/schema -q"
+    },
+    "real_integration": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "command": "PATH=\"$PWD/out/toolchain:$PATH\" PYTHONPATH=src ../QECC.Lang/.venv/bin/python -B -m unittest discover -s tests/integration -v"
+    },
+    "lint": {
+      "status": "passed",
+      "command": ".venv/bin/ruff check src tests examples tools"
+    }
+  },
+  "cases": {
+    "count": 28,
+    "all_open_ir_saved": true,
+    "all_bound_ir_closed": true,
+    "all_originir_emitted": true,
+    "strict_gate_alphabet": [
+      "TOFFOLI",
+      "U3",
+      "CZ"
+    ],
+    "qram": "separate resource instruction",
+    "catalog": "out/stage2/index.json",
+    "module_boundaries": "preserved; downstream parser expands only on explicit consumption"
+  },
+  "real_originir_parse": [
+    {
+      "case": "arithmetic_add",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 35,
+      "correctness": "pending"
+    },
+    {
+      "case": "arithmetic_mul",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 146,
+      "correctness": "pending"
+    },
+    {
+      "case": "arithmetic_div",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 295,
+      "correctness": "pending"
+    },
+    {
+      "case": "arithmetic_sqrt",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 81,
+      "correctness": "pending"
+    },
+    {
+      "case": "lchs_qode",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 10,
+      "correctness": "pending"
+    },
+    {
+      "case": "cbmd_qode",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 10,
+      "correctness": "pending"
+    },
+    {
+      "case": "schrodingerization_qode",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 12,
+      "correctness": "pending"
+    },
+    {
+      "case": "carleman_qode",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 18,
+      "correctness": "pending"
+    },
+    {
+      "case": "qham_cbmd_qpde",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 20,
+      "correctness": "pending"
+    },
+    {
+      "case": "qham_schrodingerization_qpde",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 26,
+      "correctness": "pending"
+    },
+    {
+      "case": "qfvm_TR",
+      "backend": "real OriginIR_BaseParser",
+      "status": "passed",
+      "qubits": 40,
+      "qram": true,
+      "correctness": "pending"
+    }
+  ],
+  "native_qfvm_entry": {
+    "status": "executed",
+    "evidence": "out/stage2/qfvm-native-result.json",
+    "execution": {
+      "native_calls": 1211,
+      "gate_events": 305,
+      "native_labels": [
+        "div",
+        "mul",
+        "sub",
+        "add",
+        "sqrt",
+        "neg",
+        "abs",
+        "lt",
+        "select",
+        "arith_1d24b68bce2413ffceda",
+        "arith_7850ef0dc27ee9e6ced8",
+        "arith_b5eb48fb1dbb973b9487"
+      ],
+      "correctness": "pending"
+    },
+    "state_count": 1,
+    "numeric_result_certified": false
+  },
+  "pending": [
+    "arithmetic full-domain semantics, signed boundaries, rounding and status behavior",
+    "general gate/native equivalence and CPU ABI portability",
+    "Roe Jacobians, entropy fix, boundary extensions and fixed-point errors",
+    "QFVM encoded block, alpha bound, signs, transpose slots and success channel",
+    "Costa QLSS and filtering accuracy/success probability",
+    "Carleman coefficient padding, truncation and convergence",
+    "Schrodingerization Fourier conventions, recovery region and periodic truncation",
+    "LCHS quadrature and CBMD auxiliary-pole/truncation bounds",
+    "Hamiltonian-function accuracy and efficient QSP implementation",
+    "time-dependent and inhomogeneous solver extensions",
+    "physical native QRAM partial writes; current adapter rematerializes changed banks"
+  ],
+  "source_cbmd": {
+    "title": "Quantum Simulation of Non-Hermitian Special Functions and Dynamics via Contour-based Matrix Decomposition",
+    "journal": "QST 11, 035027 (2026)",
+    "doi": "10.1088/2058-9565/ae7b7e",
+    "arxiv": "https://arxiv.org/html/2511.10267v3",
+    "equations": "12-13"
+  }
+}

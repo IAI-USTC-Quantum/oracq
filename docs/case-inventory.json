@@ -1,0 +1,467 @@
+{
+  "source": "QECC.Lang/spec-tests/cases",
+  "cases": [
+    {
+      "case": "00-primitives/adjoint-block.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "00-primitives/bell-pair.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "00-primitives/control-nested.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "00-primitives/dagger-self-inverse.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "00-primitives/ghz.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "00-primitives/measure-reset.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "00-primitives/rot-angle.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "00-primitives/slice-ops.qec",
+      "kind": "positive",
+      "category": "00-primitives",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/ancilla-clean.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/fixed-point-add.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/fuse-basic.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/qram-paged.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/register-array.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/reinterpret-fixed.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/split-basic.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "01-registers/split-in-fuse.qec",
+      "kind": "positive",
+      "category": "01-registers",
+      "status": "inventoried"
+    },
+    {
+      "case": "02-generics-const/const-fn-iters.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "inventoried"
+    },
+    {
+      "case": "02-generics-const/const-recursion.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "inventoried"
+    },
+    {
+      "case": "02-generics-const/external-fn-phases.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "inventoried"
+    },
+    {
+      "case": "02-generics-const/generic-explicit.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "inventoried"
+    },
+    {
+      "case": "02-generics-const/generic-float-alpha.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "inventoried"
+    },
+    {
+      "case": "02-generics-const/generic-infer-width.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "inventoried"
+    },
+    {
+      "case": "02-generics-const/op-recursion.qec",
+      "kind": "positive",
+      "category": "02-generics-const",
+      "status": "inventoried"
+    },
+    {
+      "case": "03-oracle/grover2.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "inventoried"
+    },
+    {
+      "case": "03-oracle/phase-oracle-custom.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "inventoried"
+    },
+    {
+      "case": "03-oracle/qram-lookup.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "inventoried"
+    },
+    {
+      "case": "03-oracle/requires-controlled-ok.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "inventoried"
+    },
+    {
+      "case": "03-oracle/sparse-entry-pair.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "inventoried"
+    },
+    {
+      "case": "03-oracle/state-prep-isometry.qec",
+      "kind": "positive",
+      "category": "03-oracle",
+      "status": "inventoried"
+    },
+    {
+      "case": "04-block-encoding/cfd-fuse-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "inventoried"
+    },
+    {
+      "case": "04-block-encoding/lcu-select.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "inventoried"
+    },
+    {
+      "case": "04-block-encoding/mybe-wrapper.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "inventoried"
+    },
+    {
+      "case": "04-block-encoding/product-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "inventoried"
+    },
+    {
+      "case": "04-block-encoding/sparse-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "inventoried"
+    },
+    {
+      "case": "04-block-encoding/sum-be.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "inventoried"
+    },
+    {
+      "case": "04-block-encoding/walk-operator.qec",
+      "kind": "positive",
+      "category": "04-block-encoding",
+      "status": "inventoried"
+    },
+    {
+      "case": "05-qsvt-qpe/eigen-filter.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "inventoried"
+    },
+    {
+      "case": "05-qsvt-qpe/oaa-std.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "inventoried"
+    },
+    {
+      "case": "05-qsvt-qpe/qpe-walk.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "inventoried"
+    },
+    {
+      "case": "05-qsvt-qpe/qsp-phases-roundtrip.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "inventoried"
+    },
+    {
+      "case": "05-qsvt-qpe/qsvt-monomial.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "inventoried"
+    },
+    {
+      "case": "05-qsvt-qpe/walk-pow2.qec",
+      "kind": "positive",
+      "category": "05-qsvt-qpe",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/dependency-upload.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/hamsim-qsvt-bind.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/hamsim-trotter.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/protocol-generic-oracle.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/qlss-nested-require.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/solver-wrapper-step.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/two-implementations-order1.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "06-protocols/two-implementations-order2.qec",
+      "kind": "positive",
+      "category": "06-protocols",
+      "status": "inventoried"
+    },
+    {
+      "case": "07-scientific/carleman-step.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "inventoried"
+    },
+    {
+      "case": "07-scientific/cfd-implicit-step.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "inventoried"
+    },
+    {
+      "case": "07-scientific/heat-equation.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "inventoried"
+    },
+    {
+      "case": "07-scientific/lchs-ode.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "inventoried"
+    },
+    {
+      "case": "07-scientific/poisson-qlss.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "inventoried"
+    },
+    {
+      "case": "07-scientific/schrodingerization.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "inventoried"
+    },
+    {
+      "case": "07-scientific/stateprep-vs-oracle.qec",
+      "kind": "positive",
+      "category": "07-scientific",
+      "status": "inventoried"
+    },
+    {
+      "case": "08-modules/cross-module-protocol/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "inventoried"
+    },
+    {
+      "case": "08-modules/import-alias/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "inventoried"
+    },
+    {
+      "case": "08-modules/qualified-binding-key/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "inventoried"
+    },
+    {
+      "case": "08-modules/two-module-grover/main.qec",
+      "kind": "positive",
+      "category": "08-modules",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/alias-violation.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/ancilla-not-clean.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/cyclic-dependency.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/fused-source-use.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/generic-infer-fail.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/implements-mismatch-effect.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/implements-mismatch-signature.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/isometry-adjoint-cap.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/isometry-nonzero-input.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/measure-in-if.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/oracle-takes-operation.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/param-in-static-position.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/partial-application.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/require-in-program.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/require-mid-body.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    },
+    {
+      "case": "20-errors/unbound-require-program.qec",
+      "kind": "negative",
+      "category": "20-errors",
+      "status": "inventoried"
+    }
+  ]
+}

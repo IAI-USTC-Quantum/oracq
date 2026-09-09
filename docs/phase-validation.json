@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-09",
+  "phase": "paradigm_and_language_usability",
+  "status": "passed",
+  "core_tests": 50,
+  "schema_tests": 5,
+  "integration_tests": 12,
+  "total_tests": 67,
+  "skipped_tests": 0,
+  "catalog_cases": 33,
+  "native_originir_parsed": 33,
+  "old_positive_cases_mapped": 61,
+  "old_negative_cases_reviewed": 16,
+  "cli_requirements_bind_emit": "passed",
+  "ruff": "passed",
+  "application_correctness": "not_assessed",
+  "notes": [
+    "QFVM 物理核具体绑定是明确玩具查表实现；Roe 可以保留开放。",
+    "QHAM 实例为 m=1；未认证高阶、收敛性或条件输出精度。",
+    "measure/reset 采用显式宿主动态桥接，正常 IR 与导出保留模块。"
+  ]
+}

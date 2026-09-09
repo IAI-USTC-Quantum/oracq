@@ -1,0 +1,163 @@
+{
+  "version": "0.4.0",
+  "rir_version": "0.3",
+  "math_ir_version": "0.1",
+  "validated_on": "2026-09-09",
+  "stage": "pure function compilation paradigm",
+  "status": "implemented_for_stage_scope",
+  "correctness": "pending",
+  "implementation": {
+    "frontend": "restricted Python AST; user function is not executed",
+    "source_features": [
+      "real/complex/bool inputs",
+      "Index layout",
+      "numeric generation constants",
+      "pure helpers",
+      "static range",
+      "tuple outputs",
+      "structured if and conditional expressions"
+    ],
+    "update": "inputs preserved; outputs XOR; status XOR; private workspace uncomputed",
+    "math_kernels": "16 real elementary families plus complex decompositions, phase/polar/rect, atan2/hypot",
+    "approximation": "Chebyshev sampling and Clenshaw arithmetic; degree and intervals are generation parameters",
+    "modularity": "MIR helper calls and RIR modules preserved",
+    "qfvm": "Roe face now compiled from ordinary Python formulas, original quantum ABI retained"
+  },
+  "tests": {
+    "core_and_schema": {
+      "passed": 75,
+      "subtests": 112,
+      "failed": 0,
+      "skipped": 0,
+      "command": ".venv/bin/pytest tests/core tests/schema -q"
+    },
+    "real_backends": {
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "command": "PATH=\"$PWD/out/toolchain:$PATH\" PYTHONPATH=src ../QECC.Lang/.venv/bin/python -B -m unittest discover -s tests/integration -v"
+    },
+    "final_mir_contract_checks": {
+      "passed": 11,
+      "subtests": 37,
+      "command": ".venv/bin/pytest tests/core/test_mathfunc.py tests/schema/test_math_schema.py -q"
+    },
+    "lint": {
+      "status": "passed",
+      "command": ".venv/bin/ruff check src tests examples tools"
+    }
+  },
+  "artifacts": [
+    {
+      "function": "pressure",
+      "math_modules": 1,
+      "rir_modules": 5,
+      "workspace": 1196,
+      "strict_bytes": 757086,
+      "correctness": "pending"
+    },
+    {
+      "function": "roe_speed",
+      "math_modules": 1,
+      "rir_modules": 6,
+      "workspace": 1232,
+      "strict_bytes": 942226,
+      "correctness": "pending"
+    },
+    {
+      "function": "phase_response",
+      "math_modules": 1,
+      "rir_modules": 12,
+      "workspace": 1554,
+      "strict_bytes": 1583856,
+      "correctness": "pending"
+    },
+    {
+      "function": "guarded_reciprocal",
+      "math_modules": 1,
+      "rir_modules": 6,
+      "workspace": 1163,
+      "strict_bytes": 551809,
+      "correctness": "pending"
+    },
+    {
+      "function": "polynomial",
+      "math_modules": 1,
+      "rir_modules": 4,
+      "workspace": 569,
+      "strict_bytes": 249845,
+      "correctness": "pending"
+    },
+    {
+      "function": "roe_face",
+      "math_modules": 5,
+      "rir_modules": 18,
+      "correctness": "pending"
+    },
+    {
+      "function": "qfvm_with_compiled_roe",
+      "rir_modules": 36,
+      "correctness": "pending"
+    }
+  ],
+  "real_backend_artifacts": [
+    {
+      "case": "pressure",
+      "evidence": "real OriginIR_BaseParser",
+      "qubits": 1231,
+      "status": "passed"
+    },
+    {
+      "case": "guarded_reciprocal",
+      "evidence": "real OriginIR_BaseParser",
+      "qubits": 1182,
+      "status": "passed"
+    },
+    {
+      "case": "polynomial",
+      "evidence": "real OriginIR_BaseParser",
+      "qubits": 588,
+      "status": "passed"
+    },
+    {
+      "case": "qfvm_entry_compiled_roe",
+      "evidence": "real PySparQ, QRAM and compiled arithmetic",
+      "execution": {
+        "native_calls": 8095,
+        "gate_events": 2629,
+        "native_labels": [
+          "div",
+          "sub",
+          "mul",
+          "logic_or",
+          "add",
+          "eq",
+          "logic_select",
+          "sqrt",
+          "lt",
+          "logic_not",
+          "abs",
+          "neg",
+          "arith_7850ef0dc27ee9e6ced8",
+          "select",
+          "arith_b5eb48fb1dbb973b9487"
+        ],
+        "correctness": "pending"
+      },
+      "states": 1,
+      "status": "passed",
+      "numeric_correctness": "pending"
+    }
+  ],
+  "pending": [
+    "global approximation/error bounds and automatic interval inference",
+    "complete IEEE float and signed-zero branch-cut semantics; not part of current fixed-point model",
+    "full-domain gate/native equivalence and numeric boundary behavior",
+    "Roe physical accuracy, QFVM block encoding and solver accuracy",
+    "workspace minimization, reversible scheduling and arithmetic circuit optimization"
+  ],
+  "sources": [
+    "https://docs.python.org/3/library/cmath.html",
+    "https://docs.python.org/3/library/ast.html"
+  ]
+}

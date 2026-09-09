@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pyqecclang:pde:0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "label",
+    "fields",
+    "axes",
+    "terms"
+  ],
+  "properties": {
+    "version": {
+      "const": "0.1"
+    },
+    "label": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/name"
+      }
+    },
+    "axes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/name"
+      }
+    },
+    "terms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/term"
+      }
+    }
+  },
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "derivative": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "$ref": "#/$defs/name"
+          },
+          {
+            "type": "integer",
+            "minimum": 1
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "atom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "derivative"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "derivative": {
+          "$ref": "#/$defs/derivative"
+        }
+      }
+    },
+    "monomial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coefficient",
+        "fields",
+        "known",
+        "outer_derivative"
+      ],
+      "properties": {
+        "coefficient": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/atom"
+          }
+        },
+        "known": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/atom"
+          }
+        },
+        "outer_derivative": {
+          "$ref": "#/$defs/derivative"
+        }
+      }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output",
+        "monomial"
+      ],
+      "properties": {
+        "output": {
+          "$ref": "#/$defs/name"
+        },
+        "monomial": {
+          "$ref": "#/$defs/monomial"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "version": "0.5.0",
+  "reviewed_on": "2026-09-09",
+  "rir_version": "0.3",
+  "source_model_substitutability": "implemented with explicit adapters",
+  "numerical_solver_equivalence": "not certified",
+  "full_qfvm_classical_quantum_loop": "not implemented",
+  "baseline_findings": [
+    "QFVM eagerly reduced to BE and hid sparse input",
+    "geometry XOR query was not a CKS inplace position interface",
+    "Roe entry was not an arbitrary coordinate entry oracle",
+    "zero-padded components introduced singular modes",
+    "BE alpha was not propagated to Costa inverse spectral bound",
+    "Costa RHS zero reflection did not include preparation work",
+    "solver success probabilities did not carry a common norm recovery contract",
+    "QRAM state prep enumerated all prefixes",
+    "local flow updates copied the full state and flux containers"
+  ],
+  "corrections": [
+    "LinearSystem + SparseSystem/BlockSystem + QLSSProtocol",
+    "QFVM nine-slot inplace permutation with O(Ns) geometry storage",
+    "arbitrary row/column XOR entry and positive representable padding diagonal",
+    "real symmetric CKS-style Tdag S T adapter, signed offdiagonal convention and both failure flags swapped",
+    "encoded_inverse_bound=alpha/sigma_min_lower from explicit SpectralPromise",
+    "joint target/work zero reflection for RHS unitary extensions",
+    "physical subspace selection and independent conditional matrix norm probe",
+    "one coherent tree address per layer, 2n angle queries including inverse",
+    "local staging and in-place commit; rhs values/tree/angles based on same quantized residual"
+  ],
+  "tests": {
+    "core_and_schema": {
+      "passed": 85,
+      "failed": 0,
+      "skipped": 0,
+      "subtests": 112,
+      "command": ".venv/bin/pytest tests/core tests/schema -q"
+    },
+    "real_backends": {
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "command": "PATH=\"$PWD/out/toolchain:$PATH\" PYTHONPATH=src ../QECC.Lang/.venv/bin/python -B -m unittest discover -s tests/integration -v"
+    },
+    "lint": {
+      "status": "passed",
+      "command": ".venv/bin/ruff check src tests examples tools"
+    }
+  },
+  "comparison": [
+    {
+      "solver": "cks_chebyshev_basic",
+      "input_model": "sparse",
+      "adapter_trace": [
+        "sparse input consumed by cks_chebyshev_basic",
+        "sparse location + entry",
+        "CKS Tdag S T to BE"
+      ],
+      "alpha": 36,
+      "encoded_inverse_bound": 72.0,
+      "physical_width": 4,
+      "signal_width": 20,
+      "rhs_norm": 1.118033988749895,
+      "closed_modules": 50,
+      "open_requirements": [
+        "RoeQfvmEnergy",
+        "RoeQfvmGeometry",
+        "RoeQfvmMomentum",
+        "RoeQfvmRho",
+        "RoeQfvmRhs"
+      ],
+      "kernel_status": "prototype; solver accuracy pending",
+      "norm_recovery": "rhs_norm / (alpha * sqrt(p_joint / p_solver))"
+    },
+    {
+      "solver": "costa_general_walk",
+      "input_model": "block_encoding",
+      "adapter_trace": [
+        "sparse location + entry",
+        "CKS Tdag S T to BE",
+        "costa_general_walk consumes BE"
+      ],
+      "alpha": 36,
+      "encoded_inverse_bound": 72.0,
+      "physical_width": 4,
+      "signal_width": 25,
+      "rhs_norm": 1.118033988749895,
+      "closed_modules": 49,
+      "open_requirements": [
+        "RoeQfvmEnergy",
+        "RoeQfvmGeometry",
+        "RoeQfvmMomentum",
+        "RoeQfvmRho",
+        "RoeQfvmRhs"
+      ],
+      "kernel_status": "prototype; solver accuracy pending",
+      "norm_recovery": "rhs_norm / (alpha * sqrt(p_joint / p_solver))"
+    }
+  ],
+  "witnesses": [
+    "negative-entry 2x2 sparse BE corner and alpha",
+    "Chebyshev T3 corner",
+    "same QFVM input accepted by sparse and BE protocols",
+    "effective inverse spectral bound overrides physical kappa guess",
+    "no automatic general BE to sparse conversion",
+    "scalar system norm recovered from joint/conditional probabilities",
+    "Costa RHS reflection independent of two different valid unitary extensions",
+    "real PySparQ full position permutation/inverse including padded columns",
+    "real PySparQ nonzero-target XOR on padded diagonal entry",
+    "real OriginIR parser consumes both micro solver descriptions",
+    "quantum prefix tree query count and clean work",
+    "local update rejects an attempted whole-state scan"
+  ],
+  "limitations": [
+    "CKS is the basic section 4 Chebyshev/LCU construction, no VTAA",
+    "Costa initial walker, final success channel and overall accuracy remain unverified",
+    "spectral and element bounds are declarations about the actual finite matrix",
+    "generic complex or negative-diagonal sparse input requires another adapter or explicit dilation",
+    "large-word magnitude transducers remain open unless supplied",
+    "matrix norm probe is generated; amplitude estimation/tomography remain separate",
+    "physical native QRAM partial writes are unavailable; changed banks are rematerialized"
+  ],
+  "sources": {
+    "qfvm": "https://arxiv.org/html/2102.03557v1",
+    "cks": "https://arxiv.org/html/1511.02306",
+    "costa": "https://arxiv.org/html/2111.08152v1"
+  }
+}

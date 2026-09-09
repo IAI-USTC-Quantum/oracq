@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pyqecclang:mir:0.1",
+  "title": "pyqecclang mathematical IR 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entry",
+    "functions",
+    "version"
+  ],
+  "properties": {
+    "entry": {
+      "$ref": "#/$defs/name"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "functions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/function"
+      }
+    }
+  },
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "width"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "kind": {
+          "enum": [
+            "real",
+            "complex",
+            "bool",
+            "index"
+          ]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "kind",
+        "args",
+        "data"
+      ],
+      "properties": {
+        "op": {
+          "enum": [
+            "input",
+            "const",
+            "neg",
+            "not",
+            "real",
+            "imag",
+            "conj",
+            "abs",
+            "add",
+            "sub",
+            "mul",
+            "div",
+            "pow",
+            "lt",
+            "eq",
+            "and",
+            "or",
+            "complex",
+            "select",
+            "intrinsic",
+            "call"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "real",
+            "complex",
+            "bool"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        }
+      }
+    },
+    "function": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "label",
+        "parameters",
+        "nodes",
+        "returns"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "label": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "returns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
