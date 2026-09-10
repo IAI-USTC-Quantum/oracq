@@ -9,6 +9,8 @@ contributing
 writing-docs
 roadmap
 validation
+validation-plan
+algorithm-coverage
 ```
 
 `docs/archive/` 保存历史计划、阶段报告和旧指南。它们不参与本站构建，也不作为当前 API 的入口。
