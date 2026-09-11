@@ -2,9 +2,10 @@
   "version": "0.8.0",
   "rir_version": "0.3",
   "core_schema": {
-    "passed": 144,
+    "passed": 253,
     "subtests": 135,
-    "skipped": 0
+    "skipped": 0,
+    "note": "0.8 时点 passed=144；本次 V1 落地后扩到 253（tests/core 共增 16 用例：witness 自证 11 例 + density/gradient/lowrank 各模块新增见证 5 例，原 237 例保持全绿；src/ 本轮未改动）。subtests 字段保留 0.8 口径以避免与既有 subtest 含义不一致。"
   },
   "native": {
     "passed": 29,
@@ -88,6 +89,35 @@
     "full QLSS/QODE/PDE solver accuracy and success channels",
     "Carleman/HAM convergence",
     "scalable Shor arithmetic",
-    "classical optimization strategy for VQE/QAOA"
-  ]
+    "classical optimization strategy for VQE/QAOA",
+    "QAE confidence interval witness (estimation.py)",
+    "convergence scan framework for C2 algorithms (qsvt/hamsim/ODE)",
+    "triple-binding consistency parametric coverage (oracles/prepare_select/graph_walks/data_loading)"
+  ],
+  "v1_progress": {
+    "date": "2026-09-10",
+    "delivered": [
+      "tests/core/witness.py: assert_unitary / assert_uncomputation / assert_bind_invariant / assert_block_equals",
+      "tests/core/test_witness.py: 11 self-tests covering 4 primitives (positive + negative paths)",
+      "tests/core/test_density.py: Gibbs error scan (monotone non-increasing, each ≤ error) and β-grid",
+      "tests/core/test_gradient.py: failure probability decay rate q_{m+1} ≤ 0.34·q_m",
+      "tests/core/test_lowrank.py: 2×2 closed-form α cross-check (places=10), DF α=1.4 ≤ Pauli α=1.5, THC α=1.996 hand-computed",
+      "tests/core/test_integration.py: closed-form mean cross-check + heinrich_rate parametric validation (previously ❌, now ✅)",
+      "tests/core/test_qpca.py: eigenvalue peak readout + Δt first-order rate (previously ❌, now ✅)",
+      "tests/core/test_prepare_select.py: inline block comparisons migrated to assert_block_equals"
+    ],
+    "module_status_changes": {
+      "integration.py": "❌ → ✅",
+      "gradient.py": "❌ → ✅",
+      "qpca.py": "❌ → ✅",
+      "density.py": "🟡 → ✅",
+      "lowrank.py": "🟡 → ✅"
+    },
+    "core_test_count": {
+      "before": 237,
+      "after": 253,
+      "delta": 16
+    },
+    "source_changed": false
+  }
 }

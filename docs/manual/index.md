@@ -10,7 +10,7 @@ concepts
 architecture
 operators
 contracts
-algorithms
+algorithms/index
 differential-equations
 math-functions
 qfvm

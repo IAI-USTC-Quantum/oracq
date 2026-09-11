@@ -39,3 +39,15 @@ PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 Fourier 加法采用 [Draper 的 QFT 加法构造](https://arxiv.org/abs/quant-ph/0008033)。振幅放大和估计采用 [Brassard 等人的框架](https://arxiv.org/abs/quant-ph/0005055)。QAOA 的 cost/mixer 分层依据 [Farhi 等人的原始算法](https://arxiv.org/abs/1411.4028)。求阶和经典因子后处理依据 [Shor 的构造](https://arxiv.org/abs/quant-ph/9508027)。
 
 当前模乘使用有上限的置换合成，默认最多 8 位；它用于检查求阶接口与线路，不代表已实现可扩展的 Shor 模算术。VQE 和 QAOA 提供量子电路，经典优化器由应用选择。QSVT 接收调用方提供的相位序列，不包含通用相位求解器。
+
+## 算法页面
+
+每个算法一页，说明接口、输入模型、实现要点与验证证据的位置。页面按文件名排序；每页首行下方注明类别（C1–C6 或应用层）与所属模块，类别定义见[验证计划](../../development/validation-plan.md)。
+
+```{toctree}
+:maxdepth: 1
+:caption: 算法页面
+:glob:
+
+*
+```

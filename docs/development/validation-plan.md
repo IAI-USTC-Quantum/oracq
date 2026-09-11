@@ -51,14 +51,14 @@
 | 模块 | 算法 | 状态 | 缺口与计划 |
 |---|---|---|---|
 | transforms.py | qubitization walk、QSVT 序列、OAA | ✅ | 序列约定已由 qsvt.py 钉死（逐点一致 1e-10） |
-| qsvt.py | 相位合成、求逆、过滤、HS 模拟、定点搜索 | ✅ | **收敛性扫描缺失**：误差 vs 度数/κ 的批量曲线未自动化；合成度数病态边界（≳16）只有自检，建议加"病态输入必须抛错"的负例参数化测试 |
+| qsvt.py | 相位合成、求逆、过滤、HS 模拟、定点搜索 | ✅ | **收敛性扫描缺失**：误差 vs 度数/κ 的批量曲线未自动化；合成度数病态边界（≳16）已有负例覆盖：tests/core/test_qsvt.py:PhaseSynthesisTests.test_input_validation 与 TransformWitnessTests.test_transform_input_validation（含奇偶性违例、|coeff|>1、端点未饱和、虚部奇偶、κ 病态、度数 0、t=0、Δ≥1、奇偶度数违例等场景） |
 | hamiltonian.py | Trotter、Taylor、hamsim | ✅ | Trotter 阶数误差率未做扫描 |
 | sparse.py / block_encoding.py | 稀疏 BE、BE 代数 | ✅ | — |
 | qlss.py | CKS、Costa | 🟡 | 有范式见证；缺与 HHL 论文参考值的端到端对拍案例（可入目录） |
 | ode.py / lchs.py / cbmd.py / schrodingerization.py / carleman.py | ODE/PDE 求解器 | 🟡 | 各自有见证；缺统一的"解析可解 ODE 族"收敛性基准（同一问题过全部求解器） |
 | sde.py | Fokker–Planck | ✅ | OU 矩对拍；补 SDE 求解器与 LCHS 的端到端目录案例 |
-| density.py（在途） | 纯化、Gibbs | 🟡 | 完成后需：Gibbs 误差 vs β/度数的收敛扫描 |
-| lowrank.py（在途） | DF/THC → BE | 🟡 | 完成后需：α 上界紧性见证 |
+| density.py | 纯化、Gibbs | ✅ | 收敛扫描已补：tests/core/test_density.py:GibbsTests.test_error_convergence_decreases（error ∈ {0.4,0.2,0.1} 单调不增+每档≤error，实测 5.6e-4/8.7e-5/8.7e-5）与 test_error_bound_uniform_in_beta（β ∈ {0.2,0.5,1.0} 网格每点 ≤0.1） |
+| lowrank.py | DF/THC → BE | ✅ | α 上界紧性已补：tests/core/test_lowrank.py:DoubleFactorizationTests.test_alpha_matches_closed_form_eigenvalues（2×2 闭式独立对拍 places=10）、test_df_alpha_tighter_than_pauli（DF α=1.4 ≤ Pauli α=1.5）；ThcTests.test_thc_alpha_matches_hand_computed_bound（THC α=1.996 独立手算） |
 
 ### 概率分布算法（C3）
 
@@ -66,9 +66,9 @@
 |---|---|---|---|
 | estimation.py | QPE、QAE、量子计数、Hadamard/SWAP test | ✅ | QAE 置信区间声明未见证（只验证了点估计） |
 | search.py | Grover、振幅放大 | ✅ | — |
-| integration.py（在途） | Heinrich 求和/积分 | ❌ | 待完成；要求闭式均值对拍 + heinrich_rate 参数校验 |
-| gradient.py（在途） | Jordan 梯度 | ❌ | 待完成；要求线性精确 + 二次收敛 |
-| qpca.py（在途） | QPCA、密度矩阵指数化 | ❌ | 待完成；要求特征值读出峰对拍 + Δt 一阶误差率 |
+| integration.py | Heinrich 求和/积分 | ✅ | 闭式均值对拍 + heinrich_rate 参数校验已有见证（tests/core/test_integration.py:SumPreparationTests / QuantumSumTests / RateTests） |
+| gradient.py | Jordan 梯度 | ✅ | 线性精确 + 扰动收敛已有见证（tests/core/test_gradient.py:GradientTests.test_perturbed_linear_concentrates_with_grid_bits 含失败概率衰减率 q_{m+1} ≤ 0.34·q_m） |
+| qpca.py | QPCA、密度矩阵指数化 | ✅ | 特征值读出峰对拍 + Δt 一阶误差率已有见证（tests/core/test_qpca.py:DensityMatrixExponentiationTests / QpcaTests） |
 
 ### 启发式/优化算法（C4）
 
@@ -82,7 +82,7 @@
 | 模块 | 内容 | 状态 | 缺口与计划 |
 |---|---|---|---|
 | qfvm.py / qham/ | QFVM、QHAM | ✅ | 目录对拍已有 |
-| catalog.py / gallery.py | 34 案例对拍目录 | ✅ | 新算法（qsvt 求逆、graph_walks 搜索、data_loading、integration、qpca）未登记 |
+| catalog.py / gallery.py | 33 案例对拍目录 | ✅ | 新算法（qsvt 求逆、graph_walks 搜索、data_loading、integration、qpca）未登记 |
 
 ## 4. 横切验证机制（基础设施投入项）
 
@@ -101,7 +101,7 @@
 
 | 阶段 | 内容 | 前置 |
 |---|---|---|
-| V1 | 不变量测试库（4 个断言原语）+ 在途模块（density/gradient/lowrank/integration/qpca）的见证按矩阵要求补齐 | 无 |
+| V1 | 不变量测试库（4 个断言原语）+ 在途模块（density/gradient/lowrank/integration/qpca）的见证按矩阵要求补齐（已完成，0.x 迭代） | 无 |
 | V2 | 收敛性扫描框架 + qsvt/hamsim/ODE 求解器的收敛基准接入 validation.json | V1 |
 | V3 | catalog 登记新算法（qsvt 求逆、MNRS 搜索、Select-Swap、Heinrich 积分、QPCA）+ tests/integration 真实后端对拍扩展 | V1 |
 | V4 | 三绑定一致性参数化测试铺开（oracles/prepare_select/graph_walks/data_loading） | V1 |

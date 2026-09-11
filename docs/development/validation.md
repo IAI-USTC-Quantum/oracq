@@ -17,3 +17,16 @@
 - 安装包：源码包与 wheel 构建通过，隔离环境中的规范导入、旧导入兼容和基础算法执行通过。
 
 机器可读结果见 [validation.json](validation.json)。
+
+## V1 验证覆盖进展（2026-09-10）
+
+以下进展按 [`validation-plan.md`](validation-plan.md) §5 的 V1 阶段落地；上一节仍是 0.8 发布时点的验收快照，本节反映 0.8 之后的迭代进展而不重写历史。完整的"每个算法的证据在哪里"见 [`validation-coverage.md`](validation-coverage.md)。
+
+- 不变量测试库：`tests/core/witness.py` 提供 `assert_unitary` / `assert_uncomputation` / `assert_bind_invariant` / `assert_block_equals` 四个断言原语，自证测试位于 `tests/core/test_witness.py`（4 个测试类，11 个用例，覆盖正确/故意错误两种路径）。
+- 在途模块见证按矩阵要求补齐：
+  - density：Gibbs 误差扫描 (`GibbsTests.test_error_convergence_decreases` 实测 5.6e-4 / 8.7e-5 / 8.7e-5，单调不增 + 每档 ≤ error) 与 β 网格 (`test_error_bound_uniform_in_beta`)。
+  - gradient：失败概率衰减率 (`GradientTests.test_perturbed_linear_concentrates_with_grid_bits` 断言 q_{m+1} ≤ 0.34·q_m，实测比率 0.292 / 0.268)。
+  - lowrank：2×2 闭式独立对拍 places=10 (`DoubleFactorizationTests.test_alpha_matches_closed_form_eigenvalues`)、DF α=1.4 ≤ Pauli α=1.5 (`test_df_alpha_tighter_than_pauli`)、THC α=1.996 独立手算 (`ThcTests.test_thc_alpha_matches_hand_computed_bound`)。
+  - integration：闭式均值对拍 + heinrich_rate 校验 (`SumPreparationTests` / `QuantumSumTests` / `RateTests`)。
+  - qpca：特征值读出峰对拍 + Δt 一阶误差率 (`DensityMatrixExponentiationTests` / `QpcaTests`)。
+- 核心测试总数：237 → 253（`python -m unittest discover -s tests/core` 全绿）。`src/` 本轮未改动。

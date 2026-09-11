@@ -46,7 +46,7 @@ src/pyqecclang/
 └── applications/     QFVM、Roe、QHAM 数学支持和案例目录
 ```
 
-算法库包括查询、Fourier 算术、搜索与振幅放大、估计、变分电路、量子行走、求阶、简单纠错、Hamiltonian 演化、QLSS 和多种 QODE 方法。各类别的实现位于独立文件，详见[算法目录](docs/manual/algorithms.md)。
+算法库包括查询、Fourier 算术、搜索与振幅放大、估计、变分电路、量子行走、求阶、简单纠错、Hamiltonian 演化、QLSS 和多种 QODE 方法。各类别的实现位于独立文件，详见[算法目录](docs/manual/algorithms/index.md)。
 
 旧导入路径集中转发到同一份实现，新代码使用规范路径。迁移说明见[导入路径](docs/manual/compatibility.md)。
 

@@ -1,0 +1,53 @@
+# Heinrich 量子求和（Heinrich Quantum Summation）
+
+> 类别 C3 · 模块 `pyqecclang.algorithms.integration` · 阶段 V1
+
+## 概述
+
+估计非负整数函数 $f$ 在均匀网格上的均值 $E[f] = \frac{1}{N}\sum_i f(i)$，并以此组装一维数值积分。实现依据 Heinrich 2002（"Quantum Summation with an Application to Integration", J. Complexity 18(1)，另见 Novak 2001 的函数类量子求积率）。
+
+读出采用比较器构造：阈值寄存器取均匀叠加后与函数值比较，好状态（flag = 1）概率**恰为** $E[v]/2^w$——对 $v$ 严格线性，无需小角度近似；对该标记做标准振幅估计，查询复杂度 $O(1/\varepsilon)$，相对经典 Monte Carlo 的 $O(1/\varepsilon^2)$ 呈二次改进。
+
+## 接口与输入模型
+
+```python
+quantum_sum(database, *, precision=4, name=None)
+```
+
+- `database`：函数值加载器（`XorDatabase`，address = index、data = value），input model 为 FO + QRAM，与仓库的三层绑定（abstract / gate / qram）直接兼容；通常由 `table_loader(values, data_width=None, backend="gate"|"qram")` 构造。
+- `precision`：相位寄存器位数，范围 1..63；估计误差量级 $O(1/2^{\text{precision}})$。
+
+返回 `Operation`，寄存器为 `target`、`work`、`phase`。读出 `phase` 后用 `mean_from_phase(value, precision, data_width)` 解码均值估计。模块属性：
+
+| 属性 | 含义 |
+|---|---|
+| `algorithm` | `"quantum_sum"` |
+| `readout_register` / `decoder` | `"phase"` / `"mean_from_phase"` |
+| `value_bits` / `index_bits` | 值字宽 $w$ 与下标位数 $n$ |
+| `query_complexity` / `classical_query_complexity` | `O(1/epsilon)` / `O(1/epsilon**2)` |
+
+相关入口：`quantum_integral`（一维积分，均值乘区间长度，解码用 `integral_from_phase`）与 `heinrich_rate(smoothness, dimension)`（函数类最优收敛率：确定性 $s/d$、随机化 $s/d + 1/2$、量子 $s/d + 1$）。
+
+## 实现要点
+
+生成链为 `sum_preparation`（均匀 index + 函数值加载 + 阈值比较）→ `sum_iterate`（标记由制备 target 的 flag 位驱动的 Grover 迭代）→ `phase_estimation`。寄存器布局：`target = index(n) | threshold(w) | flag(1)`，`work = value(w)`；value 字与 index 纠缠留在 work（比较器读出不需要复净它，制备标注 `clean_work=False`），调用方按 flag 标记后应逆调用制备复原。
+
+适用边界：函数值必须量化为 $w$ 位非负整数（`table_loader` 逐值校验字宽）；均值估计的精度由 QAE 栅格决定，`precision` 每加 1 位栅格密度翻倍。积分路线（`quantum_integral`）的总误差 = 离散化误差（由网格与光滑性决定，见 `heinrich_rate`）+ QAE 估计误差。
+
+## 验证方案
+
+类别 C3（概率分布语义，判定准则见 `../development/validation-plan.md` §2）：输出分布须等于闭式期望。见证已齐，三层证据：
+
+- 结构：`tests/core/test_integration.py:SumPreparationTests` / `QuantumSumTests` / `RateTests` 的构造与属性断言；`RateTests.test_invalid_inputs_fail_at_generation` 覆盖全部入口的参数违例（空表、负值、字宽越界、非法 backend、precision / interval / 光滑性参数越界等）。
+- 数值：`SumPreparationTests.test_flag_probability_matches_mean` 与 `test_constant_table_exact` 对拍线性恒等式 $P(\text{flag}=1) = E[v]/2^w$（places = 12）；`QuantumSumTests.test_mean_on_qae_grid_is_exact` 在均值恰落 QAE 栅格时要求全部非零概率读出精确等于真值（places = 9）；`test_ramp_mean_within_qae_resolution`（delta = 0.5）与 `test_quantum_integral_trapezoid_scale`（对拍量化均值 delta = 0.06、积分真值 0.5 处 delta = 0.09）覆盖栅格外的分辨率界；`RateTests.test_heinrich_rate_known_values` 校验收敛率闭式值。
+- 绑定：`SumPreparationTests.test_qram_binding_matches_gate`（gate / qram 两绑定的 flag 概率逐点对拍，places = 12）与 `test_abstract_loader_binds`（abstract 声明经 `bind` 绑定后概率不变）共同覆盖三层一致性。
+
+## 已知缺口与计划阶段
+
+无已知缺口，阶段 V1 见证已齐（闭式均值对拍 + `heinrich_rate` 校验 + 三层一致性）。按 validation-plan §5 的 V3 计划，Heinrich 积分待登记 catalog 案例并接入真实后端对拍。
+
+## 相关链接
+
+- 源码：`src/pyqecclang/algorithms/integration.py`
+- API 参考：[量子求和与积分](../../api/algorithms/integration.rst)
+- 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
