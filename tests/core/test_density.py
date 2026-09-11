@@ -146,6 +146,48 @@ class GibbsTests(unittest.TestCase):
         expected = gibbs_state(hamiltonian, beta)
         self.assertLess(trace_distance(reduced, expected), 0.1)
 
+    def test_error_convergence_decreases(self):
+        # 实测口径：error 控制多项式一致截断误差，是迹距离的上界但远不紧——
+        # 各档实测距离 5.6e-4 / 8.7e-5 / 8.7e-5（error=0.2 与 0.1 落到同一
+        # 截断度数，距离相同），因此断言单调不增而非严格下降，并要求每档 ≤ error。
+        hamiltonian = ((1.0 + 0j, 0j), (0j, -0.5 + 0j))
+        beta = 0.8
+        errors = (0.4, 0.2, 0.1)
+        distances = []
+        for error in errors:
+            be = matrix_pauli_encoding(hamiltonian)
+            access = gibbs_purification(be, beta, error=error)
+            vector = dense_state(
+                simulate(access.operation.program()), 1, signal_width=access.signal_qubits
+            )
+            reduced, _ = renormalized(partial_trace(vector, 1, 1))
+            distances.append(trace_distance(reduced, gibbs_state(hamiltonian, beta)))
+        for error, distance in zip(errors, distances, strict=True):
+            self.assertLessEqual(
+                distance, error, msg=f"error={error} 档迹距离 {distance} 超过上界；各档 {distances}"
+            )
+        self.assertLessEqual(distances[1], distances[0], msg=f"各档距离 {distances}")
+        self.assertLessEqual(distances[2], distances[1], msg=f"各档距离 {distances}")
+
+    def test_error_bound_uniform_in_beta(self):
+        # 固定 error=0.1 扫 β：各点迹距离 ≤ error，误差不随 β 恶化到越界。
+        # 实测距离 2.7e-6 / 1.5e-5 / 1.9e-4，随 c=βα/2 增长但始终远小于 error。
+        hamiltonian = ((1.0 + 0j, 0j), (0j, -0.5 + 0j))
+        error = 0.1
+        distances = []
+        for beta in (0.2, 0.5, 1.0):
+            be = matrix_pauli_encoding(hamiltonian)
+            access = gibbs_purification(be, beta, error=error)
+            vector = dense_state(
+                simulate(access.operation.program()), 1, signal_width=access.signal_qubits
+            )
+            reduced, _ = renormalized(partial_trace(vector, 1, 1))
+            distances.append(trace_distance(reduced, gibbs_state(hamiltonian, beta)))
+        for beta, distance in zip((0.2, 0.5, 1.0), distances, strict=True):
+            self.assertLessEqual(
+                distance, error, msg=f"β={beta} 迹距离 {distance} 超过 {error}；各点 {distances}"
+            )
+
     def test_invalid_inputs_fail_at_generation(self):
         be = matrix_pauli_encoding(((1.0, 0.0), (0.0, -1.0)))
         cases = [

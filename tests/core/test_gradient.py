@@ -79,6 +79,12 @@ class GradientTests(unittest.TestCase):
             probabilities.append(measured[exact])
         self.assertLess(probabilities[0], probabilities[1])
         self.assertLess(probabilities[1], probabilities[2])
+        # 失败概率衰减率：相位扰动 o(1/N) 下峰外泄漏随网格细化近似二次收敛
+        # （q 约按 1/4 衰减）。实测比率 q1/q0 ≈ 0.292、q2/q1 ≈ 0.268，
+        # 取留有余地的上界 0.34。
+        failures = [1 - p for p in probabilities]
+        self.assertLess(failures[1], 0.34 * failures[0])
+        self.assertLess(failures[2], 0.34 * failures[1])
 
     def test_abstract_oracle_binds_to_gate_implementation(self):
         grid_bits = 3

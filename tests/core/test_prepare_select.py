@@ -4,6 +4,8 @@ import cmath
 import math
 import unittest
 
+from witness import assert_block_equals
+
 from pyqecclang import ValidationError, bind, simulate, unresolved
 from pyqecclang.algorithms.hamiltonian import PauliHamiltonian
 from pyqecclang.algorithms.oracles import gate_database
@@ -102,14 +104,7 @@ class PrepareSelectTests(unittest.TestCase):
         self.assertEqual(attributes["selector_width"], 2)
         self.assertEqual(be.signal_qubits, 2)
         matrix = dense_hamiltonian(TERMS)
-        for column in range(4):
-            state = simulate(be.operation.program(), initial={"target": column})
-            for row in range(4):
-                self.assertAlmostEqual(
-                    state.amplitudes.get((row, 0), 0) * be.alpha,
-                    matrix[row][column],
-                    places=10,
-                )
+        assert_block_equals(self, be, matrix, places=10)
 
     def test_abstract_prepare_binds_inside_block_encoding(self):
         slot = abstract_prepare(COEFFICIENTS)
@@ -214,14 +209,7 @@ class PrepareSelectTests(unittest.TestCase):
         be = lcu_prepare_select(hamiltonian)
         self.assertAlmostEqual(be.alpha, 3.0)
         matrix = dense_hamiltonian(hamiltonian.terms)
-        for column in range(2):
-            state = simulate(be.operation.program(), initial={"target": column})
-            for row in range(2):
-                self.assertAlmostEqual(
-                    state.amplitudes.get((row, 0), 0) * be.alpha,
-                    matrix[row][column],
-                    places=10,
-                )
+        assert_block_equals(self, be, matrix, places=10)
         single = lcu_prepare_select(((2.0, "Z"),))
         self.assertAlmostEqual(single.alpha, 2.0)
         state = simulate(single.operation.program(), initial={"target": 1})
