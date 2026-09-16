@@ -16,6 +16,7 @@ math-functions
 qfvm
 qham
 backends
+resource-estimation
 cli
 compatibility
 limits

@@ -39,13 +39,16 @@ from pyqecclang.algorithms.qlss import (
 )
 from pyqecclang.infrastructure.backends import (
     OriginIRArtifact,
+    StrictArtifact,
     export_originir,
+    export_strict,
     quantikz,
     run_originir,
 )
 from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
 from pyqecclang.infrastructure.backends.pysparq import run_pysparq, run_pysparq_rir
 from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.estimate import ResourceEstimate, estimate_resources
 from pyqecclang.infrastructure.execution import RegisterState, simulate
 from pyqecclang.infrastructure.ir import (
     QRAM,
@@ -105,6 +108,8 @@ __all__ = [
     "Module",
     "Operation",
     "OriginIRArtifact",
+    "ResourceEstimate",
+    "StrictArtifact",
     "Primitive",
     "Program",
     "QRAM",
@@ -121,7 +126,9 @@ __all__ = [
     "ValidationError",
     "block_encoding",
     "dumps",
+    "estimate_resources",
     "export_originir",
+    "export_strict",
     "fuse",
     "identity",
     "linear_combination",

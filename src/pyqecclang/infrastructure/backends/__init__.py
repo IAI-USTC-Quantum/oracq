@@ -6,5 +6,13 @@ from pyqecclang.infrastructure.backends.originir import (
     run_originir,
 )
 from pyqecclang.infrastructure.backends.quantikz import quantikz
+from pyqecclang.infrastructure.backends.strict import StrictArtifact, export_strict
 
-__all__ = ["OriginIRArtifact", "export_originir", "quantikz", "run_originir"]
+__all__ = [
+    "OriginIRArtifact",
+    "StrictArtifact",
+    "export_originir",
+    "export_strict",
+    "quantikz",
+    "run_originir",
+]

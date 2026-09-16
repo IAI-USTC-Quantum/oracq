@@ -75,6 +75,12 @@ class Operation:
 
         return quantikz(self, **kwargs)
 
+    def estimate(self, **kwargs):
+        """Toffoli+Clifford+T+QRAM 级别的组合式资源估计（Repeat 符号相乘）。"""
+        from pyqecclang.infrastructure.estimate import estimate_resources
+
+        return estimate_resources(self.program(), **kwargs)
+
 
 class Builder:
     def __init__(

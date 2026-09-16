@@ -43,6 +43,10 @@ def main():
             "algorithm_gallery",
             [sys.executable, "examples/algorithm_gallery.py", "-o", str(output / "gallery")],
         ),
+        (
+            "resource_estimates",
+            [sys.executable, "tools/build_resource_estimates.py"],
+        ),
     ]
     if args.docs:
         commands.extend(
