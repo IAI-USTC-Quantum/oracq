@@ -46,3 +46,26 @@ deutsch_jozsa(function: XorDatabase)
 - 源码：`src/pyqecclang/algorithms/oracle_algorithms.py`
 - API 参考：[Oracle 查询算法](../../api/algorithms/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_oracles.py`（C 组案例），产物 `out/verification/oracles.json`。
+
+实验设计：宽度 2–5 bit，每个宽度五个承诺函数——常量 0、常量 1、平衡 parity（$s\cdot x$，$s$ 全 1）、平衡 MSB、平衡阈值函数（非线性），oracle 均为 `gate_database` 真值表。判定指标为 $P(\mathrm{input}=0)$：常量情形须精确为 1、平衡情形须精确为 0；常量与线性平衡两类有闭式末态 $(-1)^c|0^n\rangle|-\rangle$ / $|s\rangle|-\rangle$，另做相位敏感的逐振幅对拍。另设 BooleanNetwork 编译 oracle 的端到端案例（parity3 / const3）：网络经 `operation()` 编译后包装为 XOR database 接口，先在叠加态下对 `net.evaluate` 的 16 个分支逐振幅穷举，再做 DJ 判定（见[布尔网络](boolean-networks.md)数值验证节）。后端路径：reference、rir-pysparq、originir-ext。
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| dj-decision-w2 | 2 bit，5 函数 | reference, rir-pysparq, originir-ext | p_zero_max_error = 7.8e-16，decision_errors = 0，闭式 max_error = 2.2e-16 |
+| dj-decision-w3 | 3 bit，5 函数 | 同上 | p_zero_max_error = 1.1e-15，decision_errors = 0，闭式 max_error = 3.3e-16 |
+| dj-decision-w4 | 4 bit，5 函数 | 同上 | p_zero_max_error = 1.4e-15，decision_errors = 0，闭式 max_error = 4.4e-16 |
+| dj-decision-w5 | 5 bit，5 函数 | 同上 | p_zero_max_error = 1.8e-15，decision_errors = 0，闭式 max_error = 5.6e-16 |
+| dj-boolean-network-parity3 | 3 bit 平衡（网络编译） | rir-pysparq, originir-ext | max_error = 8.3e-17，p_zero_error = 0.0 |
+| dj-boolean-network-const3 | 3 bit 常量（网络编译） | rir-pysparq, originir-ext | max_error = 8.3e-17，p_zero_error = 1.1e-15 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_oracles.py
+```
+
+产物路径：`out/verification/oracles.json`。

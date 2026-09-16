@@ -61,3 +61,32 @@ reflect_zero(builder, register, *, positive=False)
 - 同族页面：[稀疏矩阵块编码](sparse-block-encoding.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
 - API 参考：[Block encoding 组合](../../api/algorithms/block_encoding.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `matrix-pauli-encoding-*`、`be-algebra-*`、`pauli-word-YZX`、`projector-w2-03`、`truncated-shift-w2-l3` 共 12 个案例。
+
+实验设计：固定种子的随机 Hermitian / 非 Hermitian 小矩阵经 `matrix_pauli_encoding` 编码，七种组合子（tensor / adjoint / pad_signal / lcu 复系数 / kronecker_sum / direct_sum / product）各自组装；程序全幺正经 OriginIR-ext 导出 + UniQC `Circuit.to_matrix` 取出，`harness.effective_block` 提取零信号有效块并报告失败分支（信号 ≠ 0）泄漏上界；期望矩阵由 numpy 独立组装（Pauli 字约定 `word[0]` 作用于最低位）。`pauli_word`（无信号位，泄漏恰为 0）与布尔嵌入 `projector` / `truncated_shift` 同法与显式经典矩阵逐元对拍。各案例另以 reference / rir-pysparq / adapter-pysparq 逐列交叉（偏差均恰为 0），α 与独立计算的 Pauli l1 上界对拍。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `matrix-pauli-encoding-2x2-general` | 2×2 非 Hermitian | originir-ext + to_matrix，三后端交叉 | max_error | 1.3e-16 |
+| `matrix-pauli-encoding-4x4-hermitian` | 4×4 Hermitian | 同上 | max_error | 4.6e-16 |
+| 同上 | — | — | α − 独立 Pauli l1 | 0（恰等于上界） |
+| `be-algebra-tensor` | 2×2 ⊗ 2×2 | originir-ext + to_matrix | max_error | 1.3e-16 |
+| `be-algebra-adjoint` | 2×2 非 Hermitian | 同上 | max_error | 2.3e-16 |
+| `be-algebra-pad-signal` | signal +2 位 | 同上 | max_error | 1.2e-16 |
+| `be-algebra-lcu-complex` | 复系数 0.6+0.3j / −0.8 | 同上 | max_error | 2.4e-16 |
+| `be-algebra-kronecker-sum` | A⊗I+I⊗B | 同上 | max_error | 2.5e-16 |
+| `be-algebra-direct-sum` | 同宽直和 | 同上 | max_error | 1.1e-16 |
+| `be-algebra-product` | A·C（非 Hermitian） | 同上 | max_error | 2.2e-16 |
+| `pauli-word-YZX` | 3 位，α=1 | originir-ext + to_matrix | max_error / leakage | 0 / 0 |
+| `projector-w2-03` / `truncated-shift-w2-l3` | 2 位 | 同上 | max_error | 0 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

@@ -63,3 +63,31 @@ $U_r$ 由两能级分解合成：逐列消元为对角相位后按逆序回放�
 - 同模块算法：[THC 块编码](thc.md)
 - API 参考：[化学低秩分解块编码](../../api/algorithms/lowrank.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `diagonalize-symmetric-*`、`df-encoding-*` 与 `diagonal-be-*` 共 11 个案例（对角块编码 `_diagonal_encoding` 即 DF 秩项的内核）。
+
+实验设计：
+
+1. **对角 BE 多规模**（`_diagonal_encoding`，论文点名的 diagonal BE）：三组谱（混合符号、含零元、三角函数生成）dim ∈ {2, 4, 8} 走 OriginIR-ext + UniQC `to_matrix` 全幺正提取（(0,0) 块对照 $\mathrm{diag}(g)/\alpha$ 并报告失败分支泄漏），dim ∈ {16, 32, 64} 走 reference + rir-pysparq 逐列；另有公开组装一致性案例——同一对角谱经 `double_factorized_encoding`（恒等旋转、双秩同谱）与直连对角 BE 的块逐元一致。
+2. **Jacobi 特征分解**：随机实对称矩阵 dim ∈ {2, 4, 8, 16, 32}，特征值对照 `numpy.linalg.eigh`，并检验重构 $V\mathrm{diag}(\lambda)V^{\mathsf T}$ 与正交性。
+3. **DF 块编码多秩多规模**：2×2 双秩 + scalar（`from_symmetric` 预处理，全幺正提取）、4×4 三秩随机正交旋转（全幺正提取）、8×8 双秩（reference + rir）；期望矩阵由 numpy 独立组装，α 对照 $|\mathrm{scalar}|+\sum_r\lVert g_r\rVert_1$ 闭式。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `diagonal-be-unitary-d2/d4/d8` | dim 2/4/8，α=2.0/3.25/4.0 | originir-ext + to_matrix，三后端交叉 | max_error | 5.6e-17 / 5.6e-17 / 1.1e-16 |
+| `diagonal-be-wide-d16/d32/d64` | dim 16/32/64 | reference + rir | max_error | 1.1e-16 / 1.0e-16 / 1.1e-16 |
+| `diagonal-be-public-df-d4` | dim 4（双路径） | reference | max_error | 5.6e-17 |
+| `diagonalize-symmetric-d2..d32` | 5 组 | 经典独立对拍 | 重构 / 特征值 / 正交性误差 | ≤6.2e-13 / ≤5.7e-14 / ≤7.3e-15 |
+| `df-encoding-rank2-scalar-d2` | rank 2 + scalar，α=5.05 | to_matrix + 三路径 | max_error / α−闭式 | 4.4e-16 / −8.9e-16 |
+| `df-encoding-rank3-d4` | rank 3，α=8.24 | to_matrix + reference | max_error | 1.6e-15 |
+| `df-encoding-rank2-d8` | rank 2 + scalar 0.7 | reference + rir | max_error | 1.2e-15 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

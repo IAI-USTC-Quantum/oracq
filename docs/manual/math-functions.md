@@ -115,3 +115,28 @@ PYTHONPATH=src .venv/bin/python tools/build_math_functions.py
 out/math-functions/ 包含 pressure、roe_speed、phase_response、guarded_reciprocal、polynomial、自动 Roe face 与接入后的 QFVM，共七组产物。见 [实施面板](../development/contributing.md) 与 [验证记录](../archive/function-compiler-validation.json)。
 
 数学精度、复杂分支切线、Roe 数值结果和资源优化仍待核验。现有测试覆盖编译、类型、可逆更新、模块复用和真实后端消费。
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_mathfunc.py`（真实后端执行，无模拟替身）。实验设计：本页 5 个函数（pressure、roe_speed、phase_response、guarded_reciprocal、polynomial）与 `roe_formulas.frozen_roe_face` 经 `compile_function` 编译为 FixedFormat(6,2)/(8,3) 两种格式（gamma、order、entropy_delta 等默认参数作生成期常量，roe_face 的 row/col 为 Index(2)、输出 left/right 双寄存器），在 rir-pysparq 上以叠加态一次穷举输入域——单输入函数全域 2^6/2^8 分支；多输入函数逐轴纤维穷举加联合立方体；roe_face 另做 row×col 全 16 组联合（含越界索引 3）与六实轴全幅值 16 点网格。期望值由独立的定点语义逐比特仿真（_Fx：mul/div/sqrt 幅度向零截断、add/sub 模 wrap、status 位 0 = 定义域失效、位 1 = 值域/字长越界、helper 调用合并全部参数旗标）与 float64 原式双层给出；phase_response 的初等核按模块属性 `math_approximation` 的 Chebyshev 系数逐比特复现（degree=3），另报系数配方与真函数的方法误差。status 旗标逐分支核对；reference / adapter-pysparq 在代表性程序上振幅级三方对拍。编译函数工作区实测 358–2178 量子比特，远超 OriginIR-ext 的 24 比特预算，故不走态向量路径。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `polynomial-exhaustive-6.2/8.3` | 64 / 256 分支全域 | rir-pysparq | max_error | 0 / 0（逐比特一致；旗标 44 / 197 分支全部符合值域越界预测） |
+| `guarded-reciprocal-exhaustive-6.2/8.3` | 64 / 256 分支全域 | rir-pysparq | max_error | 0.235 / 0.123（0.94 / 0.98 量子，即除法截断界 1 量子内；全域无旗标，x=0 守护生效） |
+| `pressure-fibers-6.2/8.3` | 3 轴 × 64 / 256 分支 | rir-pysparq | max_error / method_error | 0 / 0（常量量化偏差 1.4 / 0.578；rho=0 除零旗标与越界旗标逐分支符合） |
+| `roe-speed-fibers-6.2/8.3` | 4 轴 × 64 / 256 分支 | rir-pysparq | max_error / method_error | 0 / 0（含 sqrt 截断仿真；rho≤0 定义域旗标逐分支符合） |
+| `phase-response-fibers-6.2/8.3` | 2–3 轴 × 64 / 256 分支 | rir-pysparq | max_error / method_error | 0 / 0（对照系数配方；方法误差 1.770 / 1.349 为 degree=3 核固有近似误差；z=±i 除零与核区间越界旗标逐分支符合） |
+| `phase-response-kernel-method` | 4001 点稠密网格 | 经典对照 | method_error（exp/sin/cos） | 0.148 / 0.195 / 0.364 |
+| `roe-face-index-joint-6.2/8.3` | row×col 16 组 | rir-pysparq | max_error | 0 / 0（含越界索引 3 → 0.0；双输出 left/right） |
+| `roe-face-fibers-6.2/8.3` | 6 轴 × 16 点全幅值网格 | rir-pysparq | max_error | 0 / 0（rho≤0、c2≤0 定义域旗标逐分支符合） |
+| `cross-backend-*`（6 案例） | 16–64 分支 | rir-pysparq / reference / adapter-pysparq | max_pairwise_deviation | 0.0（三方振幅完全一致） |
+| `basis-determinism-6.2` | 6 函数各 1 物理点 | rir-pysparq | error / failures | 0 / 0（单基态入 → 单基态出，输入保持） |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_mathfunc.py
+```
+
+产物：`out/verification/mathfunc.json`（28 个案例全过，总运行约 185 秒，VERIFY_WORKERS 控制并行度）。

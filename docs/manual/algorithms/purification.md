@@ -61,3 +61,29 @@ gate 见证先对 $\rho$ 做循环 Jacobi 特征分解 $\rho = \sum_j p_j |v_j\r
 - 同模块算法：[Gibbs 态制备](gibbs-state.md)
 - API 参考：[密度矩阵输入模型与 Gibbs 态](../../api/algorithms/density.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+本节结果由 `tests/verification/verify_stateprep.py` 在真实后端上跑出（reference、rir-pysparq、adapter-pysparq、originir-ext + UniQC 四条独立路径）。
+
+**实验设计**（5 个案例）：对每条路径制备出的纯化态，用 numpy 独立实现的偏迹（不调用本模块的 `partial_trace` / `trace_distance`）计算 system 约化密度矩阵，再以差矩阵特征值给出迹距离 $T(\rho_{\text{sim}}, \rho)$ 与逐元误差。实例：2×2 复 Hermitian 混合态（非对角元含虚部）、4×4 与 16×16 高斯随机密度矩阵（$G^\dagger G$ 归一化，确定性种子）、最大混合态 $I/8$ 的 3 对 Bell 纯化（附带 Schmidt 结构检查：非零幅度仅出现在 system == environment 基态）、以及 `from_state_preparation` 纯态适配（约化矩阵应等于 $|\psi\rangle\langle\psi|$）。
+
+**关键指标**：
+
+| 案例 | 规模（system+environment） | 路径 | trace_distance | max_element_error |
+|---|---|---|---|---|
+| purification-gate-rho2 | 1+1 qubit | 四路径 | 1.1e-16 | 1.1e-16 |
+| purification-gate-rho4 | 2+2 qubit | 四路径 | 3.2e-11 | 1.9e-11 |
+| purification-gate-rho16 | 4+4 qubit | 四路径 | 8.9e-11 | 1.4e-11 |
+| purification-bell-w3 | 3+3 qubit | 四路径 | 2.2e-16 | 5.6e-17 |
+| purification-pure-adapter | 1+0 qubit | 四路径 | 8.3e-17 | 1.1e-16 |
+
+4×4 与 16×16 案例的残差（~1e-10）来自生成期循环 Jacobi 特征分解（容差 1e-13）的方法误差而非执行误差——后端之间两两偏差处于机器精度量级；Bell 纯化的 `off_schmidt_probability` 为 0，确认 Schmidt 结构。
+
+**复现命令**：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_stateprep.py
+```
+
+**产物路径**：`out/verification/stateprep.json`。

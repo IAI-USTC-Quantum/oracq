@@ -59,3 +59,26 @@ modular_multiply(multiplier, modulus, *, width=None, max_width=8)
 - 源码：`src/pyqecclang/algorithms/number_theory.py`
 - API 参考：[模乘与求阶](../../api/algorithms/number_theory.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_nt_qlss_sde.py`（nt_qlss_sde 组），全部在真实后端执行；经典预言机为独立的数论置换真值（$x \mapsto ax \bmod m$ 当 $x<m$，其余基态不变），不经过被测实现的任何辅助函数。
+
+**实验设计**：(a) 对 5 个实例 $(a, m) \in \{(2,5), (3,5), (2,7), (2,9), (7,100)\}$（位宽 3–7），用叠加态（target 加 H 后调用模乘）在**一次运行内穷举全部 $2^w$ 个基态输入**，输出与经典置换重标记的均匀叠加逐振幅对拍；路径为 reference、rir-pysparq、adapter-pysparq 与 OriginIR-ext（UniQC 全振幅态向量，工作区 0）。(b) 对 $(2,5)$ 做 OriginIR-ext `Circuit.to_matrix` 全幺正检查：工作区复净后的有效块须等于经典置换矩阵，且向工作区的泄漏为零。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | max_error |
+|---|---|---|---|
+| modmul-superposition-2-5 / 3-5 / 2-7 | $2^3$ 基态穷举 | 四路径 | 5.6e-17 |
+| modmul-superposition-2-9 | $2^4$ 基态穷举 | 四路径 | 8.3e-17 |
+| modmul-superposition-7-100 | $2^7$ 基态穷举 | 四路径 | 4.2e-17 |
+| modmul-unitary-2-5 | $8 \times 8$ 全幺正 | originir-ext + to_matrix | 0.0（泄漏 0.0） |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+```
+
+产物：`out/verification/nt_qlss_sde.json`（`modmul-*` 共 6 个案例）。

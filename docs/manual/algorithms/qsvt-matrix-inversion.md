@@ -59,3 +59,28 @@ qsvt_matrix_inversion(a, kappa, *, error=0.05)
 - 源码：`src/pyqecclang/algorithms/qsvt.py`
 - API 参考：[QSVT 标准变换](../../api/algorithms/qsvt.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身）。实验设计：三组矩阵——2×2（本征值 0.4/0.8，$\kappa = 2$，`error` ∈ {0.15, 0.10}，对应度数 $d = 13, 17$）、2×2（0.2/0.6，$\kappa = 3$，`error = 0.4`，$d = 15$）、4×4 对角（0.3/0.4/0.6/0.9，$\kappa = 3$，`error = 0.4`，$d = 15$）；在 reference / rir-pysparq / originir-ext 路径上读出完整零信号块并除以 `inverse_scale`，与 `numpy.linalg.inv` 的精确逆对拍，报告相对谱误差、恢复逆的条件数与理论区间 $\kappa\cdot(1\pm e)/(1\mp e)$（每个奇异值带 ≤ `error` 的相对偏差），以及各列成功概率。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `qsvt-inversion-kappa2-error0.15` | 2×2，$d = 13$ | reference、rir-pysparq | 相对谱误差 | 0.1335（≤ 0.15） |
+| 同上 | — | — | $\kappa$ 恢复 vs 精确（理论区间） | 1.733 vs 2.0（[1.478, 2.706]） |
+| `qsvt-inversion-kappa2-error0.1` | 2×2，$d = 17$ | reference、rir-pysparq | 相对谱误差 | 0.0751（≤ 0.10） |
+| 同上 | — | — | $\kappa$ 恢复 vs 精确 | 1.850 vs 2.0（[1.636, 2.444]） |
+| `qsvt-inversion-kappa3-1q` | 2×2，$d = 15$ | reference、rir-pysparq、originir-ext | 相对谱误差 | 0.3897（≤ 0.40） |
+| 同上 | — | — | $\kappa$ 恢复 vs 精确 | 1.831 vs 3.0（[1.286, 7.0]） |
+| `qsvt-inversion-kappa3-2q` | 4×4，$d = 15$ | reference、rir-pysparq、originir-ext | 相对谱误差 | 0.3897（≤ 0.40） |
+| 同上 | — | — | $\kappa$ 恢复 vs 精确；各列成功概率 | 1.863 vs 3.0；0.031–0.109 |
+
+相对谱误差均落在请求 `error` 之内，恢复条件数均落在理论区间之内，且随 `error` 收紧而改善（0.1335 → 0.0751）。数值边界实测：求逆多项式在 $d \ge 19$（如 $\kappa = 3$、`error` ≤ 0.3）被相位合成自检拒绝（`ValidationError`，与"病态输入拒绝而非静默降级"的文档承诺一致）；$d \le 17$ 的可合成区域全部通过。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

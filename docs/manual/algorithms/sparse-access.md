@@ -59,3 +59,31 @@ QRAM 位置实现三步完成原地置换：`work ^= forward[column, index]`、`
 - 同组页面：[XOR 数据库](xor-database.md)
 - API 参考：[Oracle 声明与实现](../../api/algorithms/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `sparse-access-layer` 与 `sparse-lookup-helpers`、`sparse-boolean-helpers`、`sparse-rotation-helpers` 共 4 个案例（访问层在块编码中的端到端表现见[稀疏矩阵块编码](sparse-block-encoding.md)数值验证节）。
+
+实验设计（dim = 4、三对角结构位置、定点格式 3.1 有符号）：
+
+1. 位置 oracle `sparse_location_gate`：全部 16 个 (column, index) 基态输入逐一读出，对照经典置换表，work 须复净为 0；
+2. 元素 oracle `sparse_entry`：全部 16 个 (row, column) × 两种 data 初值（0 与非零 5）验证 XOR 语义 $d \oplus A_{rc}$；
+3. QRAM 位置实现 `sparse_location_qram`：正/反两张表作为 memory 数据绑定，逐基态验证复净语义，reference 与 rir-pysparq 两后端逐振幅一致；
+4. 访问层辅助：`reversible_lookup` 融合地址/数据视图 128 组输入、`batch_lookup` 并发三路、`compare_words`（eq/lt，位宽 1–4 全输入穷举）、`value_transposition`（3 位全 512 组输入）、`prefix_state` 前缀均匀叠加、`word_rotation` / `magnitude_rotation` 的解析概率语义。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `sparse-access-layer`（gate 位置） | dim 4，16 基态 | reference | 置换失配数 | 0 |
+| 同上（元素 XOR） | 16 × 2 组 | reference | 失配数 | 0 |
+| 同上（QRAM 位置） | 16 基态 | reference + rir | 失配数 / 后端偏差 | 0 / 0 |
+| `sparse-lookup-helpers` | 128 组融合视图 + 批量 | reference | 失配数 | 0 |
+| `sparse-boolean-helpers` | eq/lt 穷举 + 转置 512 组 | reference | 失配数 / 前缀均匀性误差 | 0 / 1.1e-16 |
+| `sparse-rotation-helpers` | 位宽 2–4 / 格式 4.1 | reference + rir | 概率语义误差 | 5.6e-16 / 1.1e-16 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

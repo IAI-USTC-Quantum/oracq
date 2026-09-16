@@ -51,3 +51,58 @@ Fourier 加法采用 [Draper 的 QFT 加法构造](https://arxiv.org/abs/quant-p
 
 *
 ```
+
+## 数值验证
+
+量子半定规划（`qsdp.py`，暂无专页）及其 `density.py` 内层原语（纯化访问、Gibbs 态制备）的论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行，经典预言机全部独立（numpy 特征分解 / `eigvalsh` / 闭式公式）。
+
+**实验设计**：
+(a) 纯化见证——2×2 复密度矩阵（非对角元 0.1±0.05j）经 `gate_purification` 制备纯化态，偏迹环境后与原矩阵逐矩阵元对拍；
+(b) Gibbs 纯化——对角 $H = \mathrm{diag}(1, -0.5)$（$\beta = 0.6$）与稠密非对角 $H$（$\beta = 0.8$）两个实例，`error = 0.05`，后选 signal == 0 分支的归一化约化态对照 numpy Gibbs 态 $e^{-\beta H}/Z$，另做 error = 0.4/0.2/0.1 的收敛扫描；
+(c) 迹估计——`trace_estimate_circuit` 对 Z/X/Y 三个 Pauli 观测量在复密度矩阵上的探针读数对照 numpy 迹 $\mathrm{Tr}(P\rho)$，以及 Gibbs 近似纯化路径的 `trace_from_joint` 联合解码；
+(d) MMW 驱动——四约束可行性实例（等式 $r_z = 0.2$、$r_x = 0.1$ 拆成双边不等式，$\varepsilon = 0.08$），收敛后对返回的平均迭代 $\bar\rho$ 做独立的 PSD/迹 1/违反量核算；
+(e) 单轮量子迭代——`iteration_circuits` 生成的 Gibbs 纯化 + 逐约束迹估计电路在参考执行器上给出的估计与经典估计器逐约束对照。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| purification-partial-trace | 2 量子位 | 四路径全振幅对拍 | 矩阵元最大误差 | 1.1e-16 |
+| gibbs-purification-diagonal | 9 量子位，qsp_degree 3 | reference + rir-pysparq + originir-ext | 迹距离 / 后选成功率 | 3.0e-5 / 0.0965 |
+| gibbs-purification-nondiagonal | 13 量子位，qsp_degree 3 | 同上 | 迹距离 / 后选成功率 | 1.9e-6 / 0.1130 |
+| gibbs-error-scaling | error = 0.4/0.2/0.1 | reference | 迹距离 | 5.6e-4 / 8.7e-5 / 8.7e-5（均 ≤ error 且单调不增） |
+| trace-estimate-pauli-xyz | ≤5 量子位 | 三路径 | Tr(Zρ)/Tr(Xρ)/Tr(Yρ) 估计 | 0.4 / 0.2 / 0.1（max 误差 5.3e-16） |
+| trace-estimate-joint-gibbs | 10 量子位 | reference + rir-pysparq | Tr(Zρ_gibbs) 联合解码 | −0.42196 vs −0.42190（误差 6.0e-5） |
+| qsdp-mmw-driver-feasibility | 4 约束，256 迭代 | 经典驱动 | 收敛 / 最大违反 / min 特征值 | ✓ / 0.0738 ≤ 0.08 / 0.4295 |
+| qsdp-mmw-quantum-round | 2 约束单轮 | reference + rir-pysparq | 量子 vs 经典估计最大差 | 2.3e-6 |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本节对应 `purification-*`、`gibbs-*`、`trace-estimate-*`、`qsdp-*` 八个案例）。组内其余算法的数值验证见各自页面（密度矩阵指数化、QPCA、DQI、变分拟设、VQE、QAOA、重复码）。
+
+## 数值验证（应用目录与结构层模块）
+
+`applications/catalog.py` 与 `applications/gallery.py` 的全部条目由 nt_qlss_sde 组的 `tests/verification/verify_nt_qlss_sde.py` 覆盖：每个条目都在真实后端（rir-pysparq、adapter-pysparq，部分含 reference 执行器）跑通并与参考执行器逐振幅对拍，oracle 层面的数值正确性由底层算法各自页面的验证节承担（数论、CKS 等见本目录对应页）。
+
+**实验设计**：gallery 22 例三后端（reference / rir-pysparq / adapter-pysparq）全振幅对拍；catalog 33 例中 31 例做 reference vs rir-pysparq 对拍（`stateprep_qram` 兼作 pysparq.rir 工作位复净的回归哨兵，另对 adapter 全态对拍），`qham_qode` 与 `qham_qpde` 两例因展开步数超 $10^6$、单后端运行约 60–90 秒，采用 spawn 子进程并发完成 reference vs adapter 对拍。这些条目是**组装示例**：其数值内容（模乘置换、求阶分布、CKS 解态等）以各算法页的独立 oracle 验证为准，目录层只钉死组装确定性，不再重复物理 oracle——这是目录/画廊条目以"结构测试 + 跨后端对拍"而非独立数值预言机覆盖的原因。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| gallery-*（22 例） | 小实例 | 三后端 | 跨后端最大振幅偏差 | 0.0（全部） |
+| catalog-*（29 例） | 小实例 | reference + rir-pysparq | 跨后端最大振幅偏差 | ≤ 1.4e-16 |
+| catalog-stateprep_qram | QRAM 角表 | 三后端 | 全态偏差 / 工作位残留 | 0.0 / 0.0 |
+| catalog-qham_qode、qham_qpde | 39296 态 | reference + adapter | 跨后端最大振幅偏差 | 1.8e-9 |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+```
+
+产物：`out/verification/nt_qlss_sde.json`（`gallery-*` 22 例、`catalog-*` 33 例）。

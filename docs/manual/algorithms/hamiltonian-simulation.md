@@ -52,3 +52,24 @@ Trotter 阶数误差率扫描缺失（阶段 V2 收敛性扫描框架，validati
 - 同族页面：[Trotter 乘积公式模拟](trotter.md)、[截断 Taylor 块编码](taylor-block-encoding.md)
 - API 参考：[Hamiltonian 演化](../../api/algorithms/hamiltonian.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身；27 案例全 PASS）。实验设计覆盖协议两条路线：Trotter 路由用 `PauliHamiltonian`（$H = 0.9\,ZZ + 0.6\,XI + 0.45\,IX$）在 steps ∈ {2, 16} 下经 OriginIR-ext + UniQC `to_matrix` 提取全幺正，与乘积公式经典矩阵逐元素对拍，并以 `scipy.linalg.expm` 为独立 oracle 报告 Trotter 间隙随步数的下降；QSP 注入路径用 `EncodedOperator`（$H = 0.6\,Z + 0.4\,X$，$\alpha = 1.0$，`method="auto"` 自动路由）注入库内 QSVT 内核 `qsvt_hamiltonian_simulation`（取 $\tau = -t\cdot\alpha$ 实现 $e^{-iHt}$，`error = 0.02`），在 reference / rir-pysparq / originir-ext 三条路径上读出零信号块并与 $e^{-itH}/\text{sim\_scale}$ 对拍。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `hamsim-protocol-trotter-2q` | 3 项，steps ∈ {2, 16} | originir-ext + UniQC to_matrix | 与乘积公式 max_error | 4.5e-15 |
+| 同上 | — | — | expm 间隙 r=2 → r=16 | 0.3475 → 0.0420 |
+| `hamsim-protocol-qsp-injection` | 1 量子位，$t = 0.5$ | reference、rir-pysparq、originir-ext | 零信号块 max_error | 1.07e-4 |
+| 同上 | — | — | 成功概率（signal = 0） | 0.1113 |
+
+Trotter 收敛阶的系统扫描（拟合阶 1.008 / 1.013，与一阶理论一致）见 [Trotter 乘积公式模拟](trotter.md) 的数值验证节。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

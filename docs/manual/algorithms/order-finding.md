@@ -49,3 +49,29 @@ factors_from_phase(value, precision, multiplier, modulus)
 - 源码：`src/pyqecclang/algorithms/number_theory.py`
 - API 参考：[模乘与求阶](../../api/algorithms/number_theory.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_nt_qlss_sde.py`（nt_qlss_sde 组），全部在真实后端执行。
+
+**实验设计**：(a) 对 7 个 $(a, m, p)$ 实例（$m \in \{3,5,7,15\}$，阶 $r \in \{2,3,4\}$，precision 3–5），在 reference 与 rir-pysparq 上运行完整求阶程序，phase 边缘分布对照独立理论：$|1\rangle$ 在 $r$ 个循环本征态上均布，每个本征相位 $s/r$ 经 QPE 产生 Dirichlet 核峰，总分布为 $\frac{1}{r}\sum_{s=0}^{r-1} D^2(y - 2^p s/r)$（numpy 独立计算）；$(2,3)$ 例另加 adapter-pysparq 与 OriginIR-ext 全振幅路径。同时报告连分数还原出完整阶的概率。(b) `factors_from_phase` 穷举：$m \in \{15,21,33,35\}$ × 全部 $a \in [2, m-2]$ × 全部 $2^8$ 个相位读出（precision=8，共 23552 次求值），任何返回因子对必须满足乘积为 $m$ 且两因子非平凡；成功率按 QPE 理论分布加权，并与独立教科书预言（$s$ 在 $[1,r)$ 均匀、候选阶 $d = r/\gcd(s,r)$、要求 $d$ 偶且 $a^d \equiv 1$ 且 $\gcd(a^{d/2}\pm1, m)$ 非平凡）逐模数对比——实测低于预言的差额是 precision=8 对较大的阶的连分数还原分辨率损失（真实物理，非实现缺陷）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| order-finding-2-3-p3 | $r=2$ | 四路径 | TVD vs Dirichlet 理论 / 阶还原概率 | 4.4e-16 / 0.500 |
+| order-finding-2-5-p4、3-5-p4 | $r=4$ | 双路径 | TVD / 阶还原概率 | 6.7e-16 / 0.500 |
+| order-finding-2-7-p4、4-7-p4 | $r=3$ | 双路径 | TVD / 阶还原概率 | 8.6e-16 / 0.459 |
+| order-finding-2-15-p5、7-15-p5 | $r=4$ | 双路径 | TVD / 阶还原概率 | 7.8e-16 / 0.500 |
+| factors-from-phase-exhaustive | 4 模数 × 56 单位群 | 经典 oracle | 无效因子对 / 加权成功率均值 / 与教科书预言最小比值 | 0 / 0.2925 / 0.791 |
+
+逐模数成功率（实测 vs 教科书预言）：$m=15$：0.500 vs 0.500；$m=21$：0.214 vs 0.233；$m=33$：0.185 vs 0.233；$m=35$：0.271 vs 0.318。奇阶或 $a^{r/2}\equiv-1$ 的固有失败单位占 16/56，与 Shor 构造的理论预期一致。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+```
+
+产物：`out/verification/nt_qlss_sde.json`（`order-finding-*`、`factors-from-phase-exhaustive` 共 8 个案例）。

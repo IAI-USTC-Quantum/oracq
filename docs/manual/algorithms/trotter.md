@@ -55,3 +55,28 @@ Trotter 阶数误差率扫描缺失：误差随 `steps` / $\Delta t$ 变化的�
 - 同族页面：[哈密顿量模拟协议](hamiltonian-simulation.md)、[截断 Taylor 块编码](taylor-block-encoding.md)
 - API 参考：[Hamiltonian 演化](../../api/algorithms/hamiltonian.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身；27 案例全 PASS，总耗时约 28 s）。实验设计：单项 Pauli 演化（10 个实例，含 Y 基变换、2–4 量子位 CNOT 链、恒等项全局相位、负时间）经 OriginIR-ext 导出并由 UniQC `Circuit.to_matrix` 提取全幺正，与独立闭式 $\cos(ct)I - i\sin(ct)P$ 逐元素对拍；多项非对易分解（1–4 量子位，steps ∈ {1,2,3,5}，t ∈ {0.4, −0.7, 0.9, 1.3}）与乘积公式经典矩阵 $\bigl(\prod_j e^{-ic_jP_jt/r}\bigr)^r$ 对拍；3 量子位 TFIM 在均匀叠加输入下做四路径交叉对拍；收敛阶用 2 与 3 量子位 TFIM 在 $t = 1.0$ 下扫 steps ∈ {1,…,64}，以 `scipy.linalg.expm` 为独立 oracle 取谱范数误差并做 log–log 拟合。UniQC `to_matrix` 会裁掉尾部无门量子位（Pauli 词尾随 I 的情形），验证脚本按恒等因子嵌回后对拍（见脚本 `embed_unitary` 注释）。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `trotter-single-term-exact` | 10 实例，1–4 量子位 | originir-ext + UniQC to_matrix | max_error | 4.4e-16 |
+| `trotter-product-formula-1q` | 3 项（含恒等项），steps×t 网格 | originir-ext + UniQC to_matrix | max_error | 5.7e-16 |
+| `trotter-product-formula-2q` | 4 项，steps ∈ {1,2,5} | originir-ext + UniQC to_matrix | max_error | 1.5e-15 |
+| `trotter-product-formula-3q` | 5 项 TFIM，steps ∈ {2,3} | originir-ext + UniQC to_matrix | max_error | 1.4e-15 |
+| `trotter-product-formula-4q` | 5 项，steps=3 | originir-ext + UniQC to_matrix | max_error | 1.7e-15 |
+| `trotter-superposition-cross-3q` | 5 项 TFIM，steps=3，叠加穷举 | reference、rir-pysparq、adapter-pysparq、originir-ext | max_deviation | 1.2e-15 |
+| `trotter-convergence-2q` | $t = 1.0$，$r$ = 1…64 | originir-ext + UniQC to_matrix | 拟合收敛阶（理论 1） | 1.008（误差 0.7627 → 0.01049） |
+| `trotter-convergence-3q` | $t = 1.0$，$r$ = 1…32 | originir-ext + UniQC to_matrix | 拟合收敛阶（理论 1） | 1.013（误差 1.0680 → 0.02809） |
+
+乘积公式语义验证到机器精度（≤ 1.7e-15），一阶 Lie–Trotter 的收敛阶拟合值 1.008 / 1.013 与理论值 1 一致，填补了本节原先"Trotter 阶数误差率扫描缺失"的缺口。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`（含全部步数的误差序列与逐词误差）。

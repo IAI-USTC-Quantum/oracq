@@ -53,3 +53,41 @@ BE 归一化不经属性传播，放大后的幅度语义由调用方解释。
 - API 参考：[矩阵变换序列](../../api/algorithms/transforms.rst)
 - 同族页面：[量子化行走](qubitization-walk.md)、[QSVT 相位序列](qsvt-sequence.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。输入 BE 为 gate 级绑定小实例。组装正确性：迭代 $it = 1, 2, 3$ 的全幺正经 OriginIR-ext + UniQC `to_matrix` 取出，与 $[R\,U^\dagger R\,U]^{it}$（$R = I - 2\Pi$）逐元素对比，与文档给出的算子公式一致。行为量测：构造零信号块恰为 $X/2$ 的门级最小实例（$\sin\theta = 1/2$ 的"$V/2$"夹具），一次迭代后实测零信号块为 $-I/2$，与实现算子的代数结果 $\Pi R U^\dagger R U \Pi = 2B^\dagger B - I$ 精确一致；但与标准三查询 OAA 语义（$\sin\theta \to \sin 3\theta$，$\theta = \pi/6$ 时幅度应恢复为 1、零块回到 $X$）的偏差为 1.0——即本模块实现的偶数次迭代是 qubitization 迭代的伴随对称形式（零块按 $2B^\dagger B - I$ 演化），不具备概述所述"1/2 缩放块编码经单次迭代恢复到 $O(1)$"的放大效应，该叙事与实现算子的差距在此记录（信息性指标，详见验证脚本注释与最终报告）。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `oaa-unitary-it1` | 8 维，1 次迭代 | originir-ext + UniQC to_matrix | max_error | 2.7e-16 |
+| `oaa-unitary-it2` | 8 维，2 次迭代（Repeat 结构） | originir-ext + UniQC to_matrix | max_error | 3.8e-16 |
+| `oaa-unitary-it3` | 8 维，3 次迭代（Repeat 结构） | originir-ext + UniQC to_matrix | max_error | 3.9e-16 |
+| `oaa-half-block-behavior` | 零块 = $X/2$ 夹具 | originir-ext + UniQC to_matrix | implemented_operator_error | 2.2e-16 |
+| 同上 | — | — | standard_oaa_deviation（信息性指标） | 1.0 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_fourier.py
+```
+
+产物：`out/verification/fourier.json`。
+
+### 补充验证：一般块的迭代恒等式与标准序列正面恢复（verify_hamiltonian.py）
+
+`tests/verification/verify_hamiltonian.py`（27 案例全 PASS）给出两组互补证据，与上文 fourier 组的量测相互印证：其一，对**一般非等距块**（$2\times2$ 矩阵 BE，$\Pi U\Pi = A/\alpha$）在 reference / rir-pysparq / originir-ext 三条路径上验证库迭代体 $S = R\,U^\dagger R\,U$ 的代数恒等式 $\Pi S\Pi = 2(\Pi U\Pi)^\dagger(\Pi U\Pi) - \Pi$（max_error 1.8e-16）——对 $V/2$ 型输入该恒等式退化为标量 $-I/2$，确认库迭代体本身不执行文献 OAA 放大；其二，用库公开组件（`invoke` + `reflect_zero` + `adjoint`）按文献标准序列 $U\,R\,U^\dagger R\,U$（比库迭代体多闭合一次 $U$ 调用）组装，对 $V/2$ 夹具（$V = R_z(0.4)R_y(0.9)$）的零信号块精确恢复 $-V$（max_error 1.1e-16），目标幅度由 0.4502 放大到 0.9004（恰好 ×2.0）。结论：放大语义需要闭合的奇数次 $U$ 调用，库 `oblivious_amplification` 的迭代体缺少末次 $U$，疑似实现缺陷（库未修改，在此与验证产物中记录）。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `oaa-iterate-block-identity` | 一般块，1 次迭代 | reference、rir-pysparq、originir-ext | 恒等式 max_error | 1.8e-16 |
+| `oaa-standard-sequence-amplification` | $V/2$ 夹具，$URU^\dagger RU$ | reference、rir-pysparq、originir-ext | 与 $-V$ 的 max_error | 1.1e-16 |
+| 同上 | — | — | 幅度放大（0.5 → 1.0 的模长比） | 0.4502 → 0.9004（×2.0） |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

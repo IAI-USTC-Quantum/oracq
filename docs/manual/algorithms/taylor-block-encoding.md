@@ -55,3 +55,26 @@ taylor_hamiltonian(hamiltonian, time, *, degree=2)
 - 同族页面：[哈密顿量模拟协议](hamiltonian-simulation.md)、[Trotter 乘积公式模拟](trotter.md)、[块编码组合代数](block-encoding-algebra.md)
 - API 参考：[Hamiltonian 演化](../../api/algorithms/hamiltonian.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `taylor-block-encoding-d{1,2,3,4}` 共 4 个案例，补上"截断精度本身的误差 vs 阶数直接对拍缺失"的登记缺口。
+
+实验设计：输入生成元为 2×2 厄米矩阵 $H=\begin{pmatrix}1.0&0.4\\0.4&-0.6\end{pmatrix}$（经 `matrix_pauli_encoding` 编码，$\alpha_{\rm in}=1.4$），演化时间 $t=0.7$，阶数 $d=1..4$。块语义为 $\big(\sum_{k\le d}(-itH)^k/k!\big)/\alpha$，$\alpha=\sum_{k\le d}(\alpha_{\rm in}t)^k/k!$。两类误差分离报告：**实现误差**——reference 逐列提取的零信号块对照同阶截断级数（numpy 独立计算）；**方法误差**——块对照 $e^{-iHt}/\alpha$（numpy 特征分解独立计算）；另对照 `be_alpha` 与级数闭式，并以 rir-pysparq / adapter-pysparq 逐列交叉。
+
+| 案例 | 阶数 | 实现误差 | 方法误差（信息性） | $\alpha$ 偏差 | 后端交叉 |
+|---|---|---|---|---|---|
+| `taylor-block-encoding-d1` | 1 | 8.3e-17 | 1.41e-1 | 0 | 0 |
+| `taylor-block-encoding-d2` | 2 | 1.8e-16 | 2.81e-2 | 0 | 0 |
+| `taylor-block-encoding-d3` | 3 | 1.7e-16 | 5.20e-3 | 0 | 0 |
+| `taylor-block-encoding-d4` | 4 | 1.9e-16 | 7.75e-4 | 0 | 0 |
+
+方法误差按阶数单调下降（约 $(\alpha_{\rm in}t)^{d+1}/(d+1)!$ 量级，$\alpha_{\rm in}t=0.98$），实现误差始终处于机器精度——截断误差确实由调用方按 $d$ 控制，组装本身不引入额外误差。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

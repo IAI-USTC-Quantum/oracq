@@ -61,3 +61,25 @@ amplitude_from_phase(value, precision)
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/estimation.rst)
 - 同组页面：[量子相位估计](qpe.md)、[量子计数](quantum-counting.md)、[Grover 搜索](grover.md)、[振幅放大](amplitude-amplification.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+`tests/verification/verify_estimation.py` 在真实后端上对本接口做分布级数值验证（QAE 部分共 7 个案例，全部通过）。实验设计：
+
+- 实例：`uniform_state` 均匀制备（$a=1/2$ 恰在解码栅格上；$a=3/8$ 不在栅格上）与 `gate_state_prep` 非均匀制备（$a=0.3$），精度 $p=3..6$。
+- 经典参考：相位分布对照 Grover 双峰闭式 $P(y)=\tfrac12 D(y/2^p-\theta/\pi)+\tfrac12 D(y/2^p+\theta/\pi)$（$D$ 为 Dirichlet 核，$\sin^2\theta=a$，独立推导）；峰值解码误差对照 Brassard 界 $|\hat a-a|\le 2\pi\sqrt{a(1-a)}/2^p+\pi^2/4^p$。
+- 后端路径：reference、rir-pysparq、adapter-pysparq、originir-ext 四条；每条路径独立取 `phase` 边际后两两交叉对拍。
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| $a=1/2$（栅格精确） | $p=3,4,5$ | 全部四条 | 双峰 $y=2^{p-2}$ 与 $2^p-2^{p-2}$ 各载 $1/2$；decode_error $=1.1\times10^{-16}$；max TVD $\le 3.3\times10^{-15}$ |
+| $a=3/8$（栅格外） | $p=4,5,6$ | 全部四条 | decode_error $=0.0663/0.0275/0.0201$，Brassard 界 $0.2287/0.1047/0.0499$；max TVD $\le 1.9\times10^{-14}$ |
+| $a=0.3$（非均匀制备） | $p=5$ | 全部四条 | decode_error $=0.00866$，界 $0.0996$；峰概率 $0.4851$；max TVD $=1.2\times10^{-15}$ |
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_estimation.py
+```
+
+产物路径：`out/verification/estimation.json`（案例名前缀 `qae-`）。

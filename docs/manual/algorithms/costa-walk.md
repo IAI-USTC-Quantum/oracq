@@ -53,3 +53,25 @@ make_costa_qlss(config=None)                       # → QLSSProtocol（input_mo
 - API 参考：[量子线性系统](../../api/algorithms/qlss.rst)
 - 输入模型审查：[QFVM 输入模型审查](../../reference/qfvm-input-models.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：最小实例（1 量子位目标）：`a` 为对角块编码（`diagonal_block_encoding`，angle_scale $=\pi/3$），`bprep` 为基态制备 `basis_state(1, 0)`，调度点 $f_s=0.5$，信号共 6 位（enc 2 + a1..a4），总计 7 量子位。验证两个可判定性质：
+
+1. 幺正性：OriginIR-ext 导出经 UniQC `Circuit.to_matrix` 得 128 维矩阵 $W$，计算 $\|W^\dagger W - I\|_{\max}$；
+2. 后端一致性：零输入态上的执行结果在 reference、rir-pysparq、adapter-pysparq、originir-ext 四路径间逐振幅对拍。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| costa-walk-unitarity | 7 qubits, fs=0.5 | to_matrix + 4 路径 | $\|W^\dagger W-I\|_{\max}$ | 5.6e-16 |
+| 〃 | 〃 | 〃 | 跨路径态最大误差 | 3.1e-17 |
+
+行走算子幺正且各后端一致，说明电路组装（反射、受控 $U_A$/$U_A^\dagger$、旋转调度与末尾正反射）在算符层面自洽。注意本节不覆盖 kernel 的物理通道（初始 walk 本征态与读出），该部分上游仍标注为 `prototype; ... unverified`，属算法设计层面的开放项而非组装缺陷。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `costa-walk-unitarity`）。

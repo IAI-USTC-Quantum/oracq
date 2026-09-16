@@ -65,3 +65,39 @@ QRAM 版：寄存器 `target(width)`、`work(address_width + angle_width)`（`ad
 - 同组页面：[PREPARE–SELECT 分解](prepare-select.md)、[Alias 采样制备](alias-preparation.md)、[XOR 数据库](xor-database.md)
 - API 参考：[Oracle 声明与实现](../../api/algorithms/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+本节结果由 `tests/verification/verify_stateprep.py` 在真实后端上跑出（reference 内置参考执行器、rir-pysparq 原生 RIR 解释器、adapter-pysparq 事件适配器、originir-ext + UniQC 全振幅态向量，共四条独立路径）。经典 oracle 独立于被测实现：目标向量本身、numpy 独立实现的 Pauli 作用与指标置换、以及量化角表的经典旋转树展开。
+
+**实验设计**（本页相关 14 个案例）：
+
+- `gate_state_prep`：宽度 1–4 的稠密复振幅向量、宽度 6 稠密、宽度 8 稀疏（5 个非零振幅），逐振幅对照目标向量（max_error / fidelity）；另用 UniQC `Circuit.to_matrix` 提取宽度 3 线路的全幺正，校验其第一列等于目标向量。
+- 组合子（`state_preparation.py`）：`extend_initial`（3+2 位，高位保持 |0⟩）；`apply_be_to_state`（对角块编码 $D[x,x]=\cos(\pi T[x]/4)$ 作用于 2 位制备态，signal==0 块对照 $D|\psi\rangle$ 并核对成功概率）；`select_subspace`（Pauli 字态 oracle 两组布局，全幅度字典对照 numpy oracle，且 signal==0 块为高位等于 `high_value` 的后选子向量）。
+- `qram_state_prep`：宽度 2/3、角度位宽 8/10。实现误差（电路 vs 量化角树 oracle）与方法误差（量化树 vs 精确向量）分开报告；oracle 在不量化时与 gate 版线路逐振幅一致（自洽检查偏差 0）。
+- 已知后端问题：PySparQ RIR 解释器（pysparq 0.1.2.dev16）对 `add_const` 作用于切片 reinterpret 视图（RIR JSON 中的 Span 操作数）执行错误，最小复现案例 `backend-rir-sliced-add-const` 的 rir 偏差为 1.0，而 reference / adapter-pysparq / originir-ext 三路径均正确复净。`qram_state_prep` 的地址簿记受此缺陷影响，故其判据建立在上述三条正确路径上，rir 偏差仅作信息性记录（脚本注释含绕行理由）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| gate-state-prep-complex-w1..w4 | 维数 2–16 | 四路径 | max_error ≤ 1.6e-16，fidelity ≥ 1 − 2e-16 |
+| gate-state-prep-dense-w6 | 维数 64 | 四路径 | max_error 8.8e-17，fidelity 1.0 |
+| gate-state-prep-sparse-w8 | 维数 256（5 非零） | 四路径 | max_error 1.1e-16，fidelity 1.0 |
+| gate-state-prep-unitary-column-w3 | 8×8 幺正 | to_matrix | max_error 1.1e-16，fidelity 1 − 2e-16 |
+| extend-initial-w3e2 | 5 qubit | 四路径 | max_error 1.1e-16 |
+| apply-be-diagonal-w2 | 2+3 qubit | 四路径 | 块误差 1.2e-16；成功概率 0.4740002825（与 oracle 差 3e-16） |
+| select-subspace-w3-k2-hv1 / k1-hv3 | 3 qubit | ref + rir + originir | max_error ≤ 1.3e-16，后选块误差 ≤ 1.3e-16 |
+| qram-state-prep-w2-a8 | 12 qubit | ref + adapter + originir | 实现误差 1.1e-16；方法误差 1.86e-3；fidelity 0.9999928 |
+| qram-state-prep-w3-a10 | 16 qubit | 同上 | 实现误差 3.3e-16；方法误差 7.8e-4；fidelity 0.9999987 |
+| backend-rir-sliced-add-const | 4 qubit | ref + adapter（rir 仅记录） | rir_deviation 1.0（已知后端问题） |
+
+方法误差与角度分辨率 $2\pi/2^{\text{angle\_width}}$ 的量化一致（8 位对应约 2e-3 量级），实现误差在机器精度量级，两实现各自正确。
+
+**复现命令**：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_stateprep.py
+```
+
+**产物路径**：`out/verification/stateprep.json`（37 个案例全部通过，含全部指标数值）。

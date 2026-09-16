@@ -507,4 +507,37 @@ PYTHONPATH=src /path/to/backend/python examples/ode_input_models.py --native-par
 
 角数据库绑定对拍的最大复幅度差为 0；`tests/core/test_differential.py` 的 4 个测试（含 3 个 subtest）通过，`ruff check src tests examples tools` 通过。文档链接和 Python 片段语法已检查。
 
+## 数值验证
+
+本章组装链路的论文级数值实验见 `tests/verification/verify_ode.py`（ode 组，覆盖 `ode.py`、`ode_models.py`、`carleman.py`、`lchs.py`、`cbmd.py`、`schrodingerization.py`）。经典参考全部独立：numpy/scipy（`expm`、`solve_ivp`、解析解、按公式直求的计划恒等式）与纯 Python 见证（`sde.matrix_exponential`）；量子程序在真实后端 reference、rir-pysparq、adapter-pysparq、OriginIR-ext（UniQC 全振幅与 `to_matrix`）上执行。实现误差（量子对独立仿真）与方法误差（算法余项对精确解，库中标注 pending 的部分）一律分开报告。
+
+**实验设计**：(a) 子结构——`taylor_hamiltonian` 编码块、`fourier_momentum` 动量块、Carleman 提升块 $G_K$ 与提升初态的逐元素/逐振幅对拍，CBMD/LCHS 计划权重对独立闭式与 $t=0$ 轮廓恒等式；(b) 多输入模型端到端——§3 的五种输入范式（整体 BE、直接 parts、对角谱角数据库 gate/QRAM 绑定、Fokker–Planck Pauli 展开 + `QODEProblem`、结构化热方程移位 BE）各跑 LCHS 端到端；(c) CBMD 与 LCHS 同一非对易问题对拍；(d) Schrödingerization 组装保真度、恢复关系与符号约定侦测；(e) Carleman 对 Riccati 非线性的端到端与截断阶收敛趋势。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 误差 / 指标值 |
+|---|---|---|---|
+| 子结构 4 例（taylor 块 / 动量块 / 提升块 / 提升初态） | 4–10 量子位 | originir+to_matrix、四路径 | 3.4e-16 / 2.2e-16 / 3.4e-16 / 0.0 |
+| LCHS 整体 BE（$G=-I$） | 7 量子位 | 四路径 | 实现 1.2e-16 / 方法 1.2e-2 |
+| LCHS 非对易 parts | 15 量子位 | 三路径 | 实现 1.1e-16 / 方法 7.3e-2 |
+| LCHS 角数据库 gate vs QRAM | 2×程序 | reference | 实现 5.8e-17 / 绑定差 0.0 |
+| LCHS + Fokker–Planck OU | 16 量子位 | reference、originir | 实现 1.1e-16 / 方法 7.9e-2 |
+| LCHS 热方程结构 BE | 15 量子位 | reference、originir | 实现 1.7e-17 / 方法 0.19 |
+| CBMD 同题对拍 | 15 量子位 | reference、originir | 实现 1.1e-16 / 方法 9.1e-3 / 方向误差 CBMD 3.0e-3 vs LCHS 4.5e-2 |
+| Schrödingerization 衰减 | 21 量子位 | 双路径 | 组装保真 8.7e-19；恢复给出 $e^{+t}$（符号侦测 4.8e-16） |
+| Schrödingerization 符号翻转构造 | 21 量子位 | 双路径 | 网格误差 1.3e-16（经典精确演化） |
+| Schrödingerization 旋转 | 21 量子位 | 双路径 | 实现 2.2e-18 / 恢复误差 1.5e-5 |
+| Carleman Riccati 端到端 | 18 量子位 | reference、rir | 实现 2.8e-17 / Taylor 余项 1.4e-4 / 截断 1.1e-3 |
+| Carleman 截断趋势 K=1→3 | $t=0.2$ | 量子+经典 | 9.3e-3 → 1.1e-3 → 1.05e-4 |
+
+两项库级发现随验证产出：(1) Schrödingerization 的动量项符号与文档恢复关系相反（恢复为时间反演解；符号翻转构造后恢复精确，详见 [Schrödingerization 页](algorithms/schrodingerization.md#数值验证)）；(2) pysparq 两实现（rir/adapter）在深嵌套 LCU 程序的 junk 分支上存在约 1e-7 的数值地板（剪除 <1e-7 振幅与 ~0.3% 相对抖动），reference 与 OriginIR-ext 在相同分支一致到 1e-17；所有物理后选择块在所有路径上仍一致到 1e-9 以内。LCHS/CBMD 的方法误差为各自文档标注 pending 的求积/省略余项；Carleman 截断误差每升一阶约降一个量级。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+```
+
+产物：`out/verification/ode.json`（27 个案例）。
+
 继续阅读：[oracle 目录](operators.md)、[开放绑定规范](../reference/open-ir.md)、[一般 QHAM 实现](qham.md)、[数学函数编译](math-functions.md)。

@@ -58,3 +58,53 @@ SDE 与 LCHS 的端到端 catalog 案例缺失（离散化 → QODEProblem → �
 - API 参考：[SDE/Fokker–Planck 输入模型](../../api/algorithms/sde.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md)（本输入模型的消费协议）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_nt_qlss_sde.py`（nt_qlss_sde 组）。经典预言机全部独立：`scipy.linalg.expm` 传播子、OU 闭式矩、固定种子 Euler–Maruyama Monte Carlo（numpy，seed=20260916）、$G$ 的零空间向量（numpy 特征分解）；量子部分在真实后端（reference、rir-pysparq、adapter-pysparq、OriginIR-ext）上验证。
+
+**实验设计**：(a) 输入模型——16 点 OU 网格（$\theta=1$、$D=0.5$）生成元的列和、演化保概率、谱横坐标，库矩阵指数对照 scipy.expm；(b) 显式 Euler（`evolve_distribution(steps=k)`）对照 scipy 精确传播子的时间收敛阶；(c) OU 矩三方对拍——Fokker–Planck 网格矩 vs 闭式 $\mu_0 e^{-\theta t}$ / $\sigma_0^2 e^{-2\theta t}+\frac{D}{\theta}(1-e^{-2\theta t})$ vs $2^{18}$ 粒子 Monte Carlo（$dt=10^{-3}$）；(d) 稳态——离散稳态对照零空间向量、长时间松弛收敛、与 Boltzmann 连续参考的 $O(h^2)$ 差距；(e) 量子通道——`sde_state_preparation` 的 gate 实现振幅恰为 $\sqrt{p_i}$（四路径全振幅），QRAM 角表实现对照独立量化角旋转树（实现误差与方法误差分开报告），4 点 OU 生成元的 Pauli 块编码在基态驱动下验证 $(\text{signal}=0)$ 块振幅乘 $\alpha$ 恰为 $G$（四路径）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| sde-generator-conservation | 16 点 | scipy oracle | 列和 / 保概率 / 矩阵指数偏差 | 0.0 / 4.4e-16 / 6.9e-16 |
+| sde-euler-convergence-order | $k$=2000→8000 | scipy oracle | 误差 / 实测阶 | 3.12e-6→7.80e-7 / 1.0001、1.0001 |
+| sde-ou-moments-vs-monte-carlo | $t=0.4$ | numpy MC | 均值：FPE vs 闭式 / MC vs 闭式 | 7.0e-9 / 4.2e-4 |
+| 同上 | | | 方差：FPE vs 闭式 / MC vs 闭式 | 1.94e-2（网格截断）/ 1.1e-3（统计涨落） |
+| sde-stationary-boltzmann | 16 点、$T=30$ | numpy/scipy | TVD：稳态 vs 零空间 / 弛豫 / Boltzmann | 2.8e-15 / 4.2e-14 / 1.2e-3 |
+| sde-state-preparation-gate | 2 量子位 | 四路径 | 振幅与 $\sqrt{p}$ 最大偏差 | 5.6e-17 |
+| sde-state-preparation-qram | angle_width 8 | 双路径 | 实现误差 / 量化方法误差 | 2.2e-16 / 2.9e-3 |
+| sde-generator-encoding | 4 点、$\alpha=4$ | 四路径 | 块振幅 × $\alpha$ vs $G$ | 3.3e-16 |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+```
+
+产物：`out/verification/nt_qlss_sde.json`（`sde-*` 共 7 个案例）。
+
+## 数值验证（ode 组）
+
+本节为 ode 组对 `QODEProblem` 消费链路的补充验证（与上一节 nt_qlss_sde 组的输入模型验证并列），见 `tests/verification/verify_ode.py`。经典参考全部独立：`scipy.linalg.expm` 与库内纯 Python `sde.matrix_exponential` 互证、numpy 逐分支 LCHS 仿真；量子程序在真实后端 reference 与 OriginIR-ext 上执行。
+
+**实验设计**：4 点 OU 网格（$\theta=1$、$D=0.5$、网格 $(-1.5,-0.5,0.5,1.5)$）零通量离散生成元经 `generator_encoding()`（显式 Pauli 展开 BE）与 `qode_problem(initial)`（Boltzmann 根振幅初态、`dissipative=True`）组装为 `QODEProblem`，由 `linear_qode("lchs")`（Cauchy cutoff=2、Taylor degree 2）的 `solve` 求解 $t=0.3$；后选择块对照 $L+iH$ 分解的独立仿真与精确传播子。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| lchs-fokker-planck-ou | 16 量子位 | reference、originir | 实现误差（对独立仿真） | 1.1e-16 |
+| 同上 | | | 方法误差（求积+Taylor 余项，信息性） | 7.9e-2 |
+| 同上 | | | 两个经典参考互证（scipy vs sde 矩阵指数） | 1.1e-16 |
+| 同上 | | | `qode_dissipative_promise` 透传 | True |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+```
+
+产物：`out/verification/ode.json`（`lchs-fokker-planck-ou` 案例）。

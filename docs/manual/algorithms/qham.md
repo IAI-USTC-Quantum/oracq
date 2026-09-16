@@ -61,6 +61,40 @@ qham_input_model(plan, bindings, *, eta=-1.0, max_blocks=256, max_terms=4096)
 
 与 `validation-coverage.md` 的应用层 `qfvm.py`/`qham/` 行一致：无登记缺口，阶段 V1。求解精度与收敛认证按 `correctness` 属性标注为 pending，属 QODE 求解器一侧的实现边界，不在本模块缺口列。
 
+## 数值验证
+
+2026-09-16 由 `tests/verification/verify_qham_qfvm.py` 执行的论文级数值验证（真实后端：PySparQ 原生 RIR 解释器、pyqecclang 内置参考执行器、PySparQ 事件适配器、UniQC 全振幅态向量；无 mock、无 skip）。
+
+### 实验设计
+
+- **生成元全矩阵对拍**：用 aux 寄存器叠加（Σ|c⟩|c⟩）一次运行取出 BE 的完整 signal-0 矩阵块，逐元素对照 `applications/qham/reference.py` 的独立经典矩阵，并核对支撑集合恰好、填充子空间无泄漏。实例 u′=−0.2u+0.1u²（order 2、grid 2、raw 维 28、η=−0.4），结构化移位端口与谱嵌入 Pauli 端口各一遍；另一实例 u′=0.5·ν(x)·uₓ−0.2u（order 1、grid 4）比较 stencil / spectral / QRAM 角表三种输入模型。
+- **同伦步与收缩映射**：同伦权重对照显式公式；生成行规则（`linear_action`）对照独立 HAM 递推+张量链式法则（`chain_rule`，含强迫 Burgers）；HAM 部分和对 Riccati 方程解析解（Bernoulli 闭式）做 m=1..6 收敛实验，测得收缩因子对照理论值 |1+η|。
+- **初态与求解链**：提升初态制备逐振幅对照张量字权重直接构造（71 qubits 超 UniQC 24 预算，仅 pysparq 路径）；`taylor_qode` 端到端链对照经典 (I+tG)Y_in，两种输入模型互拍；显式耗散移位 G−μI 在完整 2ʷ 空间（含填充子空间 −μ 对角）做全矩阵验证；`algorithms/pde.py` 的 make_qpde / qpde_solver 以四环 Laplacian 做数值直通。
+
+### 关键指标
+
+| 案例 | 规模 | 后端路径 | 指标值 |
+|---|---|---|---|
+| 生成元全矩阵（stencil 端口） | 28×28，α=2.968 | rir-pysparq | max_error 1.46e-17，支撑恰好 |
+| 生成元全矩阵（spectral 端口） | 28×28，α=3.336 | rir-pysparq | max_error 7.96e-18 |
+| 生成元四路径交叉 | 14 qubits | reference / rir / adapter / originir-ext | 两两偏差 8.67e-18 |
+| 输入模型一致性 | 28×28 | rir-pysparq(+QRAM) | stencil 1.40e-17，spectral 6.97e-18，QRAM 5.99e-05（角量化界 9.20e-03） |
+| QRAM 系数角编码逐点 | 4 地址，α=0.75 | rir-pysparq + originir-ext | 振幅误差 2.15e-03（界 6.14e-03），跨路径 0.0 |
+| 提升初态 | raw 28，71 qubits | rir-pysparq | max_error 1.11e-16，log 范数 −1.2525710053499335 一致，work 复净 |
+| Taylor QODE 端到端 | t=0.01，degree 1 | rir-pysparq | 两模型误差各 1.11e-16，互拍 8.87e-25 |
+| 耗散移位全矩阵 | 32×32，μ=2.968 | rir-pysparq | max_error 5.70e-17 |
+| 同伦权重/行规则 | 2 PDE × η∈{−1,−0.4,0.2} | 经典独立 | 权重精确，行规则 vs 链式法则 1.39e-17 |
+| HAM 收缩收敛 | t=0.5，m=1..6 | 经典独立（RK4 vs 解析解） | η=−0.4 平均收缩因子 0.604（理论 0.6）；η=−0.8 得 0.208（理论 0.2） |
+| pde.py wrapper 直通 | 四环，t=0.05 | rir-pysparq | max_error 2.11e-18 |
+
+### 复现
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_qham_qfvm.py
+```
+
+产物：`out/verification/qham_qfvm.json`（15 个案例的全部指标与判据）。
+
 ## 相关链接
 
 - 源码：`src/pyqecclang/applications/qham/`（pde / linearization / reference / stencils）与 `src/pyqecclang/algorithms/qham.py`（量子组装）

@@ -58,3 +58,27 @@ oracle 的三个构造入口：`abstract_phase_oracle(name, width, *, phase_scal
 - 源码：`src/pyqecclang/algorithms/gradient.py`
 - API 参考：[量子梯度估计](../../api/algorithms/gradient.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+`tests/verification/verify_estimation.py` 在真实后端上对本接口做读出级数值验证（共 11 个案例，全部通过）。实验设计：
+
+- 线性函数精确读出：`gate_phase_oracle` 相位表，$d=1$（$m=3,4,5$，梯度分量 $3/8$、$-5/16$、$9/32$）、$d=2$（$m=4$）、$d=3$（$m=3$）；读出分布应确定性落在编码值上。
+- mathfunc 相位 oracle：`function_phase_oracle` 编译 $f(x)=0.25x$（$d=1,m=4$）与 $f(x_0,x_1)=0.25x_0-0.125x_1$（$d=2,m=3$），同时对照中心有限差分（线性函数时与真值完全一致，差距 $0$）。该路径工作区按 `workspace_table` 预算为 $1768$ / $1638$ 量子位，超出 OriginIR 24 位预算，只走 reference / rir-pysparq / adapter-pysparq 三条寄存器级路径。
+- 扰动线性收敛：$f(x)=ax+x^2/N^2$（$a=3/8$），$m=3,4,5$；峰位恒为真值，失败概率衰减率对照近似二次收敛判据；信息性指标给出 $x=1/2$ 处中心有限差分（$f$ 非线性时与线性系数差 $O(1/N^2)$）。
+- 后端路径：reference、rir-pysparq、adapter-pysparq、originir-ext（gate 相位表案例，总宽 $\le 9$ 量子位）。
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| 线性读出（gate 表） | $d=1$，$m=3,4,5$ | 全部四条 | 解码误差 $=0$，峰概率 $=1$ |
+| 线性读出（gate 表） | $d=2$，$m=4$；$d=3$，$m=3$ | 全部四条 | 解码误差 $=0$，峰概率 $=1$ |
+| mathfunc oracle | $d=1,m=4$；$d=2,m=3$ | ref/rir/adp | 解码误差 $=0$，峰概率 $=1$，与有限差分一致 |
+| 扰动收敛 | $d=1$，$m=3,4,5$ | 全部四条 | 成功概率 $0.9588/0.9880/0.9968$，衰减率 $0.2922/0.2678$（$<0.34$）；有限差分 $0.3906/0.3789/0.3760\to 0.375$ |
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_estimation.py
+```
+
+产物路径：`out/verification/estimation.json`（案例名前缀 `jordan-`）。

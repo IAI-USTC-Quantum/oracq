@@ -46,3 +46,23 @@ qsp_phases(coeffs, imag=None)
 - API 参考：[QSVT 标准变换](../../api/algorithms/qsvt.rst)
 - 同族页面：[QSVT 相位序列](qsvt-sequence.md)（相位消费端）、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)（虚部补全的典型用例）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身）。实验设计：目标多项式取 Chebyshev $T_1,\dots,T_6$ 与精确可实现例 $P = (0.5 + i\sqrt{0.75})x$，由 `qsp_phases` 合成相位后在 401 点均匀网格上用 numpy 按本文档 $W(x)$ / $S(\varphi)$ 约定**独立实现**的 2×2 矩阵递推响应求值（不调用库内 `qsp_response`，两者互为独立实现），与目标多项式的独立 Horner 求值逐点对拍。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `qsp-phase-synthesis-roundtrip` | 7 个目标，401 点网格 | numpy 独立响应（合成器不生成量子程序） | max_error | 3.8e-15 |
+| 同上（Chebyshev $T_1$–$T_6$） | — | — | per-target 误差 | 0 – 3.8e-15 |
+| 同上（显式虚部目标） | — | — | 误差 | 2.2e-16 |
+
+合成相位在电路层面的消费端对拍（四后端路径、随机相位、矩阵多项式块）见 [QSVT 相位序列](qsvt-sequence.md) 的数值验证节。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

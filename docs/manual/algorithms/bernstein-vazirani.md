@@ -47,3 +47,32 @@ affine_boolean_oracle(width, secret, *, bias=0)
 - 源码：`src/pyqecclang/algorithms/oracle_algorithms.py`
 - API 参考：[Oracle 查询算法](../../api/algorithms/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_oracles.py`（B 组案例），产物 `out/verification/oracles.json`。
+
+实验设计：本算法为论文点名算法，按任务要求做**多宽度 × 多秘密串 × 双偏置 × 多后端路径**——宽度 3–8 bit，每个宽度取秘密串集合 $\{1,\ 2^n-1,\ 0101\ldots,\ \texttt{0x9E37\ldots} \bmod 2^n\}$（去重后 3–4 个）× 偏置 $\{0,1\}$，共 6–8 个实例/宽度；每个实例在 reference、rir-pysparq、adapter-pysparq、originir-ext 四条路径上各跑一次，指标为读出串等于秘密串的概率（input 边缘分布）、与 $\delta_s$ 分布的 TVD、以及与闭式末态 $(-1)^c|s\rangle|-\rangle$ 的逐振幅偏差。`affine_boolean_oracle` 自身另做叠加态真值表穷举（$f(x)=s\cdot x\oplus c$ 逐分支对拍）。开放声明路线以 `bernstein_vazirani(abstract_database(...))` 生成含未绑定槽位的程序，再分别绑定 gate 真值表与 QRAM 实现做端到端恢复。
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| bv-recovery-w3 | 3 bit，6 实例 | 全部四路径 | success_probability = 1 - 1.1e-15，tvd = 5.6e-16，max_error = 3.3e-16 |
+| bv-recovery-w4 | 4 bit，6 实例 | 全部四路径 | success_probability = 1 - 1.4e-15，tvd = 7.2e-16，max_error = 4.4e-16 |
+| bv-recovery-w5 | 5 bit，6 实例 | 全部四路径 | success_probability = 1 - 1.8e-15，tvd = 8.9e-16，max_error = 5.6e-16 |
+| bv-recovery-w6 | 6 bit，6 实例 | 全部四路径 | success_probability = 1 - 2.1e-15，tvd = 1.1e-15，max_error = 6.7e-16 |
+| bv-recovery-w7 | 7 bit，8 实例 | 全部四路径 | success_probability = 1 - 2.3e-15，tvd = 1.2e-15，max_error = 7.8e-16 |
+| bv-recovery-w8 | 8 bit，8 实例 | 全部四路径 | success_probability = 1 - 2.7e-15，tvd = 1.3e-15，max_error = 8.9e-16 |
+| bv-oracle-truth-table-w4 | 4 bit，s=0b1011，c=1 | reference, rir-pysparq, originir-ext | max_error = 5.6e-17 |
+| bv-oracle-truth-table-w8 | 8 bit，s=0xA5，c=0 | reference, rir-pysparq, originir-ext | max_error = 2.8e-17 |
+| bv-open-bind-w4-s11b1 | 4 bit，gate/qram 双绑定 | reference, rir-pysparq, originir-ext | success_probability = 1 - 1.4e-15，max_error = 4.4e-16 |
+| bv-open-bind-w4-s6b0 | 4 bit，gate/qram 双绑定 | reference, rir-pysparq, originir-ext | success_probability = 1 - 1.4e-15，max_error = 4.4e-16 |
+
+success_probability 与 1 的偏差全部来自后端浮点累加（$\le 3\times10^{-15}$），恢复串在每个实例、每条路径上都精确等于秘密串。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_oracles.py
+```
+
+产物路径：`out/verification/oracles.json`。

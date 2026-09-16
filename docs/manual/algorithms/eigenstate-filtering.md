@@ -59,3 +59,24 @@ $f$ 在 $x = 0$ 饱和但 $|f(\pm 1)| = 1/T_d(r) < 1$ 端点未饱和，需借�
 - API 参考：[QSVT 标准变换](../../api/algorithms/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身）。实验设计：其一，带中心平移的 1 量子位对角 BE（本征值 0.05 与 0.5，$\alpha = 0.5$；`gap = 0.2`、`d = 8`、`center = 0.1`，平移后谱变量 $x' \approx -0.083$ 通带与 $0.667$ 阻带）；其二，2 量子位对角 BE（本征值 0.02, −0.03, 0.4, 0.55；`gap = 0.2`、`d = 6`，两通带两阻带）。在 reference / rir-pysparq / originir-ext 三条路径上读出零信号块的对角幅度，与 Lin–Tong 过滤多项式 $f(x) = T_d(g(x^2))/T_d(r)$ 的独立解析求值（`math.cosh`/`acosh`，不经库内辅助函数）逐点对拍。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `eigenstate-filter-centered-1q` | $2d = 16$，center=0.1 | reference、rir-pysparq、originir-ext | max_error | 1.32e-7 |
+| 同上 | — | — | 通带幅度 / 阻带幅度（suppression 属性 0.0779） | 0.748 / 0.0235 |
+| `eigenstate-filter-2q` | $2d = 12$，四本征值 | reference、rir-pysparq、originir-ext | max_error | 2.17e-10 |
+| 同上 | — | — | 通带最小 / 阻带最大（suppression 属性 0.174） | 0.914 / 0.174 |
+
+两例阻带幅度均不超过 `suppression` 属性上界；centered 例的 1.3e-7 偏差是 $2d = 16$ 度逐层剥离的数值噪声，处于模块自检容差（1e-5）之内。数值边界实测：$d = 10$（$2d = 20$）被相位合成自检拒绝，$d \le 8$ 的可合成区域全部通过。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

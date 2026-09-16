@@ -55,3 +55,22 @@ $Q$ 由 Chebyshev 奇次系数加 $(1 - x^2)$ 幂解析展开；$P$ 的谱分解
 - API 参考：[QSVT 标准变换](../../api/algorithms/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 相位序列](qsvt-sequence.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：取 $\delta=0.3$、$L=5$（阈值 $\sqrt{1-1/c^2}\approx0.3582$），用对角块编码把标量 $x$ 编码进零信号块（`diagonal_block_encoding`，两基态对角元均为 $x$），对 `fixed_point_search` 的输出 BE 在四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）上测零信号成功概率，对照 YLC 闭式 $P_S(x)=1-\delta^2 T_L^2(c\sqrt{1-x^2})$。两个谱点分别位于阈值两侧：$x=\cos(\pi/6)\approx0.8660$（阈值上，应满足 $P_S\ge1-\delta^2=0.91$）与 $x=0.3$（阈值下）。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| fixed-point-search-above-threshold | x=0.8660, δ=0.3, L=5 | 4 路径 | 成功概率（闭式 0.991311）/ 误差 | 0.991311 / 8.9e-16 |
+| fixed-point-search-below-threshold | x=0.3, δ=0.3, L=5 | 4 路径 | 成功概率（闭式 0.772035）/ 误差 | 0.772035 / 1.1e-16 |
+
+阈值上实例满足 $1-\delta^2$ 保证（0.991311 ≥ 0.91），阈值下实例仍与闭式逐点一致，说明相位序列实现的成功概率曲线在全谱区间符合理论。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `fixed-point-search-above-threshold`、`fixed-point-search-below-threshold`）。

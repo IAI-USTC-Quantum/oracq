@@ -55,3 +55,27 @@ suggest_steps(transition, marked)
 - 源码：`src/pyqecclang/algorithms/graph_walks.py`
 - API 参考：[图行走搜索](../../api/algorithms/graph_walks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：三个端到端搜索实例，步数由独立 Markov 链参考（首达时间 $H_{\rm avg}$ 经 `(I-P_free)h=1` 求解）按 $\lceil\frac{\pi}{4}\sqrt{H_{\rm avg}}\rceil$ 选取，末态全振幅对照独立 numpy 组装的 MNRS 迭代 $(M W)^s|\psi_0\rangle$（行走空间反射算子由邻居表直接构造，不复用被测模块）。
+
+- 完全图 K4（自环补齐到 $D=4$，邻居表 $N(v,j)=j$），marked $=\{0\}$：$H_{\rm avg}=4$，步数 2，四路径（reference、rir-pysparq、adapter-pysparq、originir-ext）。
+- 超立方体 Q3（$N=8, D=4$），marked $=\{0\}$：$H_{\rm avg}\approx11.048$，步数 3，四路径。
+- K4 的 QRAM 绑定（`qram_adjacency` + 内存表）：OriginIR-ext 线路不含 QRAM 资源，故该实例只走 reference 与 rir-pysparq 两条路径。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| mnrs-search-complete-k4 | N=4, D=4, steps=2 | 4 路径 | marked 概率 / 末态最大误差 | 0.578125 / 6.3e-16 |
+| mnrs-search-hypercube-q3 | N=8, D=4, steps=3 | 4 路径 | marked 概率 / 末态最大误差 | 0.78125 / 1.2e-15 |
+| mnrs-search-qram-k4 | N=4, D=4, steps=2 | reference, rir-pysparq | marked 概率 / 末态最大误差 | 0.578125 / 6.3e-16 |
+
+信息性指标：K4 的 $\text{steps}/\sqrt{H_{\rm avg}}=1.0$、超立方体为 0.903，与 $\pi/4\approx0.785$ 同量级，符合 MNRS 的 $\sqrt{H}$ 标度；K4 实例的 marked 概率 0.578125 对应 $N(v,j)=j$ 这一边标记下的精确行走动力学（与核心单测中循环边标记的 1.0 实例转移矩阵相同、行走不同，两者各自与独立参考逐振幅一致）。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `mnrs-search-complete-k4`、`mnrs-search-hypercube-q3`、`mnrs-search-qram-k4`，另含经典参考例程对拍案例 `markov-chain-helpers`）。

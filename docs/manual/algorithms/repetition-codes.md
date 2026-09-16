@@ -48,3 +48,26 @@ repetition_recover(*, error="bit")
 - 源码：`src/pyqecclang/algorithms/error_correction.py`
 - API 参考：[重复码与错误恢复](../../api/algorithms/error_correction.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行。
+
+**实验设计**：任意逻辑态 $\mathrm{Ry}(0.73)\mathrm{Rz}(0.29)\lvert 0\rangle$（numpy 独立给出精确幅度），对两种 `error` 类型 × 4 个注入位置（无错误 / target / syndrome[0] / syndrome[1]）执行"编码—注入—恢复"：检查 target 幅度逐点复原与 syndrome 的确定性取值（位置映射 0/3/1/2）；另对无错误的编码—恢复复合作用经 `originir-ext + UniQC Circuit.to_matrix` 提取 syndrome = 0 输入块与泄漏。后端路径：`reference`、`rir-pysparq`、`adapter-pysparq`、`originir-ext`（3 量子位全振幅对拍）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 幅度复原误差 | syndrome | 幺正块误差 / 泄漏 |
+|---|---|---|---|---|---|
+| repetition-bit-flip-injection | 3 比特 × 4 位置 | 四路径 | 0 | 全部确定且等于错误位置 ✓ | — |
+| repetition-phase-flip-injection | 3 比特 × 4 位置 | 四路径 | ≤ 4.6e-16 | 全部确定且等于错误位置 ✓ | — |
+| repetition-bit-encode-recover-unitary | 3 比特 | to_matrix | — | — | 0 / 0 |
+| repetition-phase-encode-recover-unitary | 3 比特 | to_matrix | — | — | 4.4e-16 / 2.4e-17 |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `repetition-*` 四个案例）。

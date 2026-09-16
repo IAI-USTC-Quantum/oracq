@@ -45,6 +45,39 @@ qfvm_memories(inputs, flow, *, amax=8.0)
 
 与 `validation-coverage.md` 的应用层行一致：无登记缺口，阶段 V1。模块属性中的 `correctness="pending"` 是实现边界记录（数值求解正确性认证不在当前验证范围），不是覆盖矩阵上的缺口。
 
+## 数值验证
+
+2026-09-16 由 `tests/verification/verify_qham_qfvm.py` 执行的论文级数值验证（真实后端：PySparQ 原生 RIR 解释器、UniQC 全振幅态向量；无 mock、无 skip）。本机环境无 C++ 编译器，`arithmetic_native_registry` 不可用，Roe 算术经 PySparQ RIR 门级展开执行（单条目电路约 1.6×10⁷ 展开门），故条目级验证采用叠加采样而非全矩阵穷举。
+
+### 实验设计
+
+- **定点格式选择**：`roe_face` 的 compile_function 要求 `Index(2)` 的行列输入可表示，最小可用格式为 `FixedFormat(5,2)`；`entropy_delta=0.5` 使 2δ、δ²、δ 在该格式下全部精确可表示。注意：若小数位不足以表示 2δ（如 fmt=(4,1) 配默认 δ=0.125，2δ=0.25 截断为 raw 0），熵修正分支会发生除零，条目按文档化的 totalize 行为静默归零——集成测试此前只覆盖 padding 对角，未覆盖非零 Roe 条目。
+- **Roe 面通量**：编译后的 `roe_face` 在 16+8+8=32 个叠加分支（全 row/col 对、密度扫描、动量扫描）下与脚本内独立定点仿真（按 `fixed_arithmetic` 文档语义 toward_zero/modular_wrap 重实现）做**位级**对拍；方法误差（对照 float64 `roe_formulas`）单独报告。
+- **稀疏条目/位置**：条目 oracle 在列 5 的 8 分支叠加（三带非零元 + 零结构 + 补齐零）下逐位对照定点仿真矩阵；padding 对角独立案例；位置 oracle 全 32 列叠加验证完整置换与 9 槽位映射（对照独立几何语义）。
+- **RHS 与经典恒等式**：RHS 残差态制备（QRAM 角度树 + 符号反冲）对照独立残差计算；flow_data 的 F*(L,R)=left·U_L+right·U_R 对照矩阵求逆实现 `riemann_flux`；M·u−mass·u=−residual（隐式 FVM 符号约定）；局部更新 patch 与全量重算一致；ptheta 角表逐点真值。统一四单元流场 ρ=(1,1,1.25,1.25)、m=(0,0.25,0,−0.25)、E=(1,1,1,1)。
+
+### 关键指标
+
+| 案例 | 规模 | 后端路径 | 指标值 |
+|---|---|---|---|
+| roe_face 位级对拍 | 32 分支，fmt=(5,2) | rir-pysparq | raw/status 逐位一致（32/32）；方法误差 0.427 |
+| 条目矩阵采样 | 列 5，8 分支 | rir-pysparq | 实现误差 0.0（逐位一致）；方法误差 0.481；零结构正确 |
+| 补齐对角 padding | 坐标 (7,7)/(23,7) | rir-pysparq | 对角 raw=4（1.0），扩张块外为 0 |
+| 位置 oracle | 32 列 × 32 输入 | rir-pysparq | 每列完整置换；288 槽位映射 0 失配；几何表逐点 0 失配；work 复净 |
+| RHS 制备 | 16 地址，angle_width 8 | rir-pysparq | 振幅误差 1.11e-16，符号 0 失配，总概率 1.0；角度树/符号 bank 逐点 0 失配 |
+| 通量恒等式 | 4 组采样态 | 经典独立 | F* 块形式 vs 求逆实现 3.33e-16；F*(U,U)=F(U) 2.22e-16 |
+| 单步更新 | 4 单元 | 经典独立 | M·u−mass·u=−residual 2.22e-16；残差 bank 0 失配；局部 patch 与全量一致 |
+
+方法误差是 5 位定点流水线的固有量化误差（约 1–2 个量子），不是实现缺陷：实现侧（对照定点语义仿真）为逐位精确。
+
+### 复现
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_qham_qfvm.py
+```
+
+产物：`out/verification/qham_qfvm.json`（15 个案例的全部指标与判据）。
+
 ## 相关链接
 
 - 源码：`src/pyqecclang/applications/qfvm.py`（Roe 算术 `applications/roe.py`、公式 `applications/roe_formulas.py`、经典数据 `applications/flow_data.py`）

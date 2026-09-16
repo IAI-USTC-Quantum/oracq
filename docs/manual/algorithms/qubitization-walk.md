@@ -52,3 +52,46 @@ qubitization_walk(a)
 - API 参考：[矩阵变换序列](../../api/algorithms/transforms.rst)
 - 同族页面：[QSVT 相位序列](qsvt-sequence.md)、[Oblivious 振幅放大](oblivious-amplification.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。输入 BE 用 gate 级绑定小实例：`matrix_pauli_encoding` 编码 1 比特厄米矩阵 $A = \begin{pmatrix} 0.5 & 0.3 \\ 0.3 & -0.1 \end{pmatrix}$（独立显式 Pauli 展开得 $\alpha = 0.8$，谱值 $\lambda/\alpha \approx 0.780, -0.280$）。行走算子全幺正经 OriginIR-ext + UniQC `to_matrix` 取出，与 $(2\Pi - I)U$ 逐元素对比，其中 $U$ 为同一 BE 程序的全幺正（并与 reference 路径逐基态列组装的幺正交叉对拍）；谱性质独立检验：行走幺正本征角须落入 $\{\pm\arccos(\lambda/\alpha)\} \cup \{0, \pi\}$，零信号块须等于 $A/\alpha$。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `qubitization-walk-unitary-spectrum` | target 1 + signal 2（8 维） | originir-ext + UniQC to_matrix，reference 交叉 | unitary_max_error | 1.7e-16 |
+| 同上 | — | — | be_path_crosscheck（两路径 BE 幺正偏差） | 1.1e-16 |
+| 同上 | — | — | zero_block_max_error（$\Pi W\Pi$ vs $A/\alpha$） | 1.8e-16 |
+| 同上 | — | — | spectrum_max_deviation（本征角 vs $\pm\arccos(\lambda/\alpha)$） | 4.4e-16 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_fourier.py
+```
+
+产物：`out/verification/fourier.json`。
+
+## 数值验证
+
+实验设计：构造零信号块为 $x=\cos(\pi/6)$ 的厄米（Householder 型）块编码 $U=R_y(2\theta)Z\otimes I_{\rm target}$（$\theta=\pi/6$，target/signal 各 1 位）。三层对照：
+
+1. 旋转性质（补上"二维不变子空间转角无直接见证"的缺口）：行走重复 $k=1\ldots4$ 次，零信号概率对照 Chebyshev 闭式 $T_k(x)^2=\cos^2(k\arccos x)$，即序列 $0.75,\ 0.25,\ 0,\ 0.25$（$k=3$ 为精确零点），四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）；
+2. 幺正分解：UniQC `Circuit.to_matrix` 核对 $W=(2\Pi-I)U$；
+3. 谱：$W$ 的本征值应为 $\mathrm e^{\pm i\pi/6}$（两个 target 扇区各贡献一对，二重简并）。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| qubitization-walk-chebyshev | 2 qubits, k=1..4 | 4 路径 + to_matrix | 零信号概率最大误差 | 5.6e-16 |
+| 〃 | 〃 | 〃 | $\|W-(2\Pi-I)U\|_{\max}$ | 2.1e-16 |
+| 〃 | 〃 | 〃 | 本征相位误差（vs $\pm\pi/6$） | 3.3e-16 |
+
+前提说明：$T_k$ 旋转关系要求 BE 幺正厄米；对非厄米 $U$，正确的 qubitized 迭代需交替 $U$ 与 $U^\dagger$（QSVT 序列即如此处理），简单幂 $W^k$ 不服从 Chebyshev——本验证因此采用厄米构造。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `qubitization-walk-chebyshev`）。

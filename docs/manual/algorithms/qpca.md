@@ -60,3 +60,27 @@ qpca(preparation, *, precision, step_time, system=None, swap_width=None, name=No
 - 同模块页面：[密度矩阵指数化](density-matrix-exponentiation.md)
 - API 参考：[QPCA 量子主成分分析](../../api/algorithms/qpca.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行。
+
+**实验设计**：三个 QPCA 读出案例，本征值预言机为 numpy `eigvalsh`（与被测实现独立）。(a) 纯态 $\rho = \lvert+\rangle\langle+\rvert$、系统输入 $\lvert+\rangle$：precision = 3、$\Delta t = \pi/4$（$\varphi = 7/8$ 落在 QPE 栅格），共 11 量子位；(b) 混合态 $\rho = \mathrm{diag}(0.75, 0.25)$ 经纯化适配、系统输入 $\lvert 0\rangle$：$\Delta t = 2\pi/6$（$\lambda = 0.75$ 恰在栅格），共 18 量子位；(c) 同 $\rho$、系统输入 $\lvert 1\rangle$ 读次本征值 $\lambda = 0.25$（该 $\Delta t$ 下不在 3 位栅格，以圆周均值对照）。后端路径：`reference`、`rir-pysparq`、`adapter-pysparq`、`originir-ext`（UniQC 全振幅），相位分布以 TVD 对拍。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 峰位解码 λ | 峰高 | 圆周均值 λ | 跨后端 TVD |
+|---|---|---|---|---|---|---|
+| qpca-pure-plus-deterministic | 11 量子位，7 拷贝 | 四路径分布对拍 | 1（误差 0，确定性读出） | 1.0000 | — | ≤ 1.2e-16 |
+| qpca-mixed-primary | 18 量子位，7 拷贝 | 四路径分布对拍 | 0.75（误差 0） | 0.4997 | 0.8306（偏差 0.081） | ≤ 1.0e-15 |
+| qpca-mixed-secondary | 18 量子位，7 拷贝 | 四路径分布对拍 | 0.75（离栅格信息项） | 0.2874 | 0.3909（偏差 0.141，≤ 0.15） | ≤ 2.4e-15 |
+
+大 $\Delta t$ 的 LMR 一阶误差只展宽峰而不移峰位：主本征值由众数精确解码，次本征值的圆周均值偏差（0.141）源于展宽偏斜，与核心测试的容差口径一致。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `qpca-*` 三个案例）。

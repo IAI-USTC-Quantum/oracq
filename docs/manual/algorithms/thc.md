@@ -57,3 +57,23 @@ thc_encoding(thc)
 - 同模块算法：[双因子分解块编码](double-factorization.md)
 - API 参考：[化学低秩分解块编码](../../api/algorithms/lowrank.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `thc-encoding-leaves2-d2` 与 `thc-encoding-leaves3-d4` 两个案例。
+
+实验设计：2×2 稠密叶（2 叶，一般复矩阵、非酉非 Hermitian）经 OriginIR-ext + UniQC `to_matrix` 全幺正提取，(0,0) 块乘 α 后与 numpy 独立组装的 $\sum_{\mu\nu}\zeta_{\mu\nu}L_\mu L_\nu^\dagger$ 逐元对拍，α 对照不经 `matrix_pauli_encoding` 的独立 Pauli l1 手算口径 $\sum_{\mu\nu}|\zeta_{\mu\nu}|\alpha_\mu\alpha_\nu$；4×4 三叶（对角叶 + 全耦合 3×3 ζ，7 个非零 LCU 项）走 reference + rir-pysparq + adapter-pysparq 三后端逐列，检验多叶多规模组装。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `thc-encoding-leaves2-d2` | 2 叶 2×2，α=1.381 | originir-ext + to_matrix，三后端交叉 | max_error | 1.7e-16 |
+| 同上 | — | — | α − 独立 l1 口径 | 0（恰相等） |
+| `thc-encoding-leaves3-d4` | 3 叶 4×4（对角叶），α=1.782 | 三后端 | max_error / 后端偏差 | 5.6e-16 / 0 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

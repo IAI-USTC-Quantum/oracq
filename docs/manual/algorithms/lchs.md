@@ -54,6 +54,34 @@ QuadraturePlan.cauchy(cutoff=2, spacing=1.0)
 
 统一的"解析可解 ODE 族"收敛基准缺失：同一解析可解问题过全部 ODE 求解器的批量对拍未建立，归入阶段 V2 的收敛性扫描框架；与 `validation-coverage.md` 的 lchs.py 行一致。
 
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_ode.py`（ode 组，本文件覆盖 `lchs.py` 与 `_dynamics.py` 组装骨架的部分）。经典参考全部独立：numpy 逐分支 $K_j=H+k_jL$ 截断 Taylor 求和、`scipy.linalg.expm` 精确解、解析解（$e^{-t}$、热方程 Fourier 特征值）、`sde.matrix_exponential` 纯 Python 矩阵指数互证；量子程序在真实后端 reference、rir-pysparq、adapter-pysparq、OriginIR-ext 上执行。实现误差（量子后选择块对独立仿真）与方法误差（有限求积+Taylor 余项对精确解，库中标注 pending）分开报告。
+
+**实验设计**：$u'=-Au$、$A=L+iH$ 五类输入模型的端到端对拍（plan 均 `QuadraturePlan.cauchy(cutoff=2, spacing=1.0)`）：(1) 整体 $G=-I$ 的 BE（解析解）；(2) 直接 Hermitian parts（$[L,H]\neq0$ 的 $2\times2$ 矩阵，Pauli 展开 BE）；(3) 对角谱角数据库 $A=\mathrm{diag}(1,\cos\pi/4)$，同一开放 RIR 分别绑定 gate 表与 QRAM 表；(4) Fokker–Planck OU 4 点零通量离散生成元（Pauli 展开）经 `QODEProblem.solve`（Boltzmann 根振幅初态）；(5) 周期 4 点热方程的结构化移位差分 BE。另有求积收敛扫描（标量 $L=I$，cutoff 2/8 量子 + 2..32 经典核趋势线）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| lchs-given-be-scalar-decay | 7 量子位 | 四路径 | 实现误差 / 方法误差 | 1.2e-16 / 1.2e-2 |
+| lchs-given-parts-noncommuting | 15 量子位 | 三路径 | 实现误差 / 方法误差 | 1.1e-16 / 7.3e-2 |
+| lchs-diagonal-spectral-gate / -qram | 2×程序 | reference | 实现误差（两者） / gate-QRAM 振幅差 | 5.8e-17 / 0.0 |
+| lchs-fokker-planck-ou | 16 量子位 | reference、originir | 实现误差 / 方法误差 / 经典参考互证 | 1.1e-16 / 7.9e-2 / 1.1e-16 |
+| lchs-heat-structured-stencil | 15 量子位 | reference、originir | 实现误差 / 方法误差 / Fourier-expm 互证 | 1.7e-17 / 0.19 / 1.4e-17 |
+| lchs-quadrature-scan | cutoff 2 / 8 | reference | 实现误差 | 5.6e-17 / 1.1e-16 |
+| lchs-quadrature-kernel-trend | cutoff 2→32 | 经典核求积 | 核求积误差 | 7.1e-2→3.7e-3（含振荡尾部） |
+
+成功概率（信号全零子空间）与经典值一致（偏差 < 1e-16）。方法误差为 Cauchy 求积余项：截断 $K_{\max}$ 与步长 $h$ 的尾部分别呈 $O(1/K_{\max})$ 振荡下降与混叠地板 $2e^{-(2\pi/h-\lambda t)}$；深嵌套 LCU 程序上 pysparq 两实现对 junk 分支有约 1e-7 数值地板（物理块不受影响，见组报告）。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+```
+
+产物：`out/verification/ode.json`（`lchs-*` 共 12 个案例）。
+
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/lchs.py`

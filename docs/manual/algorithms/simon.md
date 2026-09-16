@@ -48,3 +48,27 @@ simon_nullspace(samples, width)
 - 源码：`src/pyqecclang/algorithms/oracle_algorithms.py`
 - API 参考：[Oracle 查询算法](../../api/algorithms/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_oracles.py`（D 组案例），产物 `out/verification/oracles.json`。
+
+实验设计：周期恰为 $s$ 的二对一线性函数 $f(x)=\mathrm{delete}_p(x\oplus x_p s)$（$p$ 为 $s$ 的最低置位；构造后经典穷举自证二对一与周期）。宽度 3–6 bit 用 `gate_database` 真值表 oracle，7–8 bit 用同函数的 CNOT 线性实现（真值表门数随 $2^n$ 增长，宽位改走寄存器级路径，案例参数中标注 `oracle: cnot_linear`）；每宽度取 $s\in\{1,\ 2^n-1,\ (\texttt{0x9E37\ldots}\bmod 2^n)\mathbin{|}1\}$。采样分布与精确联合分布（支持集 $2^{2n-2}$ 个等幅基态，相位 $(-1)^{x_0\cdot y}$ 由闭式给出）做**相位敏感**逐振幅对拍与 TVD；随后用每条路径自身采样支持集确定性选取 $n-1$ 个线性无关向量，交 `simon_nullspace` 消元，要求零空间恰为 $\mathrm{span}(s)$。另设样本不足案例（$n-2$ 个独立样本）：零空间保持二维且 $s$ 落在其张成内。后端路径：reference、rir-pysparq，3–5 bit 稠密小实例另加 originir-ext。
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| simon-sampling-recovery-w3 | 3 bit，支持集 16 | reference, rir-pysparq, originir-ext | max_error = 1.1e-16，tvd = 4.4e-16，恢复 6/6 |
+| simon-sampling-recovery-w4 | 4 bit，支持集 64 | 同上 | max_error = 8.3e-17，tvd = 6.7e-16，恢复 6/6 |
+| simon-sampling-recovery-w5 | 5 bit，支持集 256 | 同上 | max_error = 4.9e-17，tvd = 7.8e-16，恢复 6/6 |
+| simon-sampling-recovery-w6 | 6 bit，支持集 1024 | reference, rir-pysparq | max_error = 3.1e-17，tvd = 1.0e-15，恢复 6/6 |
+| simon-sampling-recovery-w7 | 7 bit，支持集 4096 | rir-pysparq | max_error = 1.7e-17，tvd = 1.1e-15，恢复 3/3 |
+| simon-sampling-recovery-w8 | 8 bit，支持集 16384 | rir-pysparq | max_error = 9.5e-18，tvd = 1.2e-15，恢复 3/3 |
+| simon-rank-deficiency-w4 | 4 bit，2 个独立样本 | rir-pysparq | nullspace_dim = 2，secret_in_span = True |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_oracles.py
+```
+
+产物路径：`out/verification/oracles.json`。

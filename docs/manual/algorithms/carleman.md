@@ -62,6 +62,34 @@ $$
 
 统一的"解析可解 ODE 族"收敛基准缺失（同一问题过全部求解器，含 Carleman 截断阶扫描），归入阶段 V2 的收敛性扫描框架；与 `validation-coverage.md` 的 carleman.py 行一致。
 
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_ode.py`（ode 组，本文件覆盖 `carleman.py` 的部分）。经典参考全部独立：提升生成元 $G_K$ 按乘积法则在补齐布局上用 numpy 逐基组装、提升初态按张量幂解析构造、截断线性系统用 `scipy.linalg.expm`、非线性精确解用 `scipy.integrate.solve_ivp`（Riccati，rtol=1e-12）；量子程序在真实后端 reference、rir-pysparq、adapter-pysparq 与 OriginIR-ext（UniQC 全振幅/`to_matrix`）上执行。
+
+**实验设计**：(a) 提升块——Riccati 问题 $u'=-u+u^2$（$F_1=-I$，$F_2$ 为收缩矩阵 $C e_{i_0+2i_1}=\delta_{i_0,i_1}e_{i_0}$，$d=2$），截断 $K=2$，提取 $G_K$ 的零信号块（幺正 `to_matrix` + `effective_block`，并与 reference 基态扫描交叉）对照独立组装；(b) 提升初态——$(1,u_0,u_0^{\otimes2})/Z$（$u_0=(0.6,0.8)$、$r=0.5$）四路径全振幅穷举；(c) 端到端——`carleman_qode` 注入三参数协议求解器（验证脚本内的最小截断 Taylor $e^{Gt}$ 块编码组装，真实量子程序，degree 3），$t=0.2$，物理通道对全堆叠 numpy 仿真；(d) 截断趋势——$K=1,2$ 量子运行的截断误差对 solve_ivp 精确 Riccati 解，$K=3$ 经典补点。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| carleman-lift-block | $K$=2、10 量子位 | originir+to_matrix、reference | $G_K$ 块逐元素最大偏差 | 3.4e-16 |
+| carleman-initial-state | 4 量子位 | 四路径 | 全振幅最大偏差 | 0.0 |
+| carleman-riccati-endtoend | 18 量子位 | reference、rir | 实现误差（对独立仿真） | 2.8e-17 |
+| 同上 | | | Taylor 余项（degree 3，信息性） | 1.4e-4 |
+| 同上 | | | Carleman 截断误差（对精确非线性解） | 1.1e-3 |
+| 同上 | | | 量子方向 vs 截断线性精确解方向 | 4.8e-5 |
+| carleman-cutoff-trend | $t=0.2$ | 量子（K=1,2）+ 经典（K=3） | 截断误差 K=1 / K=2 / K=3 | 9.3e-3 / 1.1e-3 / 1.05e-4 |
+
+截断误差每升一阶约降一个量级，是 Carleman 截断收敛的直接数值证据。成功子空间概率（信号全零）同时与经典值逐点对拍一致。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+```
+
+产物：`out/verification/ode.json`（`carleman-*` 共 5 个案例）。
+
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/carleman.py`

@@ -52,3 +52,22 @@ arithmetic_native_registry(program, *, cache_dir="out/native-cache")
 - 源码：`src/pyqecclang/algorithms/arithmetic.py`
 - API 参考：[可逆算术](../../api/algorithms/arithmetic.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_oracles.py`（`dj-boolean-network-*` 案例），产物 `out/verification/oracles.json`。
+
+实验设计：把 BooleanNetwork 编译产物当作查询算法的 oracle 使用，端到端检验"编译线路 ≡ 图经典求值"。两个 3 bit 网络——parity3（`xor` 节点构成的平衡函数）与 const3（常量 1）——经 `operation()` 编译后包装为 XOR database 接口（address/data，输出为 XOR 拷贝语义，私有 bank 由伴随帧复净）：先在 address/data 全叠加下用 rir-pysparq 与 originir-ext 各跑一次，与 `net.evaluate` 逐点生成的真值表做全部 16 个分支的逐振幅对拍；再接入 [Deutsch–Jozsa](deutsch-jozsa.md) 电路做常量/平衡判定。
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| dj-boolean-network-parity3 | 3 bit 平衡，16 分支 | rir-pysparq, originir-ext | max_error = 8.3e-17，p_zero_error = 0.0 |
+| dj-boolean-network-const3 | 3 bit 常量，16 分支 | rir-pysparq, originir-ext | max_error = 8.3e-17，p_zero_error = 1.1e-15 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_oracles.py
+```
+
+产物路径：`out/verification/oracles.json`。

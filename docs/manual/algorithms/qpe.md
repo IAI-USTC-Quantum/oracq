@@ -53,3 +53,27 @@ phase_estimation(operation, *, precision=2)
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/estimation.rst)
 - 同组页面：[振幅估计](qae.md)、[量子计数](quantum-counting.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+`tests/verification/verify_estimation.py` 在真实后端上对本接口做分布级数值验证（QPE 部分共 13 个案例，全部通过）。实验设计：
+
+- 已知相位幺正：单比特对角相位门 $U|1\rangle=e^{2\pi i\varphi}|1\rangle$，栅格上相位（$\varphi=0.5$ 与 $0.625$，$p=2..6$）与栅格外相位（$\varphi=0.3$，$p=3..6$）；相位寄存器直方图对照 Dirichlet 核闭式 $D(\delta)=\sin^2(\pi 2^p\delta)/(4^p\sin^2(\pi\delta))$。
+- 非对角幺正：2 比特 `add_const(1)` 以其 Fourier 本征态 $|\tilde\varphi_j\rangle$（$j=1,3$）为输入；期望本征相位 $(-j/4)\bmod 1$ 由 numpy 独立构造置换矩阵与 Fourier 态求本征值得到，不复用库内实现。
+- 幺正层面：$p=3$ 线路经 OriginIR-ext → UniQC `Circuit.to_matrix` 取全幺正，与 numpy 独立组装（H 层、受控 $U^z$、逆 DFT）逐元素对比。
+- 后端路径：reference（内置参考执行器）、rir-pysparq（PySparQ 原生 RIR 解释器）、adapter-pysparq（PySparQ 适配器）、originir-ext（UniQC 全振幅态向量）。
+
+| 案例 | 规模 | 路径 | 指标值 |
+|---|---|---|---|
+| 栅格相位读出 | $p=2..6$，$\varphi=0.5/0.625$ | 全部四条 | 峰值 $=2^p\varphi$，峰概率 $=1$，max TVD $\le 4.4\times10^{-16}$ |
+| 栅格外相位读出 | $p=3..6$，$\varphi=0.3$ | 全部四条 | 峰值 $=\mathrm{round}(2^p\varphi)$，峰概率 $0.573/0.876$（$\ge 4/\pi^2$），max TVD $\le 7.3\times10^{-16}$ |
+| Fourier 本征态 | $j=1,3$，$p=3,4$ | 全部四条 | 峰值 $=2^p\varphi$（$\varphi=0.75/0.25$），峰概率 $=1$，max TVD $\le 7.8\times10^{-16}$ |
+| 全幺正对比 | $p=3$，$16\times16$ | originir-ext+to_matrix | max_error $=1.0\times10^{-15}$ |
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_estimation.py
+```
+
+产物路径：`out/verification/estimation.json`（案例名前缀 `qpe-`）。

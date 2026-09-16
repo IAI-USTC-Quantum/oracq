@@ -63,3 +63,32 @@ CKSConfig(order=2, terms=None)      # order 1..128；terms 为截断项数，≤
 - API 参考：[量子线性系统](../../api/algorithms/qlss.rst)
 - 输入模型审查：[QFVM 输入模型审查](../../reference/qfvm-input-models.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_nt_qlss_sde.py`（nt_qlss_sde 组），全部在真实后端执行。经典预言机全部独立：Chebyshev 矩阵多项式 $P(M)=\sum_j c_j T_{2j+1}(M)$ 用 numpy 以 $T_2$ 递推直接求值（系数由 `math.comb` 闭式重算），真解由 `numpy.linalg.solve` 给出，均不经过被测实现的辅助函数。
+
+**实验设计**：(a) 内核收敛扫描——$\kappa=3$ 的 $2\times2$ 有符号稀疏系统（$A=[[0.75,-0.25],[-0.25,0.75]]$，$\alpha=1.5$），`cks_chebyshev` 在 order 2/4/8/16 下于 reference 与 rir-pysparq 运行，条件解态（signal = 0 分支归一化）与成功概率对照多项式预言（实现误差），方法误差对照 numpy 真解；(b) 协议级——`make_cks_qlss(CKSConfig(order=8))` 求解 `LinearSystem`，$p_{\text{solver}}$ 与独立矩阵范数探针的 $p_{\text{joint}}$ 对照多项式预言，`recover_norm` 对照 $\lVert A^{-1}b\rVert$；(c) Costa 构件——Dolph–Chebyshev 权重对照闭式窗 $\gamma\,T_d(\beta\cos\theta)$（numpy chebval 4097 点采样）、`schedule` 闭式与单调性、`unary_weight_preparation` 概率分布；`costa_qlss` 装配程序做三后端对拍（其 `kernel_status` 为库内声明的 prototype，求解精度不作判据）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| cks-kernel-order-2/4/8 | $2\times2$、$\kappa=3$ | 双路径 | 实现误差 / 成功概率误差 | ≤ 4.9e-16 / ≤ 1.7e-16 |
+| cks-kernel-order-16 | 同上 | 双路径 | 实现误差 / 成功概率误差 / 跨后端 | 7.2e-12 / 8.7e-13 / 2.5e-7 |
+| cks-method-convergence | order 2→16 | numpy oracle | 方法误差 | 0.5537 → 0.4084 → 0.2130 → 0.0662（严格递减，约 $e^{-4/3}$ 每阶） |
+| cks-protocol-norm-recovery | order 8 | 双路径 | 探针概率误差 / recover_norm 相对误差 / 保真度 | 1.1e-16 / 0.1456 / 0.9531 |
+| costa-plan-schedule-unary | degree ≤ 6 | numpy + 双路径 | DC 权重 / schedule / unary 制备 | 2.7e-15 / 2.2e-16 / 1.7e-16 |
+| costa-assembly-cross-backend | steps=1 | 三路径 | 逐振幅偏差 | 0.0 |
+
+recover_norm = 2.7018 对照 $\lVert A^{-1}b\rVert = 3.1623$（$b=(2,0)$）：0.1456 的相对误差与 order=8 的方法误差 0.213 自洽，随阶数按几何率收敛（kernel 扫描）。order=16 处 reference 与多项式预言保持 ~1e-16 一致，rir-pysparq 在约 $10^6$ 展开步后出现 2.5e-7 的单振幅浮点漂移（物理可观测量一致到 ≤ 8.7e-13），已在最终报告记录。
+
+**结构层模块的覆盖说明**：`contracts.py` 与 `interfaces.py` 是契约/协议结构层，本身不含独立数值语义——其代码路径（`ProtocolContract.check`、协议适配器 `as_sparse_access` / `as_block_encoding` 等）在协议级案例中被真实执行，正确性由 `tests/core` 结构测试与本组的跨后端对拍联合覆盖；`algorithms/legacy.py`（LCHS/Schrödingerization 工厂）与 `applications/legacy.py`（QFVM/QHAM 组装）同理，其数值内容归属底层算法页，组装确定性由 catalog 案例（`lchs`、`schrodingerisation`、`qfvm_*`、`qham_*`）的跨后端对拍覆盖。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+```
+
+产物：`out/verification/nt_qlss_sde.json`（`cks-*`、`costa-*` 共 7 个案例）。

@@ -59,6 +59,32 @@ $$
 
 统一的"解析可解 ODE 族"收敛基准缺失（阶段 V2）；辅助极点分支与无穷级数尾的实现属于算法层后续工作，当前以 `omitted` 元数据显式声明，不计入缺口列。与 `validation-coverage.md` 的 cbmd.py 行一致。
 
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_ode.py`（ode 组，本文件覆盖 `cbmd.py` 的部分）。经典参考全部独立：`ContourPlan` 派生量按 Eq.12–13 闭式直接重算、$t=0$ 轮廓恒等式残差、numpy 逐分支截断 Taylor 求和、`scipy.linalg.expm` 精确解；量子程序在真实后端 reference、rir-pysparq、OriginIR-ext 上执行。
+
+**实验设计**：(a) 计划子结构——`ContourPlan(a=1, cutoff=2..8)` 的节点/权重/辅助极点系数对独立闭式重算，$t=0$ 恒等式 main+aux→1 的截断残差趋势；(b) 端到端——与 LCHS 同一非对易 $2\times2$ 问题（$L=[[1,0.3],[0.3,0.5]]$、$H=[[0.2,0.1],[0.1,-0.1]]$），`ContourPlan(a=1.0, cutoff=2)`、Taylor degree 3、$t=0.2$，后选择块对独立仿真与精确解；(c) 同题对拍——复用两方法的量子物理块比较解方向。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| cbmd-contour-plan-formula-and-identity | cutoff 2/4/8 | 计划对象 | 权重/辅助系数对闭式最大偏差 | 0.0 |
+| 同上 | | | $t=0$ 恒等式残差（信息性） | 3.73e-2 / 3.20e-3 / 1.59e-4 |
+| cbmd-parts-noncommuting | 15 量子位 | reference、originir | 实现误差（对独立仿真） | 1.1e-16 |
+| 同上 | | | 方法误差（omitted 项，信息性） | 9.1e-3 |
+| cbmd-vs-lchs-direction | 同题 | reference | 解方向误差：CBMD / LCHS | 3.0e-3 / 4.5e-2 |
+
+恒等式残差随截断稳定下降，与元数据 `omitted` 中 `infinite_series_tail` 一致；端到端方法误差即文档声明省略的辅助极点分支贡献（本实例约 1%）。同题下 CBMD 主级数的解方向误差（3.0e-3）显著小于 LCHS 的 Cauchy 求积余项（4.5e-2）。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+```
+
+产物：`out/verification/ode.json`（`cbmd-*` 共 3 个案例）。
+
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/cbmd.py`

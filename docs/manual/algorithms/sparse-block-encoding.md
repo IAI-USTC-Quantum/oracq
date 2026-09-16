@@ -55,3 +55,37 @@ real_symmetric_sparse_encoding(access, fmt, amax, *, diagonal_nonnegative=False,
 - 同族页面：[块编码组合代数](block-encoding-algebra.md)、[CKS Chebyshev 求解器](cks.md)、[Costa 行走求解器](costa-walk.md)
 - API 参考：[稀疏访问适配](../../api/algorithms/sparse.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `sparse-be-*`、`chebyshev-walk-*`、`cross-tridiagonal-*`、`cross-qram-be-*` 共 14 个案例。
+
+实验设计：
+
+1. **稀疏 BE 多矩阵多规模**：三对角矩阵 $\alpha I + \beta T$（带符号格式 $\beta<0$ 检验方向相位约定、无符号格式检验无符号路径），dim ∈ {2, 4, 8, 16}，每列 $s$ 个结构位置、边界列以零条目位置补足。零信号块逐列提取（reference 全列 + rir-pysparq / adapter-pysparq 交叉），乘回 $\alpha = s\cdot a_{\max}$ 后与经典矩阵逐元对拍；dim = 2（15 qubits）与无符号 dim = 4（12 qubits）另走 OriginIR-ext 态向量逐列提取，带符号 dim = 4 达 24 qubits OriginIR 预算、dim = 8 为 34 qubits 超预算，均按预算只走 pysparq/reference 路径并在案例参数注明。
+2. **QRAM 数据绑定稀疏 BE**（dim = 4）：位置正/反表与元素表全部经 memory 绑定（不进 IR），reference 与 rir 逐振幅一致。
+3. **Chebyshev 行走**：2×2 稀疏 BE 的 `chebyshev_block` 阶数 $k=1..4$，零信号块对照 $T_k(A/\alpha)$。
+4. **与 pysparq 自带块编码的独立交叉验证**：同一三对角矩阵分别经 pyqecclang 稀疏 BE（及 dim ≤ 8 时的 Pauli LCU BE 第二路径）与 pysparq `BlockEncodingTridiagonal` 编码，各自提取有效块乘自身归一化后互相对拍（dim ∈ {2, 4, 8, 16}）；另以 pysparq `BlockEncodingViaQRAM`（C++ 判据配置 data_size=50、rational=51、exponent=15，矩阵 Frobenius 归一化入表）对拍三对角与非三对角（对匹配稀疏图 $s=2$）两个 dim = 4 实例。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `sparse-be-signed-tridiagonal-d2` | dim 2，s=2，α=3.0 | originir-ext + 三路径 | max_error | 4.4e-16 |
+| `sparse-be-signed-tridiagonal-d4` | dim 4，s=3，α=4.5 | 三路径 | max_error | 1.3e-16 |
+| `sparse-be-signed-tridiagonal-d8` | dim 8，s=3，α=4.5 | reference + rir | max_error | 1.3e-16 |
+| `sparse-be-unsigned-unitary-d4` | dim 4，s=3，α=4.5 | originir-ext + 三路径 | max_error | 1.1e-16 |
+| `sparse-be-unsigned-d16` | dim 16，s=3，α=4.5 | reference + rir | max_error | 1.1e-16 |
+| `sparse-be-qram-access-d4` | dim 4，QRAM 绑定 | reference + rir | max_error / 后端偏差 | 1.3e-16 / 0 |
+| `chebyshev-walk-k1..k4` | dim 2，$\alpha=3.0$ | 三路径 | max_error | 1.7e-16 / 2.5e-16 / 5.6e-16 / 6.7e-16 |
+| `cross-tridiagonal-*`（5 组） | dim 2–16 | reference × pysparq | qecc / pysparq / 交叉误差 | ≤4.4e-16 / ≤4.4e-16 / ≤6.7e-16 |
+| `cross-qram-be-tridiagonal-d4` | dim 4，s=3 | reference × pysparq QRAM | qecc 误差 / pysparq 量化误差 | 1.3e-16 / 2.8e-5 |
+| `cross-qram-be-matched-pairs-d4` | dim 4，s=2 非三对角 | 同上 | 交叉误差 | 2.8e-15 |
+
+交叉验证发现（如实记录，非断言库缺陷）：pysparq `BlockEncodingTridiagonal` 的 (0,0) 块归一化在主寄存器 1 位（dim = 2）且 $\beta \neq 0$ 时实测为 $|\alpha|+2|\beta|$，而非其构造文档的 Frobenius 范数（1 位寄存器上加一/减一都触发溢出分支，anc==0 角块失去 Frobenius 归一；$\beta=0$ 时无移位分支、仍等于 $A/\lVert A\rVert_F$）。其 C++ 正确性测试域 `randint(2,5)`（dim 4–16）不覆盖该规模；脚本按实证归一化对拍并在案例参数 `psparq_alpha_effective` 记录两种口径。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

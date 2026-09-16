@@ -58,3 +58,28 @@ dicke_state(m, weight)
 - 源码：`src/pyqecclang/algorithms/dqi.py`
 - API 参考：[DQI 解码量子干涉优化](../../api/algorithms/dqi.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行。
+
+**实验设计**：(a) 植入实例（7 约束 3 变量、右端项由 $x^* = \mathtt{0b101}$ 植入、Dicke 权重 1、穷举译码器），syndrome 分布对照论文的 Krawtchouk 闭式 $K_l(u(x))^2$（`math.comb` 独立计算），优化质量对照经典蛮力枚举的全部 8 个赋值；(b) 抽象译码器经 `bind` 绑定穷举见证后与直接见证逐振幅对拍；(c) Dicke 态 $\lvert D_2^5\rangle$ 的幅度均匀性。后端路径：`reference`、`rir-pysparq`、`adapter-pysparq`、`originir-ext`（实例 10 量子位，四路径分布对拍）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| dqi-planted-krawtchouk | m = 7、n = 3，10 量子位 | 四路径 | 分布 TVD / 逐点误差 | 4.0e-16 / 6.7e-16 |
+| 同上 | — | — | P(error = 0)（译码复净） | 1.0000 |
+| 同上 | — | — | 期望满足数（随机基线 3.5） | 6.5000 |
+| 同上 | — | — | 概率峰值赋值 = 蛮力最优（满足 7/7） | $x^*$ = 5 ✓ |
+| dqi-abstract-decoder-bind | 同上 | rir-pysparq | bind 与直接见证最大振幅偏差 | 0 |
+| dicke-state-uniformity | m = 5、l = 2 | reference + originir-ext | 支撑 / 幅度误差 | 10 基态 / 5.6e-17 |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `dqi-*` 与 `dicke-state-*` 三个案例）。

@@ -60,3 +60,38 @@ SELECT 的控制条件按 selector 二进制值用 RIR Control 原语表达；�
 - 同组页面：[Alias 采样制备](alias-preparation.md)、[态制备 Oracle](state-preparation.md)、[XOR 数据库](xor-database.md)
 - API 参考：[PREPARE-SELECT 分解](../../api/algorithms/prepare_select.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `gate-prepare-*`、`select-pauli-*`、`lcu-prepare-select-*`、`qram-prepare-*`、`alias-prepare-*`、`abstract-prepare-*` 共 12 个案例。
+
+实验设计：
+
+1. gate PREPARE 的 selector 振幅与 $\sqrt{|c_i|/\alpha}$ 逐点对拍（4 项与 5 项补零两组，补零槽位振幅须为零），reference / rir-pysparq / adapter-pysparq 三路径交叉；
+2. `select_pauli` 逐 selector 值读出末态，与 $e^{i\varphi_i}P_i$ 的稠密矩阵逐元对拍；
+3. `lcu_prepare_select` 的 (0,0) 块乘 α 后与 numpy 独立组装的 $\sum_i c_i P_i$ 对拍：w1 两项、w2 实/复系数、w3 六项多规模，w1/w2 另走 OriginIR-ext + UniQC `to_matrix` 全幺正提取；
+4. QRAM PREPARE 的角表量化：angle_width 8→12 的 TVD 收敛（reference 与 rir 逐振幅一致）；
+5. alias 采样 PREPARE：target 边缘分布 TVD 对照解析界 $2^{\text{selector}}\cdot 2^{-\text{precision}}$，alias 版 PREPARE–SELECT 块编码的块误差同界控制；
+6. 开放声明 `abstract_prepare` 经 `bind` 在块编码内部绑定 gate 实现后，块与直接组装逐振幅一致。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `gate-prepare-distribution-terms4` | 4 项，selector 2 | 三路径 | 最大振幅误差 | 0 |
+| `gate-prepare-distribution-terms5-padded` | 5 项（补 3 零槽） | 三路径 | 最大振幅误差 | 1.1e-16 |
+| `select-pauli-indexed-words` | 4 项（含复相位 0.2j） | reference | max_error | 0 |
+| `lcu-prepare-select-block-w1-balanced` | 1 位 2 项，α=1.4 | to_matrix + 三路径 | max_error | 3.5e-16 |
+| `lcu-prepare-select-block-w2-mixed` | 2 位 3 项，α=2.2 | to_matrix + 三路径 | max_error | 2.2e-16 |
+| `lcu-prepare-select-block-w2-complex` | 2 位 4 项复系数，α=2.14 | 三路径 | max_error | 1.7e-16 |
+| `lcu-prepare-select-block-w3-six-terms` | 3 位 6 项，α=2.35 | 三路径 | max_error | 2.3e-16 |
+| `qram-prepare-quantization-a8` / `-a12` | 4 项 | reference + rir | TVD | 4.9e-3 / 4.0e-4 |
+| `alias-prepare-distribution-p6` / `-p10` | 4 项 | reference + rir | TVD（界 6.3e-2 / 3.9e-3） | 3.9e-3 / 2.4e-4 |
+| `alias-prepare-select-block` | α=2.2，precision 10 | reference + rir | 块误差（界 3.9e-3） | 3.9e-4 |
+| `abstract-prepare-bind-in-be` | 3 项，α=2.2 | reference | max_error / bind_deviation | 2.2e-16 / 0 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

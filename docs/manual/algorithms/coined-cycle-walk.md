@@ -45,3 +45,22 @@ cycle_walk(width, *, steps=1)
 - 源码：`src/pyqecclang/algorithms/walks.py`
 - API 参考：[量子行走](../../api/algorithms/walks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：周期 $N=4$（width=2）与 $N=8$（width=3）的环上 Hadamard coined walk，从 $|0\rangle_{\rm position}|0\rangle_{\rm coin}$ 出发扫描步数 $s=0\ldots8$，四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）逐振幅对照独立 numpy 参考（coin H 后按 0/1 条件 $\pm1$ 移位的逐步模拟），位置边缘分布另算 TVD。注：$s=0$ 时程序不含门，UniQC 对零门线路无 qubit mapping，故零步情形不含 originir-ext 路径。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| cycle-walk-w2 | N=4, s=0..8 | 4 路径 | 振幅最大误差 / 位置分布最大 TVD | 5.6e-17 / 1.1e-16 |
+| cycle-walk-w3 | N=8, s=0..8 | 4 路径 | 振幅最大误差 / 位置分布最大 TVD | 5.6e-17 / 1.1e-16 |
+
+信息性指标（$s=8$ 的平均环距离，量子弹道输运 vs 经典扩散）：$N=8$ 时量子 3.0 vs 经典对称随机游走 1.875；$N=4$ 时量子 0.0 vs 经典 1.0（小环上 8 步恰好回到原点，呈 revival）。两者定性差异符合离散时间量子行走的已知行为。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `cycle-walk-w2`、`cycle-walk-w3`）。

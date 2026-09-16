@@ -38,6 +38,20 @@ fixed_arithmetic(kind, fmt=DEFAULT_FIXED_FORMAT)
 - 数值：`Stage2StructureTests.test_gate_network_is_executable_small_example`——无符号 2 位 `add` 在 `a = 1, b = 2` 上模拟，幅度精确集中在 `(a, b, out, status) = (1, 2, 3, 0)`；同一模块的 `arithmetic_network` payload 经 `from_payload` 复原后经典求值 `evaluate(a=1, b=2) == {"out": 3, "status": 0}`，电路与经典语义对拍。其余 `kind` 由结构见证与 payload 经典求值一致性覆盖，电路级数值对拍集中在 `add` 小实例。
 - 绑定：本算法无独立绑定见证（矩阵口径为 —）。真实后端上的原生执行（`arithmetic_native_registry`）另由 `tests/integration/test_stage2_native.py:Stage2NativeTests` 在 PySparQ 上与参考模拟器对拍（L4 冒烟，非矩阵口径）。
 
+## 数值验证
+
+实验设计（`tests/verification/verify_arithmetic.py`，产物 `out/verification/arithmetic.json`，20 案例）：原语算术走「OriginIR-ext 全振幅（1–8 bit）+ UniQC `Circuit.to_matrix` 幺正（3–4 bit）+ PySparQ RIR 宽寄存器（16/32/64 bit）」三条路径；定点编译函数（`compile_function` 的 Boolean SSA 降低）用叠加态一次穷举全部输入编码，对照独立经典语义逐分支核对；初等函数把「实现误差（对照模块属性 `math_approximation` 中的 Chebyshev 系数）」与「方法误差（系数多项式 vs 真函数）」分开报告。复现：`PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_arithmetic.py`。
+
+| 案例 | 规模 | 路径 | 指标 |
+|---|---|---|---|
+| `add_const` 叠加穷举 | w=1..8 × 4 常量 | originir-ext + reference/rir/adapter 对拍 | max_error ≤ 1.2e-16 |
+| `add_const` 幺正 | w=3/4 | originir-ext + to_matrix | 与经典置换矩阵逐元素差 = 0.0 |
+| `add_const` 宽寄存器 | w=16/32/64 抽样基态 | rir-pysparq | failures = 0；w=12 全叠加 max_error = 1.6e-17 |
+| xor/swap/受控算术 | 4+4+2 bit 结构化程序 | 四路径两两对拍 | max_pairwise_deviation = 0.0 |
+| 编译多项式 `x*x+0.5` | FixedFormat(4,1)/(6,2)/(8,3) 全域 | rir-pysparq | 无旗标输出误差 ≤ 1 量子（判据 2 量子）；status 越界集合与预测一致 |
+| 编译 `sin(x)`（degree=3） | FixedFormat(8,4)，区间 [−1,1] | rir-pysparq | 实现误差 0.055 ≤ 2 量子；方法误差 0.0453（信息性）；misflagged = 0 |
+| 编译函数叠加对拍 | FixedFormat(4,1) 全输入 | 四路径 | max_pairwise_deviation = 0.0 |
+
 ## 已知缺口与计划阶段
 
 无已知缺口（验证矩阵缺口列为 —），阶段 V1。

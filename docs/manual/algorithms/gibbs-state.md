@@ -61,3 +61,25 @@ gibbs_purification(hamiltonian, beta, *, error=0.01)
 - 同模块算法：[纯化访问](purification.md)
 - API 参考：[密度矩阵输入模型与 Gibbs 态](../../api/algorithms/density.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身）。实验设计：非对角哈密顿量 $H = \begin{pmatrix} 0.5 & 0.2 \\ 0.2 & -0.3 \end{pmatrix}$（$\alpha = 0.7$，$\beta = 1.2$）与对角哈密顿量 $H = \operatorname{diag}(0.8, -0.4)$（$\beta = 0.6$），`error = 0.02`；另有 $\beta = 0$ 退化例。在 reference / rir-pysparq / originir-ext 路径上执行纯化程序，取 signal == 0 分支，用 numpy 独立实现偏迹并重归一，与 `scipy.linalg.expm` 计算的经典 Gibbs 态 $e^{-\beta H}/Z$ 比较迹距离（`numpy.linalg.eigvalsh`），并报告后选择成功概率。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `gibbs-trace-distance-nondiag` | 13 量子位，$\beta = 1.2$ | reference、rir-pysparq、originir-ext | 迹距离 | 5.10e-5 |
+| 同上 | — | — | 成功概率 | 0.0953 |
+| `gibbs-trace-distance-diag` | 对角 $H$，$\beta = 0.6$ | reference、rir-pysparq | 迹距离 | 1.28e-5 |
+| 同上 | — | — | 成功概率 | 0.0992 |
+| `gibbs-beta0-maximally-mixed` | $\beta = 0$ 退化路径 | reference、rir-pysparq、originir-ext | 迹距离 | 0.0（精确 $I/2$） |
+
+三例迹距离均远小于 `3×error = 0.06` 的判据（实测最高 5.1e-5），与页面所载收敛见证（迹距离随 `error` 单调不增且远小于 `error`）一致。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

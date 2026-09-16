@@ -52,3 +52,21 @@ amplify_success(state, *, iterations=1)
 - API 参考：[搜索与振幅放大](../../api/algorithms/search.rst)
 - 同组页面：[Grover 搜索](grover.md)（均匀初态 + 相位 oracle 的特例）、[振幅估计](qae.md)（同一迭代算子的对偶读出）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：构造成功子空间为 `signal==0` 的态 oracle（`target` 两位均匀叠加，信号位 $R_y(3\pi/4)$，初始成功概率 $a=\cos^2(3\pi/8)=\sin^2(\pi/8)\approx0.1464$，故 $\theta_a=\pi/8$），对 `amplify_success` 在 $k=0\ldots3$ 上测零信号概率，对照 $\sin^2((2k+1)\theta_a)$，四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）。序列覆盖放大（$k=1,2$ 达 $0.8536$）与过冲回落（$k=3$ 回 $0.1464$）。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| amplify-success-curve | target 2 + signal 1，k=0..3 | 4 路径 | 成功概率最大误差 | 1.9e-15 |
+
+各迭代数理论值：0.146447、0.853553、0.853553、0.146447，逐点复现。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `amplify-success-curve`）。

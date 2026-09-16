@@ -54,3 +54,26 @@ t_count 在 λ = 4 处取谷（测试 `test_cost_model_matches_formulas_and_trad
 - 同组页面：[QROM 查找](qrom-lookup.md)、[XOR 数据库](xor-database.md)
 - API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/data_loading.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `select-swap-lambda{1,2,4,8,16}` 与 `select-swap-as-sparse-entry` 共 6 个案例。
+
+实验设计：16 地址、3 位随机数据字（固定种子），分区数 λ 全扫描 {1, 2, 4, 8, 16}；每个 λ 下对全部 16 个地址 × 两种 data 初值（0 与非零 5，检验 XOR 语义）逐基态读出，与 `gate_database` 真值表基线逐振幅对拍（reference 路径）。端到端案例：select_swap（λ = 2）作为 CKS 稀疏块编码的元素数据库，组装 2×2 带符号稀疏矩阵的 $T^\dagger S T$ 块编码，零信号块乘 α 后与经典矩阵逐元对拍（见[稀疏矩阵块编码](sparse-block-encoding.md)数值验证节）。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `select-swap-lambda1` | 16 地址 × 2 初值 | reference | 与基线最大偏差 | 0 |
+| `select-swap-lambda2` | 同上 | reference | 同上 | 0 |
+| `select-swap-lambda4` | 同上 | reference | 同上 | 0 |
+| `select-swap-lambda8` | 同上 | reference | 同上 | 0 |
+| `select-swap-lambda16` | 同上 | reference | 同上 | 0 |
+| `select-swap-as-sparse-entry` | dim 2，s=2，α=3.0 | reference | 稀疏 BE 块 max_error | 4.4e-16 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_blockencoding.py
+```
+
+产物：`out/verification/blockencoding.json`。

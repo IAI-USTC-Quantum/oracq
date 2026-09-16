@@ -56,3 +56,27 @@ quantum_integral(database, *, precision=4, interval=1.0, name=None)
 - 同模块页面：[Heinrich 量子求和](heinrich-summation.md)
 - API 参考：[量子求和与积分](../../api/algorithms/integration.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_nt_qlss_sde.py`（nt_qlss_sde 组），全部在真实后端执行；经典预言机为独立经典求和与 QAE 双峰 Dirichlet 理论分布。
+
+**实验设计**：(a) 4 点中点网格实例——$f(x)=x$ 在 $[0,1]$ 上取 4 个中点、$w=3$（量化均值恰为 0.5）、precision 4，在 reference、rir-pysparq、adapter-pysparq 上验证完整 phase 分布对照 QAE 理论，并以 `interval=2.0` 重解码同一分布验证区间缩放恒等式（区间长度不进电路，只进解码器）；(b) 8 点中点规范实例（核心测试同款，$w=4$、precision 4、14 位寄存器）在 rir-pysparq 上运行并对照 QAE 理论（reference 交叉由同结构 4 点例的三后端对拍覆盖）。两个实例的判据均含与积分真值 $0.5$ 的偏差。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| quantum-integral-midpoint4 | 4 点、$w=3$、p 4 | 三路径 | TVD vs QAE 理论 / 跨后端 TVD | 8.0e-15 / 7.1e-17 |
+| 同上 | | | 众数估计 vs 量化真值 0.5（分辨率界 0.2244） | 0.5714（偏差 0.0714） |
+| 同上 | | | interval=2 缩放偏差 | 0.0 |
+| quantum-integral-midpoint8 | 8 点、$w=4$、p 4 | rir-pysparq | TVD vs QAE 理论 | 9.9e-15 |
+| 同上 | | | 众数估计 vs 量化真值 / 积分真值 0.5 | 0.5333（偏差 0.0333 / 0.0333） |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+```
+
+产物：`out/verification/nt_qlss_sde.json`（`quantum-integral-*` 共 2 个案例）。

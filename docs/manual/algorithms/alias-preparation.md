@@ -51,3 +51,28 @@ alias 三绑定一致性（gate / QRAM 当前缺独立场景）：统一的参�
 - 同组页面：[PREPARE–SELECT 分解](prepare-select.md)、[态制备 Oracle](state-preparation.md)、[XOR 数据库](xor-database.md)
 - API 参考：[PREPARE-SELECT 分解](../../api/algorithms/prepare_select.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+本节结果由 `tests/verification/verify_stateprep.py` 在真实后端上跑出（reference 内置参考执行器与 rir-pysparq 原生 RIR 解释器；alias 程序工作区达 51 qubit，超出 OriginIR-ext 的 24 qubit 预算，故走稀疏模拟路径）。
+
+**实验设计**（4 个案例）：对 selector（target）边缘分布做对拍，oracle 为两个独立构造的经典分布——精确分布 $p_i = |c_i|/\alpha$（由系数直接计算）与量化 alias 分布 $q_i \propto \text{quantized}_i + \sum_{j:\,\text{alt}_j=i}(2^p - \text{quantized}_j)$（由 keep/alt 表按定义独立展开，非调用 `AliasTable.distribution()`；后者与闭式的一致性作为信息性指标一并报告）。实例：4 系数（含复数）precision 8 的 gate_database 与默认 QRAM 双绑定、6 系数（含一个零概率槽，补零到 8）precision 10 的 gate 绑定、以及 keep 恰好全为 1 的均匀分布特例。量子侧一次运行给出全部 $2^{\text{selector}+\text{precision}}$ 个分支的边缘分布。
+
+**关键指标**：
+
+| 案例 | 规模 | 绑定 / 路径 | TVD（vs 量化分布） | TVD（vs 精确分布） | 理论界 $2^w \cdot 2^{-p}$ |
+|---|---|---|---|---|---|
+| alias-preparation-gate-w2-p8 | w=2, p=8 | gate / ref+rir | 8.3e-17 | 1.33e-3 | 1.56e-2 |
+| alias-preparation-qram-w2-p8 | w=2, p=8 | QRAM / ref+rir | 8.3e-17 | 1.33e-3 | 1.56e-2 |
+| alias-preparation-gate-w3-p10 | w=3, p=10（含零槽） | gate / ref+rir | 7.6e-17 | 1.63e-4 | 7.81e-3 |
+| alias-preparation-uniform-p8 | w=2, p=8 均匀 | gate / ref+rir | 5.6e-17 | 5.6e-17 | 1.56e-2 |
+
+量子边缘分布与量化 alias 分布在机器精度量级一致（gate 与 QRAM 两绑定的跨路径 TVD 为 0），与精确分布的 TVD 由 keep 量化主导且远小于理论界；均匀特例下量化无损，TVD 降到机器精度。`distribution_self_consistency` 全为 0，表明模块自带 `distribution()` 与独立闭式一致。
+
+**复现命令**：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_stateprep.py
+```
+
+**产物路径**：`out/verification/stateprep.json`。

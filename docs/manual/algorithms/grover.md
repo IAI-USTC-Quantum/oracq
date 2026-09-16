@@ -54,3 +54,22 @@ grover(phase_oracle, width, *, iterations=1, preparation=None)
 - API 参考：[搜索与振幅放大](../../api/algorithms/search.rst)
 - 同组页面：[振幅放大](amplitude-amplification.md)、[振幅估计](qae.md)、[量子计数](quantum-counting.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：$n=3$（$N=8$）两组实例在四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）上扫描迭代数 $k$，marked 概率与逐基态分布对照闭式两级公式 $\sin^2((2k+1)\theta)/t$、$\cos^2((2k+1)\theta)/(N-t)$。实例一：`phase_marks(3, (5,))`，$t=1$，$\theta=\arcsin(1/\sqrt 8)$，$k=0\ldots4$（含越过最优迭代后的振荡下行段）；实例二：`phase_from_database(gate_database)` 标记 $\{5,6\}$，$t=2$，$\theta=\pi/6$，$k=1$ 时精确放大到 1。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| grover-phase-marks-n3-t1 | N=8, t=1, k=0..4 | 4 路径 | 成功率最大误差 / 分布最大误差 | 2.3e-15 / 2.3e-15 |
+| grover-xor-database-n3-t2 | N=8, t=2, k=0..3 | 4 路径 | 成功率最大误差 / 分布最大误差 | 1.4e-15 / 7.2e-16 |
+
+实例一各迭代数的理论成功率依次为 0.125、0.78125、0.9453125、0.330078125、0.012207031（$k=2$ 最优，$k\ge3$ 过冲回落），四条路径逐点复现。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `grover-phase-marks-n3-t1`、`grover-xor-database-n3-t2`，含逐迭代数值）。

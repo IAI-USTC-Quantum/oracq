@@ -48,3 +48,23 @@ operation = amplitude_estimation(uniform_state(n), marked, precision=p)
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/estimation.rst)
 - 同组页面：[振幅估计](qae.md)、[Grover 搜索](grover.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：$n=3$（$N=8$）、marked $=\{1,5,7\}$（$t=3$，$a=3/8$）、precision $=4$（栅格 $M=16$）。按上文配方生成 `amplitude_estimation(uniform_state(3), marked, precision=4)`，在四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）上读出 phase 寄存器的完整分布，对照独立 Dirichlet 核参考（本征相位 $\pm\theta/\pi$、$\theta=\arcsin\sqrt{3/8}$ 上的 QPE 栅格卷积），并按 $\hat t=N\sin^2(\pi y/M)$ 解码计数。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| quantum-counting-n3-t3 | N=8, t=3, M=16 | 4 路径 | 相位分布 TVD | 5.7e-15 |
+| 〃 | 〃 | 〃 | 峰值估计 $\hat t$（误差） | 2.4693（0.531，≤1 栅格步） |
+| 〃 | 〃 | 〃 | 中心栅格质量（QAE 下界 $8/\pi^2$） | 0.8529（≥ 0.8106） |
+
+真值 $\theta M/\pi\approx3.357$ 落在栅格点 3 与 4 之间，分布双峰（$y=3,13$ 各约 0.325）与理论位置一致；点估计精度由栅格密度决定，与"$\hat t$ 不必为整数"的口径吻合。
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `quantum-counting-n3-t3`）。

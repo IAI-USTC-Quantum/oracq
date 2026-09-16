@@ -59,3 +59,20 @@ qram_adjacency(vertex_bits, degree_bits, *, name=None)       # QRAM 表
 - 源码：`src/pyqecclang/algorithms/graph_walks.py`
 - API 参考：[图行走搜索](../../api/algorithms/graph_walks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计（端到端行走数值，邻接查询本身已由单测覆盖）：以超立方体 Q3 邻居表（8 顶点、度 4）的 `gate_adjacency` 为例，对 vertex/index 寄存器加 H 做一次叠加调用，穷举全部 32 个 $(v,j)$ 查询分支，四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）逐振幅核对 $\lvert v\rangle\lvert j\rangle\lvert N(v,j)\rangle$ 结构。另以 QRAM 绑定（`qram_adjacency` + 内存表）跑通 MNRS 搜索端到端（K4，steps=2，OriginIR-ext 不含 QRAM 资源，该实例仅 reference 与 rir-pysparq 两路径）。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| adjacency-superposition-hypercube | 8 顶点 × 4 列 = 32 查询 | 4 路径 | 振幅最大误差 / 表外分支权重 | 5.6e-17 / 0.0 |
+| mnrs-search-qram-k4 | N=4, D=4, steps=2 | reference, rir-pysparq | marked 概率 / 末态最大误差 | 0.578125 / 6.3e-16 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `adjacency-superposition-hypercube`、`mnrs-search-qram-k4`）。

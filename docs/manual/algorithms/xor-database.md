@@ -60,3 +60,27 @@ gate 版对每个非零表字在地址控制下逐位施加 X，门数随表规�
 - 同组页面：[QROM 查找](qrom-lookup.md)、[Select-Swap QROM](select-swap.md)、[稀疏访问](sparse-access.md)、[态制备 Oracle](state-preparation.md)
 - API 参考：[Oracle 声明与实现](../../api/algorithms/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值验证脚本：`tests/verification/verify_oracles.py`（A 组案例），产物 `out/verification/oracles.json`。
+
+实验设计：gate 真值表在两种模式下穷举全部输入域——**基态逐点**（全部 $2^{a+d}$ 个 $(a,d)$ 初态逐跑，断言输出恰为单一基态 $|a,\,d \oplus table[a]\rangle$）与**全叠加**（address/data 同时 Hadamard，一次运行覆盖全部分支，与经典置换逐振幅对拍）。QRAM 绑定以执行期 memory 字典走相同叠加穷举，并加非零 data 初值的基态抽点。双绑定一致性案例把同一 `abstract_database` 开放声明分别绑定 gate 与 QRAM 实现，三路执行结果两两对拍——即上文"已知缺口"中三绑定一致性参数化（V4）的首轮数值证据。后端路径：reference（内置参考执行器）、rir-pysparq（PySparQ 原生 RIR 解释器）、adapter-pysparq（pyqecclang 事件适配器）、originir-ext（UniQC 全振幅态向量）。
+
+| 案例 | 规模 (address×data) | 路径 | 指标值 |
+|---|---|---|---|
+| xor-gate-basis-2x3 | 2×3，32 初态 | reference, rir-pysparq, originir-ext | failures = 0 |
+| xor-gate-basis-3x2 | 3×2，32 初态 | reference, rir-pysparq | failures = 0 |
+| xor-gate-superposition-2x3 | 2×3，32 分支 | 全部四路径 | max_error = 5.6e-17 |
+| xor-gate-superposition-3x4 | 3×4，128 分支 | 全部四路径 | max_error = 4.2e-17 |
+| xor-gate-superposition-4x3 | 4×3，128 分支 | 全部四路径 | max_error = 4.2e-17 |
+| xor-qram-superposition-3x4 | 3×4，128 分支 | 全部四路径 | max_error = 4.2e-17，basis_failures = 0 |
+| xor-abstract-binding-consistency-3x2 | 3×2，gate/qram 双绑定 | reference, rir-pysparq, originir-ext | max_error = 5.6e-17 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_oracles.py
+```
+
+产物路径：`out/verification/oracles.json`。

@@ -40,3 +40,22 @@ fourier_add(width)
 - 源码：`src/pyqecclang/algorithms/fourier.py`
 - API 参考：[Fourier 变换与算术](../../api/algorithms/fourier.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。真值表 oracle 为独立的经典整数模加法：幺正级对 n ≤ 4 用 OriginIR-ext 导出经 UniQC `Circuit.to_matrix` 取全幺正，与置换矩阵 $|a,b\rangle \mapsto |a,(a+b)\bmod 2^n\rangle$ 逐元素对比（`effective_block` 提取，泄漏为 0）；态向量级对 n ≤ 4 固定被加数 $b_0$、叠加 $a$，遍历全部 $b_0$ 覆盖完整 $4^n$ 输入对（reference 与 originir-ext 双路径）；n = 8 在 rir-pysparq 上一次叠加穷举 $a$ 的 256 个分支（中间稀疏态峰值 $2^{16}$，多组代表性 $b_0$）；n = 12 因中间态 $2^{24}$ 超出稀疏预算，改为采样基态对的确定性输出检查（案例参数中注明）。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `fourier-add-unitary` | n = 1/2/3/4 | originir-ext + UniQC to_matrix | max_error | 2.3e-16 / 3.8e-16 / 6.5e-16 / 1.0e-15 |
+| `fourier-add-truthtable` | n = 1/2/3/4（全 $4^n$ 输入对） | reference + originir-ext | max_error | 1.2e-16 / 2.4e-16 / 2.6e-16 / 3.0e-16 |
+| `fourier-add-superposed-a-n8` | n = 8，5 组 $b_0$ × 256 分支 | rir-pysparq | max_error | 1.5e-16 |
+| `fourier-add-sampled-basis-n12` | n = 12，12 组采样 $(a,b)$ | rir-pysparq | failures | 0 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_fourier.py
+```
+
+产物：`out/verification/fourier.json`。

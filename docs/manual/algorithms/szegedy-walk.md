@@ -54,3 +54,23 @@ szegedy_setup(adjacency, *, name=None)
 - 源码：`src/pyqecclang/algorithms/graph_walks.py`
 - API 参考：[图行走搜索](../../api/algorithms/graph_walks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+实验设计：8 顶点的偶环（交替边染色邻居表，满足对合性 $N(N(v,j),j)=v$，$v=3, g=1$，行走空间 7 量子位）。两层对照，经典参考为独立 numpy 组装的 $W=R_B R_A$（$R_A, R_B$ 为邻居叠加态反射，由邻居表直接构造）：
+
+1. 幺正层：OriginIR-ext 导出经 UniQC `Circuit.to_matrix` 得全幺正，与参考矩阵逐元素对比；
+2. 态层：`szegedy_setup` 初态上作用 1 步与 3 步行走，四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）逐振幅对比。
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| szegedy-walk-cycle8 | 7 qubits, steps=1,3 | 4 路径 + to_matrix | 幺正矩阵最大误差 | 4.1e-16 |
+| 〃 | 〃 | 〃 | 演化态最大误差 | 5.3e-16 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+```
+
+产物：`out/verification/search_walks.json`（案例 `szegedy-walk-cycle8`；MNRS 端到端搜索见 [MNRS 量子行走搜索](mnrs-search.md) 的数值验证一节）。

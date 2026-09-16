@@ -51,6 +51,30 @@ MIR 是顺序 SSA 图（节点引用的下标严格小于自身），`MathProgra
 
 定点量化误差界的显式见证未补：字长、阶数、区间与系数已进模块属性，但"给定 fmt / degree 下输出偏差不超过多少"没有自动化断言。登记为阶段 V2，与 `validation-coverage.md` 的 mathfunc 行一致。
 
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_mathfunc.py`（真实后端执行，无模拟替身），直接补齐上一节的误差界缺口。实验设计：覆盖 `examples/math_functions.py` 全部 5 个函数与 `applications/roe_formulas.frozen_roe_face`（6 实输入 + 2 个 Index(2) + 2 个生成期常量 + 双输出），FixedFormat(6,2)/(8,3) 两种格式；rir-pysparq 叠加穷举（单输入全域 2^6/2^8 分支，多输入逐轴纤维 + 联合立方体，Index 全域 16 组联合）。oracle 为按 `fixed_arithmetic` 语义独立实现的定点仿真机 `_Fx`（mul/div/sqrt 幅度向零截断、add/sub 模 wrap、status 位 0 = 定义域失效、位 1 = 值域/字长越界、`select` 掩码未选分支而 helper 调用合并全部参数旗标、helper 形参不参与折叠），初等核另按 `math_approximation` 系数逐比特复现 Clenshaw 递推——因此"实现误差"对照的是**量化后的系数配方**，"方法误差"（配方 vs 真函数）单独报告。结果：除 guarded_reciprocal 外全部案例与 _Fx 仿真**逐比特一致**（max_error = 0，覆盖数千个无旗标分支），guarded_reciprocal 全域误差 ≤ 1 量子（除法截断界）且全域无旗标；status 旗标（rho=0 除零、rho<0 平方根、c2≤0、z=±i、核区间越界、中间量字长越界含 wrap 后除零）逐分支符合预测（misflagged = 0）；三后端（rir-pysparq / reference / adapter-pysparq）振幅两两偏差 0.0；基态确定性（输入保持、输出 XOR、locals 复净）6 函数全过。工作区实测 358–2178 比特，OriginIR-ext 24 比特预算不适用。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| polynomial 全域穷举 | 6.2 / 8.3，64 / 256 分支 | rir-pysparq | max_error | 0 / 0（exact_fraction 1.0） |
+| guarded_reciprocal 全域穷举 | 6.2 / 8.3，64 / 256 分支 | rir-pysparq | max_error | 0.94 / 0.98 量子（全域 status = 0） |
+| pressure 纤维 + 立方体 | 两格式，192+64 / 768+64 分支 | rir-pysparq | max_error / 常量量化偏差 | 0 / 1.4（6.2）、0 / 0.578（8.3） |
+| roe_speed 纤维 + 立方体 | 两格式，256+16 / 1024+16 分支 | rir-pysparq | max_error | 0 / 0 |
+| phase_response 纤维 + 立方体 | 两格式，192+16 / 512+16 分支 | rir-pysparq | max_error / 方法误差 | 0 / 1.770（6.2）、0 / 1.349（8.3） |
+| frozen_roe_face 索引联合 + 纤维 | 16 + 96 分支 × 两格式 | rir-pysparq | max_error | 0 / 0（left/right 双输出） |
+| 核方法误差（信息性） | 4001 点网格，degree=3 | 经典对照 | exp / sin / cos | 0.148 / 0.195 / 0.364 |
+| 跨后端对拍（6 案例） | 16–64 分支 | rir-pysparq / reference / adapter-pysparq | max_pairwise_deviation | 0.0 |
+| 基态确定性 | 6 函数 | rir-pysparq | failures | 0 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_mathfunc.py
+```
+
+产物：`out/verification/mathfunc.json`（28 个案例全过，总运行约 185 秒）。
+
 ## 相关链接
 
 - 源码：`src/pyqecclang/infrastructure/mathfunc/`（`frontend.py` / `graph.py` / `numeric.py` / `lowering.py`）

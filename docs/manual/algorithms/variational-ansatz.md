@@ -46,3 +46,23 @@ hardware_efficient_ansatz(width, layers)
 - 同模块页面：[MaxCut QAOA](qaoa-maxcut.md)、[VQE 测量电路](vqe.md)
 - API 参考：[变分算法电路](../../api/algorithms/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行。
+
+**实验设计**：width = 3、两层共 12 个非平凡角度（每层每比特 Ry/Rz 对）的硬件高效拟设；经典预言机为逐门构造的 numpy 态向量（独立实现 Ry/Rz/CNOT 的 exactly-same 层序与低位比特约定）。后端路径：`reference`、`rir-pysparq`、`adapter-pysparq`、`originir-ext` 四路径全振幅对拍。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 最大幅度误差 | 保真度 | 跨后端偏差 |
+|---|---|---|---|---|---|
+| ansatz-parameter-intent | 3 比特、2 层 | 四路径全振幅对拍 | 0 | 1 − 4e-16 | 0 |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `ansatz-parameter-intent` 案例）。

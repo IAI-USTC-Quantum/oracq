@@ -72,6 +72,31 @@ $$
 
 统一的"解析可解 ODE 族"收敛基准缺失（同一解析可解问题过全部求解器的批量对拍未建立），归入阶段 V2 的收敛性扫描框架；与 `validation-coverage.md` 的 ode.py 行一致。
 
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_ode.py`（ode 组，本文件覆盖 `ode.py` 与 `ode_models.py` 的部分）。`QODEProtocol`/`linear_qode` 路由与 `QODEProblem.solve` 的数值行为通过各方法端到端案例验证（详见 [LCHS](lchs.md)、[CBMD](cbmd.md)、[Schrödingerization](schrodingerization.md)、[Carleman 线性化](carleman.md) 的数值验证节）。
+
+**实验设计**：(a) `linear_qode("lchs")` 路由——五种输入模型的端到端对拍（`HermitianParts.from_operator(scale(-1, G))` 的 $A=-G$ 对齐由独立 numpy 仿真确认）；(b) `QODEProblem.solve`——4 点 OU 零通量 Fokker–Planck 问题（`dissipative=True`、evidence 透传）经 `check().require()` 与 `solve`，输出宽度、`qode_dissipative_promise` 透传与数值解同时验证；(c) 声明透传——`qode_input_evidence`/`qode_dissipative_promise` 属性按声明出现在输出模块属性中。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| lchs-given-be-scalar-decay | 7 量子位 | 四路径 | 实现误差（路由+组装对独立仿真） | 1.2e-16 |
+| lchs-fokker-planck-ou | 16 量子位 | reference、originir | 实现误差 / 经典参考互证 / `qode_dissipative_promise` | 1.1e-16 / 1.1e-16 / True 透传 |
+| cbmd-parts-noncommuting | 15 量子位 | reference、originir | 实现误差（CBMD 路由） | 1.1e-16 |
+| schrodingerization-* | 21 量子位 | reference、originir（decay-grid）/ reference（其余） | 组装保真度（Schrödingerization 路由） | 8.7e-19 |
+
+`make_euler_history_qode` 的隐式 Euler 历史组装（LCU 符号和 $C=I-\Delta t(q\otimes G)-(S\otimes I)$）由 catalog 的 QHAM m=1 案例结构测试覆盖，本组未对其做数值端到端验证（需要完整 QLSS 内核，超出本组范围）。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+```
+
+产物：`out/verification/ode.json`。
+
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/ode.py`

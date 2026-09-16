@@ -56,3 +56,32 @@ qrom_cost(n_addresses, data_bits, partitions=1)
 - 同组页面：[Select-Swap QROM](select-swap.md)、[XOR 数据库](xor-database.md)
 - API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/data_loading.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+本节结果由 `tests/verification/verify_stateprep.py` 在真实后端上跑出（reference、rir-pysparq、adapter-pysparq、originir-ext + UniQC 四条独立路径）。
+
+**实验设计**（14 个案例）：真值表穷举而非逐基态循环——对地址寄存器施加 Hadamard 后一次查询即并行读出整张表（期望态 $\frac{1}{\sqrt{N}}\sum_a |a, T[a]\rangle$），地址+数据全叠加进一步穷举 XOR 语义 $|a, d\rangle \mapsto |a, d \oplus T[a]\rangle$。实例：`qrom_lookup` 的 16 地址稠密表、缺失地址按 0 处理的稀疏字典表、64 地址宽表；`select_swap_qrom` 的 16 地址表在 $\lambda \in \{1, 2, 4, 8, 16\}$ 全分区曲线下逐振幅穷举，及 64 地址表 $\lambda \in \{2, 8\}$；`qram_database`（QRAM 资源绑定，memory 提供表数据）同样做两种叠加穷举。$\lambda = 8/16$ 与 64 地址 $\lambda = 8$ 的工作区分别为 31/42/55 qubit，超 OriginIR-ext 的 24 qubit 预算（由 `workspace_table` 预判），这些案例只走 pysparq 路径并在案例参数中注明。`qrom_cost` 与论文闭式公式 $4(N/\lambda - 1 + b(\lambda-1))$、T 深度 $N/\lambda - 1 + (\lambda - 1)$、辅助比特 $\lambda b + (\lambda-1)\log_2\lambda$ 在 $(N, b, \lambda)$ 网格上双向对拍，并校验生成操作的模块属性与估算一致。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | max_error |
+|---|---|---|---|
+| qrom-lookup-truth-table-n16 | N=16, b=3 | 四路径 | 8.3e-17 |
+| qrom-lookup-sparse-dict | N=8, b=3（稀疏表） | 四路径 | 5.6e-17 |
+| qrom-lookup-wide-n64 | N=64, b=4 | 四路径 | 5.6e-17 |
+| select-swap-truth-table-l1..l16 | N=16, b=3, λ∈{1,2,4,8,16} | ref+rir+adapter（λ≤4 加 originir） | ≤ 8.4e-17 |
+| select-swap-xor-superposition-l4 | N=16, b=3，128 分支 | 四路径 | 4.2e-17 |
+| select-swap-wide-n64-l2 / l8 | N=64, b=4 | ref+rir+adapter（l2 加 originir） | ≤ 5.6e-17 |
+| qrom-cost-formula | 9 组 (N,b,λ) 网格 + 生成属性 | 纯经典 | failures = 0 |
+| qram-database-truth-table / xor-superposition | N=4, b=3（QRAM 绑定） | 四路径 | ≤ 1.2e-16 |
+
+所有分区的查询结果与真值表在机器精度量级逐振幅一致，窗口局部寄存器复净（模拟器在 LocalExit 强制检查），成本模型与闭式公式完全一致。
+
+**复现命令**：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_stateprep.py
+```
+
+**产物路径**：`out/verification/stateprep.json`。

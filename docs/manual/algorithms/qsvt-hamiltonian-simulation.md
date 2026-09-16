@@ -50,3 +50,24 @@ qsvt_hamiltonian_simulation(a, t, *, error=0.01)
 - API 参考：[QSVT 标准变换](../../api/algorithms/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身）。实验设计：输入 BE 为 `matrix_pauli_encoding` 编码的非对角厄米矩阵 $A = \begin{pmatrix} 0.5 & 0.2 \\ 0.2 & -0.3 \end{pmatrix}$（$\alpha = 0.7$），$t \in \{0.7, 2.0\}$、`error = 0.01`；在 reference / rir-pysparq / originir-ext 三条路径上逐列读出完整 $2\times2$ 零信号块，与 `scipy.linalg.expm` 计算的 $e^{itA/\alpha}/\text{sim\_scale}$ 对拍。实现误差（电路块 vs $e^{itx}$ 参考）与方法误差（Jacobi–Anger 截断尾部上界 $2\sum_{j>K}|J_j(t)|$，由 `scipy.special.jv` 独立求值）分列报告。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `qsvt-hamsim-t0.7` | $K = 4$，sim_scale ≈ 3.0 | reference、rir-pysparq、originir-ext | impl_error | 2.72e-5 |
+| 同上 | — | — | 方法尾部上界 / 总误差界 | 9.10e-5 / 1.18e-4 |
+| `qsvt-hamsim-t2.0` | $K = 6$ | reference、rir-pysparq、originir-ext | impl_error | 5.42e-5 |
+| 同上 | — | — | 方法尾部上界 / 总误差界 | 4.00e-4 / 4.54e-4 |
+
+两个时间点上的总误差界（1.2e-4 与 4.5e-4）均远小于请求的 `error = 0.01`，且实现误差显著低于方法误差，表明截断度数选择是精度的主导项、相位合成与电路组装处于噪声量级。
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

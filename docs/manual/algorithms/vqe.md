@@ -51,3 +51,23 @@ pauli_measurement(preparation, word)
 - 同模块页面：[MaxCut QAOA](qaoa-maxcut.md)、[硬件高效拟设](variational-ansatz.md)
 - API 参考：[变分算法电路](../../api/algorithms/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行。
+
+**实验设计**：2 比特硬件高效拟设经 `StatePreparation.from_unitary` 适配为制备 oracle，对 Hamiltonian 五项（ZI、IZ、XX、YY、ZZ，系数 0.5/−0.3/0.7/0.2/−0.1）生成 Pauli 测量电路；由精确态向量（不采样）计算各测量电路非 I 位的 Z 奇偶期望，与 numpy 直积算子的 $\langle\psi\lvert P\rvert\psi\rangle$ 独立对照，并汇总加权总能量。后端路径：`reference`（机器精度内同时与 numpy 预言机一致）。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 单项最大误差 | 总能量（测量 / 精确） | 能量误差 |
+|---|---|---|---|---|---|
+| vqe-pauli-expectations | 2 比特、5 项 | reference | 3.3e-16 | 0.4863695277137 / 0.4863695277137 | 1.1e-16 |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `vqe-pauli-expectations` 案例）。

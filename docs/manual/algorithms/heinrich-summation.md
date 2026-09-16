@@ -51,3 +51,30 @@ quantum_sum(database, *, precision=4, name=None)
 - 源码：`src/pyqecclang/algorithms/integration.py`
 - API 参考：[量子求和与积分](../../api/algorithms/integration.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_nt_qlss_sde.py`（nt_qlss_sde 组），全部在真实后端执行；经典预言机（经典求和 $E[v]$、QAE 双峰 Dirichlet 理论分布）独立构造，不经过被测实现的辅助函数。
+
+**实验设计**：(a) 比较器恒等式——常数表、斜坡表、伪随机 16 值表三个实例，在 reference、rir-pysparq、adapter-pysparq 与 OriginIR-ext 上验证好状态概率**恰为** $E[v]/2^w$；(b) 均值恰落 QAE 栅格的常数表（$E[v]/2^w = 1/2$），要求所有非零概率读出解码后等于真值；(c) QAE 读出分布对照独立理论 $\frac{1}{2}\left[D^2(y - y_\theta) + D^2(y + y_\theta)\right]$（$y_\theta = 2^p\theta/\pi$，$\sin^2\theta = E[v]/2^w$），并做 precision 3→5 的期望误差收敛扫描；(d) gate 与 qram 两种加载器绑定在制备全振幅与求和 phase 分布上逐点对拍（qram 程序的资源带嵌套前缀 `prep__db__table`、`qpe__u__prep__db__table`，按入口资源名绑定同一数据表）；(e) `heinrich_rate` 收敛率闭式值。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| sum-preparation-flag（3 张表） | $n \le 4$、$w \le 4$ | 四路径 | $\lvert P(\text{flag}) - E[v]/2^w\rvert$ | 1.1e-16 |
+| quantum-sum-on-grid | $w=2$、precision 4 | 三路径 | 读出解码最大偏差 / 跨后端 TVD | 4.4e-16 / 0.0 |
+| quantum-sum-qae-p3/p4/p5 | $w=2$ | 双路径 | TVD vs QAE 理论 | 3.5e-15 / 6.2e-15 / 1.3e-14 |
+| quantum-sum-qae-convergence | precision 3→5 | reference | 期望绝对误差 $E\lvert\hat\mu - 1.5\rvert$ | 0.7205 → 0.4752 → 0.2267（严格递减） |
+| table-loader-qram-vs-gate | $w=3$、precision 3 | 双路径 | 制备振幅 / flag 概率 / 求和分布偏差 | < 1e-9 一致 |
+| heinrich-rate-closed-form | 4 组 $(s,d)$ | 经典 oracle | 与 $s/d$、$+1/2$、$+1$ 的偏差 | < 1e-15 |
+
+QAE 期望误差按 $\Theta(\log M / M)$ 收缩（Dirichlet 核重尾的一阶矩），单调递减验证了 $O(1/\varepsilon)$ 查询复杂度的实际表现；众数估计在各 precision 下均落在一阶分辨率界 $2^w\pi/2^p$ 内。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+```
+
+产物：`out/verification/nt_qlss_sde.json`（`sum-preparation-*`、`quantum-sum-*`、`table-loader-*`、`heinrich-rate-*` 共 10 个案例）。

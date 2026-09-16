@@ -57,3 +57,41 @@ BE 归一化不经属性传播；谱变量 $x$ 相对输入归一化 $\alpha$ �
 - API 参考：[矩阵变换序列](../../api/algorithms/transforms.rst)
 - 同族页面：[量子化行走](qubitization-walk.md)、[Oblivious 振幅放大](oblivious-amplification.md)、[QSP 相位合成](qsp-phase-synthesis.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。输入 BE 为 gate 级绑定小实例（`matrix_pauli_encoding` 编码 1 比特厄米矩阵 $A$，独立 Pauli 展开 $\alpha = 0.8$）。三层 oracle 互相独立：其一，固定种子的随机相位（7 个，$d = 6$）下序列全幺正与时间正序交替乘积 $S(\varphi_d)\,U/U^\dagger \cdots S(\varphi_0)$ 逐元素对比（$U$ 取 BE 实测幺正，$S(\varphi)$ 按文档约定由信号零分支 $e^{+i\varphi}$、其余 $e^{-i\varphi}$ 构造）；其二，零信号块与 $p(A/\alpha)$ 对比，$p(x)$ 由本文档公式的独立 2×2 矩阵乘积实现给出（不经库内 `qsp_response`）；其三，Chebyshev 端到端——以 `qsp_phases` 合成的 $T_4, T_5$ 相位为输入，零信号块与独立递推的 $T_d(A/\alpha)$ 对比。另覆盖 `signal_qubits == 0` 退化分支（Pauli 字 BE）：相位退化为无条件全局相位，序列算子为 $e^{i\sum\varphi} X^d$。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `qsvt-sequence-random-phases` | $d = 6$，8 维 | originir-ext + UniQC to_matrix | unitary_max_error | 5.6e-16 |
+| 同上 | — | — | zero_block_max_error（vs 独立 2×2 乘积） | 6.5e-16 |
+| `qsvt-sequence-chebyshev-t4` | $d = 4$ | originir-ext + UniQC to_matrix | zero_block_max_error | 5.6e-16 |
+| `qsvt-sequence-chebyshev-t5` | $d = 5$ | originir-ext + UniQC to_matrix | zero_block_max_error | 2.9e-16 |
+| `qsvt-sequence-degenerate-signal0` | $d = 2, 3$（signal 0 宽） | originir-ext + UniQC to_matrix | max_error | 1.6e-16 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_fourier.py
+```
+
+产物：`out/verification/fourier.json`。
+
+### 补充验证：多后端路径与消费端矩阵块（verify_hamiltonian.py）
+
+`tests/verification/verify_hamiltonian.py`（27 案例全 PASS）从 QSVT 消费端视角补充两层证据：其一，固定种子随机相位（6 个，$d = 5$）下对 1 量子位对角 BE（谱变量 $x \in \{1.0, -0.647\}$）在 reference / rir-pysparq / adapter-pysparq / originir-ext **四条路径**上读出零信号幅度，与 numpy 按本文档约定独立实现的 2×2 矩阵递推响应逐点对拍；其二，对 2 量子位非对角 BE（四项 Pauli 展开，$\alpha = 0.95$）以 `qsp_phases` 合成的 $T_4$ 相位读出完整 4×4 零信号块，与矩阵多项式 $T_4(A/\alpha)$ 的独立 Horner 求值对拍。另含 qubitization 递推见证：`qubitization_walk` 的 $W^n$（$n = 1, 2, 3, 5$）零信号块与 $T_n(x)$ 一致（max_error 1.2e-15）。
+
+| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+|---|---|---|---|---|
+| `qsvt-sequence-convention-1q` | $d = 5$，双本征态 | 四路径 | max_deviation | 1.26e-15 |
+| `qsvt-sequence-matrix-block-2q` | $T_4$，4×4 块 | reference、rir-pysparq、originir-ext | max_error | 3.9e-16 |
+| `qubitization-chebyshev-recurrence` | $W^n$，$n$ = 1,2,3,5 | reference、rir-pysparq、originir-ext | max_error | 1.2e-15 |
+
+复现命令：
+
+```bash
+PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_hamiltonian.py
+```
+
+产物：`out/verification/hamiltonian.json`。

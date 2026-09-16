@@ -56,3 +56,24 @@ qaoa_maxcut(width, edges, gammas, betas)
 - 同模块页面：[硬件高效拟设](variational-ansatz.md)、[VQE 测量电路](vqe.md)
 - API 参考：[变分算法电路](../../api/algorithms/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行。
+
+**实验设计**：(a) 单边图（2 顶点、单位权）单层 QAOA 的解析锚点 $\gamma = \pi/2$、$\beta = \pi/8$；(b) 4 顶点环 C4（单位权）单层 QAOA——角度由 numpy 精确模拟的网格搜索选定（$\gamma = 0.85$、$\beta = 0.45$，经典外层按模块契约自理），量子分布与 numpy 精确模拟（cost 对角相位 + mixer 逐位 $e^{-i\beta X}$）逐点对拍，最优割为 $\lvert 0101\rangle$ 与 $\lvert 1010\rangle$（随机基线 2/16 = 0.125）。后端路径：`reference`、`originir-ext` 全振幅对拍。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 分布 TVD | 最优割概率 | 相对随机基线 |
+|---|---|---|---|---|---|
+| qaoa-single-edge-optimal | 2 比特、1 层 | reference | — | 1.0000（解析最优） | — |
+| qaoa-c4-distribution | 4 比特、1 层 | reference + originir-ext | 1.8e-16 | 0.5379 | 4.30× |
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `qaoa-*` 两个案例）。

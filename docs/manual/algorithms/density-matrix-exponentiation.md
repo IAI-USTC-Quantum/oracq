@@ -55,3 +55,26 @@ density_matrix_exponentiation(preparation, *, time, copies, swap_width=None, nam
 - 同模块页面：[QPCA 主成分分析](qpca.md)
 - API 参考：[QPCA 量子主成分分析](../../api/algorithms/qpca.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
+
+## 数值验证
+
+论文级数值实验见 `tests/verification/verify_misc_algorithms.py`（misc_algorithms 组），全部在真实后端上执行。
+
+**实验设计**：两个密度矩阵指数化案例——(a) 纯态 $\rho = \lvert+\rangle\langle+\rvert$（`gate_state_prep`，总时间 $t = 0.4$）；(b) 混合态 $\rho = \mathrm{diag}(0.75, 0.25)$（`gate_purification` 纯化适配、`swap_width = 1`，$t = 0.5$）。系统初态均为 $\lvert 0\rangle\langle 0\rvert$，拷贝数 copies = 1/2/4（最多 9 量子位）。经典预言机为 numpy 特征分解的精确演化 $e^{-i\rho t}\sigma e^{i\rho t}$（与被测实现完全独立）。后端路径：`reference`（内置参考执行器）、`rir-pysparq`（PySparQ 原生 RIR）、`adapter-pysparq`（PySparQ 适配器）、`originir-ext`（UniQC 全振幅态向量），逐振幅与偏迹后密度矩阵两级对拍。
+
+**关键指标**：
+
+| 案例 | 规模 | 路径 | 迹距离（copies = 1/2/4） | 误差比率 | 跨后端偏差 |
+|---|---|---|---|---|---|
+| dm-exponentiation-pure-convergence | t = 0.4，≤5 量子位 | 四路径全振幅对拍 | 8.55e-2 / 4.34e-2 / 2.20e-2 | 0.508 / 0.507 | ≤ 2.1e-16 |
+| dm-exponentiation-mixed-convergence | t = 0.5，≤9 量子位 | 四路径全振幅对拍 | 5.75e-2 / 2.97e-2 / 1.52e-2 | 0.516 / 0.512 | ≤ 3.3e-16 |
+
+copies 翻倍（即 $\Delta t$ 减半）时迹距离比率稳定在约 0.51，直接观测到 LMR 协议的一阶收敛标度 $O(t\cdot\Delta t)$；四条后端路径在机器精度内一致。
+
+**复现**：
+
+```bash
+PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+```
+
+产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `dm-exponentiation-*` 两个案例）。
