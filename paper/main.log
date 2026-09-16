@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.8.16)  16 SEP 2026 13:25
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.8.16)  16 SEP 2026 15:03
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -633,23 +633,148 @@ File: tikzlibrarybackgrounds.code.tex 2026-08-01 v3.1.12 (3.1.12)
 \pgf@layerbox@background=\box69
 \pgf@layerboxsaved@background=\box70
 )
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgfplots/pgfplots.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplots.revision.tex
+)
+Package: pgfplots 2025/08/14 v1.18.2 Data Visualization (1.18.2)
+ (/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplots.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplotscore.code.tex
+\t@pgfplots@toka=\toks42
+\t@pgfplots@tokb=\toks43
+\t@pgfplots@tokc=\toks44
+\pgfplots@tmpa=\dimen298
+\c@pgfplots@coordindex=\count333
+\c@pgfplots@scanlineindex=\count334
+
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/sys/pgfplotssysgeneri
+c.code.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/libs/pgfplotslibrary.
+code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/oldpgfcompatib/pgfplo
+tsoldpgfsupp_loader.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibraryfpu.co
+de.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/oldpgfcompatib/pgfplo
+tsoldpgfsupp_pgfutil-common-lists.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/util/pgfplotsutil.cod
+e.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/liststructure/pgfplot
+sliststructure.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/liststructure/pgfplot
+sliststructureext.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/liststructure/pgfplot
+sarray.code.tex
+\c@pgfplotsarray@tmp=\count335
+)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/liststructure/pgfplot
+smatrix.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/numtable/pgfplotstabl
+eshared.code.tex
+\c@pgfplotstable@counta=\count336
+\t@pgfplotstable@a=\toks45
+)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/liststructure/pgfplot
+sdeque.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/util/pgfplotsbinary.c
+ode.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/util/pgfplotsbinary.d
+ata.code.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/util/pgfplotsutil.ver
+b.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/libs/pgflibrarypgfplo
+ts.surfshading.code.tex
+\c@pgfplotslibrarysurf@no=\count337
+
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/sys/pgflibrarypgfplot
+s.surfshading.pgfsys-pdftex.def)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/util/pgfplotscolormap
+.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/util/pgfplotscolor.co
+de.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplotsstackedplots.
+code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplotsplothandlers.
+code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplotsmeshplothandl
+er.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplotsmeshplotimage
+.code.tex)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplots.scaling.code
+.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplotscoordprocessi
+ng.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplots.errorbars.co
+de.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplots.markers.code
+.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplotsticks.code.te
+x)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/pgfplots.paths.code.t
+ex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibrarydecorations.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmoduledecoratio
+ns.code.tex
+\pgfdecoratedcompleteddistance=\dimen299
+\pgfdecoratedremainingdistance=\dimen300
+\pgfdecoratedinputsegmentcompleteddistance=\dimen301
+\pgfdecoratedinputsegmentremainingdistance=\dimen302
+\pgf@decorate@distancetomove=\dimen303
+\pgf@decorate@repeatstate=\count338
+\pgfdecorationsegmentamplitude=\dimen304
+\pgfdecorationsegmentlength=\dimen305
+)
+\tikz@lib@dec@box=\box71
+)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibrarydecorations.pathmorphing.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/decorations/pgfl
+ibrarydecorations.pathmorphing.code.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibrarydecorations.pathreplacing.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/decorations/pgfl
+ibrarydecorations.pathreplacing.code.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/libs/tikzlibrarypgfpl
+ots.contourlua.code.tex)
+\pgfplots@numplots=\count339
+\pgfplots@xmin@reg=\dimen306
+\pgfplots@xmax@reg=\dimen307
+\pgfplots@ymin@reg=\dimen308
+\pgfplots@ymax@reg=\dimen309
+\pgfplots@zmin@reg=\dimen310
+\pgfplots@zmax@reg=\dimen311
+)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibraryplotmarks.code.tex
+File: tikzlibraryplotmarks.code.tex 2026-08-01 v3.1.12 (3.1.12)
+
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibraryplotma
+rks.code.tex
+File: pgflibraryplotmarks.code.tex 2026-08-01 v3.1.12 (3.1.12)
+)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgfplots/libs/tikzlibrarypgfpl
+ots.groupplots.code.tex
+\pgfplots@group@current@plot=\count340
+\pgfplots@group@current@row=\count341
+\pgfplots@group@current@column=\count342
+)
 (/home/agony/texlive/2026/texmf-dist/tex/latex/quantikz/quantikz.sty
 Package: quantikz 2023/05/24 typeset quantum circuit diagrams
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/quantikz/tikzlibraryquantikz2.co
 de.tex (/home/agony/texlive/2026/texmf-dist/tex/latex/xargs/xargs.sty
 Package: xargs 2008/03/22 v1.1  extended macro definitions  (mpg)
-\xargs@max=\count333
-\xargs@toksa=\toks42
-\xargs@toksb=\toks43
+\xargs@max=\count343
+\xargs@toksa=\toks46
+\xargs@toksb=\toks47
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/base/ifthen.sty
 Package: ifthen 2024/03/16 v1.1e Standard LaTeX ifthen package (DPC)
 )
 (/home/agony/texlive/2026/texmf-dist/tex/generic/xstring/xstring.sty
 (/home/agony/texlive/2026/texmf-dist/tex/generic/xstring/xstring.tex
-\xs_counta=\count334
-\xs_countb=\count335
+\xs_counta=\count344
+\xs_countb=\count345
 )
 Package: xstring 2023/08/22 v1.86 String manipulations (CT)
 )
@@ -659,7 +784,7 @@ Package: expl3 2026-07-20 L3 programming layer (loader)
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 File: l3backend-pdftex.def 2026-07-20 L3 backend support: PDF output (pdfTeX)
-\l__color_backend_stack_int=\count336
+\l__color_backend_stack_int=\count346
 ))
 Package: xparse 2025-10-09 L3 Experimental document command parser
 ) (/home/agony/texlive/2026/texmf-dist/tex/latex/mathtools/mathtools.sty
@@ -667,31 +792,31 @@ Package: mathtools 2024/10/04 v1.31 mathematical typesetting tools
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/tools/calc.sty
 Package: calc 2025/03/01 v4.3b Infix arithmetic (KKT,FJ)
-\calc@Acount=\count337
-\calc@Bcount=\count338
-\calc@Adimen=\dimen298
-\calc@Bdimen=\dimen299
+\calc@Acount=\count347
+\calc@Bcount=\count348
+\calc@Adimen=\dimen312
+\calc@Bdimen=\dimen313
 \calc@Askip=\skip73
 \calc@Bskip=\skip74
 LaTeX Info: Redefining \setlength on input line 86.
 LaTeX Info: Redefining \addtolength on input line 87.
-\calc@Ccount=\count339
+\calc@Ccount=\count349
 \calc@Cskip=\skip75
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/mathtools/mhsetup.sty
 Package: mhsetup 2021/03/18 v1.4 programming setup (MH)
 )
-\g_MT_multlinerow_int=\count340
-\l_MT_multwidth_dim=\dimen300
+\g_MT_multlinerow_int=\count350
+\l_MT_multwidth_dim=\dimen314
 \origjot=\skip76
-\l_MT_shortvdotswithinadjustabove_dim=\dimen301
-\l_MT_shortvdotswithinadjustbelow_dim=\dimen302
-\l_MT_above_intertext_sep=\dimen303
-\l_MT_below_intertext_sep=\dimen304
-\l_MT_above_shortintertext_sep=\dimen305
-\l_MT_below_shortintertext_sep=\dimen306
-\xmathstrut@box=\box71
-\xmathstrut@dim=\dimen307
+\l_MT_shortvdotswithinadjustabove_dim=\dimen315
+\l_MT_shortvdotswithinadjustbelow_dim=\dimen316
+\l_MT_above_intertext_sep=\dimen317
+\l_MT_below_intertext_sep=\dimen318
+\l_MT_above_shortintertext_sep=\dimen319
+\l_MT_below_shortintertext_sep=\dimen320
+\xmathstrut@box=\box72
+\xmathstrut@dim=\dimen321
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/environ/environ.sty
 Package: environ 2014/05/04 v0.3 A new way to define environments
@@ -710,25 +835,6 @@ es/tikzlibraryquotes.code.tex
 File: tikzlibraryquotes.code.tex 2026-08-01 v3.1.12 (3.1.12)
 ))
 (/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
-es/tikzlibrarydecorations.pathreplacing.code.tex
-(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
-es/tikzlibrarydecorations.code.tex
-(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmoduledecoratio
-ns.code.tex
-\pgfdecoratedcompleteddistance=\dimen308
-\pgfdecoratedremainingdistance=\dimen309
-\pgfdecoratedinputsegmentcompleteddistance=\dimen310
-\pgfdecoratedinputsegmentremainingdistance=\dimen311
-\pgf@decorate@distancetomove=\dimen312
-\pgf@decorate@repeatstate=\count341
-\pgfdecorationsegmentamplitude=\dimen313
-\pgfdecorationsegmentlength=\dimen314
-)
-\tikz@lib@dec@box=\box72
-)
-(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/decorations/pgfl
-ibrarydecorations.pathreplacing.code.tex))
-(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
 es/tikzlibraryshapes.symbols.code.tex
 File: tikzlibraryshapes.symbols.code.tex 2026-08-01 v3.1.12 (3.1.12)
 
@@ -736,10 +842,6 @@ File: tikzlibraryshapes.symbols.code.tex 2026-08-01 v3.1.12 (3.1.12)
 yshapes.symbols.code.tex
 File: pgflibraryshapes.symbols.code.tex 2026-08-01 v3.1.12 (3.1.12)
 ))
-(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
-es/tikzlibrarydecorations.pathmorphing.code.tex
-(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/decorations/pgfl
-ibrarydecorations.pathmorphing.code.tex))
 (/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
 es/tikzlibraryshapes.misc.code.tex
 File: tikzlibraryshapes.misc.code.tex 2026-08-01 v3.1.12 (3.1.12)
@@ -755,23 +857,22 @@ ibrarydecorations.markings.code.tex))
 (/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
 es/tikzlibrarymath.code.tex
 (/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
-es/tikzlibraryfpu.code.tex
-(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibraryfpu.co
-de.tex))
-\tikz@math@for@depth=\count342
-\tikz@math@dimen=\dimen315
-\tikz@math@toks=\toks44
+es/tikzlibraryfpu.code.tex)
+\tikz@math@for@depth=\count351
+\tikz@math@dimen=\dimen322
+\tikz@math@toks=\toks48
 )
 \pgf@layerbox@quantback=\box73
 \pgf@layerboxsaved@quantback=\box74
-\c@dummy=\count343
+\c@dummy=\count352
 \myl=\skip77
 \myh=\skip78
 \myd=\skip79
-\c@aaa=\count344
+\c@aaa=\count353
 LaTeX Font Info:    Trying to load font information for U+msa on input line 104
 4.
- (/home/agony/texlive/2026/texmf-dist/tex/latex/amsfonts/umsa.fd
+
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
 LaTeX Font Info:    Trying to load font information for U+msb on input line 104
@@ -780,29 +881,29 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 104
 (/home/agony/texlive/2026/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-\c@wirenumberpermute=\count345
+\c@wirenumberpermute=\count354
 ))
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/listings.sty
-\lst@mode=\count346
+\lst@mode=\count355
 \lst@gtempboxa=\box75
-\lst@token=\toks45
-\lst@length=\count347
-\lst@currlwidth=\dimen316
-\lst@column=\count348
-\lst@pos=\count349
-\lst@lostspace=\dimen317
-\lst@width=\dimen318
-\lst@newlines=\count350
-\lst@lineno=\count351
-\lst@maxwidth=\dimen319
+\lst@token=\toks49
+\lst@length=\count356
+\lst@currlwidth=\dimen323
+\lst@column=\count357
+\lst@pos=\count358
+\lst@lostspace=\dimen324
+\lst@width=\dimen325
+\lst@newlines=\count359
+\lst@lineno=\count360
+\lst@maxwidth=\dimen326
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstpatch.sty
 File: lstpatch.sty 2025/11/14 1.11b (Carsten Heinz)
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstmisc.sty
 File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
-\c@lstnumber=\count352
-\lst@skipnumbers=\count353
+\c@lstnumber=\count361
+\lst@skipnumbers=\count362
 \lst@framebox=\box76
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/listings.cfg
@@ -815,7 +916,7 @@ Package: natbib 2010/09/13 8.31b (PWD, AO)
 \bibhang=\skip80
 \bibsep=\skip81
 LaTeX Info: Redefining \cite on input line 694.
-\c@NAT@ctr=\count354
+\c@NAT@ctr=\count363
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/hyperref.sty
 Package: hyperref 2026-06-17 v7.01r Hypertext links for LaTeX
@@ -854,15 +955,15 @@ Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
  (/home/agony/texlive/2026/texmf-dist/tex/latex/kvoptions/kvoptions.sty
 Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
 ))
-\c@section@level=\count355
+\c@section@level=\count364
 )
 (/home/agony/texlive/2026/texmf-dist/tex/generic/stringenc/stringenc.sty
 Package: stringenc 2019/11/29 v1.12 Convert strings between diff. encodings (HO
 )
 )
-\@linkdim=\dimen320
-\Hy@linkcounter=\count356
-\Hy@pagecounter=\count357
+\@linkdim=\dimen327
+\Hy@linkcounter=\count365
+\Hy@pagecounter=\count366
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/pd1enc.def
 File: pd1enc.def 2026-06-17 v7.01r Hyperref: PDFDocEncoding definition (HO)
@@ -872,7 +973,7 @@ Now handling font encoding PD1 ...
 (/home/agony/texlive/2026/texmf-dist/tex/generic/intcalc/intcalc.sty
 Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
 )
-\Hy@SavedSpaceFactor=\count358
+\Hy@SavedSpaceFactor=\count367
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/puenc.def
 File: puenc.def 2026-06-17 v7.01r Hyperref: PDF Unicode definition (HO)
@@ -889,14 +990,14 @@ Package hyperref Info: Plain pages OFF on input line 4214.
 Package hyperref Info: Backreferencing OFF on input line 4219.
 Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
 Package hyperref Info: Bookmarks ON on input line 4466.
-\c@Hy@tempcnt=\count359
+\c@Hy@tempcnt=\count368
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/url/url.sty
 \Urlmuskip=\muskip18
 Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
 )
 LaTeX Info: Redefining \url on input line 4805.
-\XeTeXLinkMargin=\dimen321
+\XeTeXLinkMargin=\dimen328
 
 (/home/agony/texlive/2026/texmf-dist/tex/generic/bitset/bitset.sty
 Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
@@ -905,9 +1006,9 @@ Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
 Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
 )
 ))
-\Fld@menulength=\count360
-\Field@Width=\dimen322
-\Fld@charsize=\dimen323
+\Fld@menulength=\count369
+\Field@Width=\dimen329
+\Fld@charsize=\dimen330
 Package hyperref Info: Hyper figures OFF on input line 6091.
 Package hyperref Info: Link nesting OFF on input line 6096.
 Package hyperref Info: Hyper index ON on input line 6099.
@@ -915,16 +1016,16 @@ Package hyperref Info: backreferencing OFF on input line 6106.
 Package hyperref Info: Link coloring ON on input line 6109.
 Package hyperref Info: Link coloring with OCG OFF on input line 6116.
 Package hyperref Info: PDF/A mode OFF on input line 6121.
-\Hy@abspage=\count361
-\c@Item=\count362
-\c@Hfootnote=\count363
+\Hy@abspage=\count370
+\c@Item=\count371
+\c@Hfootnote=\count372
 )
 Package hyperref Info: Driver (autodetected): hpdftex.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/hpdftex.def
 File: hpdftex.def 2026-06-17 v7.01r Hyperref driver for pdfTeX
-\Fld@listcount=\count364
-\c@bookmark@seq@number=\count365
+\Fld@listcount=\count373
+\c@bookmark@seq@number=\count374
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.st
 y
@@ -946,14 +1047,14 @@ Package: caption 2023/08/05 v3.6o Customizing captions (AR)
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/caption/caption3.sty
 Package: caption3 2023/07/31 v2.4d caption3 kernel (AR)
-\caption@tempdima=\dimen324
-\captionmargin=\dimen325
-\caption@leftmargin=\dimen326
-\caption@rightmargin=\dimen327
-\caption@width=\dimen328
-\caption@indent=\dimen329
-\caption@parindent=\dimen330
-\caption@hangindent=\dimen331
+\caption@tempdima=\dimen331
+\captionmargin=\dimen332
+\caption@leftmargin=\dimen333
+\caption@rightmargin=\dimen334
+\caption@width=\dimen335
+\caption@indent=\dimen336
+\caption@parindent=\dimen337
+\caption@hangindent=\dimen338
 Package caption Info: Unknown document class (or package),
 (caption)             standard defaults will be used.
 Package caption Info: \@makecaption = \long macro:#1#2->\vskip \abovecaptionski
@@ -966,31 +1067,31 @@ Package caption Warning: Unknown document class (or package),
 (caption)                standard defaults will be used.
 See the caption package documentation for explanation.
 
-\c@caption@flags=\count366
-\c@continuedfloat=\count367
+\c@caption@flags=\count375
+\c@continuedfloat=\count376
 Package caption Info: hyperref package is loaded.
 Package caption Info: listings package is loaded.
 ) (./main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 103.
-LaTeX Font Info:    ... okay on input line 103.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 106.
+LaTeX Font Info:    ... okay on input line 106.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -1079,17 +1180,17 @@ LaTeX Font Info:    Overwriting math alphabet `\mathbbmss' in version `bold'
 
 (/home/agony/texlive/2026/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count368
-\scratchdimen=\dimen332
+\scratchcounter=\count377
+\scratchdimen=\dimen339
 \scratchbox=\box77
-\nofMPsegments=\count369
-\nofMParguments=\count370
-\everyMPshowfont=\toks46
-\MPscratchCnt=\count371
-\MPscratchDim=\dimen333
-\MPnumerator=\count372
-\makeMPintoPDFobject=\count373
-\everyMPtoPDFconversion=\toks47
+\nofMPsegments=\count378
+\nofMParguments=\count379
+\everyMPshowfont=\toks50
+\MPscratchCnt=\count380
+\MPscratchDim=\dimen340
+\MPnumerator=\count381
+\makeMPintoPDFobject=\count382
+\everyMPtoPDFconversion=\toks51
 ) (/home/agony/texlive/2026/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
@@ -1098,13 +1199,13 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-LaTeX Info: Redefining \microtypecontext on input line 103.
-Package microtype Info: Applying patch `item' on input line 103.
-Package microtype Info: Applying patch `toc' on input line 103.
-Package microtype Info: Applying patch `eqnum' on input line 103.
-Package microtype Info: Applying patch `footnote' on input line 103.
-Package microtype Info: Applying patch `verbatim' on input line 103.
-LaTeX Info: Redefining \microtypesetup on input line 103.
+LaTeX Info: Redefining \microtypecontext on input line 106.
+Package microtype Info: Applying patch `item' on input line 106.
+Package microtype Info: Applying patch `toc' on input line 106.
+Package microtype Info: Applying patch `eqnum' on input line 106.
+Package microtype Info: Applying patch `footnote' on input line 106.
+Package microtype Info: Applying patch `verbatim' on input line 106.
+LaTeX Info: Redefining \microtypesetup on input line 106.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
@@ -1120,9 +1221,11 @@ Package microtype Info: No adjustment of character kerning.
 File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman 
 (RS)
 )
-\c@lstlisting=\count374
-Package hyperref Info: Link coloring ON on input line 103.
+Package pgfplots notification 'compat/show suggested version=true': document ha
+s been generated with the most recent feature set (\pgfplotsset{compat=1.18}).
 
+\c@lstlisting=\count383
+Package hyperref Info: Link coloring ON on input line 106.
 (./main.out) (./main.out)
 \@outlinefile=\write4
 \openout4 = `main.out'.
@@ -1131,7 +1234,7 @@ Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: End \AtBeginDocument code.
 Package babel Info: Main language set to 'english'.
 LaTeX Font Info:    Trying to load font information for T1+lmss on input line 1
-05.
+08.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmss.fd
 File: t1lmss.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1142,46 +1245,46 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             See the microtype manual for details.
 \@titelsaveboxHuge=\box78
 
-Underfull \hbox (badness 5832) in paragraph at lines 105--105
+Underfull \hbox (badness 5832) in paragraph at lines 108--108
 []\T1/lmss/m/n/24.88 (+20) pyqecclang: An Em-bed-ded Quan-tum
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 105--105
+Underfull \hbox (badness 10000) in paragraph at lines 108--108
 \T1/lmss/m/n/24.88 (+20) Pro-gram-ming Lan-guage for Sci-en-tific
  []
 
 \@titelsaveboxHugeoneline=\box79
 \@titelsaveboxhhuge=\box80
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 1
-05.
+08.
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 1
-05.
+08.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-105.
+108.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-105.
+108.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 105.
+(Font)              <10.95> on input line 108.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 105.
+(Font)              <8> on input line 108.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 105.
+(Font)              <6> on input line 108.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
@@ -1189,10 +1292,10 @@ File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 (/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/mt-msb.cfg
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
-\c@@authornum=\count375
-\c@@affiliationnum=\count376
+\c@@authornum=\count384
+\c@@affiliationnum=\count385
 LaTeX Font Info:    Trying to load font information for T1+lmr on input line 10
-5.
+8.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1201,7 +1304,7 @@ File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 {/home/agony/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/home/a
 gony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}]
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-11.
+14.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1215,7 +1318,7 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.115 \end{abstract}
+l.118 \end{abstract}
                      [1{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/cm-
 super/cm-super-t1.enc}{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/l
 m-mathit.enc}] (./sections/introduction.tex
@@ -1548,33 +1651,152 @@ Overfull \hbox (2.84889pt too wide) in paragraph at lines 145--164
  []
 
 [31]
-Underfull \hbox (badness 10000) in paragraph at lines 230--230
+Package pgfplots info on input line 234: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+Package pgfplots info on input line 234: Using 'lua backend=false' for axis: ym
+ode=log unsupported (yet).
+Package pgfplots info on input line 242: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+Package pgfplots info on input line 242: Using 'lua backend=false' for axis: ym
+ode=log unsupported (yet).
+Package pgfplots info on input line 250: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+Package pgfplots info on input line 250: Using 'lua backend=false' for axis: ym
+ode=log unsupported (yet).
+Package pgfplots info on input line 258: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+Package pgfplots info on input line 258: Using 'lua backend=false' for axis: ym
+ode=log unsupported (yet).
+
+Underfull \hbox (badness 10000) in paragraph at lines 286--286
 []\T1/lmss/m/n/10 (+20) Table 9: |Resource-scaling study at the Tof-foli+Cliffo
 rd+T+QRAM level
  []
 
 
-Underfull \hbox (badness 3000) in paragraph at lines 244--244
+Underfull \hbox (badness 3000) in paragraph at lines 300--300
 []|\T1/lmr/m/n/10 (+20) QPE, sym-bolic pow-ers
  []
 
 
-Underfull \hbox (badness 1577) in paragraph at lines 254--254
+Underfull \hbox (badness 1577) in paragraph at lines 310--310
 []|\T1/lmr/m/n/10 (+20) Roe flux face (QFVM,
  []
 
 
-Underfull \hbox (badness 1577) in paragraph at lines 255--255
+Underfull \hbox (badness 1577) in paragraph at lines 311--311
 []|\T1/lmr/m/n/10 (+20) Roe flux face (QFVM,
  []
 
-[32]) (./sections/discussion.tex [33]) [34] (./sections/appendix.tex
+[32]
+Underfull \hbox (badness 10000) in paragraph at lines 359--359
+[]|\T1/lmr/m/n/10 (+20) estimator vs strict
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 359--359
+\T1/lmr/m/n/10 (+20) netlist (15 hand-
+ []
+
+
+Underfull \hbox (badness 1558) in paragraph at lines 359--359
+\T1/lmr/m/n/10 (+20) computed and cross
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 359--360
+[]|\T1/lmr/m/n/10 (+20) atom-by-atom
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 360--360
+[]|\T1/lmr/m/n/10 (+20) fixed-point mul-ti-ply,
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 360--360
+[]|$\OT1/lmr/m/n/10 (+20) 1\OML/lmm/m/it/10 :\OT1/lmr/m/n/10 (+20) 940$
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 361--361
+[]|$\OT1/lmr/m/n/10 (+20) 2\OML/lmm/m/it/10 :\OT1/lmr/m/n/10 (+20) 854$
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 361--362
+\T1/lmr/m/n/10 (+20) ro-ta-tions drop
+ []
+
+
+Underfull \hbox (badness 1527) in paragraph at lines 362--362
+[]|\T1/lmr/m/n/10 (+20) dense state prepa-ra-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 362--363
+[]|$\OML/lmm/m/it/10 O\OT1/lmr/m/n/10 (+20) (2[])$ \T1/lmr/m/n/10 (+20) mul-ti-
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 363--363
+[]|$\OT1/lmr/m/n/10 (+20) 1\OML/lmm/m/it/10 :\OT1/lmr/m/n/10 (+20) 791$
+ []
+
+
+Underfull \hbox (badness 7667) in paragraph at lines 364--364
+[]|\T1/lmr/m/n/10 (+20) Grover per-iteration
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 364--365
+[]|$\OMS/lmsy/m/n/10 b[]\OT1/lmr/m/n/10 (+20) 2[]\OMS/lmsy/m/n/10 c$ \T1/lmr/m/
+n/10 (+20) it-er-a-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 366--367
+[]|$\OML/lmm/m/it/10 O\OT1/lmr/m/n/10 (+20) (\OML/lmm/m/it/10 n\OT1/lmr/m/n/10 
+(+20) )$ \T1/lmr/m/n/10 (+20) adders
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 366--367
+\T1/lmr/m/n/10 (+20) [[]]; stair-case
+ []
+
+
+Underfull \hbox (badness 7759) in paragraph at lines 367--367
+[]|\T1/lmr/m/n/10 (+20) QROM emit-ted vs
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 367--367
+[]|$\OT1/lmr/m/n/10 (+20) 344 064$ \T1/lmr/m/n/10 (+20) vs
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 367--368
+[]|\T1/lmr/m/n/10 (+20) unary-iteration
+ []
+
+Package pgfplots info on input line 383: Using 'lua backend=false' for axis: xm
+ode=log unsupported (yet).
+Package pgfplots info on input line 383: Using 'lua backend=false' for axis: ym
+ode=log unsupported (yet).
+
+Overfull \hbox (9.1498pt too wide) in paragraph at lines 416--436
+ [][] 
+ []
+
+[33]) (./sections/discussion.tex [34]) [35] (./sections/appendix.tex
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
-) [35]
+) [36]
 Underfull \hbox (badness 1275) in paragraph at lines 104--116
 \T1/cmr/m/n/10.95 Listing [][]10[][] (case 6 of \T1/lmtt/m/n/10.95 examples/ode
 _input_models.py\T1/cmr/m/n/10.95 ) runs the in-vis-cid Burg-ers
@@ -1586,7 +1808,7 @@ Underfull \hbox (badness 2671) in paragraph at lines 104--116
 , re-ceives the lin-ear solver as an
  []
 
-[36] [37] [38]
+[37] [38] [39]
 Underfull \hbox (badness 10000) in paragraph at lines 280--281
 []|\T1/lmtt/m/n/9 coeff_angles\T1/lmr/m/n/9 (+20) ,
  []
@@ -1626,7 +1848,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 293--294
 []|\T1/lmtt/m/n/9 coeff_angles\T1/lmr/m/n/9 (+20) ,
  []
 
-[39] [40]) (./main.bbl [41] [42] [43]) [44] [45] [46] [47] [48] [49]
+[40] [41]) (./main.bbl [42] [43] [44]) [45] [46] [47] [48] [49] [50] [51]
 (./main.aux)
  ***********
 LaTeX2e <2026-06-01>
@@ -1636,13 +1858,13 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: 2DDC2D80FC329C09866D3FDDF780305C;13450.
  ) 
 Here is how much of TeX's memory you used:
- 38313 strings out of 467159
- 740574 string characters out of 5408695
- 1544904 words of memory out of 5000000
- 66137 multiletter control sequences out of 15000+600000
- 757394 words of font info for 267 fonts, out of 8000000 for 9000
+ 48019 strings out of 467159
+ 1072657 string characters out of 5408695
+ 1993972 words of memory out of 5000000
+ 75712 multiletter control sequences out of 15000+600000
+ 757762 words of font info for 271 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 92i,22n,117p,1930b,2219s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 92i,22n,117p,1930b,2617s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></home/
 agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmbx9.pfb></home/agony/texl
 ive/2026/texmf-dist/fonts/type1/public/lm/lmex10.pfb></home/agony/texlive/2026/
@@ -1677,10 +1899,10 @@ blic/cm-super/sfcc1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/pub
 lic/cm-super/sfrb1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publ
 ic/cm-super/sfrm1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publi
 c/cm-super/sfti1095.pfb>
-Output written on main.pdf (51 pages, 949647 bytes).
+Output written on main.pdf (53 pages, 968746 bytes).
 PDF statistics:
- 1529 PDF objects out of 1728 (max. 8388607)
- 1369 compressed objects within 14 object streams
- 528 named destinations out of 1000 (max. 500000)
+ 1551 PDF objects out of 1728 (max. 8388607)
+ 1388 compressed objects within 14 object streams
+ 534 named destinations out of 1000 (max. 500000)
  76221 words of extra memory for PDF output out of 89155 (max. 10000000)
 

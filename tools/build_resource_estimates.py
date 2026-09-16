@@ -43,7 +43,7 @@ OUT = Path("out/resource-estimates")
 
 
 def _slope(xs, ys):
-    "log2-log2 最小二乘斜率；跳过非正样本。"
+    "log2-log2 最小二乘斜率与决定系数 R²；跳过非正样本。"
     pairs = [(x, y) for x, y in zip(xs, ys, strict=True) if x > 0 and y > 0]
     if len(pairs) < 2:
         return None
@@ -51,7 +51,13 @@ def _slope(xs, ys):
     ly = [math.log2(y) for _, y in pairs]
     mx, my = sum(lx) / len(lx), sum(ly) / len(ly)
     var = sum((x - mx) ** 2 for x in lx)
-    return sum((x - mx) * (y - my) for x, y in zip(lx, ly, strict=True)) / var if var else None
+    if not var:
+        return None
+    slope = sum((x - mx) * (y - my) for x, y in zip(lx, ly, strict=True)) / var
+    residual = sum((y - (my + slope * (x - mx))) ** 2 for x, y in zip(lx, ly, strict=True))
+    total = sum((y - my) ** 2 for y in ly)
+    r2 = 1 - residual / total if total else 1.0
+    return {"slope": slope, "r2": r2}
 
 
 def _run_group(name, sizes, build, expectation, note=""):

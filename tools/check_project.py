@@ -47,6 +47,10 @@ def main():
             "resource_estimates",
             [sys.executable, "tools/build_resource_estimates.py"],
         ),
+        (
+            "qram_queries",
+            [sys.executable, "tools/build_qram_queries.py"],
+        ),
     ]
     if args.docs:
         commands.extend(
