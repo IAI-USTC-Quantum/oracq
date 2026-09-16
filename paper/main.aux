@@ -21,8 +21,6 @@
 \@writefile{toc}{\contentsline {paragraph}{Outline.}{3}{section*.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {2}Quantum scientific computing as a language-design problem}{3}{section.2}\protected@file@percent }
 \newlabel{sec:requirements}{{2}{3}{Quantum scientific computing as a language-design problem}{section.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}The shape of a quantum scientific-computing program}{3}{subsection.2.1}\protected@file@percent }
-\newlabel{sec:qsc-structure}{{2.1}{3}{The shape of a quantum scientific-computing program}{subsection.2.1}{}}
 \citation{gilyen2019qsvt}
 \citation{giovannetti2008qram}
 \citation{dervovic2018qlss}
@@ -32,21 +30,23 @@
 \citation{jin2024schrodingerization}
 \citation{liu2021pnas}
 \citation{berry2014ode,costa2022discrete}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Eight requirements}{4}{subsection.2.2}\protected@file@percent }
-\newlabel{sec:qsc-requirements}{{2.2}{4}{Eight requirements}{subsection.2.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}The shape of a quantum scientific-computing program}{4}{subsection.2.1}\protected@file@percent }
+\newlabel{sec:qsc-structure}{{2.1}{4}{The shape of a quantum scientific-computing program}{subsection.2.1}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces The canonical layering of a quantum scientific-computing program. Each layer is accessed through the layer below it by a well-defined interface; the right margin annotates which of the requirements R1--R8 of Section~\ref {sec:qsc-requirements} the layer stresses. The top and bottom layers (shaded) are host-side concerns; the language must connect to them without embedding them in the quantum IR.}}{5}{figure.caption.3}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
 \newlabel{fig:stack}{{1}{5}{The canonical layering of a quantum scientific-computing program. Each layer is accessed through the layer below it by a well-defined interface; the right margin annotates which of the requirements R1--R8 of \secref {sec:qsc-requirements} the layer stresses. The top and bottom layers (shaded) are host-side concerns; the language must connect to them without embedding them in the quantum IR}{figure.caption.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Eight requirements}{5}{subsection.2.2}\protected@file@percent }
+\newlabel{sec:qsc-requirements}{{2.2}{5}{Eight requirements}{subsection.2.2}{}}
 \@writefile{toc}{\contentsline {paragraph}{R1: Deferred oracle realization.}{5}{section*.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R2: Realization independence.}{5}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R3: Compositional structure preservation.}{5}{section*.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{R4: Adjoint and control as tracked capabilities.}{5}{section*.7}\protected@file@percent }
-\citation{selinger2004towards,heim2020quantum,garhwal2021systematic}
+\@writefile{toc}{\contentsline {paragraph}{R4: Adjoint and control as tracked capabilities.}{6}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R5: Symbolic scale.}{6}{section*.8}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R6: Promise and precision provenance.}{6}{section*.9}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R7: Readout separation.}{6}{section*.10}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R8: Library extensibility without core changes.}{6}{section*.11}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Resulting programming paradigm.}{6}{section*.13}\protected@file@percent }
+\citation{selinger2004towards,heim2020quantum,garhwal2021systematic}
 \citation{green2013quipper}
 \citation{javadiabhari2015scaffcc}
 \citation{scherer2017resource,fillion2017dirac}
@@ -56,9 +56,6 @@
 \newlabel{tab:requirements}{{1}{7}{Requirements derived from the structure of quantum scientific computing, common-practice deficiencies, and the corresponding \pqlang {} mechanisms. Each mechanism is detailed in the referenced section}{table.caption.12}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Related work}{7}{section.3}\protected@file@percent }
 \newlabel{sec:related}{{3}{7}{Related work}{section.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Quantum programming languages}{7}{subsection.3.1}\protected@file@percent }
-\newlabel{sec:related-qpl}{{3.1}{7}{Quantum programming languages}{subsection.3.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Functional and typed language lines.}{7}{section*.14}\protected@file@percent }
 \citation{steiger2018projectq}
 \citation{smith2016quil}
 \citation{cirqdevelopers2020cirq}
@@ -68,9 +65,12 @@
 \citation{sivarajah2021tket}
 \citation{amy2020staq}
 \citation{svore2018qsharp}
-\citation{an2026lchs,jin2024schrodingerization,liu2021pnas,liu2023carleman,an2026lchs}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Quantum programming languages}{8}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:related-qpl}{{3.1}{8}{Quantum programming languages}{subsection.3.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Functional and typed language lines.}{8}{section*.14}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Industrial SDKs and embedded frameworks.}{8}{section*.15}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Q\#.}{8}{section*.16}\protected@file@percent }
+\citation{an2026lchs,jin2024schrodingerization,liu2021pnas,liu2023carleman,an2026lchs}
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Language and framework comparison against the requirements of Section~\ref {sec:qsc-requirements}. \ensuremath  {\text  {$\mathsurround \z@ \mathchar "458$}}~= provided; \ensuremath  {\circledcirc }~= partial (see text); \textendash {}~= absent. Claims are referenced to the systems' publications and documentation.}}{9}{table.caption.18}\protected@file@percent }
 \newlabel{tab:qpl-comparison}{{2}{9}{Language and framework comparison against the requirements of \secref {sec:qsc-requirements}. \ok ~= provided; \half ~= partial (see text); \noent ~= absent. Claims are referenced to the systems' publications and documentation}{table.caption.18}{}}
 \@writefile{toc}{\contentsline {paragraph}{Research codebases for scientific algorithms.}{9}{section*.17}\protected@file@percent }
@@ -80,10 +80,10 @@
 \newlabel{tab:ode-coverage}{{3}{10}{Algorithm and solver coverage: \pqlang {} against the major frameworks' standard libraries (research-prototype implementations published outside a framework's libraries do not count). \ok ~= provided as a composable, contract-checked library component; \half ~= demonstration-level implementation; \noent ~= absent}{table.caption.19}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}The language surface and the register-level IR}{10}{section.4}\protected@file@percent }
 \newlabel{sec:language}{{4}{10}{The language surface and the register-level IR}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}An embedded builder over typed register views}{10}{subsection.4.1}\protected@file@percent }
-\newlabel{sec:builder}{{4.1}{10}{An embedded builder over typed register views}{subsection.4.1}{}}
-\newlabel{lst:bell}{{1}{10}{A minimal \pqlang {} program (from the doctested tutorial suite). Register index~0 is the least significant bit; \texttt {fuse} concatenates views across root registers; \texttt {simulate} is the dependency-free reference executor}{lstlisting.1}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {1}{\ignorespaces A minimal pyqecclang\xspace  {} program (from the doctested tutorial suite). Register index~0 is the least significant bit; \texttt  {fuse} concatenates views across root registers; \texttt  {simulate} is the dependency-free reference executor.}}{10}{lstlisting.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}An embedded builder over typed register views}{11}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:builder}{{4.1}{11}{An embedded builder over typed register views}{subsection.4.1}{}}
+\newlabel{lst:bell}{{1}{11}{A minimal \pqlang {} program (from the doctested tutorial suite). Register index~0 is the least significant bit; \texttt {fuse} concatenates views across root registers; \texttt {simulate} is the dependency-free reference executor}{lstlisting.1}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {1}{\ignorespaces A minimal pyqecclang\xspace  {} program (from the doctested tutorial suite). Register index~0 is the least significant bit; \texttt  {fuse} concatenates views across root registers; \texttt  {simulate} is the dependency-free reference executor.}}{11}{lstlisting.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Instructions and control flow}{11}{subsection.4.2}\protected@file@percent }
 \newlabel{sec:instructions}{{4.2}{11}{Instructions and control flow}{subsection.4.2}{}}
 \newlabel{lst:repeat}{{2}{11}{Symbolic scale: a legitimate program with a repetition count of $2^{40}$. The finished program contains a single \texttt {Repeat} node; export remains logarithmic (this is asserted in the test suite)}{lstlisting.2}{}}
@@ -107,24 +107,24 @@
 \newlabel{fig:nested-circuit}{{3}{14}{The three modules of \lstref {lst:originir}, drawn independently by the quantikz export of the same program: \texttt {demo} (top) prepares address and data and calls \texttt {wrapped\_lookup} (middle), which calls \texttt {lookup\_2\_3} (bottom), the module that owns the \texttt {Load} on the \texttt {table} resource. At every level a call is a box with a name and a typed interface; nothing is expanded, matching the \texttt {DEF} chain of the textual export}{figure.caption.22}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Workspaces and qubit economy}{14}{subsection.4.5}\protected@file@percent }
 \newlabel{sec:layout}{{4.5}{14}{Workspaces and qubit economy}{subsection.4.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Architecture: generation, storage, export, execution}{14}{subsection.4.6}\protected@file@percent }
-\newlabel{sec:architecture}{{4.6}{14}{Architecture: generation, storage, export, execution}{subsection.4.6}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces pyqecclang\xspace  {} architecture. Programs are generated by the embedded builder and algorithm libraries, stored as RIR (open oracle slots included), optionally linked by \texttt  {bind}, serialized to canonical schema-validated JSON, and only then exported or executed. Native backends are imported lazily at execution entry; the core has no backend dependency. Readout is a host-side plan, not an IR construct.}}{15}{figure.caption.23}\protected@file@percent }
-\newlabel{fig:architecture}{{4}{15}{\pqlang {} architecture. Programs are generated by the embedded builder and algorithm libraries, stored as RIR (open oracle slots included), optionally linked by \texttt {bind}, serialized to canonical schema-validated JSON, and only then exported or executed. Native backends are imported lazily at execution entry; the core has no backend dependency. Readout is a host-side plan, not an IR construct}{figure.caption.23}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces The nine oracle paradigms. Each paradigm fixes the mathematical contract of the slot; concrete implementations are interchangeable as long as they honor the contract, the register-type tuple, the scale factor $\alpha $, and the declared capabilities.}}{16}{table.caption.25}\protected@file@percent }
-\newlabel{tab:paradigms}{{5}{16}{The nine oracle paradigms. Each paradigm fixes the mathematical contract of the slot; concrete implementations are interchangeable as long as they honor the contract, the register-type tuple, the scale factor $\alpha $, and the declared capabilities}{table.caption.25}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Pluggable oracles and algorithm protocols}{16}{section.5}\protected@file@percent }
-\newlabel{sec:oracles}{{5}{16}{Pluggable oracles and algorithm protocols}{section.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}The oracle lifecycle: declare, carry, inspect, bind}{16}{subsection.5.1}\protected@file@percent }
-\newlabel{sec:oracle-lifecycle}{{5.1}{16}{The oracle lifecycle: declare, carry, inspect, bind}{subsection.5.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Declare.}{16}{section*.24}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Carry.}{16}{section*.26}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Architecture: generation, storage, export, execution}{15}{subsection.4.6}\protected@file@percent }
+\newlabel{sec:architecture}{{4.6}{15}{Architecture: generation, storage, export, execution}{subsection.4.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Pluggable oracles and algorithm protocols}{15}{section.5}\protected@file@percent }
+\newlabel{sec:oracles}{{5}{15}{Pluggable oracles and algorithm protocols}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}The oracle lifecycle: declare, carry, inspect, bind}{15}{subsection.5.1}\protected@file@percent }
+\newlabel{sec:oracle-lifecycle}{{5.1}{15}{The oracle lifecycle: declare, carry, inspect, bind}{subsection.5.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Declare.}{15}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Carry.}{15}{section*.26}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces pyqecclang\xspace  {} architecture. Programs are generated by the embedded builder and algorithm libraries, stored as RIR (open oracle slots included), optionally linked by \texttt  {bind}, serialized to canonical schema-validated JSON, and only then exported or executed. Native backends are imported lazily at execution entry; the core has no backend dependency. Readout is a host-side plan, not an IR construct.}}{16}{figure.caption.23}\protected@file@percent }
+\newlabel{fig:architecture}{{4}{16}{\pqlang {} architecture. Programs are generated by the embedded builder and algorithm libraries, stored as RIR (open oracle slots included), optionally linked by \texttt {bind}, serialized to canonical schema-validated JSON, and only then exported or executed. Native backends are imported lazily at execution entry; the core has no backend dependency. Readout is a host-side plan, not an IR construct}{figure.caption.23}{}}
 \@writefile{toc}{\contentsline {paragraph}{Inspect.}{16}{section*.27}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Bind.}{16}{section*.28}\protected@file@percent }
+\newlabel{lst:bv}{{4}{16}{The oracle lifecycle on Bernstein--Vazirani (verbatim from the doctested tutorial). The algorithm is written and \emph {simulable} only after binding; the same open program later binds a QRAM realization instead of the gate network}{lstlisting.4}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {4}{\ignorespaces The oracle lifecycle on Bernstein--Vazirani (verbatim from the doctested tutorial). The algorithm is written and \emph  {simulable} only after binding; the same open program later binds a QRAM realization instead of the gate network.}}{16}{lstlisting.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces The nine oracle paradigms. Each paradigm fixes the mathematical contract of the slot; concrete implementations are interchangeable as long as they honor the contract, the register-type tuple, the scale factor $\alpha $, and the declared capabilities.}}{17}{table.caption.25}\protected@file@percent }
+\newlabel{tab:paradigms}{{5}{17}{The nine oracle paradigms. Each paradigm fixes the mathematical contract of the slot; concrete implementations are interchangeable as long as they honor the contract, the register-type tuple, the scale factor $\alpha $, and the declared capabilities}{table.caption.25}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces The oracle lifecycle. Declarations create open modules that are carried inside otherwise-complete programs; gap analysis reports what remains open; the binding pass attaches implementations (partially and repeatedly, with compatibility checks and QRAM resource hoisting) until the program is closed for export or execution.}}{17}{figure.caption.29}\protected@file@percent }
 \newlabel{fig:oracle-lifecycle}{{5}{17}{The oracle lifecycle. Declarations create open modules that are carried inside otherwise-complete programs; gap analysis reports what remains open; the binding pass attaches implementations (partially and repeatedly, with compatibility checks and QRAM resource hoisting) until the program is closed for export or execution}{figure.caption.29}{}}
-\newlabel{lst:bv}{{4}{17}{The oracle lifecycle on Bernstein--Vazirani (verbatim from the doctested tutorial). The algorithm is written and \emph {simulable} only after binding; the same open program later binds a QRAM realization instead of the gate network}{lstlisting.4}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {4}{\ignorespaces The oracle lifecycle on Bernstein--Vazirani (verbatim from the doctested tutorial). The algorithm is written and \emph  {simulable} only after binding; the same open program later binds a QRAM realization instead of the gate network.}}{17}{lstlisting.4}\protected@file@percent }
 \citation{giovannetti2008qram,dalzell2025qram}
 \pgfsyspdfmark {pgfid9}{16478014}{45850039}
 \pgfsyspdfmark {pgfid10}{30969609}{45850039}
@@ -134,11 +134,11 @@
 \newlabel{sec:qram}{{5.2}{18}{QRAM as a first-class resource}{subsection.5.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Algorithm protocols and contracts}{18}{subsection.5.3}\protected@file@percent }
 \newlabel{sec:protocols}{{5.3}{18}{Algorithm protocols and contracts}{subsection.5.3}{}}
-\@writefile{toc}{\contentsline {paragraph}{Structural interfaces.}{18}{section*.32}\protected@file@percent }
 \pgfsyspdfmark {pgfid11}{11662164}{44883763}
 \pgfsyspdfmark {pgfid12}{26144440}{44883763}
 \@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Two QRAM idioms, drawn by the quantikz export. Left: a bare \texttt  {Load}---one instruction on the address and data registers, $|a\rangle |d\rangle \DOTSB \mapstochar \rightarrow |a\rangle |d \oplus M[a]\rangle $, with the table itself a runtime resource. Right: the diagonal block-encoding of an angle table ($D_{jj}=\alpha \cos (s\,d_j/2)$, here $s=\pi /4$, $\alpha =1$): query the angle database, apply one controlled $R_y$ per angle bit onto the flag wire, unquery. The same ladder realizes the coefficient angle databases of the input-model matrix (Table~\ref {tab:input-models}); the database box is again a slot, bindable to a gate truth table or a QRAM resource.}}{19}{figure.caption.31}\protected@file@percent }
 \newlabel{fig:qram-circuit}{{7}{19}{Two QRAM idioms, drawn by the quantikz export. Left: a bare \texttt {Load}---one instruction on the address and data registers, $|a\rangle |d\rangle \mapsto |a\rangle |d \oplus M[a]\rangle $, with the table itself a runtime resource. Right: the diagonal block-encoding of an angle table ($D_{jj}=\alpha \cos (s\,d_j/2)$, here $s=\pi /4$, $\alpha =1$): query the angle database, apply one controlled $R_y$ per angle bit onto the flag wire, unquery. The same ladder realizes the coefficient angle databases of the input-model matrix (\tabref {tab:input-models}); the database box is again a slot, bindable to a gate truth table or a QRAM resource}{figure.caption.31}{}}
+\@writefile{toc}{\contentsline {paragraph}{Structural interfaces.}{19}{section*.32}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Algorithm contracts.}{19}{section*.33}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Generator protocols.}{19}{section*.34}\protected@file@percent }
 \newlabel{lst:contracts}{{5}{19}{Protocols in action (adapted verbatim from \texttt {examples/algorithm\_contracts.py}). Top: an application-defined protocol \texttt {HasDiagonal}, satisfied structurally by an ordinary class whose block-encoding slot is an open declaration. Bottom: a Costa-QLSS instance consumes the problem object, its contract check succeeds, the solver runs, and the resulting open program is closed by binding an implementation to the \texttt {GivenA} slot}{lstlisting.5}{}}
@@ -146,9 +146,9 @@
 \@writefile{toc}{\contentsline {paragraph}{Promise provenance.}{20}{section*.35}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Readout as a host-side plan}{20}{subsection.5.4}\protected@file@percent }
 \newlabel{sec:readout}{{5.4}{20}{Readout as a host-side plan}{subsection.5.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Primitives for quantum scientific computing}{20}{section.6}\protected@file@percent }
-\newlabel{sec:primitives}{{6}{20}{Primitives for quantum scientific computing}{section.6}{}}
 \citation{low2019qubitization,gilyen2019qsvt}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Primitives for quantum scientific computing}{21}{section.6}\protected@file@percent }
+\newlabel{sec:primitives}{{6}{21}{Primitives for quantum scientific computing}{section.6}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Block-encoding algebra}{21}{subsection.6.1}\protected@file@percent }
 \newlabel{sec:be-algebra}{{6.1}{21}{Block-encoding algebra}{subsection.6.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Data loading and sparse access}{21}{subsection.6.2}\protected@file@percent }
@@ -184,15 +184,15 @@
 \@writefile{toc}{\contentsline {paragraph}{Contour-based matrix-function decomposition (CBMD).}{25}{section*.39}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Carleman linearization.}{25}{section*.40}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Implicit-Euler history systems via QLSS.}{25}{section*.41}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Truncated Taylor kernels.}{25}{section*.42}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}The PDE layer: discretization, homotopy analysis, finite volumes}{25}{subsection.7.3}\protected@file@percent }
-\newlabel{sec:pde}{{7.3}{25}{The PDE layer: discretization, homotopy analysis, finite volumes}{subsection.7.3}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces The ODE/PDE solver territory of pyqecclang\xspace  {}. Linear problems feed four evolution- and system-oriented families (LCHS, Schr\"odingerization, contour decomposition, Taylor kernels) plus the QLSS-based history-system family; nonlinear polynomial problems lift through Carleman into the same linear-solver position. Dashed boxes mark \emph  {injectable protocols}: the kernel realizing $e^{-iHt}$ subroutines and the linear-system kernel are swappable arguments, as are the spatial discretizers connecting the PDE layer to the problem layer.}}{26}{figure.caption.43}\protected@file@percent }
 \newlabel{fig:ode-taxonomy}{{8}{26}{The ODE/PDE solver territory of \pqlang {}. Linear problems feed four evolution- and system-oriented families (LCHS, Schr\"odingerization, contour decomposition, Taylor kernels) plus the QLSS-based history-system family; nonlinear polynomial problems lift through Carleman into the same linear-solver position. Dashed boxes mark \emph {injectable protocols}: the kernel realizing $e^{-iHt}$ subroutines and the linear-system kernel are swappable arguments, as are the spatial discretizers connecting the PDE layer to the problem layer}{figure.caption.43}{}}
+\@writefile{toc}{\contentsline {paragraph}{Truncated Taylor kernels.}{26}{section*.42}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}The PDE layer: discretization, homotopy analysis, finite volumes}{26}{subsection.7.3}\protected@file@percent }
+\newlabel{sec:pde}{{7.3}{26}{The PDE layer: discretization, homotopy analysis, finite volumes}{subsection.7.3}{}}
 \@writefile{toc}{\contentsline {paragraph}{Pluggable spatial discretization.}{26}{section*.44}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{QHAM: homotopy-analysis linearization of nonlinear PDEs.}{26}{section*.45}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Fokker--Planck from SDEs.}{26}{section*.46}\protected@file@percent }
 \citation{meng2023fluid,bharadwaj2025fluid}
+\@writefile{toc}{\contentsline {paragraph}{Fokker--Planck from SDEs.}{27}{section*.46}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{A note on method coverage.}{27}{section*.47}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {8}Case studies}{27}{section.8}\protected@file@percent }
 \newlabel{sec:casestudies}{{8}{27}{Case studies}{section.8}{}}
@@ -206,71 +206,77 @@
 \newlabel{sec:input-models}{{8.3}{28}{The input-model axis}{subsection.8.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.4}The gallery and the reproducible catalog}{29}{subsection.8.4}\protected@file@percent }
 \newlabel{sec:gallery}{{8.4}{29}{The gallery and the reproducible catalog}{subsection.8.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9}Implementation and verification status}{29}{section.9}\protected@file@percent }
-\newlabel{sec:implementation}{{9}{29}{Implementation and verification status}{section.9}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Implementation}{29}{subsection.9.1}\protected@file@percent }
-\newlabel{sec:implementation-status}{{9.1}{29}{Implementation}{subsection.9.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Implementation and verification status}{30}{section.9}\protected@file@percent }
+\newlabel{sec:implementation}{{9}{30}{Implementation and verification status}{section.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Implementation}{30}{subsection.9.1}\protected@file@percent }
+\newlabel{sec:implementation-status}{{9.1}{30}{Implementation}{subsection.9.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {9.2}A graded evidence ladder}{30}{subsection.9.2}\protected@file@percent }
 \newlabel{sec:evidence-ladder}{{9.2}{30}{A graded evidence ladder}{subsection.9.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Numerical verification on real backends}{30}{subsection.9.3}\protected@file@percent }
-\newlabel{sec:numverify}{{9.3}{30}{Numerical verification on real backends}{subsection.9.3}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Verification status by component. ``Structure'' = L1 validity, serialization, contract checks; ``witness'' = L2/L3 classical witnesses and catalog reproducibility; ``native circuits'' = L4 real-backend amplitude agreement of assembled circuits; ``numerical certification'' = solution-accuracy and success-channel checks against mathematical references in the campaign of Section~\ref {sec:numverify} (register-exact scale; scaling studies remain open). A dash means \emph  {not yet performed}, not impossible.}}{31}{table.caption.49}\protected@file@percent }
-\newlabel{tab:status-matrix}{{7}{31}{Verification status by component. ``Structure'' = L1 validity, serialization, contract checks; ``witness'' = L2/L3 classical witnesses and catalog reproducibility; ``native circuits'' = L4 real-backend amplitude agreement of assembled circuits; ``numerical certification'' = solution-accuracy and success-channel checks against mathematical references in the campaign of \secref {sec:numverify} (register-exact scale; scaling studies remain open). A dash means \emph {not yet performed}, not impossible}{table.caption.49}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Numerical-verification campaign: thirteen groups, 473 experiments, all passing their stated criteria on real backends. Paths: O = OriginIR-ext + UnifiedQuantum full amplitudes (incl.\ \texttt  {to\_matrix}); P = PySparQ RIR sparse-state execution; X = cross-checked against the reference executor and the event adapter. Headlines quote the worst-case metric over the group's instances.}}{32}{table.caption.50}\protected@file@percent }
-\newlabel{tab:verify-matrix}{{8}{32}{Numerical-verification campaign: thirteen groups, 473 experiments, all passing their stated criteria on real backends. Paths: O = OriginIR-ext + UnifiedQuantum full amplitudes (incl.\^^M\texttt {to\_matrix}); P = PySparQ RIR sparse-state execution; X = cross-checked against the reference executor and the event adapter. Headlines quote the worst-case metric over the group's instances}{table.caption.50}{}}
-\citation{gidney2021factor}
-\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Backend-level validation, simulation campaigns, and resource estimation}{33}{subsection.9.4}\protected@file@percent }
-\newlabel{sec:reserved}{{9.4}{33}{Backend-level validation, simulation campaigns, and resource estimation}{subsection.9.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Numerical verification on real backends}{31}{subsection.9.3}\protected@file@percent }
+\newlabel{sec:numverify}{{9.3}{31}{Numerical verification on real backends}{subsection.9.3}{}}
+\citation{ross2016optimal}
+\citation{ross2016optimal}
+\citation{beverland2022assessing,harrigan2024qualtran,su2026resource,gidney2025rsa}
+\citation{ross2016optimal}
+\citation{ross2016optimal}
+\citation{gidney2018halving}
+\citation{babbush2018encoding}
+\citation{dalzell2025qram}
+\citation{babbush2018encoding,low2024trading}
+\citation{babbush2018encoding}
+\citation{gidney2018halving}
+\citation{ross2016optimal}
+\citation{beverland2022assessing,gidney2025rsa}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Resource estimation at the strict gate-set level}{32}{subsection.9.4}\protected@file@percent }
+\newlabel{sec:resources}{{9.4}{32}{Resource estimation at the strict gate-set level}{subsection.9.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.5}What remains reserved}{32}{subsection.9.5}\protected@file@percent }
+\newlabel{sec:reserved}{{9.5}{32}{What remains reserved}{subsection.9.5}{}}
+\citation{beverland2022assessing,harrigan2024qualtran,su2026resource}
+\citation{gidney2021factor,gidney2025rsa}
 \@writefile{toc}{\contentsline {section}{\numberline {10}Discussion and limitations}{33}{section.10}\protected@file@percent }
 \newlabel{sec:discussion}{{10}{33}{Discussion and limitations}{section.10}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {10.1}What the design buys, and what it costs}{33}{subsection.10.1}\protected@file@percent }
 \newlabel{sec:tradeoffs}{{10.1}{33}{What the design buys, and what it costs}{subsection.10.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Limitations of the current implementation}{34}{subsection.10.2}\protected@file@percent }
-\newlabel{sec:limitations}{{10.2}{34}{Limitations of the current implementation}{subsection.10.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Limitations of the current implementation}{33}{subsection.10.2}\protected@file@percent }
+\newlabel{sec:limitations}{{10.2}{33}{Limitations of the current implementation}{subsection.10.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {10.3}Future work}{34}{subsection.10.3}\protected@file@percent }
 \newlabel{sec:future}{{10.3}{34}{Future work}{subsection.10.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11}Conclusion}{35}{section.11}\protected@file@percent }
-\newlabel{sec:conclusion}{{11}{35}{Conclusion}{section.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11}Conclusion}{34}{section.11}\protected@file@percent }
+\newlabel{sec:conclusion}{{11}{34}{Conclusion}{section.11}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {A}Reproducing the examples}{35}{appendix.A}\protected@file@percent }
 \newlabel{app:repro}{{A}{35}{Reproducing the examples}{appendix.A}{}}
 \newlabel{lst:repro}{{8}{35}{Reproduction commands (generation and export have no third-party requirements; native cross-checks require the pinned backend environments)}{lstlisting.8}{}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {8}{\ignorespaces Reproduction commands (generation and export have no third-party requirements; native cross-checks require the pinned backend environments).}}{35}{lstlisting.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {B}The four solver families in code}{36}{appendix.B}\protected@file@percent }
-\newlabel{app:families}{{B}{36}{The four solver families in code}{appendix.B}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}The four solver families in code}{35}{appendix.B}\protected@file@percent }
+\newlabel{app:families}{{B}{35}{The four solver families in code}{appendix.B}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {B.1}QHAM: from a symbolic PDE to a solver-ready input model}{36}{subsection.B.1}\protected@file@percent }
 \newlabel{app:qham}{{B.1}{36}{QHAM: from a symbolic PDE to a solver-ready input model}{subsection.B.1}{}}
 \newlabel{lst:qham}{{9}{36}{QHAM end to end: symbolic polynomial PDE, homotopy-analysis plan, structured discretization, and a solver handed in from outside (verbatim from the doctested example \texttt {examples/general\_qham.py}; comments translated)}{lstlisting.9}{}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {9}{\ignorespaces QHAM end to end: symbolic polynomial PDE, homotopy-analysis plan, structured discretization, and a solver handed in from outside (verbatim from the doctested example \texttt  {examples/general\_qham.py}; comments translated).}}{36}{lstlisting.9}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}Carleman: nonlinear lift with a swappable linear solver}{37}{subsection.B.2}\protected@file@percent }
-\newlabel{app:carleman}{{B.2}{37}{Carleman: nonlinear lift with a swappable linear solver}{subsection.B.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}Carleman: nonlinear lift with a swappable linear solver}{36}{subsection.B.2}\protected@file@percent }
+\newlabel{app:carleman}{{B.2}{36}{Carleman: nonlinear lift with a swappable linear solver}{subsection.B.2}{}}
 \newlabel{lst:carleman}{{10}{37}{Carleman lift of Burgers: open coefficient block-encodings, an open lifted initial state, and a linear solver injected per call (verbatim from case~6 of \texttt {examples/ode\_input\_models.py}; comments translated, artifact serialization elided)}{lstlisting.10}{}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {10}{\ignorespaces Carleman lift of Burgers: open coefficient block-encodings, an open lifted initial state, and a linear solver injected per call (verbatim from case~6 of \texttt  {examples/ode\_input\_models.py}; comments translated, artifact serialization elided).}}{37}{lstlisting.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}LCHS: one open program, two data-path realizations}{38}{subsection.B.3}\protected@file@percent }
-\newlabel{app:lchs}{{B.3}{38}{LCHS: one open program, two data-path realizations}{subsection.B.3}{}}
-\newlabel{lst:lchs}{{11}{38}{LCHS: the protocol takes its quadrature plan and kernel as arguments; one open program is bound to a gate database or to a QRAM database with a runtime table (verbatim from \texttt {examples/ode\_input\_models.py}, inside \texttt {main()}; comments translated, artifact records elided where marked)}{lstlisting.11}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {11}{\ignorespaces LCHS: the protocol takes its quadrature plan and kernel as arguments; one open program is bound to a gate database or to a QRAM database with a runtime table (verbatim from \texttt  {examples/ode\_input\_models.py}, inside \texttt  {main()}; comments translated, artifact records elided where marked).}}{38}{lstlisting.11}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.4}CBMD: the contour family under a dissipative shift}{39}{subsection.B.4}\protected@file@percent }
-\newlabel{app:cbmd}{{B.4}{39}{CBMD: the contour family under a dissipative shift}{subsection.B.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}LCHS: one open program, two data-path realizations}{37}{subsection.B.3}\protected@file@percent }
+\newlabel{app:lchs}{{B.3}{37}{LCHS: one open program, two data-path realizations}{subsection.B.3}{}}
+\newlabel{lst:lchs}{{11}{37}{LCHS: the protocol takes its quadrature plan and kernel as arguments; one open program is bound to a gate database or to a QRAM database with a runtime table (verbatim from \texttt {examples/ode\_input\_models.py}, inside \texttt {main()}; comments translated, artifact records elided where marked)}{lstlisting.11}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {11}{\ignorespaces LCHS: the protocol takes its quadrature plan and kernel as arguments; one open program is bound to a gate database or to a QRAM database with a runtime table (verbatim from \texttt  {examples/ode\_input\_models.py}, inside \texttt  {main()}; comments translated, artifact records elided where marked).}}{37}{lstlisting.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.4}CBMD: the contour family under a dissipative shift}{38}{subsection.B.4}\protected@file@percent }
+\newlabel{app:cbmd}{{B.4}{38}{CBMD: the contour family under a dissipative shift}{subsection.B.4}{}}
 \newlabel{lst:cbmd}{{12}{39}{CBMD: the same QHAM input model after \texttt {dissipative\_shift}, solved by naming the family (verbatim from the final block of \texttt {examples/general\_qham.py}; comments translated)}{lstlisting.12}{}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {12}{\ignorespaces CBMD: the same QHAM input model after \texttt  {dissipative\_shift}, solved by naming the family (verbatim from the final block of \texttt  {examples/general\_qham.py}; comments translated).}}{39}{lstlisting.12}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {B.5}One problem, many data paths: the input-model matrix}{39}{subsection.B.5}\protected@file@percent }
 \newlabel{app:input-models}{{B.5}{39}{One problem, many data paths: the input-model matrix}{subsection.B.5}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces The input-model matrix of \texttt  {examples/input\_models.py}. All artifacts share the same small instances (forced Burgers for QHAM, Burgers with a space-dependent viscosity for the Carleman QRAM row, a given $2\times 2$ generator, and a four-node ring Laplacian). ``Open slots'' lists what remains unbound in the exported program; ``runtime tables'' lists the QRAM resources present after closing (memory supplied separately). Gate rows are exact; angle-table rows carry the declared \texttt  {angle\_width} quantization.}}{40}{table.caption.52}\protected@file@percent }
-\newlabel{tab:input-models}{{9}{40}{The input-model matrix of \texttt {examples/input\_models.py}. All artifacts share the same small instances (forced Burgers for QHAM, Burgers with a space-dependent viscosity for the Carleman QRAM row, a given $2\times 2$ generator, and a four-node ring Laplacian). ``Open slots'' lists what remains unbound in the exported program; ``runtime tables'' lists the QRAM resources present after closing (memory supplied separately). Gate rows are exact; angle-table rows carry the declared \texttt {angle\_width} quantization}{table.caption.52}{}}
-\newlabel{lst:input-qham}{{13}{40}{QHAM with a coefficient-angle database: one open program, closed against a gate database or a QRAM database (condensed from \texttt {examples/input\_models.py}; comments translated, slot discovery and artifact records elided)}{lstlisting.13}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {13}{\ignorespaces QHAM with a coefficient-angle database: one open program, closed against a gate database or a QRAM database (condensed from \texttt  {examples/input\_models.py}; comments translated, slot discovery and artifact records elided).}}{40}{lstlisting.13}\protected@file@percent }
-\newlabel{lst:input-grid}{{14}{41}{A QRAM-served grid discretization: the ring Laplacian as a sparse-access oracle pair with QRAM position and entry tables, plus a QRAM initial state; \texttt {make\_qpde} threads it into two solver families unchanged (verbatim from \texttt {examples/input\_models.py}; comments translated, runtime tables elided)}{lstlisting.14}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {14}{\ignorespaces A QRAM-served grid discretization: the ring Laplacian as a sparse-access oracle pair with QRAM position and entry tables, plus a QRAM initial state; \texttt  {make\_qpde} threads it into two solver families unchanged (verbatim from \texttt  {examples/input\_models.py}; comments translated, runtime tables elided).}}{41}{lstlisting.14}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {C}Glossary of recurring identifiers}{41}{appendix.C}\protected@file@percent }
-\newlabel{app:glossary}{{C}{41}{Glossary of recurring identifiers}{appendix.C}{}}
+\newlabel{lst:input-qham}{{13}{39}{QHAM with a coefficient-angle database: one open program, closed against a gate database or a QRAM database (condensed from \texttt {examples/input\_models.py}; comments translated, slot discovery and artifact records elided)}{lstlisting.13}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {13}{\ignorespaces QHAM with a coefficient-angle database: one open program, closed against a gate database or a QRAM database (condensed from \texttt  {examples/input\_models.py}; comments translated, slot discovery and artifact records elided).}}{39}{lstlisting.13}\protected@file@percent }
+\newlabel{lst:input-grid}{{14}{40}{A QRAM-served grid discretization: the ring Laplacian as a sparse-access oracle pair with QRAM position and entry tables, plus a QRAM initial state; \texttt {make\_qpde} threads it into two solver families unchanged (verbatim from \texttt {examples/input\_models.py}; comments translated, runtime tables elided)}{lstlisting.14}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {14}{\ignorespaces A QRAM-served grid discretization: the ring Laplacian as a sparse-access oracle pair with QRAM position and entry tables, plus a QRAM initial state; \texttt  {make\_qpde} threads it into two solver families unchanged (verbatim from \texttt  {examples/input\_models.py}; comments translated, runtime tables elided).}}{40}{lstlisting.14}\protected@file@percent }
 \bibstyle{quantum}
 \bibdata{refs}
 \bibcite{harrow2009hhl}{{1}{}{{}}{{}}}
 \bibcite{gilyen2019qsvt}{{2}{}{{}}{{}}}
 \bibcite{low2017qsp}{{3}{}{{}}{{}}}
 \bibcite{martyn2021grand}{{4}{}{{}}{{}}}
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Recurring identifiers used throughout the paper.}}{42}{table.caption.53}\protected@file@percent }
-\newlabel{tab:glossary}{{10}{42}{Recurring identifiers used throughout the paper}{table.caption.53}{}}
 \bibcite{berry2015taylor}{{5}{}{{}}{{}}}
 \bibcite{childs2021trotter}{{6}{}{{}}{{}}}
 \bibcite{low2019qubitization}{{7}{}{{}}{{}}}
@@ -279,6 +285,8 @@
 \bibcite{leyton2008ode}{{10}{}{{}}{{}}}
 \bibcite{berry2014ode}{{11}{}{{}}{{}}}
 \bibcite{liu2021pnas}{{12}{}{{}}{{}}}
+\@writefile{toc}{\contentsline {section}{\numberline {C}Glossary of recurring identifiers}{41}{appendix.C}\protected@file@percent }
+\newlabel{app:glossary}{{C}{41}{Glossary of recurring identifiers}{appendix.C}{}}
 \bibcite{liu2023carleman}{{13}{}{{}}{{}}}
 \bibcite{montanaro2016fem}{{14}{}{{}}{{}}}
 \bibcite{childs2020spectral}{{15}{}{{}}{{}}}
@@ -314,6 +322,24 @@
 \bibcite{wang2026cbmd}{{45}{}{{}}{{}}}
 \bibcite{meng2023fluid}{{46}{}{{}}{{}}}
 \bibcite{bharadwaj2025fluid}{{47}{}{{}}{{}}}
-\bibcite{gidney2021factor}{{48}{}{{}}{{}}}
+\bibcite{ross2016optimal}{{48}{}{{}}{{}}}
+\bibcite{beverland2022assessing}{{49}{}{{}}{{}}}
+\bibcite{harrigan2024qualtran}{{50}{}{{}}{{}}}
+\bibcite{su2026resource}{{51}{}{{}}{{}}}
+\bibcite{gidney2025rsa}{{52}{}{{}}{{}}}
+\bibcite{gidney2018halving}{{53}{}{{}}{{}}}
+\bibcite{babbush2018encoding}{{54}{}{{}}{{}}}
+\bibcite{low2024trading}{{55}{}{{}}{{}}}
+\bibcite{gidney2021factor}{{56}{}{{}}{{}}}
 \providecommand\NAT@force@numbers{}\NAT@force@numbers
-\gdef \@abspage@last{47}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Verification status by component. ``Structure'' = L1 validity, serialization, contract checks; ``witness'' = L2/L3 classical witnesses and catalog reproducibility; ``native circuits'' = L4 real-backend amplitude agreement of assembled circuits; ``numerical certification'' = solution-accuracy and success-channel checks against mathematical references in the campaign of Section~\ref {sec:numverify} (register-exact scale; scaling studies remain open). A dash means \emph  {not yet performed}, not impossible.}}{45}{table.caption.49}\protected@file@percent }
+\newlabel{tab:status-matrix}{{7}{45}{Verification status by component. ``Structure'' = L1 validity, serialization, contract checks; ``witness'' = L2/L3 classical witnesses and catalog reproducibility; ``native circuits'' = L4 real-backend amplitude agreement of assembled circuits; ``numerical certification'' = solution-accuracy and success-channel checks against mathematical references in the campaign of \secref {sec:numverify} (register-exact scale; scaling studies remain open). A dash means \emph {not yet performed}, not impossible}{table.caption.49}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Numerical-verification campaign: thirteen groups, 473 experiments, all passing their stated criteria on real backends. Paths: O = OriginIR-ext + UnifiedQuantum full amplitudes (incl.\ \texttt  {to\_matrix}); P = PySparQ RIR sparse-state execution; X = cross-checked against the reference executor and the event adapter. Headlines quote the worst-case metric over the group's instances.}}{46}{table.caption.50}\protected@file@percent }
+\newlabel{tab:verify-matrix}{{8}{46}{Numerical-verification campaign: thirteen groups, 473 experiments, all passing their stated criteria on real backends. Paths: O = OriginIR-ext + UnifiedQuantum full amplitudes (incl.\^^M\texttt {to\_matrix}); P = PySparQ RIR sparse-state execution; X = cross-checked against the reference executor and the event adapter. Headlines quote the worst-case metric over the group's instances}{table.caption.50}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Resource-scaling study at the Toffoli+Clifford+T+QRAM level (\texttt  {tools/build\_resource\_estimates.py}; JSON artifacts in \texttt  {out/resource-estimates/}). ``rot.'' counts rotations pending synthesis ($\approx 100$ $T$ each at $\epsilon =10^{-10}$ \cite  {ross2016optimal}); ``Q'' counts QRAM queries. The last column states the theoretical expectation; fitted log--log slopes are quoted where the regime is polynomial.}}{47}{table.caption.51}\protected@file@percent }
+\newlabel{tab:resource-scaling}{{9}{47}{Resource-scaling study at the Toffoli+Clifford+T+QRAM level (\texttt {tools/build\_resource\_estimates.py}; JSON artifacts in \texttt {out/resource-estimates/}). ``rot.'' counts rotations pending synthesis ($\approx 100$ $T$ each at $\epsilon =10^{-10}$ \cite {ross2016optimal}); ``Q'' counts QRAM queries. The last column states the theoretical expectation; fitted log--log slopes are quoted where the regime is polynomial}{table.caption.51}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces The input-model matrix of \texttt  {examples/input\_models.py}. All artifacts share the same small instances (forced Burgers for QHAM, Burgers with a space-dependent viscosity for the Carleman QRAM row, a given $2\times 2$ generator, and a four-node ring Laplacian). ``Open slots'' lists what remains unbound in the exported program; ``runtime tables'' lists the QRAM resources present after closing (memory supplied separately). Gate rows are exact; angle-table rows carry the declared \texttt  {angle\_width} quantization.}}{48}{table.caption.53}\protected@file@percent }
+\newlabel{tab:input-models}{{10}{48}{The input-model matrix of \texttt {examples/input\_models.py}. All artifacts share the same small instances (forced Burgers for QHAM, Burgers with a space-dependent viscosity for the Carleman QRAM row, a given $2\times 2$ generator, and a four-node ring Laplacian). ``Open slots'' lists what remains unbound in the exported program; ``runtime tables'' lists the QRAM resources present after closing (memory supplied separately). Gate rows are exact; angle-table rows carry the declared \texttt {angle\_width} quantization}{table.caption.53}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Recurring identifiers used throughout the paper.}}{49}{table.caption.54}\protected@file@percent }
+\newlabel{tab:glossary}{{11}{49}{Recurring identifiers used throughout the paper}{table.caption.54}{}}
+\gdef \@abspage@last{51}

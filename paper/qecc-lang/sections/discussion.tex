@@ -47,8 +47,10 @@ future-validation program of \secref{sec:reserved}:
 \item \textbf{Number theory is illustrative.}  The modular-multiplication
   path is a bounded permutation synthesis for small registers, not scalable
   Shor arithmetic---and is labeled as such.
-\item \textbf{No resource estimator, no error budgeting}---scoped in
-  \secref{sec:reserved}.
+\item \textbf{No physical-layer resource accounting}---the logical
+  Toffoli+Clifford+T+QRAM estimator of \secref{sec:resources} does not yet
+  model synthesis passes, depth, distillation factories, or surface-code
+  cycles; scoped in \secref{sec:reserved}.
 \end{itemize}
 
 \subsection{Future work}
@@ -83,8 +85,8 @@ graduated, and the campaign of \secref{sec:numverify} shows what that
 discipline buys: register-exact certification against independent oracles
 for the whole library, two real defects exposed and recorded rather than
 silently absorbed, and a clean boundary to what remains open---validation
-at scale, the defect repairs, and resource estimation, reserved rather than
-overclaimed.  We offer
+at scale, the defect repairs and lowering gaps, and the physical layer of
+resource estimation, reserved rather than overclaimed.  We offer
 the requirements analysis of \secref{sec:requirements} as a reusable lens:
 languages for the fault-tolerant scientific-computing era will be judged by
 how directly they let the mathematics be written---and by how honestly they

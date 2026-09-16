@@ -150,6 +150,14 @@ interpretation time.
   reproductions.  What remains open is the parameter-scaling axis, the
   defect repairs, and resource estimation---tracked explicitly rather than
   overclaimed.
+\item \textbf{A compositional resource estimator}
+  (\secref{sec:implementation}): a strict Toffoli+Clifford+T+QRAM compile
+  and a per-(module, control-count) ledger that multiplies through symbolic
+  \texttt{Repeat} nodes without expansion, reporting qubit, Toffoli,
+  exact-$T$, pending-rotation, and QRAM query counts---the latter, to our
+  knowledge, not previously reported as a first-class language
+  metric---with scaling validated against theoretical expectations and with
+  two lowering gaps (and counting) exposed by the accounting itself.
 \end{itemize}
 
 Everything described in this paper is implemented in the open-source \pqlang{}
@@ -165,5 +173,6 @@ analysis.  \secref{sec:related} surveys related languages and frameworks.
 \secref{sec:casestudies} three case studies.  \secref{sec:implementation}
 describes implementation and verification status: the evidence ladder, the
 numerical-verification campaign with its per-family outcomes and recorded
-defects, and the deliberately reserved parts (validation at scale and
-resource estimation).  \secref{sec:discussion} discusses limitations and future work.
+defects, the resource-estimation study at the strict gate-set level, and
+the deliberately reserved parts (validation at scale and the physical layer
+of resource estimation).  \secref{sec:discussion} discusses limitations and future work.

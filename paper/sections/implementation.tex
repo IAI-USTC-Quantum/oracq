@@ -88,8 +88,9 @@ generated modules (R6).
     PDE layer (heat, Fokker--Planck, QHAM) & \ok & \ok & \ok$^{b}$ & \ok \\
     QFVM / Euler pipeline & \ok & \ok$^{d}$ & \ok$^{b}$ & partial$^{e}$ \\
     Scientific suite (Gibbs, QPCA, SDP, DQI, \dots) & \ok & \ok & \ok & \ok \\
+    Resource estimator (strict gate set) & \ok & \ok$^{f}$ & --- & --- \\
     \bottomrule
-    \multicolumn{5}{@{}p{14.3cm}@{}}{\scriptsize $^a$QSP synthesis self-verifies polynomial round-trips; transforms are certified end-to-end in \secref{sec:numverify}.  $^b$assembled-circuit agreement on real backends.  $^c$all six families certified against truncated-oracle references at small scale, except Schr\"odingerization, where the campaign exposed a momentum-sign defect that is recorded with reproductions (\secref{sec:numverify}); success channels and large-scale accuracy remain pending.  $^d$classical flux and flow-state witnesses.  $^e$fixed-point physics certified against an independent fixed-point semantics at \texttt{FixedFormat(5,2)}; generation-time constant quantization dominates the method error in coarser formats.}
+    \multicolumn{5}{@{}p{14.3cm}@{}}{\scriptsize $^a$QSP synthesis self-verifies polynomial round-trips; transforms are certified end-to-end in \secref{sec:numverify}.  $^b$assembled-circuit agreement on real backends.  $^c$all six families certified against truncated-oracle references at small scale, except Schr\"odingerization, where the campaign exposed a momentum-sign defect that is recorded with reproductions (\secref{sec:numverify}); success channels and large-scale accuracy remain pending.  $^d$classical flux and flow-state witnesses.  $^e$fixed-point physics certified against an independent fixed-point semantics at \texttt{FixedFormat(5,2)}; generation-time constant quantization dominates the method error in coarser formats.  $^f$hand-computed counts and atom-by-atom cross-checks against the strict netlist; scaling expectations validated in \secref{sec:resources}.}
   \end{tabular}
 \end{table}
 
@@ -193,7 +194,103 @@ compared essentially to machine precision, and the reported method errors
 characterize the mathematical truncations, not estimates of large-scale
 behaviour.  Scaling the campaign is the subject of the next subsection.
 
-\subsection{Backend-level validation, simulation campaigns, and resource estimation}
+\subsection{Resource estimation at the strict gate-set level}
+\label{sec:resources}
+
+The structure-preserving design pays a second dividend beyond
+verification: compositional resource estimation.  Because RIR keeps module
+calls and static repetition symbolic, resources can be counted per
+(module, control-count) pair and multiplied through \texttt{Repeat} nodes
+without expansion---a program repeating a body $2^{40}$ times is estimated
+in microseconds.  \pqlang{} ships two linked artifacts:
+\texttt{export\_strict}, a compiler pass that lowers a program to a
+module-preserving netlist at the Toffoli+Clifford+T+QRAM level (exact
+Clifford+T atoms on the $\pi/4$ grid; residual $R_Z$/$R_Y$ atoms pending
+synthesis \cite{ross2016optimal}; QRAM calls first-class), and
+\texttt{estimate\_resources}, a ledger that follows the same lowering
+recipes line by line and reports qubits, Toffoli, Clifford atoms, exact $T$,
+pending rotations with a Ross--Selinger-style synthesis overhead
+\cite{ross2016optimal}, and QRAM \emph{query counts} as a first-class
+metric.  The two are cross-checked atom by atom in the test suite.  The
+estimator counts what the compiler actually emits---not an idealized cost
+model---which makes lowering quality measurable; it is the kind of
+accounting that automated resource-estimation frameworks perform at the
+application level
+\cite{beverland2022assessing,harrigan2024qualtran,su2026resource,gidney2025rsa},
+here derived from the language's own module graph.
+
+\begin{table*}[t]
+  \centering
+  \caption{Resource-scaling study at the Toffoli+Clifford+T+QRAM level
+  (\texttt{tools/build\_resource\_estimates.py}; JSON artifacts in
+  \texttt{out/resource-estimates/}).  ``rot.'' counts rotations pending
+  synthesis ($\approx 100$ $T$ each at $\epsilon=10^{-10}$
+  \cite{ross2016optimal}); ``Q'' counts QRAM queries.  The last column
+  states the theoretical expectation; fitted log--log slopes are quoted
+  where the regime is polynomial.}
+  \label{tab:resource-scaling}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{3.9cm}rrrrrp{4.6cm}@{}}
+    \toprule
+    \tabhead{Algorithm ($n$)} & \tabhead{qubits} & \tabhead{Toffoli} & \tabhead{exact $T$} & \tabhead{rot.} & \tabhead{Q} & \tabhead{expectation} \\
+    \midrule
+    Constant addition (16) & 16 & 1\,015 & 0 & 0 & --- & staircase cubic regime \\
+    Constant addition (64) & 64 & 81\,375 & 0 & 0 & --- & literature adders $O(n)$ \cite{gidney2018halving} \\
+    Fixed-point multiply (8) & 488 & 428 & 0 & 0 & --- & $O(n^2)$ \\
+    Fixed-point multiply (32) & 6\,596 & 6\,356 & 0 & 0 & --- & fitted slope $1.94$ \\
+    QFT (6) & 6 & 0 & 15 & 30 & --- & \multirow{2}{4.6cm}{$\binom{n}{2}$ controlled rotations} \\
+    QFT (12) & 12 & 0 & 33 & 165 & --- & \\
+    QPE, symbolic powers (8) & 12 & 2\,295 & 21 & 63 & --- & $2^p \times \mathrm{cost}(U)$ \\
+    QPE, symbolic powers (12) & 16 & 36\,855 & 33 & 165 & --- & symbolic, unexpanded \\
+    Grover (10) & 10 & 800 & 0 & 0 & --- & \multirow{2}{4.6cm}{$\lfloor\frac{\pi}{4}2^{n/2}\rfloor$ iterations $\times$ $O(n)$} \\
+    Grover (14) & 14 & 4\,800 & 0 & 0 & --- & \\
+    Dense state preparation (6) & 6 & 896 & 0 & 314 & --- & \multirow{2}{4.6cm}{$O(2^n)$ rotations} \\
+    Dense state preparation (10) & 10 & 30\,712 & 0 & 5\,114 & --- & \\
+    QRAM lookup (16) & 24 & 0 & 0 & 0 & 1 & one query, size-independent \\
+    QROM, gate-synthesized (8) & 16 & 13\,312 & 0 & 0 & --- & idealized unary-iteration $N{-}1$ \cite{babbush2018encoding} \\
+    QROM, gate-synthesized (12) & 20 & 344\,064 & 0 & 0 & --- & emitted $\approx 84\times$ the idealized model \\
+    Diagonal block-encoding, gate (8) & 12 & 11\,388 & 2 & 2 & --- & same input model \\
+    Diagonal block-encoding, QRAM (8) & 12 & 0 & 2 & 2 & 2 & two queries instead \\
+    Roe flux face (QFVM, $w{=}12$) & 4\,275 & 262\,012 & 0 & 0 & --- & \multirow{2}{4.6cm}{application arithmetic, poly$(w)$} \\
+    Roe flux face (QFVM, $w{=}16$) & 6\,687 & 446\,076 & 0 & 0 & --- & \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+Table~\ref{tab:resource-scaling} reports the study.  Three observations.
+\emph{First, the estimates match theoretical expectations wherever a
+reference exists}: fixed-point multiplication fits $1.94$ against the
+expected quadratic; dense state preparation tracks $O(2^n)$ rotations;
+Grover's total follows $\lfloor \frac{\pi}{4} 2^{n/2} \rfloor$ iterations
+times an $O(n)$ per-iteration cost; QFT rotations grow quadratically once
+the $\pi/4$-grid exact rotations are accounted for.  \emph{Second, QRAM
+query counts behave as the access-model literature promises but circuit
+descriptions rarely show}: a lookup through a QRAM resource costs exactly
+one query and zero gates at any size, while the same table gate-synthesized
+costs $3.4{\times}10^5$ Toffoli at $n=12$---and the diagonal block-encoding
+input model makes the same point with two queries against
+$1.1{\times}10^4$ Toffoli.  To our knowledge this query-count view of
+QRAM---complementary to fault-tolerant QRAM constructions
+\cite{dalzell2025qram} and to QROM $T$-count analyses
+\cite{babbush2018encoding,low2024trading}---has not been reported as a
+first-class language metric before.  \emph{Third, the estimator caught a
+provenance gap}: the library's \texttt{qrom\_lookup} advertises an
+idealized unary-iteration cost model ($N{-}1$ Toffoli
+\cite{babbush2018encoding}) while the emitted circuit is a per-branch
+truth-table network ($\approx 84\times$ more Toffoli at $n=12$); likewise
+constant addition emits an $O(n^3)$ staircase where literature adders are
+$O(n)$ \cite{gidney2018halving}.  Both gaps are recorded as
+lowering-optimization items, alongside the two algorithmic defects of
+\secref{sec:numverify}.
+
+The estimates live at the logical level: rotation synthesis is accounted by
+a leading-order model \cite{ross2016optimal}, and $T$ factories,
+distillation, routing, and surface-code cycles are out of scope---the
+physical layer of \cite{beverland2022assessing,gidney2025rsa} remains
+future work, as does flowing these numbers back into per-module promise
+attributes (R6).
+
+\subsection{What remains reserved}
 \label{sec:reserved}
 
 The remaining axis of validation---and in our view the decisive one for a
@@ -216,17 +313,21 @@ work and summarized here only as a statement of scope:
   the repair of the two recorded defects.  The promise-provenance
   attributes are designed to be the bookkeeping substrate for exactly these
   studies.
-\item \textbf{Resource estimation.}  \pqlang{} does not yet ship a resource
-  estimator.  The ingredients are in place---symbolic structure preserved
-  end-to-end (R3/R5), QROM partition cost models, native-operator cost
-  accounting, and per-slot realization interchangeability (R2)---in the spirit of large-scale studies such as \cite{gidney2021factor}, but as a language-level pass---
-  assembling them into a first-class estimation pass (gate counts, depth,
-  ancilla budgets, and error budgets flowing from recorded promises) is an
-  open work item that we consider central to the language's validation
-  story.
+\item \textbf{Resource estimation, physical layer.}  The logical level
+  landed in \secref{sec:resources}: a strict Toffoli+Clifford+T+QRAM
+  compile and a compositional estimator derived from the module graph
+  itself, in the spirit of automated application-level frameworks
+  \cite{beverland2022assessing,harrigan2024qualtran,su2026resource} and of
+  large-scale studies such as \cite{gidney2021factor,gidney2025rsa}.  What
+  remains open is everything below that level: rotation synthesis as an
+  implemented pass rather than an accounted model, depth scheduling,
+  ancilla and distillation-factory budgets, routing, and surface-code cycle
+  accounting---as well as flowing the measured numbers back into per-module
+  promise attributes (R6) and repairing the lowering gaps the estimator
+  exposed (QROM emission, constant-addition staircase).
 \end{itemize}
 
-\noindent We choose to leave this section as a scoped reservation rather
-than to report preliminary numbers: fabricating resource estimates for an
-uncertified solver stack would violate the very provenance discipline this
-paper argues for.
+\noindent The physical layer and the scaling axis are deliberately scoped
+as future work rather than reported prematurely: attaching physical-cost
+numbers to an uncertified-at-scale solver stack would violate the very
+provenance discipline this paper argues for.

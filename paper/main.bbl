@@ -332,6 +332,63 @@ Satish~S. Bharadwaj and Katepalli~R. Sreenivasan.
 \newblock \href{https://dx.doi.org/10.1007/s12046-024-02660-3}{S{\=a}dhan{\=a}
   {\bf 50}, 57}~(2025).
 
+\bibitem{ross2016optimal}
+Neil~J. Ross and Peter Selinger.
+\newblock ``Optimal ancilla-free {Clifford}+{T} approximation of z-rotations''.
+\newblock \href{https://dx.doi.org/10.26421/QIC16.11-12-1}{Quantum Information
+  and Computation {\bf 16}, 901--953}~(2016).
+\newblock  \href{http://arxiv.org/abs/1403.2975}{arXiv:1403.2975}.
+
+\bibitem{beverland2022assessing}
+Michael~E. Beverland, Prakash Murali, Matthias Troyer, Krysta~M. Svore, Torsten
+  Hoefler, Vadym Kliuchnikov, Guang~Hao Low, Mathias Soeken, Aarthi Sundaram,
+  and Alexander Vaschillo.
+\newblock ``Assessing requirements to scale to practical quantum
+  advantage''~(2022).
+\newblock  \href{http://arxiv.org/abs/2211.07629}{arXiv:2211.07629}.
+
+\bibitem{harrigan2024qualtran}
+Matthew~P. Harrigan, Tanuj Khattar, Charles Yuan, Anurudh Peduri, Noureldin
+  Yosri, Fionn~D. Malone, Ryan Babbush, and Nicholas~C. Rubin.
+\newblock ``Expressing and {Analyzing} {Quantum} {Algorithms} with
+  {Qualtran}''~(2024).
+\newblock  \href{http://arxiv.org/abs/2409.04643}{arXiv:2409.04643}.
+
+\bibitem{su2026resource}
+Bonan Su, Yuan Feng, Li~Zhou, and Mingsheng Ying.
+\newblock ``Resource estimation for fault-tolerant quantum programs''~(2026).
+\newblock  \href{http://arxiv.org/abs/2608.04573}{arXiv:2608.04573}.
+
+\bibitem{gidney2025rsa}
+Craig Gidney.
+\newblock ``How to factor 2048 bit {RSA} integers with less than a million
+  noisy qubits''~(2025).
+\newblock  \href{http://arxiv.org/abs/2505.15917}{arXiv:2505.15917}.
+
+\bibitem{gidney2018halving}
+Craig Gidney.
+\newblock ``Halving the cost of quantum addition''.
+\newblock \href{https://dx.doi.org/10.22331/q-2018-06-18-74}{Quantum {\bf 2},
+  74}~(2018).
+\newblock  \href{http://arxiv.org/abs/1709.06648}{arXiv:1709.06648}.
+
+\bibitem{babbush2018encoding}
+Ryan Babbush, Craig Gidney, Dominic~W. Berry, Nathan Wiebe, Jarrod McClean,
+  Alexandru Paler, Austin Fowler, and Hartmut Neven.
+\newblock ``Encoding electronic spectra in quantum circuits with linear {T}
+  complexity''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevX.8.041015}{Physical Review X
+  {\bf 8}, 041015}~(2018).
+\newblock  \href{http://arxiv.org/abs/1805.03662}{arXiv:1805.03662}.
+
+\bibitem{low2024trading}
+Guang~Hao Low, Vadym Kliuchnikov, and Luke Schaeffer.
+\newblock ``Trading {T} gates for dirty qubits in state preparation and unitary
+  synthesis''.
+\newblock \href{https://dx.doi.org/10.22331/q-2024-06-17-1375}{Quantum {\bf 8},
+  1375}~(2024).
+\newblock  \href{http://arxiv.org/abs/1812.00954}{arXiv:1812.00954}.
+
 \bibitem{gidney2021factor}
 Craig Gidney and Martin Eker{\aa}.
 \newblock ``How to factor 2048 bit {RSA} integers in 8 hours using 20 million

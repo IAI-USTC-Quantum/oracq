@@ -109,7 +109,9 @@ We present \pqlang, a Python-embedded language that addresses these needs throug
 The same open program can be partially bound, re-bound to different implementations, exported to a modular textual IR, executed on native register-level backends---including a new RIR-native interpreter that ships with PySparQ---or checked by a dependency-free reference simulator.
 We survey existing quantum programming languages and frameworks, derive language requirements from the structure of quantum scientific computing itself, and compare feature and algorithm coverage in detail.
 We verify the entire library numerically on real backends: a campaign of 473 experiments in thirteen groups executes every algorithm family through up to four independently implemented paths---among them an RIR-native interpreter now shipped with PySparQ and a \texttt{Circuit.to\_matrix} unitary export contributed to UnifiedQuantum, both created for this campaign---and certifies implementations against truncated-oracle references at register-exact scale, with implementation and method errors reported separately.
-The campaign surfaced and recorded two genuine defects (an oblivious-amplification iteration and a Schr\"odingerization momentum sign), which we report openly alongside the certified results; parameter-scaling studies, the repair of the recorded defects, and native support for resource estimation remain future work.
+The campaign surfaced and recorded two genuine defects (an oblivious-amplification iteration and a Schr\"odingerization momentum sign), which we report openly alongside the certified results.
+A compositional resource estimator---enabled by the same structure preservation---compiles programs to a module-preserving Toffoli+Clifford+T+QRAM netlist and reports qubit, Toffoli, synthesis-adjusted $T$, and, as a first-class metric, QRAM query counts, with scaling validated against theoretical expectations across ten algorithm families.
+Parameter-scaling studies, the repair of the recorded defects, and the physical layer of resource estimation remain future work.
 \end{abstract}
 
 \maketitle
