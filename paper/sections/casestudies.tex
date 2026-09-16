@@ -74,17 +74,19 @@ mechanism in action:
   formulas written as pure Python are compiled to reversible arithmetic;
   the implicit-step operator is exposed as a sparse-access oracle pair; and
   the linear solve is an \emph{injected} QLSS kernel operating under an
-  explicit spectral promise.  Its physical correctness is tracked as
-  pending---see the verification matrix of \secref{sec:implementation}.}
+  explicit spectral promise.  Its fixed-point physics is certified against
+  an independent fixed-point semantics in the verification matrix of
+  \secref{sec:implementation}.}
   \label{fig:qfvm}
 \end{figure}
 
 The pipeline demonstrates the claim that motivated this work: nothing in it
 is a monolithic circuit.  Each stage can be bound independently (gate
 tables vs.\ QRAM; either QLSS kernel; different fixed-point formats), and
-the whole is a module graph of reviewable size.  Its physics-level
-correctness is, at the time of writing, an explicitly tracked pending item
-(\secref{sec:implementation}).
+the whole is a module graph of reviewable size.  Its physics is certified
+at the fixed-point level against an independently written fixed-point
+semantics (\secref{sec:numverify}), with generation-time constant
+quantization recorded as the dominant method error.
 
 \subsection{QHAM: from symbolic PDEs to solver-ready input models}
 \label{sec:qham-case}
@@ -170,5 +172,6 @@ Two artifacts anchor day-to-day verification:
 
 Together they pin the meaning of ``the same program'' across realizations
 (R2) and backends, and they delimit honestly what is verified: structural
-validity and circuit-level agreement everywhere; numerical certification of
-the scientific solvers tracked separately, as the next section details.
+validity and circuit-level agreement everywhere, and numerical
+certification of the scientific solvers at register-exact scale---the
+campaign of the next section, including the defects it exposed.

@@ -18,14 +18,14 @@
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \newlabel{sec:introduction}{{1}{1}{Introduction}{section.1}{}}
 \@writefile{toc}{\contentsline {paragraph}{Contributions.}{2}{section*.1}\protected@file@percent }
-\citation{gilyen2019qsvt}
-\citation{giovannetti2008qram}
-\citation{dervovic2018qlss}
 \@writefile{toc}{\contentsline {paragraph}{Outline.}{3}{section*.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {2}Quantum scientific computing as a language-design problem}{3}{section.2}\protected@file@percent }
 \newlabel{sec:requirements}{{2}{3}{Quantum scientific computing as a language-design problem}{section.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.1}The shape of a quantum scientific-computing program}{3}{subsection.2.1}\protected@file@percent }
 \newlabel{sec:qsc-structure}{{2.1}{3}{The shape of a quantum scientific-computing program}{subsection.2.1}{}}
+\citation{gilyen2019qsvt}
+\citation{giovannetti2008qram}
+\citation{dervovic2018qlss}
 \citation{berry2015taylor,low2019qubitization}
 \citation{low2019qubitization,gilyen2019qsvt}
 \citation{an2026lchs}
@@ -34,10 +34,10 @@
 \citation{berry2014ode,costa2022discrete}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Eight requirements}{4}{subsection.2.2}\protected@file@percent }
 \newlabel{sec:qsc-requirements}{{2.2}{4}{Eight requirements}{subsection.2.2}{}}
-\@writefile{toc}{\contentsline {paragraph}{R1: Deferred oracle realization.}{4}{section*.4}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces The canonical layering of a quantum scientific-computing program. Each layer is accessed through the layer below it by a well-defined interface; the right margin annotates which of the requirements R1--R8 of Section~\ref {sec:qsc-requirements} the layer stresses. The top and bottom layers (shaded) are host-side concerns; the language must connect to them without embedding them in the quantum IR.}}{5}{figure.caption.3}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
 \newlabel{fig:stack}{{1}{5}{The canonical layering of a quantum scientific-computing program. Each layer is accessed through the layer below it by a well-defined interface; the right margin annotates which of the requirements R1--R8 of \secref {sec:qsc-requirements} the layer stresses. The top and bottom layers (shaded) are host-side concerns; the language must connect to them without embedding them in the quantum IR}{figure.caption.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{R1: Deferred oracle realization.}{5}{section*.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R2: Realization independence.}{5}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R3: Compositional structure preservation.}{5}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{R4: Adjoint and control as tracked capabilities.}{5}{section*.7}\protected@file@percent }
@@ -198,8 +198,8 @@
 \newlabel{sec:casestudies}{{8}{27}{Case studies}{section.8}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.1}QFVM: compressible Euler equations via reversible flux arithmetic}{27}{subsection.8.1}\protected@file@percent }
 \newlabel{sec:qfvm}{{8.1}{27}{QFVM: compressible Euler equations via reversible flux arithmetic}{subsection.8.1}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces The QFVM pipeline for the one-dimensional compressible Euler equations. Flow fields are served coherently from a QRAM; Roe flux formulas written as pure Python are compiled to reversible arithmetic; the implicit-step operator is exposed as a sparse-access oracle pair; and the linear solve is an \emph  {injected} QLSS kernel operating under an explicit spectral promise. Its physical correctness is tracked as pending---see the verification matrix of Section~\ref {sec:implementation}.}}{28}{figure.caption.48}\protected@file@percent }
-\newlabel{fig:qfvm}{{9}{28}{The QFVM pipeline for the one-dimensional compressible Euler equations. Flow fields are served coherently from a QRAM; Roe flux formulas written as pure Python are compiled to reversible arithmetic; the implicit-step operator is exposed as a sparse-access oracle pair; and the linear solve is an \emph {injected} QLSS kernel operating under an explicit spectral promise. Its physical correctness is tracked as pending---see the verification matrix of \secref {sec:implementation}}{figure.caption.48}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces The QFVM pipeline for the one-dimensional compressible Euler equations. Flow fields are served coherently from a QRAM; Roe flux formulas written as pure Python are compiled to reversible arithmetic; the implicit-step operator is exposed as a sparse-access oracle pair; and the linear solve is an \emph  {injected} QLSS kernel operating under an explicit spectral promise. Its fixed-point physics is certified against an independent fixed-point semantics in the verification matrix of Section~\ref {sec:implementation}.}}{28}{figure.caption.48}\protected@file@percent }
+\newlabel{fig:qfvm}{{9}{28}{The QFVM pipeline for the one-dimensional compressible Euler equations. Flow fields are served coherently from a QRAM; Roe flux formulas written as pure Python are compiled to reversible arithmetic; the implicit-step operator is exposed as a sparse-access oracle pair; and the linear solve is an \emph {injected} QLSS kernel operating under an explicit spectral promise. Its fixed-point physics is certified against an independent fixed-point semantics in the verification matrix of \secref {sec:implementation}}{figure.caption.48}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.2}QHAM: from symbolic PDEs to solver-ready input models}{28}{subsection.8.2}\protected@file@percent }
 \newlabel{sec:qham-case}{{8.2}{28}{QHAM: from symbolic PDEs to solver-ready input models}{subsection.8.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {8.3}The input-model axis}{28}{subsection.8.3}\protected@file@percent }

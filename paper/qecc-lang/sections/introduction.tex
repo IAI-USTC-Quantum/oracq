@@ -109,7 +109,9 @@ feedback are host-side concerns, planned as readout actions rather than IR
 instructions.  The same RIR program can be validated while open, bound and
 exported to a modular textual backend (OriginIR-ext), lowered to a strict
 gate set, executed by a dependency-free reference simulator, or executed on
-native register-level backends.
+native register-level backends---including, since this work, a native RIR
+interpreter shipped with PySparQ that expands the module graph at
+interpretation time.
 
 \paragraph{Contributions.}  This paper makes the following contributions:
 
@@ -135,12 +137,19 @@ native register-level backends.
   existing languages and frameworks (\secref{sec:primitives},
   \secref{sec:ode}, Tables~\ref{tab:qpl-comparison}
   and~\ref{tab:ode-coverage}).
-\item \textbf{An honest verification account}: a graded evidence ladder from
-  static validation through real-backend circuit witnesses to (not yet
-  performed) full numerical certification, with the status of every solver
-  family recorded explicitly, and with backend, simulation, and resource
-  estimation identified as the key open axis for future validation
-  (\secref{sec:implementation}).
+\item \textbf{A numerical verification campaign on real backends}
+  (\secref{sec:implementation}): 473 experiments in thirteen groups cover
+  every algorithm family, each checked against a correctness oracle that is
+  independent of the implementation, most of them evaluating the entire
+  input domain in a single superposed execution.  The campaign runs on
+  infrastructure contributed with this paper---an RIR-native PySparQ
+  interpreter and UnifiedQuantum's \texttt{Circuit.to\_matrix}---alongside
+  the pre-existing reference executor and adapter, cross-checks up to four
+  independent implementations, separates implementation from method error,
+  and surfaced two genuine defects, which are recorded openly with
+  reproductions.  What remains open is the parameter-scaling axis, the
+  defect repairs, and resource estimation---tracked explicitly rather than
+  overclaimed.
 \end{itemize}
 
 Everything described in this paper is implemented in the open-source \pqlang{}
@@ -154,6 +163,7 @@ analysis.  \secref{sec:related} surveys related languages and frameworks.
 \secref{sec:primitives} presents the scientific-computing primitives.
 \secref{sec:ode} presents the differential-equation stack, and
 \secref{sec:casestudies} three case studies.  \secref{sec:implementation}
-describes implementation and verification status, including the deliberately
-reserved parts (backend-level validation, simulation campaigns, and resource
-estimation).  \secref{sec:discussion} discusses limitations and future work.
+describes implementation and verification status: the evidence ladder, the
+numerical-verification campaign with its per-family outcomes and recorded
+defects, and the deliberately reserved parts (validation at scale and
+resource estimation).  \secref{sec:discussion} discusses limitations and future work.
