@@ -201,3 +201,23 @@ def run_pysparq(
             )
         finally:
             ps.System.clear()
+
+
+def run_pysparq_rir(
+    program,
+    memory=None,
+    *,
+    max_steps=1_000_000,
+    max_states=65536,
+):
+    """经 PySparQ 原生 RIR 解释器执行；与 run_pysparq 互为独立实现，用于交叉验证。"""
+    from pyqecclang.infrastructure.serialization import dumps
+
+    program = validate(program, require_closed=True)
+    memories = check_memory(program, memory)
+    try:
+        import pysparq as ps
+    except ImportError as exc:
+        raise ValidationError("PySparQ RIR 执行需要已安装 pysparq 的环境") from exc
+    result = ps.run_rir(dumps(program), memories, max_steps=max_steps, max_states=max_states)
+    return RegisterState(program.main.registers, dict(result.amplitudes))

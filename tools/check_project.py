@@ -36,6 +36,10 @@ def main():
             [sys.executable, "examples/ode_input_models.py", "-o", str(output / "ode")],
         ),
         (
+            "input_models_example",
+            [sys.executable, "examples/input_models.py", "-o", str(output / "input-models")],
+        ),
+        (
             "algorithm_gallery",
             [sys.executable, "examples/algorithm_gallery.py", "-o", str(output / "gallery")],
         ),
@@ -90,6 +94,16 @@ def main():
                     "-s",
                     "tests/integration",
                     "-v",
+                ],
+            )
+        )
+        commands.append(
+            (
+                "verification",
+                [
+                    backend_interpreter(args.backend_python),
+                    "-B",
+                    "tools/run_verification.py",
                 ],
             )
         )

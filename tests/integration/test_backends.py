@@ -15,6 +15,7 @@ from pyqecclang import (
     pauli_x,
     run_originir,
     run_pysparq,
+    run_pysparq_rir,
     simulate,
 )
 
@@ -149,6 +150,35 @@ class BackendTests(unittest.TestCase):
         expected = list(run_originir(p))
         self.assertAlmostEqual(expected[2], 0.5 * cmath.exp(1j * math.pi / 4))
         self.compare(p)
+
+    def test_pysparq_native_rir_cross_validation(self):
+        """PySparQ 原生 RIR 解释器与既有三条路径独立实现对拍。"""
+        leaf = Builder("load", {"a": UInt(2), "d": UInt(3)}, {"table": QRAM(2, 3)})
+        leaf.qram("table", leaf["a"], leaf["d"])
+        op = leaf.finish()
+        step = Builder("step", {"w": UInt(3)})
+        step.add_const(step["w"], 3)
+        step.rz(step["w"][1], 0.37)
+        step_op = step.finish()
+        b = Builder("main", {"a": UInt(2), "d": UInt(3), "w": UInt(3), "ctrl": Bits(1)},
+                    {"data": QRAM(2, 3)})
+        b.h(b["a"])
+        b.h(b["ctrl"])
+        b.call(op, a=b["a"], d=b["d"], resources={"table": "data"})
+        with b.control(b["ctrl"], 1):
+            with b.repeat(5):
+                b.call(step_op, w=b["w"])
+            with b.adjoint():
+                with b.repeat(3):
+                    b.call(step_op, w=b["w"])
+        p = b.finish().program()
+        memory = {"data": [1, 2, 4, 7]}
+        expected = simulate(p, memory).amplitudes
+        native = run_pysparq_rir(p, memory).amplitudes
+        self.assertEqual(set(expected), set(native))
+        for key in expected:
+            with self.subTest(key=key):
+                self.assertAlmostEqual(expected[key], native[key], places=11)
 
 
 if __name__ == "__main__":

@@ -37,9 +37,14 @@ from pyqecclang.algorithms.qlss import (
     SparseSystem,
     SpectralPromise,
 )
-from pyqecclang.infrastructure.backends import OriginIRArtifact, export_originir, run_originir
+from pyqecclang.infrastructure.backends import (
+    OriginIRArtifact,
+    export_originir,
+    quantikz,
+    run_originir,
+)
 from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
-from pyqecclang.infrastructure.backends.pysparq import run_pysparq
+from pyqecclang.infrastructure.backends.pysparq import run_pysparq, run_pysparq_rir
 from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.execution import RegisterState, simulate
 from pyqecclang.infrastructure.ir import (
@@ -123,8 +128,10 @@ __all__ = [
     "loads",
     "pauli_x",
     "product",
+    "quantikz",
     "run_originir",
     "run_pysparq",
+    "run_pysparq_rir",
     "scale",
     "simulate",
     "validate",

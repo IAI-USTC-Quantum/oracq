@@ -5,5 +5,6 @@ from pyqecclang.infrastructure.backends.originir import (
     export_originir,
     run_originir,
 )
+from pyqecclang.infrastructure.backends.quantikz import quantikz
 
-__all__ = ["OriginIRArtifact", "export_originir", "run_originir"]
+__all__ = ["OriginIRArtifact", "export_originir", "quantikz", "run_originir"]

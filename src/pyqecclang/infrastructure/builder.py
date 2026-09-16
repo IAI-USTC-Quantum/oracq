@@ -69,6 +69,12 @@ class Operation:
             modules[item.name] = item
         return validate(Program(self.module.name, tuple(modules[k] for k in sorted(modules))))
 
+    def quantikz(self, **kwargs):
+        """把入口模块绘制成 quantikz 代码；结构保持 RIR，不展开调用。"""
+        from pyqecclang.infrastructure.backends.quantikz import quantikz
+
+        return quantikz(self, **kwargs)
+
 
 class Builder:
     def __init__(
