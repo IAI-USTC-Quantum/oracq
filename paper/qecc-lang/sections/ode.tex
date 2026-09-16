@@ -1,0 +1,213 @@
+\section{Differential equations as a first-class workload}
+\label{sec:ode}
+
+The differential-equation stack is where the three headline mechanisms
+compound: pluggable oracles make input models declarative
+(\secref{sec:ode-inputs}); protocols make solver families interchangeable
+positions (\secref{sec:ode-solvers}); and structure preservation keeps
+discretized, lifted, and iterated solver skeletons small and serializable
+(\secref{sec:pde}).  \figref{fig:ode-taxonomy} maps the territory;
+Table~\ref{tab:ode-coverage} compares coverage against existing frameworks.
+
+\subsection{Input models: the problem layer stays native}
+\label{sec:ode-inputs}
+
+Every ODE method consumes one of four \emph{problem objects}, each holding
+its generator as open-oracle-capable objects rather than matrices:
+
+\begin{itemize}
+\item \texttt{QODEProblem}: $u' = G u$ with the generator $G$ given as a
+  block-encoding, the initial state as a state-preparation oracle, an
+  optional \emph{dissipativity} promise with evidence provenance, and the
+  initial norm;
+\item \texttt{LinearODE}: $u' = -Au$ with Hermitian parts $A = L + iH$
+  (the decomposition some methods need, declared by the caller);
+\item \texttt{PolynomialODE}: $u' = \sum_p F_p\, u^{\otimes p}$ with each
+  $F_p$ a block-encoding---the \emph{nonlinear} input model, consumed by
+  Carleman lifting;
+\item \texttt{FokkerPlanckProblem}: one-dimensional It\^o density dynamics
+  $p' = -\partial_x(ap) + \partial_x^2(Dp)$, discretized by zero-flux finite
+  volumes into a generator block-encoding, with classical reference
+  witnesses (evolution, stationary and Boltzmann distributions) attached.
+\end{itemize}
+
+This is the problem--adapter--protocol discipline of
+\secref{sec:requirements} made concrete: a PDE or ODE arrives in the
+paradigm native to the application; adapters construct block-encodings
+explicitly; solvers are generator protocols.  The same problem object feeds
+every solver family, which is precisely what makes method comparison a
+one-line change (\lstref{lst:qode-swap}).
+
+\begin{lstlisting}[style=pyqpython, caption={One problem, two solver families (verbatim from the doctested tutorial).  Both generators return one-qubit state oracles for $u'=-u$, $t=0.05$; their ancilla structure, approximation route, and recovery conditions differ.  The tutorial is explicit that this checks \emph{assembly}: a degree-one Taylor kernel does not certify an arbitrary-precision solution---promise provenance (R6) records that boundary.}, label={lst:qode-swap}]
+from pyqecclang import Bits, Builder, QODEProblem, identity, scale
+from pyqecclang.algorithms.ode import linear_qode
+from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from functools import partial
+
+b = Builder("initial_one", {"q": Bits(1)})
+b.x(b["q"])
+problem = QODEProblem(scale(-1, identity(1)), b.finish(),
+                      dissipative=True, initial_norm=1.0)
+kernel = partial(taylor_hamiltonian, degree=1)
+
+lchs = linear_qode("lchs", hamiltonian_function=kernel)
+schrodinger = linear_qode("schrodingerization", hamiltonian_function=kernel)
+
+assert lchs.check(problem, time=0.05).ok
+assert schrodinger.check(problem, time=0.05).ok
+first = lchs.solve(problem, 0.05)
+second = schrodinger.solve(problem, 0.05)
+assert first.width == second.width == 1
+\end{lstlisting}
+
+\subsection{Six solver families as interchangeable protocols}
+\label{sec:ode-solvers}
+
+\paragraph{LCHS (linear combination of Hamiltonian simulations).}
+Dissipative evolution $e^{Gt}$ is expanded as a quadrature sum of
+Hermitian-branch evolutions $e^{-i(H + kL)t}$ weighted by Cauchy-type
+coefficients; the library assembles the weighted LCU~\cite{an2026lchs} with a configurable
+\texttt{QuadraturePlan} (default: finite Cauchy cutoff and spacing).  The
+finite-quadrature remainder is recorded as a pending item on the generated
+modules---an R6 obligation, not a silent truncation.
+
+\paragraph{Schr\"odingerization.}
+For a general generator $G = H_1 + iH_2$, the state is lifted through a
+Fourier-transformed ancilla register so that evolution becomes Hamiltonian
+in the lifted space; the library realizes the lift with a
+Fourier-momentum diagonal block-encoding, warps the initial state by
+$e^{-|p|}$, and selects the physical channel at a planned index with an
+explicit recovery scale~\cite{jin2024schrodingerization,hu2024schrocircuits}.  Periodic-truncation caveats are recorded as
+pending.
+
+\paragraph{Contour-based matrix-function decomposition (CBMD).}
+Evolution (or a general matrix function) is decomposed along a contour~\cite{wang2026cbmd} with
+auxiliary poles; the assembly supports arbitrary nodes and residues, and the
+generated modules record which auxiliary non-Hermitian evolutions and series
+tails were omitted.
+
+\paragraph{Carleman linearization.}
+The nonlinear path: \texttt{PolynomialODE} inputs are lifted to a cutoff-$K$
+block-triangular tensor system (the lift itself is a structured placement of
+trilinear blocks with level controls), the initial state becomes a weighted
+tensor power, any linear solver protocol then applies, and the output is
+projected back to the level-one subspace~\cite{liu2021pnas,liu2023carleman}.  The truncation tail is a recorded
+pending item.
+
+\paragraph{Implicit-Euler history systems via QLSS.}
+Time discretization first, quantum solving second: the whole solution
+history of the implicit-Euler scheme is assembled as one block system (an
+LCU of projector, shift, and generator blocks) and solved in one shot by any
+QLSS protocol; the final-time subspace is selected on the quantum side.  In
+this family, \emph{the linear-system solver is the injectable position}.
+
+\paragraph{Truncated Taylor kernels.}
+A closed polynomial candidate $\sum_k (tG)^k/k!$ with no structural
+assumptions---also the default \emph{Hamiltonian-function kernel} that the
+three evolution-based families above inject, with degree and configuration
+swappable at call time.
+
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}[
+      font=\small,
+      prob/.style={draw=black!60, rounded corners=2pt, fill=black!8, align=center, inner sep=3.5pt, text width=5.5cm},
+      fam/.style={draw=black!60, rounded corners=2pt, fill=black!3, align=center, inner sep=3pt, text width=4.7cm},
+      inj/.style={draw=black!45, rounded corners=2pt, fill=white, dashed, align=center, inner sep=3pt},
+      grp/.style={draw=black!35, rounded corners=4pt, dotted},
+      arr/.style={-{Stealth[length=2mm]}, black!60},
+      darr/.style={-{Stealth[length=2mm]}, black!45, dashed},
+      lbl/.style={font=\scriptsize\itshape, black!55},
+    ]
+    % Problem layer
+    \node[prob] (pdeA) at (-3.5, -0.35)
+      {\textbf{PDEs via spatial discretization}\\[-2pt]\scriptsize heat equation, Fokker--Planck};
+    \node[prob] (pdeB) at (3.5, -0.35)
+      {\textbf{nonlinear polynomial PDEs}\\[-2pt]\scriptsize Burgers, KdV, reaction--diffusion, 2-D vector Burgers};
+    \node[prob] (probA) at (-3.5, -2.3)
+      {\textbf{linear problem}\\[-2pt]\scriptsize $u'=Gu$: block-encoding of $G$, initial state, promises};
+    \node[prob] (probB) at (3.5, -2.3)
+      {\textbf{polynomial problem}\\[-2pt]\scriptsize $u'=\sum_p F_p u^{\otimes p}$: block-encodings of $F_p$};
+    \draw[arr] (pdeA) -- (probA);
+    \draw[arr] (pdeB) -- (probB);
+
+    % Carleman branch
+    \node[fam] (carleman) at (3.5, -4.1)
+      {\textbf{Carleman lift}\\[-2pt]\scriptsize cutoff $K$, tensor placement};
+    \draw[arr] (probB) -- (carleman);
+
+    % Solver-family container
+    \node[fam] (lchs)  at (-3.5, -5.5)  {\textbf{LCHS}\\[-2pt]\scriptsize weighted Hermitian branches};
+    \node[fam] (schro) at (-3.5, -6.6)  {{\footnotesize\textbf{Schr\"odingerization}}\\[-2pt]\scriptsize Fourier lift, recovery channel};
+    \node[fam] (cbmd)  at (-3.5, -7.7)  {\textbf{contour (CBMD)}\\[-2pt]\scriptsize nodes, residues, omitted tails};
+    \node[fam] (euler) at (-3.5, -8.8)  {\textbf{Euler $\rightarrow$ QLSS}\\[-2pt]\scriptsize one-shot history block system};
+    \node[fam] (taylor) at (-3.5, -9.9) {\textbf{Taylor kernel}\\[-2pt]\scriptsize $\sum_k (tG)^k/k!$};
+    \node[grp, minimum width=6.1cm, minimum height=6.35cm] (box) at (-3.5, -7.7) {};
+    \node[lbl, anchor=south west] at (-6.5, -4.4) {linear-solver families};
+    \draw[arr] (probA.south) -- (box.north);
+    \draw[arr] (carleman.west) to[out=180, in=40] ([yshift=2.45cm]box.east);
+    \node[lbl, anchor=south east] at (1.55, -4.35) {any linear solver};
+
+    % Injectable kernels
+    \node[inj] (hfun) at (3.0, -5.85)
+      {\textbf{injectable Hamiltonian-}\\\textbf{function kernel}\\[-2pt]\scriptsize default: truncated Taylor;\\[-2pt]\scriptsize degree per call};
+    \node[inj] (qlssk) at (3.0, -8.5)
+      {\textbf{injectable QLSS kernel}\\[-2pt]\scriptsize Costa adiabatic walk /\\[-2pt]\scriptsize CKS Chebyshev};
+    \draw[darr] (hfun.west) -- (lchs.east);
+    \draw[darr] (hfun.south west) -- (schro.east);
+    \draw[darr] (hfun.south) to[out=-90, in=15] (cbmd.east);
+    \draw[darr] (qlssk.west) -- (euler.east);
+  \end{tikzpicture}
+  \caption{The ODE/PDE solver territory of \pqlang{}.  Linear problems feed
+  four evolution- and system-oriented families (LCHS, Schr\"odingerization,
+  contour decomposition, Taylor kernels) plus the QLSS-based history-system
+  family; nonlinear polynomial problems lift through Carleman into the same
+  linear-solver position.  Dashed boxes mark \emph{injectable protocols}:
+  the kernel realizing $e^{-iHt}$ subroutines and the linear-system kernel
+  are swappable arguments, as are the spatial discretizers connecting the
+  PDE layer to the problem layer.}
+  \label{fig:ode-taxonomy}
+\end{figure}
+
+\subsection{The PDE layer: discretization, homotopy analysis, finite volumes}
+\label{sec:pde}
+
+Three paths connect PDEs to the ODE stack, each exercising a different part
+of the language:
+
+\paragraph{Pluggable spatial discretization.}
+\texttt{DiscretePDE} pairs a generator block-encoding with an initial state
+after spatial discretization; \texttt{qpde\_solver} threads any
+discretizer into any QODE protocol.  The built-in periodic heat equation,
+for instance, assembles a structured four-point shift block-encoding (the
+stencil shift primitive of \secref{sec:be-algebra}) and runs under LCHS or
+Schr\"odingerization interchangeably.
+
+\paragraph{QHAM: homotopy-analysis linearization of nonlinear PDEs.}
+Symbolic polynomial PDEs---Burgers, KdV, reaction--diffusion ($u' = u -
+u^3$), coupled systems, and two-dimensional vector Burgers---are expressed
+in a \emph{PolynomialPDE} layer; a homotopy-analysis plan (order parameter
+$\eta$, linearization order $m$) is computed \emph{lazily} as a row-rule
+plan that serializes without materializing its tensor blocks; bindings then
+generate the lifted generator block-encoding and the norm-preserving lifted
+initial state; and the result is handed to any QODE solver, with
+\texttt{dissipative\_shift} adapting it for LCHS/CBMD.  Laziness here is an
+R5 statement: a second-order QHAM plan for a moderately sized Burgers grid
+is a \emph{plan object} with a schema, not an exploded circuit.
+
+\paragraph{Fokker--Planck from SDEs.}
+Stochastic dynamics enter as It\^o density evolution, are discretized by
+zero-flux finite volumes into Pauli-structured generators, and are solved as
+\texttt{QODEProblem}s; the problem object carries pure-Python classical
+witnesses (evolution, stationary and Boltzmann distributions) used by tests
+to hold the input model honest.
+
+\paragraph{A note on method coverage.}
+We are not aware of another programming system in which these solver
+families coexist behind a common problem-object interface with injectable
+linear-system and Hamiltonian-function kernels; the comparison of
+Table~\ref{tab:ode-coverage} makes this precise.  The closest analogues are
+individual research codebases (one method each, no shared input model) and
+textbook circuit libraries (linear systems as demonstrations, no ODE/PDE
+stack at all).  Coverage, of course, is only meaningful together with
+verification status, which \secref{sec:implementation} reports per family.

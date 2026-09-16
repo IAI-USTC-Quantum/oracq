@@ -1,0 +1,465 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex)
+ restricted \write18 enabled.
+entering extended mode
+(./main.tex
+LaTeX2e <2026-06-01>
+L3 programming layer <2026-07-20>
+(./quantumarticle.cls
+Document Class: quantumarticle 2022/11/08 v6.1class for Quantum - the open jour
+nal for quantum science (https://quantum-journal.org)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/xkeyval/xkeyval.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/xkeyval/xkeyval.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/xkeyval/xkvutils.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/xkeyval/keyval.tex))))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/etoolbox/etoolbox.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/base/size11.clo)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/geometry/geometry.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/iftex/ifvtex.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/iftex/iftex.sty)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/fancyhdr/fancyhdr.sty))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/babel/babel.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/babel/txtbabel.def)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/babel/locale/en/babel-english.
+tex) (/home/agony/texlive/2026/texmf-dist/tex/generic/babel-english/english.ldf
+)) (/home/agony/texlive/2026/texmf-dist/tex/latex/base/fontenc.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsmath/amsmath.sty
+For additional information on amsmath, use the `?' option.
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsmath/amstext.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsmath/amsgen.sty))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsmath/amsbsy.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsmath/amsopn.sty))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsfonts/amssymb.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsfonts/amsfonts.sty))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/graphics/graphicx.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/graphics/graphics.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/graphics/trig.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/graphics-cfg/graphics.cfg)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/graphics-def/pdftex.def)))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/microtype.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/microtype-pdftex.def)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/microtype.cfg))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/booktabs/booktabs.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/multirow/multirow.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/tools/array.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/tools/xspace.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/frontendlayer/tikz.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/basiclayer/pgf.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/utilities/pgfrcs.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfutil-common.t
+ex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfutil-latex.de
+f)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfrcs.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/pgf.revision.tex)))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/basiclayer/pgfcore.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/systemlayer/pgfsys.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgfsys.code.te
+x
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex
+
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfkeyslibraryfi
+ltered.code.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgf.cfg)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-pdftex.
+def
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-common-
+pdf.def)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgfsyssoftpath
+.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgfsysprotocol
+.code.tex)) (/home/agony/texlive/2026/texmf-dist/tex/latex/xcolor/xcolor.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/graphics-cfg/color.cfg)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/graphics/mathcolor.ltx))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore.code.te
+x (/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathutil.code.tex)
+
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathparser.code.te
+x)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.code
+.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.basi
+c.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.trig
+onometric.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.rand
+om.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.comp
+arison.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.base
+.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.roun
+d.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.misc
+.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.inte
+gerarithmetics.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathcalc.code.tex)
+
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfloat.code.tex
+)) (/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfint.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepoints.c
+ode.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathcons
+truct.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathusag
+e.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorescopes.c
+ode.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcoregraphics
+tate.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretransfor
+mations.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorequick.co
+de.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreobjects.
+code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathproc
+essing.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorearrows.c
+ode.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreshade.co
+de.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreimage.co
+de.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreexternal
+.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorelayers.c
+ode.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretranspar
+ency.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepatterns
+.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcorerdf.code
+.tex)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmoduleshapes.co
+de.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmoduleplot.code
+.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-versio
+n-0-65.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-versio
+n-1-18.sty))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/utilities/pgffor.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/utilities/pgfkeys.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex
+)) (/home/agony/texlive/2026/texmf-dist/tex/latex/pgf/math/pgfmath.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgffor.code.tex)
+)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/tikz.co
+de.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibraryplotha
+ndlers.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmodulematrix.co
+de.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibrarytopaths.code.tex)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows
+.meta.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibrarypositioning.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibraryfit.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibrarycalc.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibraryshapes.geometric.code.tex
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/libraries/shapes/pgflibrar
+yshapes.geometric.code.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/librari
+es/tikzlibrarybackgrounds.code.tex)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/listings/listings.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstpatch.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstmisc.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/listings/listings.cfg))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/natbib/natbib.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/hyperref.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty)
+ (/home/agony/texlive/2026/texmf-dist/tex/generic/pdfescape/pdfescape.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/infwarerr/infwarerr.sty)))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/hycolor/hycolor.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/nameref.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/refcount/refcount.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/gettitlestring/gettitlestring.
+sty (/home/agony/texlive/2026/texmf-dist/tex/latex/kvoptions/kvoptions.sty)))
+(/home/agony/texlive/2026/texmf-dist/tex/generic/stringenc/stringenc.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/pd1enc.def)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/intcalc/intcalc.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/puenc.def)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/url/url.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/bitset/bitset.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty)))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/hyperref/hpdftex.def
+(/home/agony/texlive/2026/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.st
+y
+(/home/agony/texlive/2026/texmf-dist/tex/generic/uniquecounter/uniquecounter.st
+y))) (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/caption/caption.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/caption/caption3.sty)
+
+Package caption Warning: Unknown document class (or package),
+(caption)                standard defaults will be used.
+See the caption package documentation for explanation.
+
+) (/home/agony/texlive/2026/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
+) (./main.aux)
+*geometry* driver: auto-detecting
+*geometry* detected driver: pdftex
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/lmodern.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/bbm-macros/bbm.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/generic/xstring/xstring.sty
+(/home/agony/texlive/2026/texmf-dist/tex/generic/xstring/xstring.tex))
+(/home/agony/texlive/2026/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+) (/home/agony/texlive/2026/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
+(/home/agony/texlive/2026/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg))
+(/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/mt-cmr.cfg)
+(./main.out) (./main.out)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmss.fd)
+Underfull \hbox (badness 5832) in paragraph at lines 104--104
+[]\T1/lmss/m/n/24.88 (+20) pyqecclang: An Em-bed-ded Quan-tum
+
+Underfull \hbox (badness 10000) in paragraph at lines 104--104
+\T1/lmss/m/n/24.88 (+20) Pro-gram-ming Lan-guage for Sci-en-tific
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/ot1lmr.fd)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omllmm.fd)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omslmsy.fd)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omxlmex.fd)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsfonts/umsa.fd)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/mt-msa.cfg)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/amsfonts/umsb.fd)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/mt-msb.cfg)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmr.fd) [1{/home/agony/texl
+ive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/home/agony/texlive/2026
+/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}]
+pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has 
+been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.111 \end{abstract}
+                     [1{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/cm-
+super/cm-super-t1.enc}] (./sections/introduction.tex
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd)
+pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has 
+been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.75 ...(\secref{sec:oracles}, \secref{sec:ode}).]
+                                                   [1{/home/agony/texlive/2026/
+texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/home/agony/texlive/2026/texmf-dis
+t/fonts/enc/dvips/lm/lm-mathsy.enc}{/home/agony/texlive/2026/texmf-dist/fonts/e
+nc/dvips/lm/lm-rm.enc}]
+Underfull \hbox (badness 1831) in paragraph at lines 83--99
+\T1/cmr/m/n/10.95 qubiti-za-tion/QSVT/QSP stack with a self-verifying quantum-s
+ignal-processing
+[2{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.en
+c}]) (./sections/requirements.tex [3{/home/agony/texlive/2026/texmf-dist/fonts/
+enc/dvips/lm/lm-mathex.enc}] [4] [5]
+Underfull \hbox (badness 1478) in paragraph at lines 207--208
+\T1/lmtt/m/n/10 Module\T1/lmr/m/n/10 (+20) s; val-i-da-tion and se-ri-al-iza-ti
+on
+
+Underfull \hbox (badness 10000) in paragraph at lines 208--208
+[]|\T1/lmr/m/n/10 (+20) Realization choice
+
+Underfull \hbox (badness 1348) in paragraph at lines 209--209
+[]|\T1/lmr/m/n/10 (+20) Frontends flat-ten to
+
+Underfull \hbox (badness 10000) in paragraph at lines 209--210
+[]|\T1/lmr/m/n/10 (+20) Module-preserving RIR:
+
+Underfull \hbox (badness 10000) in paragraph at lines 209--210
+\T1/lmtt/m/n/10 Call\T1/lmr/m/n/10 (+20) /\T1/lmtt/m/n/10 Repeat\T1/lmr/m/n/10 
+(+20) /\T1/lmtt/m/n/10 Control\T1/lmr/m/n/10 (+20) /\T1/lmtt/m/n/10 Adjoint \T1
+/lmr/m/n/10 (+20) stay
+
+Underfull \hbox (badness 2359) in paragraph at lines 209--210
+\T1/lmr/m/n/10 (+20) sym-bolic in IR, JSON, and ex-port
+
+Underfull \hbox (badness 10000) in paragraph at lines 210--210
+[]|\T1/lmr/m/n/10 (+20) Tracked ad-
+
+Underfull \hbox (badness 10000) in paragraph at lines 210--211
+[]|\T1/lmr/m/n/10 (+20) Compositional ca-pa-bil-ity in-fer-ence
+
+Underfull \hbox (badness 1824) in paragraph at lines 210--211
+\T1/lmr/m/n/10 (+20) checked against con-tex-tual us-age at
+
+Underfull \hbox (badness 10000) in paragraph at lines 211--211
+[]|\T1/lmr/m/n/10 (+20) Counts ma-te-ri-al-ized
+
+Underfull \hbox (badness 10000) in paragraph at lines 211--211
+\T1/lmr/m/n/10 (+20) ea-gerly; pro-grams
+
+Underfull \hbox (badness 10000) in paragraph at lines 212--213
+[]|\T1/lmr/m/n/10 (+20) First-class at-tributes ($\OML/lmm/m/it/10 $\T1/lmr/m/
+n/10 (+20) ,
+
+Underfull \hbox (badness 2671) in paragraph at lines 214--214
+[]|\T1/lmr/m/n/10 (+20) New solvers re-quire
+) (./sections/related.tex [6] [7]
+Overfull \hbox (4.9187pt too wide) in paragraph at lines 87--97
+ []\T1/lmr/bx/n/10.95 (-20) Research code-bases for sci-en-tific al-go-rithms.[
+] \T1/cmr/m/n/10.95 In-di-vid-ual al-go-rithm implementations---
+[8]
+Underfull \hbox (badness 4316) in paragraph at lines 111--111
+[]|\T1/lmr/m/n/10 (+20) R2 re-al-iza-tion
+
+Underfull \hbox (badness 10000) in paragraph at lines 112--112
+[]|\T1/lmr/m/n/10 (+20) R3 structure-
+
+Underfull \hbox (badness 10000) in paragraph at lines 113--113
+[]|\T1/lmr/m/n/10 (+20) R4 ad-
+
+Underfull \hbox (badness 10000) in paragraph at lines 113--113
+\T1/lmr/m/n/10 (+20) joint/control
+
+Underfull \hbox (badness 10000) in paragraph at lines 114--114
+[]|\T1/lmr/m/n/10 (+20) R5 sym-bolic
+
+Underfull \hbox (badness 10000) in paragraph at lines 115--115
+[]|\T1/lmr/m/n/10 (+20) R6 promise
+
+Underfull \hbox (badness 1163) in paragraph at lines 117--117
+[]|\T1/lmr/m/n/10 (+20) R8 li-brary ex-
+
+Underfull \hbox (badness 10000) in paragraph at lines 119--119
+[]|\T1/lmr/m/n/10 (+20) Scientific
+
+Underfull \hbox (badness 10000) in paragraph at lines 120--120
+[]|\T1/lmr/m/n/10 (+20) ODE/PDE
+
+Underfull \hbox (badness 10000) in paragraph at lines 121--121
+[]|\T1/lmr/m/n/10 (+20) Resource es-ti-
+
+Underfull \hbox (badness 10000) in paragraph at lines 147--147
+[]|\T1/lmr/m/n/10 (+20) Hamiltonian sim-u-la-tion
+
+Underfull \hbox (badness 10000) in paragraph at lines 151--151
+[]|\T1/lmr/m/n/10 (+20) QRAM/QROM in-put mod-els
+
+Underfull \hbox (badness 10000) in paragraph at lines 156--156
+[]|\T1/lmr/m/n/10 (+20) ODE: con-tour de-com-po-si-tion
+
+Underfull \hbox (badness 1824) in paragraph at lines 160--160
+[]|\T1/lmr/m/n/10 (+20) PDE: sym-bolic non-lin-ear PDEs
+) (./sections/language.tex [9] [10] [11]
+Underfull \hbox (badness 1087) in paragraph at lines 110--111
+[]|\T1/lmr/m/n/10 (+20) name; reg-is-ters (quan-tum in-ter-face); re-sources (Q
+RAM);
+
+Underfull \hbox (badness 2744) in paragraph at lines 134--139
+[]\T1/cmr/b/n/10.95 Purity. \T1/cmr/m/n/10.95 RIR rep-re-sents quan-tum op-er-a
+-tions af-ter compile-time pa-ram-e-ter
+[12] [13]) (./sections/oracles.tex [14] [15] [16]
+Underfull \hbox (badness 4792) in paragraph at lines 174--185
+ []\T1/lmr/bx/n/10.95 (+20) Structural in-ter-faces.[] \T1/cmr/m/n/10.95 The li
+-brary de-fines small \T1/lmtt/m/n/10.95 typing.Protocol \T1/cmr/m/n/10.95 in-t
+er-faces
+
+Underfull \hbox (badness 1122) in paragraph at lines 174--185
+\T1/cmr/m/n/10.95 (\T1/lmtt/m/n/10.95 runtime_checkable\T1/cmr/m/n/10.95 ) that
+ any ob-ject may sat-isfy struc-turally: \T1/lmtt/m/n/10.95 UnitaryProtocol\T1/
+cmr/m/n/10.95 ,
+
+Underfull \hbox (badness 3088) in paragraph at lines 174--185
+\T1/lmtt/m/n/10.95 Block-Encoding-Protocol\T1/cmr/m/n/10.95 , \T1/lmtt/m/n/10.9
+5 State-Preparation-Protocol\T1/cmr/m/n/10.95 , \T1/lmtt/m/n/10.95 XorDatabase-
+Protocol\T1/cmr/m/n/10.95 , and
+[17]) (./sections/primitives.tex [18] [19] [20]
+Underfull \hbox (badness 1077) in paragraph at lines 142--156
+\T1/cmr/m/n/10.95 outer loop at the host); low-rank double-factorization and te
+nsor-hypercontraction
+
+Underfull \hbox (badness 1975) in paragraph at lines 169--169
+[]|\T1/lmr/m/n/10 (+20) Block-encoding al-
+
+Underfull \hbox (badness 10000) in paragraph at lines 170--170
+[]|\T1/lmr/m/n/10 (+20) select-swap QROM (par-ti-tion cost
+
+Underfull \hbox (badness 4416) in paragraph at lines 170--170
+\T1/lmr/m/n/10 (+20) model), alias sam-pling, XOR databases
+
+Underfull \hbox (badness 1137) in paragraph at lines 170--170
+\T1/lmr/m/n/10 (+20) (gate/QRAM/banked), sparse ac-cess pairs,
+
+Underfull \hbox (badness 10000) in paragraph at lines 171--172
+[]|\T1/lmr/m/n/10 (+20) implemented; nu-
+
+Underfull \hbox (badness 4543) in paragraph at lines 172--173
+[]|\T1/lmr/m/n/10 (+20) Trotter/Taylor im-
+
+Underfull \hbox (badness 3590) in paragraph at lines 175--176
+\T1/lmr/m/n/10 (+20) ter-face level; ma-
+
+Underfull \hbox (badness 2913) in paragraph at lines 175--176
+\T1/lmr/m/n/10 (+20) tu-rity varies (Sec-
+) (./sections/ode.tex [21] [22]
+Overfull \hbox (1.22067pt too wide) in paragraph at lines 126--126
+ [][]\T1/lmr/bx/n/9 (-20) Schrödingerization 
+
+Overfull \hbox (4.97708pt too wide) in paragraph at lines 146--154
+ [][] 
+[23]) (./sections/casestudies.tex [24] [25]
+Underfull \hbox (badness 1231) in paragraph at lines 116--127
+\T1/cmr/m/n/10.95 arith-metic, search and am-pli-fi-ca-tion, es-ti-ma-tion (pha
+se, am-pli-tude, count-ing,
+) (./sections/implementation.tex [26]
+Underfull \hbox (badness 10000) in paragraph at lines 76--76
+[]|\T1/lmr/m/n/10 (+20) QSP phase syn-the-sis /
+
+Underfull \hbox (badness 10000) in paragraph at lines 77--77
+[]|\T1/lmr/m/n/10 (+20) Data load-ing (QROM,
+
+Underfull \hbox (badness 10000) in paragraph at lines 78--78
+[]|\T1/lmr/m/n/10 (+20) Reversible arith-metic &
+
+Underfull \hbox (badness 10000) in paragraph at lines 80--80
+[]|\T1/lmr/m/n/10 (+20) Hamiltonian sim-u-la-tion
+
+Underfull \hbox (badness 10000) in paragraph at lines 85--85
+[]|\T1/lmr/m/n/10 (+20) Scientific suite (Gibbs,
+[27] [28]) (./sections/discussion.tex [29]) (./sections/appendix.tex
+(/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty)
+(/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty) [30])
+(./main.bbl [31] [32] [33]) [34] (./main.aux) )
+(see the transcript file for additional information)</home/agony/texlive/2026/t
+exmf-dist/fonts/type1/public/lm/lmbx10.pfb></home/agony/texlive/2026/texmf-dist
+/fonts/type1/public/lm/lmbx9.pfb></home/agony/texlive/2026/texmf-dist/fonts/typ
+e1/public/lm/lmex10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public
+/lm/lmmi10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmmi6
+.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmmi7.pfb></hom
+e/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmmi8.pfb></home/agony/te
+xlive/2026/texmf-dist/fonts/type1/public/lm/lmmi9.pfb></home/agony/texlive/2026
+/texmf-dist/fonts/type1/public/lm/lmr10.pfb></home/agony/texlive/2026/texmf-dis
+t/fonts/type1/public/lm/lmr6.pfb></home/agony/texlive/2026/texmf-dist/fonts/typ
+e1/public/lm/lmr7.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/l
+m/lmr8.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr9.pfb>
+</home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmri10.pfb></home/ag
+ony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmri8.pfb></home/agony/texliv
+e/2026/texmf-dist/fonts/type1/public/lm/lmri9.pfb></home/agony/texlive/2026/tex
+mf-dist/fonts/type1/public/lm/lmss10.pfb></home/agony/texlive/2026/texmf-dist/f
+onts/type1/public/lm/lmss12.pfb></home/agony/texlive/2026/texmf-dist/fonts/type
+1/public/lm/lmss17.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/
+lm/lmss9.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsso10
+.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></ho
+me/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy6.pfb></home/agony/t
+exlive/2026/texmf-dist/fonts/type1/public/lm/lmsy7.pfb></home/agony/texlive/202
+6/texmf-dist/fonts/type1/public/lm/lmsy8.pfb></home/agony/texlive/2026/texmf-di
+st/fonts/type1/public/lm/lmsy9.pfb></home/agony/texlive/2026/texmf-dist/fonts/t
+ype1/public/lm/lmtk10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publ
+ic/lm/lmtt10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmt
+t8.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt9.pfb></h
+ome/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtti10.pfb></home/agon
+y/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb></home
+/agony/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb><
+/home/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-super/sfcc1095.pfb></
+home/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-super/sfrb1095.pfb></h
+ome/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb></ho
+me/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-super/sfti1095.pfb>
+Output written on main.pdf (36 pages, 851070 bytes).
+Transcript written on main.log.

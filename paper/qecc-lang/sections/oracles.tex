@@ -1,0 +1,321 @@
+\section{Pluggable oracles and algorithm protocols}
+\label{sec:oracles}
+
+This section presents the mechanism that addresses R1, R2, R6, and R8: the
+oracle lifecycle (\secref{sec:oracle-lifecycle}), QRAM as a first-class
+resource (\secref{sec:qram}), and the protocol/contract architecture
+(\secref{sec:protocols}).  \figref{fig:oracle-lifecycle} summarizes the
+lifecycle; \lstref{lst:bv} shows it end-to-end on a small example.
+
+\subsection{The oracle lifecycle: declare, carry, inspect, bind}
+\label{sec:oracle-lifecycle}
+
+\paragraph{Declare.}
+An abstract oracle is declared by naming it, giving it a typed register
+signature, and choosing a \emph{paradigm}: one of nine named contracts
+(Table~\ref{tab:paradigms}) that fix the mathematical interface the
+implementation must honor.  The declaration optionally carries resources
+(typed QRAM slots), capability flags (\texttt{supports\_adjoint},
+\texttt{supports\_controlled}), and attributes.  Internally the declaration
+is a \texttt{Module} whose body is absent---an \emph{open module}.  Openness
+is a first-class IR state, not an error state.
+
+\begin{table}[t]
+  \centering
+  \caption{The nine oracle paradigms.  Each paradigm fixes the mathematical
+  contract of the slot; concrete implementations are interchangeable as long
+  as they honor the contract, the register-type tuple, the scale factor
+  $\alpha$, and the declared capabilities.}
+  \label{tab:paradigms}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lp{10.4cm}@{}}
+    \toprule
+    \tabhead{Paradigm} & \tabhead{Contract} \\
+    \midrule
+    \texttt{unitary} & a unitary on the declared registers \\
+    \texttt{block\_encoding} & $(\alpha, a, 0)$-block-encoding of a target operator: a unitary whose top-left block is $A/\alpha$; $\alpha$ is a slot attribute \\
+    \texttt{database\_xor} & $|a\rangle|d\rangle \mapsto |a\rangle|d \oplus M[a]\rangle$ for a memory $M$ \\
+    \texttt{state\_prep\_isometry} & prepares a target state (or applies an isometry) from a fixed zero input, with a clean-workspace convention \\
+    \texttt{sparse\_location\_inplace} & in-place oracle for the \emph{location} structure of a sparse matrix access \\
+    \texttt{sparse\_entry\_xor} & XOR oracle returning matrix \emph{entries} of a sparse access model \\
+    \texttt{phase\_oracle} & applies a phase function of the input register \\
+    \texttt{reversible\_function} & a reversible classical function on bit registers \\
+    \texttt{algorithm\_stage} & an opaque algorithm fragment with declared capabilities (used to stage parts of solvers) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Carry.}
+Because an open module is a valid module, an algorithm that calls it is a
+valid program: validation checks types, alias-freedom, capability demands,
+and call-graph acyclicity exactly as for closed programs; serialization
+round-trips the open state; structural tests run unchanged.  An algorithm
+published against an open oracle slot is complete \emph{as an algorithm}
+(R1), and the IR records precisely which slots remain open and why.
+
+\paragraph{Inspect.}
+Gap analysis (\texttt{unresolved}) walks the call graph breadth-first from
+the entry and reports every reachable open slot with its name, paradigm,
+shortest call path, register signature, and attributes.  Only reachable
+slots count: an algorithm library that declares several candidate inputs but
+uses only some of them is not penalized.  This makes open programs
+self-describing artifacts for review, cost analysis, and tooling.
+
+\paragraph{Bind.}
+The linking pass \texttt{bind(program, bindings)} closes slots: each slot's
+body is rewritten to a single call of the provided implementation, subject to
+compatibility checks---exact register-type-tuple equality, paradigm match,
+block-encoding factor $\alpha$ match, and possession of any capabilities the
+slot advertised.  Binding is \emph{partial} (unlisted slots stay open) and
+\emph{monotone} (an incompatible binding is rejected without touching the
+program).  When the implementation captures QRAM resources, the linker
+hoists them to entry-level resources, renames captures to collision-free
+names along the call graph, and threads the resource bindings through---a
+classical linker discipline, applied to a quantum IR.  Export and execution
+require closure: \texttt{validate(require\_closed=True)} lists any slot that
+would prevent it.  The same open program can be bound repeatedly against
+different implementations (R2): a gate network for a small instance, a QRAM
+table for a large one, an application circuit for production.
+
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}[
+      font=\small,
+      state/.style={draw=black!60, rounded corners=3pt, fill=black!3, align=center, inner sep=4pt},
+      open/.style={state, fill=black!10},
+      act/.style={font=\footnotesize\ttfamily, align=center},
+      arr/.style={-{Stealth[length=2.2mm]}, black!65},
+      lbl/.style={font=\footnotesize\itshape, black!55},
+    ]
+    \node[open] (decl) at (0,0)
+      {\textbf{declaration}\\\footnotesize name, typed signature,\\\footnotesize paradigm, capabilities,\\\footnotesize $\alpha$, resources};
+    \node[open, right=1.05cm of decl] (carry)
+      {\textbf{open module}\\\footnotesize \texttt{body} $=\varnothing$; valid,\\\footnotesize serializable;\\\footnotesize algorithm is complete};
+    \node[state, right=1.05cm of carry] (closed)
+      {\textbf{bound module}\\\footnotesize body $=$ call of\\\footnotesize implementation; closure\\\footnotesize for export / execution};
+    \node[state, below=0.75cm of carry] (inspect)
+      {\textbf{gap report}\\\footnotesize open slots: paradigm,\\\footnotesize path, signature, attributes};
+    \node[act, below=0.9cm of decl] (a1) {abstract\_*\\(declare)};
+    \node[act, below=0.9cm of closed] (a2) {bind\\(link)};
+
+    \draw[arr] (decl) -- node[lbl, above, midway] {carried} (carry);
+    \draw[arr] (carry) -- node[lbl, above, midway] {attach} (closed);
+    \draw[arr] (carry) -- (inspect);
+    \draw[arr] (inspect.west) to[bend right=22] (decl.south east);
+    \node[lbl] at (1.95, -3.2) {still open};
+    \draw[arr] (closed.north) to[bend right=35] node[lbl, above, midway] {re-bind another realization} (carry.north);
+    \draw[arr, dashed] (a1) -- (decl);
+    \draw[arr, dashed] (a2) -- (closed);
+  \end{tikzpicture}
+  \caption{The oracle lifecycle.  Declarations create open modules that are
+  carried inside otherwise-complete programs; gap analysis reports what
+  remains open; the binding pass attaches implementations (partially and
+  repeatedly, with compatibility checks and QRAM resource hoisting) until
+  the program is closed for export or execution.}
+  \label{fig:oracle-lifecycle}
+\end{figure}
+
+\begin{lstlisting}[style=pyqpython, caption={The oracle lifecycle on Bernstein--Vazirani (verbatim from the doctested tutorial).  The algorithm is written and \emph{simulable} only after binding; the same open program later binds a QRAM realization instead of the gate network.}, label={lst:bv}]
+# 1. Declare the input, write the algorithm against it.
+from pyqecclang.algorithms.oracles import abstract_database
+from pyqecclang.algorithms.oracle_algorithms import bernstein_vazirani
+from pyqecclang import unresolved
+
+given = abstract_database("BooleanFunction", 3, 1)   # XOR database slot
+opened = bernstein_vazirani(given).program()
+assert [item.name for item in unresolved(opened)] == ["BooleanFunction"]
+
+# 2. Bind a gate implementation; the program closes and runs.
+from pyqecclang.algorithms.oracle_algorithms import affine_boolean_oracle
+from pyqecclang import bind, simulate
+
+implementation = affine_boolean_oracle(3, secret=5, bias=1)
+closed = bind(opened, {"BooleanFunction": implementation.operation})
+assert not unresolved(closed)
+state = simulate(closed)
+probability = sum(abs(a)**2 for k, a in state.amplitudes.items() if k[0] == 5)
+assert abs(probability - 1) < 1e-12
+
+# 3. The same open slot can instead bind a QRAM realization:
+#    bind(opened, {"BooleanFunction":
+#                  Binding(qram_database(3, 1).operation, {"table": "truth"})})
+#    with the runtime data table supplied separately.
+\end{lstlisting}
+
+\begin{figure}[t]
+  \centering
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqBvAlg}]
+  \lstick{$\mathtt{input}_{0}$} & \qw & \qw & \gate{H} & \gate[wires=4]{\mathtt{BooleanFunction}} & \gate{H} \\
+  \lstick{$\mathtt{input}_{1}$} & \qw & \qw & \gate{H} & \qw & \gate{H} \\
+  \lstick{$\mathtt{input}_{2}$} & \qw & \qw & \gate{H} & \qw & \gate{H} \\
+  \lstick{$\mathtt{answer}_{0}$} & \gate{X} & \gate{H} & \qw & \qw & \qw \\
+  \end{quantikz}\hfill
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqBvImpl}]
+  \lstick{$\mathtt{address}_{0}$} & \qw & \ctrl{3} & \qw \\
+  \lstick{$\mathtt{address}_{1}$} & \qw & \qw & \qw \\
+  \lstick{$\mathtt{address}_{2}$} & \qw & \qw & \ctrl{1} \\
+  \lstick{$\mathtt{data}_{0}$} & \gate{X} & \targ{} & \targ{} \\
+  \end{quantikz}
+  \caption{The bound Bernstein--Vazirani program of \lstref{lst:bv}, drawn by
+  the quantikz export.  Left: the algorithm as generated---three input wires,
+  one answer wire, and the oracle as a single box named by its slot
+  (\texttt{BooleanFunction}); this is the whole program, with no oracle
+  internals materialized.  Right: the realization that \texttt{bind} attached
+  for this run (the affine oracle with secret $5$, bias $1$): an $X$ on the
+  data wire and two XOR controls from address bits $0$ and $2$.  The two
+  circuits are modules of one program; the algorithm circuit is unchanged
+  whichever realization closes the slot.}
+  \label{fig:bv-circuit}
+\end{figure}
+
+\subsection{QRAM as a first-class resource}
+\label{sec:qram}
+
+Data access is where scientific-computing programs differ most sharply from
+textbook circuits, and where the difference between an addressable memory
+and an amplitude illusion matters most.  \pqlang{} makes QRAM a
+\emph{typed resource} of a module: \texttt{QRAM(address\_width, data\_width)}
+declared alongside registers, consumed by \texttt{Load} instructions with
+precise XOR semantics~\cite{giovannetti2008qram,dalzell2025qram}, self-inverse and therefore reversible.  The data
+table itself is \emph{runtime state}, not program text: it is bound at
+execution (or recorded beside an export), can be patched locally between
+runs, and never inflates the serialized program (R5).  Concrete
+data-loading families in the library include select-swap QROM with an
+explicit partition cost model, alias-sampling PREPAREs, banked multi-word
+QRAM, and gate tables---all interchangeable realizations of the same oracle
+slots (R2).
+
+One subtlety deserves emphasis because it is a recurring correctness trap in
+hand-written code: an XOR database of \emph{angles} is not an amplitude
+oracle.  The library's diagonal block-encoding adapter, for instance,
+realizes $D_{jj}=\alpha\cos(s\,d_j/2)$ from an angle table $d_j$; feeding a
+fixed-point table of coefficients $c_j$ and declaring the result
+$\operatorname{diag}(c_j)$ would be wrong, and the input model makes the
+distinction explicit in the slot's semantics rather than in a comment.
+
+\begin{figure}[t]
+  \centering
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqLookup2}]
+  \lstick{$\mathtt{address}_{0}$} & \gate[wires=5]{\mathrm{QRAM}_{\mathtt{table}}} \\
+  \lstick{$\mathtt{address}_{1}$} & \qw \\
+  \lstick{$\mathtt{data}_{0}$} & \qw \\
+  \lstick{$\mathtt{data}_{1}$} & \qw \\
+  \lstick{$\mathtt{data}_{2}$} & \qw \\
+  \end{quantikz}\hfill
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqDbe}]
+  \lstick{$\mathtt{target}_{0}$} & \gate[wires=5]{\mathtt{DB}} & \qw & \qw & \qw & \gate[wires=5]{\mathtt{DB}^{\dagger}} \\
+  \lstick{$\mathtt{target}_{1}$} & \qw & \qw & \qw & \qw & \qw \\
+  \lstick{$\mathtt{signal}_{0}$} & \qw & \ctrl{3} & \qw & \qw & \qw \\
+  \lstick{$\mathtt{signal}_{1}$} & \qw & \qw & \ctrl{2} & \qw & \qw \\
+  \lstick{$\mathtt{signal}_{2}$} & \qw & \qw & \qw & \ctrl{1} & \qw \\
+  \lstick{$\mathtt{signal}_{3}$} & \qw & \gate{R_y(\frac{\pi}{4})} & \gate{R_y(\frac{\pi}{2})} & \gate{R_y(\pi)} & \qw \\
+  \end{quantikz}
+  \caption{Two QRAM idioms, drawn by the quantikz export.  Left: a bare
+  \texttt{Load}---one instruction on the address and data registers,
+  $|a\rangle|d\rangle \mapsto |a\rangle|d \oplus M[a]\rangle$, with the table
+  itself a runtime resource.  Right: the diagonal block-encoding of an angle
+  table ($D_{jj}=\alpha\cos(s\,d_j/2)$, here $s=\pi/4$, $\alpha=1$): query
+  the angle database, apply one controlled $R_y$ per angle bit onto the flag
+  wire, unquery.  The same ladder realizes the coefficient angle databases
+  of the input-model matrix (\tabref{tab:input-models}); the database box is
+  again a slot, bindable to a gate truth table or a QRAM resource.}
+  \label{fig:qram-circuit}
+\end{figure}
+
+\subsection{Algorithm protocols and contracts}
+\label{sec:protocols}
+
+R8---new algorithms without core changes---is met by pushing all
+\emph{algorithmic} typing out of the language core and into the library,
+using Python's structural protocols.  The mechanism has three layers:
+
+\paragraph{Structural interfaces.}
+The library defines small \texttt{typing.Protocol} interfaces
+(\texttt{runtime\_checkable}) that any object may satisfy structurally:
+\texttt{UnitaryProtocol}, \texttt{Block\-Encoding\-Protocol},
+\texttt{State\-Preparation\-Protocol}, \texttt{XorDatabase\-Protocol},
+and \texttt{StateOracleProtocol}, among others.  The core \texttt{Operation} object
+implements all applicable adapters, so a finished builder module is
+simultaneously a unitary, a state preparation, and a (trivial)
+block-encoding; algebra such as \texttt{lcu} consumes any objects satisfying
+the right protocol, whatever their provenance.  User applications may define
+their own protocols---they are ordinary Python classes with no registration
+step---and check them with \texttt{requires(value, Interface)}.
+
+\paragraph{Algorithm contracts.}
+Each solver family declares a \emph{contract}: which input protocols it
+requires (with widths, capabilities, and promise objects), and which output
+protocols it provides.  \texttt{solver.check(problem)} produces a structured
+report---issue codes such as \texttt{INPUT\_PROTOCOL},
+\texttt{INPUT\_ADAPTER}, \texttt{INPUT\_WIDTH}, \texttt{INPUT\_CAPABILITY},
+\texttt{INPUT\_PROMISE}, \texttt{OUTPUT\_LAYOUT}, with paths, expected and
+actual values, and human-readable messages---and \texttt{.require()} turns
+reports into exceptions.  Reports serialize to JSON: contracts are
+machine-readable documentation, not a second executable IR.
+
+\paragraph{Generator protocols.}
+Solver families are exposed as small callables---for the ODE stack, the
+three-argument \texttt{QODEProtocol} mapping (generator, initial state,
+time) to a state oracle---so that \emph{solvers are plug-compatible
+positions} in larger programs: a QLSS instance, an ODE solver family, or a
+Hamiltonian-simulation kernel can be injected where a linear solver is
+expected (\secref{sec:ode}).
+
+\begin{lstlisting}[style=pyqpython, caption={Protocols in action (adapted verbatim from \texttt{examples/algorithm\_contracts.py}).  Top: an application-defined protocol \texttt{HasDiagonal}, satisfied structurally by an ordinary class whose block-encoding slot is an open declaration.  Bottom: a Costa-QLSS instance consumes the problem object, its contract check succeeds, the solver runs, and the resulting open program is closed by binding an implementation to the \texttt{GivenA} slot.}, label={lst:contracts}]
+@runtime_checkable
+class HasDiagonal(Protocol):
+    """An application-local protocol; the language need not know it."""
+    def diagonal_values(self) -> tuple[float, ...]: ...
+
+class GivenMatrix:
+    def __init__(self):
+        self.encoding = abstract_block_encoding("GivenA", 1, 0, 1.0)
+
+    def block_encoding(self):
+        return self.encoding          # open oracle slot
+
+    def diagonal_values(self):
+        return (1.0, 1.0)
+
+a = GivenMatrix()
+assert requires(a, HasDiagonal).diagonal_values() == (1, 1)
+qlss = make_costa_qlss(CostaConfig(steps=1))
+problem = LinearSystem(block=BlockSystem(a, gate, SpectralPromise(1, 1)),
+                       rhs_norm=1)
+report = qlss.check(problem)
+report.require()                       # contract check passes
+result = qlss(problem)                 # -> StateOracleProtocol
+closed = bind(result.operation.program(),
+              {"GivenA": identity(1).operation})
+
+limited = abstract_state_prep("ForwardOnly", 1, reversible=False)
+rejected = qlss.check(LinearSystem(
+    block=BlockSystem(a, limited, SpectralPromise(1, 1))))
+assert not rejected.ok                 # capability violation, reported
+\end{lstlisting}
+
+\paragraph{Promise provenance.}
+Mathematical promises are objects with \emph{evidence}: a spectral-promise
+object (\texttt{SpectralPromise}) carries norm and smallest-singular-value
+bounds together with a provenance string recording why the bound is
+believed (R6).
+A promise without evidence is still accepted---the language does not verify
+mathematics---but the declaration travels with the program and appears in
+contract reports, so certification work later knows exactly what was
+assumed.  The same discipline extends to solver internals: generated modules
+carry attributes recording what a kernel omitted (finite quadrature plan,
+omitted contour poles, Carleman truncation), which
+\secref{sec:implementation} turns into an explicit per-method verification
+matrix.
+
+\subsection{Readout as a host-side plan}
+\label{sec:readout}
+
+Because RIR is purely unitary (R7), measurement never blocks composition:
+solver outputs are state oracles that further algorithms consume coherently.
+When a deployment does need classical data, the host attaches
+\emph{readout actions}---measure, reset, post-selection, and the statistics
+to compute---as a plan appended after export, referencing registers by name.
+Estimation primitives in the library (phase estimation, amplitude estimation
+with its decoder, Hadamard tests, swap tests) are themselves unitary modules
+whose measurement plan is standard; \secref{sec:primitives} describes them.

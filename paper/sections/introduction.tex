@@ -1,0 +1,159 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Quantum algorithms for scientific computing have left the era of isolated
+prototypes.  Since the quantum linear-system algorithm of Harrow, Hassidim,
+and Lloyd~\cite{harrow2009hhl}, a mature body of work has unified linear
+algebra under block-encodings and the quantum singular-value transformation
+(QSVT)~\cite{gilyen2019qsvt,low2017qsp,martyn2021grand}, turned
+Hamiltonian simulation into a family of interchangeable black-box
+kernels~\cite{berry2015taylor,childs2021trotter,low2019qubitization}, and
+produced a rapidly growing zoo of quantum solvers for ordinary and partial
+differential equations: linear-combination-of-Hamiltonian-simulations (LCHS)
+methods~\cite{an2026lchs}, Schr\"odingerization~\cite{jin2024schrodingerization},
+contour-based matrix-function decompositions, Carleman
+linearization for nonlinear systems~\cite{leyton2008ode,berry2014ode,liu2021pnas,liu2023carleman},
+quantum finite-element and spectral
+methods~\cite{montanaro2016fem,childs2020spectral}, and applications to fluid
+dynamics~\cite{hu2024schrocircuits}.
+
+The programming support available for expressing these algorithms has not kept
+pace.  Today, a researcher who wishes to implement, compare, or compose such
+algorithms faces a mismatch between the \emph{mathematical} structure of the
+algorithms and the \emph{computational} structure of the tools:
+
+\begin{enumerate}
+\item \textbf{Algorithms are stated relative to access models, not circuits.}
+  QLSS papers assume ``given a block-encoding of $A$''; ODE solvers assume
+  ``given a block-encoding of the generator $G$ and a state-preparation
+  oracle for the initial vector''; input models are specified by sparse-access
+  oracles or quantum RAM (QRAM) with precise XOR semantics
+  \cite{giovannetti2008qram,dervovic2018qlss}.  The concrete realization of
+  these oracles---gate-based QROM, a physical QRAM, alias sampling, or an
+  application-specific reversible circuit---is a separate decision that the
+  algorithm text deliberately defers.  Mainstream quantum SDKs force the
+  opposite order: an oracle must be a concrete circuit object before the
+  algorithm can be written around it, and switching realization later means
+  rewriting the algorithm.
+\item \textbf{Programs are deep, symbolic, and large.}  Scientific-computing
+  programs assemble solvers from primitives through many layers (input model
+  $\rightarrow$ block-encoding $\rightarrow$ transform $\rightarrow$ solver
+  $\rightarrow$ readout), with iteration counts and system sizes that make
+  eager flattening to gate lists meaningless: a repetition count of $2^{40}$
+  is a legitimate parameter in this regime.  What is needed is an intermediate
+  representation that \emph{preserves} modular calls and static repetition,
+  so that programs remain small, serializable, reviewable, and composable,
+  and so that backends---not frontends---decide how far to expand.
+\item \textbf{Correctness obligations are quantitative and compositional.}
+  Block-encoding scale factors $\alpha$, adjoint and controlled variants of
+  every subroutine, alias-freedom of operands, spectral-norm promises,
+  dissipativity assumptions, and discretization caveats must all be tracked
+  through composition.  Languages that model a quantum program as a flat list
+  of gates have nowhere to attach this information; languages that track types
+  but not these domain obligations lose them silently.
+\end{enumerate}
+
+This paper describes \pqlang, a Python-embedded quantum programming language in the embedded-domain-specific-language tradition~\cite{hudak1996building,liu2013chiselq}
+designed for this workload.  \pqlang{} (currently at version 0.8.0) takes the
+position that a quantum scientific-computing language is a
+\emph{composition and bookkeeping discipline}, not a gate constructor.  Its
+design is organized around three mechanisms:
+
+\begin{description}
+\item[Pluggable oracles (\secref{sec:oracles}).]  Algorithms are written
+  against \emph{abstract oracles} declared with one of nine named paradigms
+  (unitary, block-encoding, XOR database, state-preparation isometry, sparse
+  access, phase oracle, reversible function, algorithm stage).  Abstract
+  oracles are carried as \emph{open modules}---modules with a signature but no
+  body---in a register-level intermediate representation (RIR).  A separate
+  linking pass, \texttt{bind}, attaches concrete implementations, checking
+  paradigm, register-type, scale-factor, and capability compatibility, and
+  supports partial binding so that one open program can be linked against
+  gate networks, QRAM resources, or application-specific circuits in any
+  combination.  QRAM is a first-class typed resource, and alternative
+  data-loading realizations of the same oracle slot are interchangeable.
+\item[Algorithm protocols (\secref{sec:oracles}, \secref{sec:ode}).]
+  Algorithm libraries declare their input models as Python \texttt{Protocol}
+  interfaces (structural types) and expose solver families as small
+  \emph{generator protocols} that map problem objects to quantum programs.
+  Because protocols live in the library, not in the language core, new
+  algorithms---including entirely new solver families---can be added without
+  touching the grammar, the IR, or the serializer, while contract checking
+  (with structured, machine-readable issue reports) remains uniform.
+\item[Scientific-computing primitives (\secref{sec:primitives}).]  A library
+  of block-encoding algebra (products, sums, linear combinations, tensor and
+  Kronecker structures), PREPARE--SELECT decompositions with gate, QRAM, and
+  alias-sampling realizations, a qubitization/QSVT/QSP stack with a
+  self-verifying quantum-signal-processing phase engine, reversible
+  fixed-point arithmetic with status flags, and a compiler from pure Python
+  numerical functions (via their abstract syntax trees) to reversible
+  modules.  On top of these, \pqlang{} assembles \emph{six distinct ODE
+  solver families} (LCHS, Schr\"odingerization, contour-based matrix
+  decomposition, Carleman linearization for nonlinear ODEs, implicit-Euler
+  history systems solved by quantum linear-system solvers, and truncated
+  Taylor kernels) and several PDE paths, including heat evolution, nonlinear
+  polynomial PDEs via a homotopy-analysis linearization (QHAM), Fokker--Planck
+  dynamics, and a quantum finite-volume method (QFVM) for the compressible
+  Euler equations built from reversible Roe-flux arithmetic
+  (\secref{sec:ode}, \secref{sec:casestudies}).
+\end{description}
+
+Underneath, the register-level IR is the architectural center
+(\secref{sec:language}): programs are directed acyclic graphs of
+\emph{modules} with typed quantum registers and resources; \texttt{Call},
+\texttt{Repeat}, \texttt{Control}, and \texttt{Adjoint} nodes remain symbolic
+through serialization and export; adjoint and controlled usage are checked
+against compositionally inferred capabilities before any backend is invoked;
+and the IR is deliberately unitary---measurement, reset, and classical
+feedback are host-side concerns, planned as readout actions rather than IR
+instructions.  The same RIR program can be validated while open, bound and
+exported to a modular textual backend (OriginIR-ext), lowered to a strict
+gate set, executed by a dependency-free reference simulator, or executed on
+native register-level backends.
+
+\paragraph{Contributions.}  This paper makes the following contributions:
+
+\begin{itemize}
+\item \textbf{A requirements analysis} that derives, from the structure of
+  quantum scientific computing itself, eight concrete language requirements
+  (deferred oracle realization, realization independence, structure
+  preservation, capability tracking, symbolic scale, promise provenance,
+  readout separation, and library extensibility), and identifies how existing
+  languages fail them (\secref{sec:requirements}, \secref{sec:related}).
+\item \textbf{A language design} meeting these requirements: an embedded
+  builder over typed register views; a module-preserving register-level IR
+  with an open-module oracle system, a linking pass, capability checking, and
+  a canonical JSON serialization with schema
+  (\secref{sec:language}, \secref{sec:oracles}).
+\item \textbf{A protocol-based algorithm architecture} in which input models,
+  adapters, and solver generators are first-class Python objects with
+  structural contracts and machine-readable reports, and in which the same
+  problem object is interchangeable between solver families and QLSS kernels
+  (\secref{sec:oracles}, \secref{sec:ode}).
+\item \textbf{A primitive and solver inventory} for quantum scientific
+  computing, with detailed feature- and coverage-comparison tables against
+  existing languages and frameworks (\secref{sec:primitives},
+  \secref{sec:ode}, Tables~\ref{tab:qpl-comparison}
+  and~\ref{tab:ode-coverage}).
+\item \textbf{An honest verification account}: a graded evidence ladder from
+  static validation through real-backend circuit witnesses to (not yet
+  performed) full numerical certification, with the status of every solver
+  family recorded explicitly, and with backend, simulation, and resource
+  estimation identified as the key open axis for future validation
+  (\secref{sec:implementation}).
+\end{itemize}
+
+Everything described in this paper is implemented in the open-source \pqlang{}
+package; all code listings are drawn from its doctested tutorials, examples,
+and test suite.
+
+\paragraph{Outline.}  \secref{sec:requirements} develops the requirements
+analysis.  \secref{sec:related} surveys related languages and frameworks.
+\secref{sec:language} presents the language surface and the RIR.
+\secref{sec:oracles} presents the oracle and protocol system.
+\secref{sec:primitives} presents the scientific-computing primitives.
+\secref{sec:ode} presents the differential-equation stack, and
+\secref{sec:casestudies} three case studies.  \secref{sec:implementation}
+describes implementation and verification status, including the deliberately
+reserved parts (backend-level validation, simulation campaigns, and resource
+estimation).  \secref{sec:discussion} discusses limitations and future work.

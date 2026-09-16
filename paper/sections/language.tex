@@ -1,0 +1,351 @@
+\section{The language surface and the register-level IR}
+\label{sec:language}
+
+This section presents \pqlang{} from the bottom of the stack upward: the
+embedding model and register views (\secref{sec:builder}), instruction and
+control structure (\secref{sec:instructions}), the register-level IR and its
+invariants (\secref{sec:rir}), capability checking
+(\secref{sec:capabilities}), workspace management (\secref{sec:layout}), and
+the backend-facing architecture (\secref{sec:architecture}, \figref{fig:architecture}).
+
+\subsection{An embedded builder over typed register views}
+\label{sec:builder}
+
+\pqlang{} is embedded in Python (version 3.11 or later) and has no
+third-party runtime dependencies: the core is a builder library whose output
+is data, not an executed program.  A module is built by declaring typed
+quantum registers and emitting operations on \emph{views} of them:
+
+\begin{lstlisting}[style=pyqpython, caption={A minimal \pqlang{} program (from the doctested tutorial suite).  Register index~0 is the least significant bit; \texttt{fuse} concatenates views across root registers; \texttt{simulate} is the dependency-free reference executor.}, label={lst:bell}]
+from pyqecclang import Bits, Builder, export_originir, simulate
+
+b = Builder("bell_pair", {"pair": Bits(2)})
+b.h(b["pair"][0])
+b.xor(b["pair"][0], b["pair"][1])
+program = b.finish().program()
+
+print(simulate(program).amplitudes)      # {(0, 0): 1, (3, 3): 1} / sqrt 2
+print(export_originir(program).text)
+\end{lstlisting}
+
+Registers carry one of four storage kinds---\texttt{bits}, \texttt{uint},
+\texttt{sint}, or \texttt{rational}, each with a width in $[0,64]$---chosen
+so that downstream register-level backends can map them to native integer
+registers; total program width is unbounded.  A \emph{view} (an internal
+\texttt{Ref}) is a list of \emph{spans} $(\text{register}, \text{start},
+\text{width})$: slices of root registers and \texttt{fuse}d concatenations
+across them, possibly \texttt{reinterpret}ed to a different storage kind.
+Views are formation-time objects: building, slicing, or reinterpreting a view
+emits \emph{no} quantum instructions.  Consequently the IR never contains
+physical qubit indices at all; register names, widths, and views survive
+verbatim to backends (R3).
+
+Builders enforce a strict \emph{alias-freedom ABI}: operands of a single
+instruction must not overlap, control registers are protected inside
+controlled blocks, and validation rejects violations before any backend sees
+the program.  Aliasing analyses of this kind are a prerequisite for the
+uncompute-and-prepare discipline that scientific-computing circuits use
+pervasively.
+
+\subsection{Instructions and control flow}
+\label{sec:instructions}
+
+The closed instruction set is deliberately small: broadcast unary gates
+(\texttt{h}, \texttt{x}, \texttt{y}, \texttt{z}, \texttt{s}, \texttt{t},
+\texttt{rx}, \texttt{ry}, \texttt{rz}, \texttt{phase},
+\texttt{global\_phase}), reversible bit operations (\texttt{xor}, i.e., a
+CNOT per bit, and \texttt{swap}), constant modular addition
+(\texttt{add\_const}), and QRAM \texttt{Load}.  All richer
+structure---arithmetic, oracles, entire solver kernels---is expressed as
+\emph{module calls}, so that the IR's semantics remain auditable at a fixed
+size.
+
+Control and repetition are structured blocks, entered as Python context
+managers:
+
+\begin{lstlisting}[style=pyqpython, caption={Symbolic scale: a legitimate program with a repetition count of $2^{40}$.  The finished program contains a single \texttt{Repeat} node; export remains logarithmic (this is asserted in the test suite).}, label={lst:repeat}]
+b = Builder("main", {"word": UInt(8)})
+with b.repeat(1 << 40):
+    b.add_const(b["word"], 1)
+p = b.finish().program()
+
+assert len(p.main.body) == 1                    # one Repeat node
+assert export_originir(p).text.count("DEF ") < 45   # log-time export
+\end{lstlisting}
+
+Repetition counts may range up to $2^{63}-1$; the body must be structurally
+valid even at count zero; and---as a normative rule of the IR
+specification---generation and serialization must never replicate a repeated
+body according to its count (R5).  Guards against runaway expansion are cost
+models (\texttt{expanded\_steps} budgets consumed by the lazy expansion
+iterator), not eager materialization.  \texttt{Control} blocks are coherent:
+control values are compile-time constants attached to protected registers,
+and nested controls must not overlap.  \texttt{Adjoint} blocks are symbolic:
+their semantics are defined without rewriting the body, so the adjoint of a
+composition is available without duplicating it.
+
+\begin{figure}[t]
+  \centering
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqRep}]
+  \lstick{$\mathtt{q}_{0}$} & \gate{H} & \ctrl{1} \\
+  \lstick{$\mathtt{q}_{1}$} & \qw & \targ{} \\
+  \end{quantikz}
+  \begin{tikzpicture}[remember picture, overlay]
+  \node[draw=black!55, dashed, rounded corners=2pt, inner sep=3pt, fit=(pqRep-1-1)(pqRep-1-2)(pqRep-2-2), label={[font=\footnotesize\color{black!65}]above:$\times 2^{40}$}] {};
+  \end{tikzpicture}
+  \caption{A \texttt{Repeat} block drawn by the quantikz export.  The dashed
+  group is a single \texttt{Repeat} node with a static count of $2^{40}$; the
+  body appears exactly once in the program, its serialization, and every
+  export---expansion, if a backend performs it, is logarithmic and leaves no
+  trace in the IR (\lstref{lst:repeat}).}
+  \label{fig:repeat-circuit}
+\end{figure}
+
+\subsection{The register-level IR (RIR)}
+\label{sec:rir}
+
+The IR is the architectural center of the language.  A program is
+$\langle\text{entry}, \text{modules}, \text{version}\rangle$; a module is a
+named, typed interface (ordered quantum registers, ordered QRAM resources,
+optional private \emph{locals}) plus a body---an immutable tuple of
+instructions---or \emph{no body at all}, in which case the module is an
+\emph{open declaration}: an oracle slot (\secref{sec:oracles}).
+Table~\ref{tab:rir-nodes} summarizes the node kinds.
+
+\begin{table}[t]
+  \centering
+  \caption{RIR 0.3 objects and instruction nodes.  All nodes are immutable;
+  bodies are tuples.  \texttt{Module} with \texttt{body} $=\varnothing$ is an
+  open (oracle) declaration.}
+  \label{tab:rir-nodes}
+  \small
+  \begin{tabular}{@{}llp{9.6cm}@{}}
+    \toprule
+    \tabhead{Object} & \tabhead{Kind} & \tabhead{Contents / semantics} \\
+    \midrule
+    \texttt{Program} & container & entry module, module table, IR version \\
+    \texttt{Module} & definition & name; registers (quantum interface); resources (QRAM); \texttt{locals} (zero-in/zero-out workspace); attributes (e.g.\ \texttt{be\_alpha}, paradigm, provenance); body or $\varnothing$ \\
+    \texttt{RegType} & type & kind (\texttt{bits}/\texttt{uint}/\texttt{sint}/\texttt{rational}) and width $0..64$; total width unbounded \\
+    \texttt{Ref} & view & tuple of spans $(\text{register}, \text{start}, \text{width})$; declarative, never contiguous physical qubits \\
+    \texttt{QRAM} & resource & address width, data width; runtime data binding \\
+    \midrule
+    \texttt{Primitive} & instruction & broadcast unary gate, \texttt{xor}, \texttt{swap}, \texttt{add\_const}, \texttt{global\_phase} \\
+    \texttt{Load} & instruction & QRAM access $|a\rangle|d\rangle \mapsto |a\rangle|d \oplus M[a]\rangle$; self-inverse \\
+    \texttt{Call} & instruction & module invocation; kind-and-width-exact, alias-free argument matching; modules are shared, never copied \\
+    \texttt{Repeat} & instruction & static count $0..2^{63}{-}1$; body preserved, never replicated \\
+    \texttt{Control} & instruction & coherent conditioning on protected registers with compile-time values \\
+    \texttt{Adjoint} & instruction & symbolic inversion; no body rewriting \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Four invariants define the IR's contract with the rest of the system:
+
+\begin{enumerate}
+\item \textbf{Modularity end-to-end (R3, R5).}  \texttt{Call}, \texttt{Repeat},
+  \texttt{Control}, and \texttt{Adjoint} are preserved in the IR, in its JSON
+  serialization, and in exports.  Lowering rules permit backends to expand
+  register operations to physical gates, but module definitions and calls
+  must be preserved, and any expansion happens in the backend without
+  feeding back into the RIR.
+\item \textbf{Purity.}  RIR represents quantum operations after compile-time
+  parameter evaluation---all widths, integers, and angles are concrete.  It
+  contains no measurement, reset, runtime classical feedback, or opaque host
+  callbacks (R7); readout is planned host-side
+  (\secref{sec:readout}).
+\item \textbf{Canonical, hardened serialization.}  Programs serialize to
+  canonical JSON (sorted keys, deterministic output) under a versioned
+  JSON~Schema (currently RIR~0.3, Draft~2020-12).  Decoding is strict:
+  unknown tags or fields, duplicate keys, non-finite floats, and unknown
+  versions are rejected.  Round-trips are byte-identical, and open modules
+  round-trip unchanged.  Readers accept prior format versions, so stored
+  programs are forward-compatible artifacts of record.
+\item \textbf{Attributes never change instruction semantics.}  Domain
+  metadata---block-encoding factors, paradigm tags, implementation-status and
+  provenance strings (R6)---ride along as attributes without affecting the
+  operational meaning of the module they annotate.
+\end{enumerate}
+
+Export to the modular textual backend (OriginIR-ext) illustrates the
+preservation contract concretely.  \lstref{lst:originir} shows the exported
+text of a QRAM-lookup demo program: module definitions (\texttt{DEF}),
+calls, and the \texttt{QRAMDECL} resource declaration survive as first-class
+textual constructs; nothing is inlined.
+
+\begin{lstlisting}[style=pyqir, caption={OriginIR-ext export of a nested QRAM-lookup program (verbatim from the repository's example artifacts).  \texttt{DEF} blocks, module calls, and the \texttt{QRAMDECL} resource are preserved; no call is inlined.  Content hashes in definition names make exports deterministic and diff-stable.}, label={lst:originir}]
+QRAMDECL ram_values 2,3
+QINIT 5
+CREG 0
+DEF m_lookup_2_3_54524a0d1220cf4bd723f2aa(v_address[2], v_data[3])
+ram_values v_address[0], v_address[1], v_data[0], v_data[1], v_data[2]
+ENDDEF
+DEF m_wrapped_lookup_16dc443ca6e4d78bd9ef03a6(v_a[2], v_d[3])
+m_lookup_2_3_54524a0d1220cf4bd723f2aa(v_a[0], v_a[1], v_d[0], v_d[1], v_d[2])
+ENDDEF
+DEF m_demo_b89906731f4fe79582ed7931(v_address[2], v_data[3])
+H v_address[0]
+H v_address[1]
+X v_data[0]
+m_wrapped_lookup_16dc443ca6e4d78bd9ef03a6(v_address[0], v_address[1],
+  v_data[0], v_data[1], v_data[2])
+ENDDEF
+m_demo_b89906731f4fe79582ed7931(q[0], q[1], q[2], q[3], q[4])
+\end{lstlisting}
+
+\begin{figure}[t]
+  \centering
+  \footnotesize
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqDemo}]
+  \lstick{$\mathtt{address}_{0}$} & \gate{H} & \qw & \gate[wires=5]{\mathtt{wrapped\_lookup}} \\
+  \lstick{$\mathtt{address}_{1}$} & \gate{H} & \qw & \qw \\
+  \lstick{$\mathtt{data}_{0}$} & \qw & \gate{X} & \qw \\
+  \lstick{$\mathtt{data}_{1}$} & \qw & \qw & \qw \\
+  \lstick{$\mathtt{data}_{2}$} & \qw & \qw & \qw \\
+  \end{quantikz}\par\vspace{0.3em}
+  $\downarrow$\par\vspace{0.3em}
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqWrap}]
+  \lstick{$\mathtt{a}_{0}$} & \gate[wires=5]{\mathtt{lookup\_2\_3}} \\
+  \lstick{$\mathtt{a}_{1}$} & \qw \\
+  \lstick{$\mathtt{d}_{0}$} & \qw \\
+  \lstick{$\mathtt{d}_{1}$} & \qw \\
+  \lstick{$\mathtt{d}_{2}$} & \qw \\
+  \end{quantikz}\par\vspace{0.3em}
+  $\downarrow$\par\vspace{0.3em}
+  \begin{quantikz}[remember picture, every matrix/.append style={name=pqLookup}]
+  \lstick{$\mathtt{address}_{0}$} & \gate[wires=5]{\mathrm{QRAM}_{\mathtt{table}}} \\
+  \lstick{$\mathtt{address}_{1}$} & \qw \\
+  \lstick{$\mathtt{data}_{0}$} & \qw \\
+  \lstick{$\mathtt{data}_{1}$} & \qw \\
+  \lstick{$\mathtt{data}_{2}$} & \qw \\
+  \end{quantikz}
+  \caption{The three modules of \lstref{lst:originir}, drawn independently by
+  the quantikz export of the same program: \texttt{demo} (top) prepares
+  address and data and calls \texttt{wrapped\_lookup} (middle), which calls
+  \texttt{lookup\_2\_3} (bottom), the module that owns the \texttt{Load} on
+  the \texttt{table} resource.  At every level a call is a box with a name
+  and a typed interface; nothing is expanded, matching the \texttt{DEF} chain
+  of the textual export.}
+  \label{fig:nested-circuit}
+\end{figure}
+
+\subsection{Adjoint and control as a capability discipline}
+\label{sec:capabilities}
+
+Whether an object may be used as $U^{\dagger}$ or as controlled-$U$ is
+inferred bottom-up from its parts: a primitive gate admits both; a
+\texttt{Call} admits adjoint (respectively, control) only if its callee does;
+open oracle declarations advertise their capabilities as part of the
+declaration, and the binder checks that the provided implementation actually
+possesses them (\secref{sec:oracles}).  Validation then checks every
+contextual use: wrapping a call in an \texttt{Adjoint} block demands
+invertibility of the callee \emph{at composition time}.  This is a modal
+capability system in the practical sense---R4---and it eliminates a common
+class of late-stage backend failures.
+
+\subsection{Workspaces and qubit economy}
+\label{sec:layout}
+
+Modules may declare private \texttt{locals}: workspace registers that must be
+returned to zero at exit (enforced during execution; dirty workspaces raise).
+A layout pass computes sequential-reuse qubit budgets for module-private
+locals, so that deeply composed programs remain qubit-frugal without the
+programmer managing temporary registers by hand.  The math-function compiler
+(\secref{sec:mathfunc}) leans on this discipline heavily: its compute /
+XOR-update / uncompute pattern is only sound because workspace zeroing is an
+enforced ABI, not a convention.
+
+\subsection{Architecture: generation, storage, export, execution}
+\label{sec:architecture}
+
+\figref{fig:architecture} shows the complete architecture.  The separation
+follows the three-phase paradigm of \secref{sec:requirements}: Python
+generation (builders, algorithm libraries, protocols and contracts), RIR
+storage (validation, linking, serialization, layout), and backend export or
+execution.  Native backends are imported lazily at execution entry
+only---generating and serializing RIR requires no simulator installation, and
+the core has no backend dependency.  Backends currently comprise:
+
+\begin{itemize}
+\item \texttt{export\_originir}: modular textual export (originally to the
+  OriginIR-ext dialect understood by the \emph{uniqc} simulator), with an
+  additional strict lowering of the whole artifact to the
+  \{\textsc{toffoli}, $U_3$, \textsc{cz}\} gate set with ancilla pooling;
+\item \texttt{simulate}: a dependency-free sparse-statevector reference
+  executor with step and state budgets, enforcing workspace-zeroing and
+  memory-binding rules;
+\item \texttt{run\_pysparq}: register-level native execution on PySparQ,
+  including a registry for \emph{native operators}---module-level
+  implementations (e.g.\ large reversible arithmetic) compiled on demand to
+  C++ and charged unit cost rather than expanded;
+\item \texttt{quantikz}: circuit-diagram export for documentation and
+  review, preserving the same modularity discipline (calls as named boxes,
+  open slots dashed, structured blocks grouped); every circuit figure in
+  this paper is generated by it.
+\end{itemize}
+
+Measurement, reset, and statistics are planned as host-side
+\emph{readout actions} appended after export (\secref{sec:readout}).
+
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}[
+      font=\small,
+      box/.style={draw=black!60, rounded corners=2pt, fill=black!3, align=center, inner sep=4pt},
+      phase/.style={font=\footnotesize\bfseries, text=black!45, rotate=90},
+      sepline/.style={black!22, dotted},
+      arr/.style={-{Stealth[length=2.2mm]}, black!60},
+      darr/.style={-{Stealth[length=2.2mm]}, black!35, dashed},
+    ]
+    % Phase tags and separators
+    \node[phase] at (-6.85, 2.7) {generate};
+    \node[phase] at (-6.85, -1.6) {store \& link};
+    \node[phase] at (-6.85, -5.45) {export / execute};
+    \draw[sepline] (-6.4, -0.5) -- (7.15, -0.5);
+    \draw[sepline] (-6.4, -4.05) -- (7.15, -4.05);
+
+    % Generation phase
+    \node[box, fill=black!8] (python) at (0, 3.5) {\textbf{Python host}};
+    \node[box] (builder) at (0, 2.1)
+      {\textbf{Builder}\\\footnotesize typed registers, views\\\footnotesize control / repeat / adjoint};
+    \node[box] (libs) at (-4.5, 2.1)
+      {\textbf{algorithm libraries}\\\footnotesize protocols, contracts\\\footnotesize open oracle declarations};
+    \draw[arr] (python) -- (builder);
+    \draw[arr] (libs) -- (builder);
+
+    % Storage phase
+    \node[box, fill=black!8] (rir) at (0, -1.6)
+      {\textbf{RIR 0.3}\\\footnotesize modules (open \& closed)\\\footnotesize calls / repeats symbolic};
+    \node[box] (validate) at (-4.5, -1.6)
+      {\footnotesize validation\\\footnotesize (aliases, capabilities)};
+    \node[box] (bindbox) at (4.5, -1.6)
+      {\footnotesize \texttt{bind} linking\\\footnotesize (oracles, QRAM hoisting)};
+    \node[box] (json) at (0, -3.1)
+      {\footnotesize canonical JSON + schema\\\footnotesize (deterministic, hardened)};
+    \draw[arr] (builder) -- (rir);
+    \draw[arr] (validate) -- (rir);
+    \draw[arr] (rir) -- (bindbox);
+    \draw[arr] (bindbox.south) to[bend left=25] (rir.south);
+    \draw[arr] (rir) -- (json);
+
+    % Backends
+    \node[box] (originir) at (-5.55, -5.4)
+      {\footnotesize \textbf{OriginIR-ext}\\\scriptsize modular text\\\scriptsize (+ Toffoli/$U_3$/CZ)};
+    \node[box] (sim) at (-1.9, -5.4) {\footnotesize \textbf{reference}\\\scriptsize \texttt{simulate}};
+    \node[box] (pysparq) at (1.9, -5.4)
+      {\footnotesize \textbf{PySparQ native}\\\scriptsize registers + C++ ops};
+    \node[box, fill=black!8] (readout) at (5.55, -5.4)
+      {\footnotesize \textbf{host readout}\\\scriptsize measure / stats};
+    \draw[arr] (json.south) to[bend right=10] (originir.north);
+    \draw[arr] (json.south) -- (sim.north);
+    \draw[arr] (json.south) to[bend left=10] (pysparq.north);
+    \draw[darr] (pysparq.east) -- (readout.west);
+    \draw[darr] (sim.south) -- ++(0, -0.55) -| (readout.south);
+  \end{tikzpicture}
+  \caption{\pqlang{} architecture.  Programs are generated by the embedded
+  builder and algorithm libraries, stored as RIR (open oracle slots included),
+  optionally linked by \texttt{bind}, serialized to canonical schema-validated
+  JSON, and only then exported or executed.  Native backends are imported
+  lazily at execution entry; the core has no backend dependency.  Readout is
+  a host-side plan, not an IR construct.}
+  \label{fig:architecture}
+\end{figure}

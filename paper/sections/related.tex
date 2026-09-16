@@ -1,0 +1,184 @@
+\section{Related work}
+\label{sec:related}
+
+We situate \pqlang{} among quantum programming languages and frameworks,
+then among algorithm libraries, and finally record the feature comparison of
+Table~\ref{tab:qpl-comparison} and the coverage comparison of
+Table~\ref{tab:ode-coverage}.  The discussion is organized by the
+requirements R1--R8 of \secref{sec:qsc-requirements}; general surveys of the
+field are available~\cite{selinger2004towards,heim2020quantum,garhwal2021systematic}.
+
+\subsection{Quantum programming languages}
+\label{sec:related-qpl}
+
+\paragraph{Functional and typed language lines.}
+Quipper~\cite{green2013quipper} pioneered scalable, circuit-generating
+functional programming: a Haskell host generates gate-level circuits, with
+``boxing'' providing a form of abstraction over generated subcircuits.
+Scaffold~\cite{javadiabhari2015scaffcc} embedded modules and classical
+control in a C-like surface, compiled by ScaffCC with early
+resource-estimation passes.  Notably, Quipper later served as the vehicle
+for landmark resource analyses of quantum linear systems---although as
+external studies over generated circuits, not as a language
+mechanism~\cite{scherer2017resource,fillion2017dirac}.  QWIRE and the Proto-Quipper line developed linear and dependent type
+disciplines for safety guarantees~\cite{paykin2017qwire,fu2023protoquipper}.
+Silq~\cite{bichsel2020silq} introduced safe automatic uncomputation through
+its type system---a genuine language-level answer to the invertibility half
+of our R4.  None of these lines, however, provides deferred-oracle
+semantics with paradigm contracts and late linking (R1/R2): abstractions
+expand to circuits, and the open state of a program is not a shareable
+artifact.  Their IRs target gate-level compilation rather than
+module-preserving program storage (R3/R5), and none ships a
+scientific-computing algorithm stack.
+
+\paragraph{Industrial SDKs and embedded frameworks.}
+ProjectQ~\cite{steiger2018projectq} established the Python-embedded pattern,
+shipped one of the earliest resource estimators, and---through its
+extensible compiler-engine chain---explicitly supports \emph{emulating}
+quantum programs at a high level of abstraction, mimicking large oracles
+instead of compiling them to gates: a genuine form of deferred oracle at
+execution time, though one that lives in the engine stack rather than in a
+serializable open program.  Quil and pyQuil~\cite{smith2016quil} and
+Cirq~\cite{cirqdevelopers2020cirq} provide circuit DSLs centered on NISQ execution.
+Qiskit~\cite{javadiabhari2024qiskit} grew a large circuit library and textbook algorithm
+implementations; demonstration-level HHL shipped historically in its
+algorithms module and has since been retired with it, and no QSVT or
+block-encoding abstraction exists in the library today.  Its objects are
+concrete circuits, its transpiler flattens structure, and alternative oracle
+realizations are separate programs rather than bindings of one open slot.
+OpenQASM~3~\cite{cross2022openqasm3} standardizes a textual interchange
+language whose subroutines and loops preserve some structure, and whose
+``opaque'' declarations gesture toward R1---but at gate granularity,
+without paradigm contracts, capabilities, or a linking discipline.
+Closest to our primitive layer among embedded frameworks, Qrisp~\cite{seidel2023qrisp}
+automates uncomputation and resource-friendly scheduling inside Python and
+exposes a \texttt{BlockEncoding} class---block-encodings as programming
+abstractions with a {NumPy}-like interface---which we regard as independent
+evidence that scientific-computing primitives belong at the language level.
+Qrisp does not, however, treat the open program as an artifact: there is no
+paradigm-contracted oracle declaration with late, partial, repeatable
+linking, no module-preserving serialized IR with promise provenance, and no
+ODE/PDE solver families.  t\textbar ket\textgreater~\cite{sivarajah2021tket} and
+staq~\cite{amy2020staq} are compiler and synthesis toolchains,
+complementary to our concerns: they operate \emph{below} the register/module
+level our RIR preserves.
+
+\paragraph{Q\#.}
+Q\#~\cite{svore2018qsharp} is the closest prior art at the language level.
+Its operations with \texttt{Adjoint}/\texttt{Controlled} \emph{functors}
+anticipate our capability discipline (R4): specialization availability is
+declared and tracked.  Passing operations as parameters---the closest
+mainstream analogue to our oracle slots---lets algorithms be written against
+any conforming implementation, so Q\# partially meets R1 at \emph{call}
+time.  Its standard libraries include fixed-point numerics and estimation
+primitives, and the surrounding Azure tooling ships a serious resource
+estimator.  What Q\# does not provide for our workload is
+the \emph{open program}: oracles are operations with concrete bodies;
+``partial application'' is host-level; there is no serialized artifact in
+which an algorithm carries its unimplemented input models with paradigm,
+$\alpha$, capabilities, and provenance (R1/R2/R6); and its libraries do not
+include block-encoding algebra, a QSVT/QSP engine, or any ODE/PDE solver
+families (Table~\ref{tab:ode-coverage}).  The distinction is one of
+\emph{when} semantics attach: Q\# resolves capabilities at compile time of
+concrete operations, whereas \pqlang{} keeps the \emph{link} itself as a
+first-class, repeatable, partial operation on stored programs.
+
+\paragraph{Research codebases for scientific algorithms.}
+Individual algorithm implementations---LCHS, Schr\"odingerization, Carleman
+pipelines, QLSS prototypes---exist as research code accompanying
+publications~\cite{an2026lchs,jin2024schrodingerization,liu2021pnas,
+liu2023carleman,an2026lchs}.  Each typically fixes one method, one input model, and one
+small simulator; none offers shared input-model objects, interchangeable
+kernels, or a common IR.  The absence of a unifying language layer is
+precisely the gap this paper documents: the algorithms compose
+mathematically (all consume block-encodings; all produce state oracles) but
+not computationally, absent exactly the contracts of
+\secref{sec:oracles}.
+
+\begin{table}[t]
+  \centering
+  \caption{Language and framework comparison against the requirements of
+  \secref{sec:qsc-requirements}.  \ok~= provided; \half~= partial (see
+  text); \noent~= absent.  Claims are referenced to the systems'
+  publications and documentation.}
+  \label{tab:qpl-comparison}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{2.4cm}cccccc@{}}
+    \toprule
+    & \textbf{Quipper} & \textbf{Scaffold} & \textbf{Q\#} & \textbf{ProjectQ} & \textbf{Qiskit} & \textbf{\pqlang} \\
+    \midrule
+    R1 deferred oracles & \noent$^{a}$ & \noent & \half$^{b}$ & \half$^{c}$ & \noent & \ok \\
+    R2 realization independence & \noent & \noent & \half & \noent$^{c}$ & \half & \ok \\
+    R3 structure-preserving IR & \half & \half & \half & \noent & \noent & \ok \\
+    R4 adjoint/control tracked & \half & \noent & \ok & \noent & \noent & \ok \\
+    R5 symbolic scale ($2^{40}$+) & \half & \half & \half & \noent & \noent & \ok \\
+    R6 promise provenance & \noent & \noent & \noent & \noent & \noent & \ok \\
+    R7 readout separation & \half & \half & \noent & \noent & \noent & \ok \\
+    R8 library extensibility & \half & \half & \half & \half & \half & \ok \\
+    \midrule
+    Scientific primitives$^{d}$ & \noent & \noent & \half & \noent & \half & \ok \\
+    ODE/PDE solver families & \noent & \noent & \noent & \noent & \noent & \ok \\
+    Resource estimation & \half$^{e}$ & \ok & \ok & \ok & \half & \noent$^{f}$ \\
+    \bottomrule
+    \multicolumn{7}{@{}p{14.3cm}@{}}{\scriptsize $^a$Boxes abstract over generated subcircuits, but there is no open-program state.  $^b$Operations are passed as parameters and remain abstract to the algorithm, but bodies are concrete and no link-time openness or paradigm contracts exist.  $^c$The extensible engine chain can emulate oracles at execution time, but not in a serializable program artifact.  $^d$Block-encoding algebra,
+    QSVT/QSP engine, sparse-access and QRAM input models, reversible
+    fixed-point arithmetic with a math-function compiler.
+    $^f$Scoped and reserved (\secref{sec:reserved}); the IR preserves the
+    structure an estimator needs.}
+  \end{tabular}
+\end{table}
+
+\begin{table}[t]
+  \centering
+  \caption{Algorithm and solver coverage: \pqlang{} against the major
+  frameworks' standard libraries (research-prototype implementations
+  published outside a framework's libraries do not count).  \ok~= provided
+  as a composable, contract-checked library component; \half~=
+  demonstration-level implementation; \noent~= absent.}
+  \label{tab:ode-coverage}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{5.4cm}ccccc@{}}
+    \toprule
+    \tabhead{Capability} & \textbf{Q\#} & \textbf{ProjectQ} & \textbf{Qiskit} & \textbf{Cirq} & \textbf{\pqlang} \\
+    \midrule
+    Query/search/amplification & \ok & \ok & \ok & \ok & \ok \\
+    Phase/amplitude estimation & \ok & \ok & \ok & \half & \ok \\
+    Hamiltonian simulation (Trotter) & \ok & \half & \ok & \half & \ok \\
+    Hamiltonian simulation (LCU/Taylor, QSVT) & \noent & \noent & \half & \noent & \ok \\
+    Block-encoding algebra & \noent & \noent & \half & \noent & \ok \\
+    QSP phase synthesis (self-verifying) & \noent & \noent & \noent & \noent & \ok \\
+    Quantum linear systems (QLSS) & \noent & \noent & \half$^{a}$ & \noent & \ok \\
+    QRAM/QROM input models (typed resource) & \noent & \noent & \half & \noent & \ok \\
+    Reversible fixed-point arithmetic & \ok & \noent & \noent & \noent & \ok \\
+    Math-function compiler (Python $\rightarrow$ reversible) & \noent & \noent & \noent & \noent & \ok \\
+    ODE: LCHS & \noent & \noent & \noent & \noent & \ok \\
+    ODE: Schr\"odingerization & \noent & \noent & \noent & \noent & \ok \\
+    ODE: contour decomposition (CBMD) & \noent & \noent & \noent & \noent & \ok \\
+    ODE: Carleman (nonlinear) & \noent & \noent & \noent & \noent & \ok \\
+    ODE: history systems via QLSS & \noent & \noent & \noent & \noent & \ok \\
+    PDE: heat / Fokker--Planck input models & \noent & \noent & \noent & \noent & \ok \\
+    PDE: symbolic nonlinear PDEs (QHAM) & \noent & \noent & \noent & \noent & \ok \\
+    PDE: Euler equations (QFVM/Roe) & \noent & \noent & \noent & \noent & \ok \\
+    \bottomrule
+    \multicolumn{6}{@{}p{14.0cm}@{}}{\scriptsize $^a$A demonstration-level HHL circuit shipped historically in Qiskit's (since-retired) algorithms module; it is not part of the current library.}
+  \end{tabular}
+\end{table}
+
+\subsection{Positioning}
+\label{sec:positioning}
+
+The comparison is not a claim that prior systems are poorly built; they are
+built for a different workload.  Circuit SDKs optimize for NISQ execution
+and hardware co-design; typed language lines optimize for semantic safety
+of full quantum computation; Q\# optimizes for a vertically integrated
+development kit.  \pqlang{} optimizes for the fault-tolerant
+scientific-computing workload, where the unit of progress is a
+\emph{mathematical algorithm against declared access models}, the unit of
+sharing is a \emph{program artifact with open slots and recorded promises},
+and the unit of validation is \emph{graduated evidence} rather than a single
+simulator's output.  To our knowledge, no previously published system
+combines these three units; Tables~\ref{tab:qpl-comparison}
+and~\ref{tab:ode-coverage} make the comparison concrete, and the honest
+counterpoint is equally explicit: resource estimation---strong in Scaffold,
+Q\# tooling, and ProjectQ---is the deliberately reserved axis of
+\secref{sec:reserved}.

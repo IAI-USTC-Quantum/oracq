@@ -1,0 +1,342 @@
+\begin{thebibliography}{10}
+
+\bibitem{harrow2009hhl}
+Aram~W. Harrow, Avinatan Hassidim, and Seth Lloyd.
+\newblock ``Quantum algorithm for linear systems of equations''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevLett.103.150502}{Physical
+  Review Letters {\bf 103}, 150502}~(2009).
+
+\bibitem{gilyen2019qsvt}
+Andr{\'a}s Gily{\'e}n, Yuan Su, Guang~Hao Low, and Nathan Wiebe.
+\newblock ``Quantum singular value transformation and beyond: Exponential
+  improvements for quantum hamiltonian simulation''.
+\newblock In Proceedings of the 51st Annual ACM SIGACT Symposium on Theory of
+  Computing (STOC 2019).
+\newblock \href{https://dx.doi.org/10.1145/3313276.3316366}{Pages 193--204}.
+\newblock ~(2019).
+
+\bibitem{low2017qsp}
+Guang~Hao Low and Isaac~L. Chuang.
+\newblock ``Optimal hamiltonian simulation by quantum signal processing''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevLett.118.010501}{Physical
+  Review Letters {\bf 118}, 010501}~(2017).
+
+\bibitem{martyn2021grand}
+John~M. Martyn, Zane~M. Rossi, Andrew~K. Tan, and Isaac~L. Chuang.
+\newblock ``Grand unification of quantum algorithms''.
+\newblock \href{https://dx.doi.org/10.1103/PRXQuantum.2.040203}{PRX Quantum
+  {\bf 2}, 040203}~(2021).
+
+\bibitem{berry2015taylor}
+Dominic~W. Berry, Andrew~M. Childs, Richard Cleve, Robin Kothari, and
+  Rolando~D. Somma.
+\newblock ``Simulating hamiltonian dynamics with a truncated {Taylor} series''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevLett.114.090502}{Physical
+  Review Letters {\bf 114}, 090502}~(2015).
+
+\bibitem{childs2021trotter}
+Andrew~M. Childs, Yuan Su, Minh~C. Tran, Nathan Wiebe, and Shuchen Zhu.
+\newblock ``Theory of {Trotter} error with commutator scaling''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevX.11.011020}{Physical Review
+  X {\bf 11}, 011020}~(2021).
+
+\bibitem{low2019qubitization}
+Guang~Hao Low and Isaac~L. Chuang.
+\newblock ``Hamiltonian simulation by qubitization''.
+\newblock \href{https://dx.doi.org/10.22331/q-2019-07-12-163}{Quantum {\bf 3},
+  163}~(2019).
+
+\bibitem{an2026lchs}
+Dong An, Andrew~M. Childs, Lin Lin, and Lexing Ying.
+\newblock ``Laplace transform-based quantum eigenvalue transformation via
+  linear combination of {Hamiltonian} simulation''.
+\newblock \href{https://dx.doi.org/10.1137/24M1720160}{SIAM Journal on
+  Computing {\bf 55}, 376--409}~(2026).
+
+\bibitem{jin2024schrodingerization}
+Shi Jin, Nana Liu, and Yue Yu.
+\newblock ``Quantum simulation of partial differential equations via
+  {Schr\"odingerization}''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevLett.133.230602}{Physical
+  Review Letters {\bf 133}, 230602}~(2024).
+
+\bibitem{leyton2008ode}
+Sarah~K. Leyton and T.~J. Osborne.
+\newblock ``A quantum algorithm to solve nonlinear differential
+  equations''~(2008).
+\newblock  \href{http://arxiv.org/abs/0812.4423}{arXiv:0812.4423}.
+
+\bibitem{berry2014ode}
+Dominic~W. Berry.
+\newblock ``High-order quantum algorithm for solving linear differential
+  equations''.
+\newblock \href{https://dx.doi.org/10.1088/1751-8113/47/10/105301}{Journal of
+  Physics A: Mathematical and Theoretical {\bf 47}, 105301}~(2014).
+
+\bibitem{liu2021pnas}
+Jin-Peng Liu, Herman~{\O}ie Kolden, Hari~K. Krovi, Nuno~F. Loureiro,
+  Konstantina Trivisa, and Andrew~M. Childs.
+\newblock ``Efficient quantum algorithm for dissipative nonlinear differential
+  equations''.
+\newblock \href{https://dx.doi.org/10.1073/pnas.2026805118}{Proceedings of the
+  National Academy of Sciences {\bf 118}, e2026805118}~(2021).
+
+\bibitem{liu2023carleman}
+Jin-Peng Liu, Dong An, Di~Fang, Jiasu Wang, Guang~Hao Low, and Stephen Jordan.
+\newblock ``Efficient quantum algorithm for nonlinear reaction--diffusion
+  equations and energy estimation''.
+\newblock \href{https://dx.doi.org/10.1007/s00220-023-04857-9}{Communications
+  in Mathematical Physics {\bf 404}, 963--1020}~(2023).
+
+\bibitem{montanaro2016fem}
+Ashley Montanaro and Sam Pallister.
+\newblock ``Quantum algorithms and the finite element method''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevA.93.032324}{Physical Review
+  A {\bf 93}, 032324}~(2016).
+
+\bibitem{childs2020spectral}
+Andrew~M. Childs and Jin-Peng Liu.
+\newblock ``Quantum spectral methods for differential equations''.
+\newblock \href{https://dx.doi.org/10.1007/s00220-020-03699-z}{Communications
+  in Mathematical Physics {\bf 375}, 1427--1457}~(2020).
+
+\bibitem{hu2024schrocircuits}
+Weizhi Hu, Shi Jin, Nana Liu, and Lei Zhang.
+\newblock ``Quantum circuits for partial differential equations via
+  {Schr\"odingerisation}''.
+\newblock \href{https://dx.doi.org/10.22331/q-2024-12-12-1563}{Quantum {\bf 8},
+  1563}~(2024).
+
+\bibitem{giovannetti2008qram}
+Vittorio Giovannetti, Seth Lloyd, and Lorenzo Maccone.
+\newblock ``Quantum random access memory''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevLett.100.160501}{Physical
+  Review Letters {\bf 100}, 160501}~(2008).
+
+\bibitem{dervovic2018qlss}
+Danial Dervovic, Mark Herbster, Peter Mountney, Simone Severini, Na{\"i}ri
+  Usher, and Leonard Wossnig.
+\newblock ``Quantum linear systems algorithms: A primer''~(2018).
+\newblock  \href{http://arxiv.org/abs/1802.08227}{arXiv:1802.08227}.
+
+\bibitem{hudak1996building}
+Paul Hudak.
+\newblock ``Building domain-specific embedded languages''.
+\newblock \href{https://dx.doi.org/10.1145/242224.242477}{ACM Computing Surveys
+  {\bf 28}, 196}~(1996).
+
+\bibitem{liu2013chiselq}
+Xiao Liu and John Kubiatowicz.
+\newblock ``{Chisel-Q}: Designing quantum circuits with a scala embedded
+  language''.
+\newblock In 2013 IEEE 31st International Conference on Computer Design (ICCD
+  2013).
+\newblock \href{https://dx.doi.org/10.1109/ICCD.2013.6657075}{Pages 427--434}.
+\newblock ~(2013).
+
+\bibitem{costa2022discrete}
+Pedro C.~S. Costa, Dong An, Yuval~R. Sanders, Yuan Su, Ryan Babbush, and
+  Dominic~W. Berry.
+\newblock ``Optimal scaling quantum linear-systems solver via discrete
+  adiabatic theorem''.
+\newblock \href{https://dx.doi.org/10.1103/PRXQuantum.3.040303}{PRX Quantum
+  {\bf 3}, 040303}~(2022).
+
+\bibitem{selinger2004towards}
+Peter Selinger.
+\newblock ``Towards a quantum programming language''.
+\newblock \href{https://dx.doi.org/10.1017/S0960129504004256}{Mathematical
+  Structures in Computer Science {\bf 14}, 527--586}~(2004).
+
+\bibitem{heim2020quantum}
+Bettina Heim, Mathias Soeken, Sarah Marshall, Christopher Granade, Martin
+  Roetteler, Alan Geller, Matthias Troyer, and Krysta Svore.
+\newblock ``Quantum programming languages''.
+\newblock \href{https://dx.doi.org/10.1038/s42254-020-00245-7}{Nature Reviews
+  Physics {\bf 2}, 709--722}~(2020).
+
+\bibitem{garhwal2021systematic}
+Shruti Garhwal, Mohamad Ghorani, and Amir Ahmad.
+\newblock ``Quantum programming language: A systematic review of research topic
+  and top cited languages''.
+\newblock \href{https://dx.doi.org/10.1007/s11831-019-09372-6}{Archives of
+  Computational Methods in Engineering {\bf 28}, 289--310}~(2021).
+
+\bibitem{green2013quipper}
+Alexander~S. Green, Peter~LeFanu Lumsdaine, Neil~J. Ross, Peter Selinger, and
+  Beno{\^i}t Valiron.
+\newblock ``Quipper: A scalable quantum programming language''.
+\newblock In Proceedings of the 34th ACM SIGPLAN Conference on Programming
+  Language Design and Implementation (PLDI 2013).
+\newblock \href{https://dx.doi.org/10.1145/2491956.2462177}{Pages 333--342}.
+\newblock ~(2013).
+
+\bibitem{javadiabhari2015scaffcc}
+Ali JavadiAbhari, Shruti Patil, Daniel Kudrow, Jeff Heckey, Alexey Lvov,
+  Frederic~T. Chong, and Margaret Martonosi.
+\newblock ``{ScaffCC}: Scalable compilation and analysis of quantum programs''.
+\newblock \href{https://dx.doi.org/10.1016/j.parco.2014.12.001}{Parallel
+  Computing {\bf 45}, 2--17}~(2015).
+
+\bibitem{scherer2017resource}
+Artur Scherer, Beno{\^i}t Valiron, Siun-Chuon Mau, Scott Alexander, Eric
+  van~den Berg, and Thomas~E. Chapuran.
+\newblock ``Concrete resource analysis of the quantum linear-system algorithm
+  used to compute the electromagnetic scattering cross section of a {2D}
+  target''.
+\newblock \href{https://dx.doi.org/10.1007/s11128-016-1495-5}{Quantum
+  Information Processing {\bf 16}, 60}~(2017).
+
+\bibitem{fillion2017dirac}
+Fran{\c{c}}ois Fillion-Gourdeau, Steve MacLean, and Raymond Laflamme.
+\newblock ``Algorithm for the solution of the {Dirac} equation on digital
+  quantum computers''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevA.95.042343}{Physical Review
+  A {\bf 95}, 042343}~(2017).
+
+\bibitem{paykin2017qwire}
+Jennifer Paykin, Robert Rand, and Steve Zdancewic.
+\newblock ``{QWIRE}: A core language for quantum circuits''.
+\newblock In Proceedings of the 44th ACM SIGPLAN Symposium on Principles of
+  Programming Languages (POPL 2017).
+\newblock \href{https://dx.doi.org/10.1145/3009837.3009894}{Pages 846--858}.
+\newblock ~(2017).
+
+\bibitem{fu2023protoquipper}
+Peng Fu, Kohei Kishida, Neil~J. Ross, and Peter Selinger.
+\newblock ``Proto-quipper with dynamic lifting''.
+\newblock \href{https://dx.doi.org/10.1145/3571204}{Proceedings of the ACM on
+  Programming Languages {\bf 7}, 309--334}~(2023).
+
+\bibitem{bichsel2020silq}
+Benjamin Bichsel, Maximilian Baader, Timon Gehr, and Martin Vechev.
+\newblock ``{Silq}: A high-level quantum language with safe uncomputation and
+  intuitive semantics''.
+\newblock In Proceedings of the 41st ACM SIGPLAN Conference on Programming
+  Language Design and Implementation (PLDI 2020).
+\newblock \href{https://dx.doi.org/10.1145/3385412.3386007}{Pages 286--300}.
+\newblock ~(2020).
+
+\bibitem{steiger2018projectq}
+Damian~S. Steiger, Thomas H{\"a}ner, and Matthias Troyer.
+\newblock ``{ProjectQ}: An open source software framework for quantum
+  computing''.
+\newblock \href{https://dx.doi.org/10.22331/q-2018-01-31-49}{Quantum {\bf 2},
+  49}~(2018).
+
+\bibitem{smith2016quil}
+Robert~S. Smith, Michael~J. Curtis, and William~J. Zeng.
+\newblock ``A practical quantum instruction set architecture''~(2016).
+\newblock  \href{http://arxiv.org/abs/1608.03355}{arXiv:1608.03355}.
+
+\bibitem{cirqdevelopers2020cirq}
+{Cirq Developers}.
+\newblock ``Cirq''.
+\newblock Zenodo~(2020).
+\newblock Version 0.8.0; \url{https://github.com/quantumlib/Cirq}.
+
+\bibitem{javadiabhari2024qiskit}
+Ali Javadi-Abhari, Matthew Treinish, Kevin Krsulich, Christopher~J. Wood, Jake
+  Lishman, Julien Gacon, Simon Martiel, Paul~D. Nation, Lev~S. Bishop,
+  Andrew~W. Cross, Blake~R. Johnson, and Jay~M. Gambetta.
+\newblock ``Quantum computing with {Qiskit}''~(2024).
+\newblock  \href{http://arxiv.org/abs/2405.08810}{arXiv:2405.08810}.
+
+\bibitem{cross2022openqasm3}
+Andrew~W. Cross, Ali Javadi-Abhari, Thomas Alexander, Niel de~Beaudrap, Lev~S.
+  Bishop, Steven Heidel, Colm~A. Ryan, Prasahnt Sivarajah, John Smolin, Jay~M.
+  Gambetta, and Blake~R. Johnson.
+\newblock ``{OpenQASM} 3: A broader and deeper quantum assembly language''.
+\newblock \href{https://dx.doi.org/10.1145/3505636}{ACM Transactions on Quantum
+  Computing {\bf 3}, 1--50}~(2022).
+
+\bibitem{seidel2023qrisp}
+Raphael Seidel, Nikolay Tcholtchev, Sebastian Bock, and Manfred Hauswirth.
+\newblock ``Uncomputation in the {Qrisp} high-level quantum programming
+  framework''.
+\newblock In Reversible Computation (RC 2023), Lecture Notes in Computer
+  Science.
+\newblock \href{https://dx.doi.org/10.1007/978-3-031-38100-3_11}{Pages
+  150--165}.
+\newblock ~(2023).
+
+\bibitem{sivarajah2021tket}
+Seyon Sivarajah, Silas Dilkes, Alexander Cowtan, Will Simmons, Alec Edgington,
+  and Ross Duncan.
+\newblock ``{t$\vert$ket$\rangle$}: A retargetable compiler for {NISQ}
+  devices''.
+\newblock \href{https://dx.doi.org/10.1088/2058-9565/ab8e92}{Quantum Science
+  and Technology {\bf 6}, 014003}~(2021).
+
+\bibitem{amy2020staq}
+Matthew Amy and Vlad Gheorghiu.
+\newblock ``staq---a full-stack quantum processing toolkit''.
+\newblock \href{https://dx.doi.org/10.1088/2058-9565/ab9359}{Quantum Science
+  and Technology {\bf 5}, 034016}~(2020).
+
+\bibitem{svore2018qsharp}
+Krysta~M. Svore, Alan Geller, Matthias Troyer, John Azariah, Christopher
+  Granade, Bettina Heim, Vadym Kliuchnikov, Mariia Mykhailova, Andres Paz, and
+  Martin Roetteler.
+\newblock ``{Q\#}: Enabling scalable quantum computing and development with a
+  high-level {DSL}''.
+\newblock In Proceedings of the Real World Domain Specific Languages Workshop
+  2018 (RWDSL 2018).
+\newblock \href{https://dx.doi.org/10.1145/3183895.3183901}{Pages 1:1--1:10}.
+\newblock ~(2018).
+
+\bibitem{dalzell2025qram}
+Alexander~M. Dalzell, Andr{\'a}s Gily{\'e}n, Connor~T. Hann, Sam McArdle, Grant
+  Salton, Quynh~T. Nguyen, Aleksander Kubica, and Fernando G. S.~L.
+  Brand{\~a}o.
+\newblock ``A distillation-teleportation protocol for fault-tolerant
+  {QRAM}''~(2025).
+\newblock  \href{http://arxiv.org/abs/2505.20265}{arXiv:2505.20265}.
+
+\bibitem{kitaev1995pea}
+A.~Yu. Kitaev.
+\newblock ``Quantum measurements and the {Abelian} stabilizer problem''~(1995).
+\newblock
+  \href{http://arxiv.org/abs/quant-ph/9511026}{arXiv:quant-ph/9511026}.
+
+\bibitem{nielsen2000quantum}
+Michael~A. Nielsen and Isaac~L. Chuang.
+\newblock ``Quantum computation and quantum information''.
+\newblock \href{https://dx.doi.org/10.1017/CBO9780511976667}{Cambridge
+  University Press}. ~(2000).
+
+\bibitem{brassard2002amplitude}
+Gilles Brassard, Peter H{\o}yer, Michele Mosca, and Alain Tapp.
+\newblock ``Quantum amplitude amplification and estimation''.
+\newblock \href{https://dx.doi.org/10.1090/conm/305/05215}{Contemporary
+  Mathematics {\bf 305}, 53--74}~(2002).
+
+\bibitem{wang2026cbmd}
+Chao Wang.
+\newblock ``Quantum simulation of non-{Hermitian} special functions and
+  dynamics via contour-based matrix decomposition''.
+\newblock \href{https://dx.doi.org/10.1088/2058-9565/ae7b7e}{Quantum Science
+  and Technology {\bf 11}, 035027}~(2026).
+\newblock  \href{http://arxiv.org/abs/2511.10267}{arXiv:2511.10267}.
+
+\bibitem{meng2023fluid}
+Zhaoyuan Meng and Yue Yang.
+\newblock ``Quantum computing of fluid dynamics using the hydrodynamic
+  {Schr\"odinger} equation''.
+\newblock \href{https://dx.doi.org/10.1103/PhysRevResearch.5.033182}{Physical
+  Review Research {\bf 5}, 033182}~(2023).
+
+\bibitem{bharadwaj2025fluid}
+Satish~S. Bharadwaj and Katepalli~R. Sreenivasan.
+\newblock ``Towards simulating fluid flows with quantum computing''.
+\newblock \href{https://dx.doi.org/10.1007/s12046-024-02660-3}{S{\=a}dhan{\=a}
+  {\bf 50}, 57}~(2025).
+
+\bibitem{gidney2021factor}
+Craig Gidney and Martin Eker{\aa}.
+\newblock ``How to factor 2048 bit {RSA} integers in 8 hours using 20 million
+  noisy qubits''.
+\newblock \href{https://dx.doi.org/10.22331/q-2021-04-15-433}{Quantum {\bf 5},
+  433}~(2021).
+
+\end{thebibliography}

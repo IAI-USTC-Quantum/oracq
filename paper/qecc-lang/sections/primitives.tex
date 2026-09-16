@@ -1,0 +1,178 @@
+\section{Primitives for quantum scientific computing}
+\label{sec:primitives}
+
+The primitive library is the layer that realizes the input-model and
+transform strata of \figref{fig:stack}.  We describe its components in the
+order in which a solver consumes them: block-encoding algebra
+(\secref{sec:be-algebra}), data loading and sparse access
+(\secref{sec:dataloading}), the qubitization/QSVT/QSP engine
+(\secref{sec:qsvt}), estimation and readout primitives
+(\secref{sec:estimation}), reversible arithmetic and the math-function
+compiler (\secref{sec:mathfunc}), and the broader scientific-computing suite
+(\secref{sec:sc-suite}).  Table~\ref{tab:primitives} summarizes.
+
+\subsection{Block-encoding algebra}
+\label{sec:be-algebra}
+
+A \texttt{BlockEncoding} is a first-class object: an operation together with
+its normalization factor $\alpha$ (carried as an RIR attribute) and
+capability flags.  The library provides the closure operations that
+scientific-computing analyses take for granted: products, scalar rescaling,
+linear combinations, general LCU assembly (with square-root-weight
+PREPAREs), tensor products, adjoints, Kronecker sums, direct sums,
+projectors, truncated shift lattices (the structured encodings produced by
+finite-difference and stencil discretizations), Pauli words, and small
+explicit Pauli expansions for prototyping.  Because every algebraic node is
+a real module graph over real oracles, $\alpha$ bookkeeping, capability
+propagation, and openness all flow through composition exactly as
+\secref{sec:oracles} prescribes (R2, R6).
+
+\subsection{Data loading and sparse access}
+\label{sec:dataloading}
+
+Between a mathematical input model and a circuit lies the data-loading
+problem, and the library treats it as a family of interchangeable
+realizations behind the oracle slots of \secref{sec:qram}:
+
+\begin{itemize}
+\item \textbf{Select-swap QROM} with an explicit partition cost model, so
+  that the cost of a given table shape can be read off before choosing a
+  realization;
+\item \textbf{Alias-sampling PREPAREs} for LCU coefficients;
+\item \textbf{XOR databases} in gate, QRAM, and banked (multi-bank,
+  wide-word) forms;
+\item \textbf{Sparse-access pairs}: a location oracle plus an entry XOR
+  oracle, in gate and QRAM forms---the input model consumed by
+  Childs--Kothari--Somma-style linear-system kernels;
+\item \textbf{State preparations}: gate compilations, QRAM-backed
+  rotation-angle memories, uniform and basis states, subspace selection, and
+  the \emph{application} of a block-encoding to a state.
+\end{itemize}
+
+Interchangeability is testable: the example suite runs the same open problem
+with gate and QRAM realizations bound to the same slot and cross-checks
+full amplitudes on native backends---the semantics must agree bit for bit.
+
+\subsection{Qubitization, QSVT, and a self-verifying QSP engine}
+\label{sec:qsvt}
+
+The transform layer is built on qubitization: the library assembles
+qubitization walks from PREPARE--SELECT pairs~\cite{low2019qubitization,gilyen2019qsvt}, composes QSVT phase
+sequences, and applies oblivious amplitude amplification where the analysis
+calls for it.  Its distinctive component is the \emph{quantum signal
+processing phase engine}: given a target polynomial, it synthesizes QSP
+phases by complement-polynomial rooting (a Durand--Kerner iteration)
+followed by layer stripping, supports degrees up to $40$, and
+\emph{self-verifies} by round-tripping the synthesized phases to a residual
+around $10^{-9}$ before any circuit is built.  Standard transformations are
+provided on top: matrix inversion (the $\mathrm{J}$-polynomial response for
+QLSS), eigenstate filtering, Hamiltonian simulation via Jacobi--Anger
+cosine/sine branches, and fixed-point search in closed form.  This is
+currently the most numerically hardened part of the stack: it is exercised
+by dedicated circuit-level tests, including amplitude checks on real
+backends (\secref{sec:implementation}).
+
+\subsection{Estimation and readout primitives}
+\label{sec:estimation}
+
+The estimation family is assembled from the same modularity discipline:
+phase estimation~\cite{kitaev1995pea,nielsen2000quantum} keeps its iterate powers as symbolic \texttt{Repeat} nodes
+(R5); amplitude estimation~\cite{brassard2002amplitude} is composed as QPE on the Grover iterate with an
+explicit decoder; Hadamard tests produce real and imaginary parts; swap
+tests compare registers.  All are unitary modules whose \emph{measurement
+plans} are standard host-side readouts (\secref{sec:readout}).  Search
+infrastructure (Grover iterations, coherent amplification of zero-signal
+subspaces) and quantum walks (coined lattice walks and Szegedy walks with
+MNRS-style search, driven by pluggable neighbor-table oracles) round out the
+algorithmic base layer.
+
+\subsection{Reversible arithmetic and the math-function compiler}
+\label{sec:mathfunc}
+
+Scientific-computing circuits eat and produce \emph{numbers}, so arithmetic
+is a load-bearing primitive.  The library provides fixed-point reversible
+arithmetic---addition, subtraction, negation, absolute value,
+multiplication, division, reciprocal, square root, comparisons, selection,
+bitwise operations---as \emph{status-flagged} networks: every path sets
+domain-invalid and overflow bits that propagate through composition, so a
+guarded reciprocal is a first-class object rather than a comment.  Networks
+are built from an XOR/AND/NOT SSA representation with compute/uncompute
+scheduling over enforced-zero workspaces, and native backends may compile
+whole arithmetic modules to C++ operators charged unit cost
+(\secref{sec:architecture}).
+
+On top of arithmetic sits the \emph{math-function compiler}, which turns
+ordinary pure Python functions into reversible modules without executing
+them:
+
+\begin{lstlisting}[style=pyqpython, caption={Compiling a pure Python numerical function to a reversible module (verbatim from the doctested manual; the gas-dynamics pressure function used by the QFVM pipeline of \secref{sec:casestudies}).  The compiler reads the abstract syntax tree (imports restricted to \texttt{math}/\texttt{cmath}; no execution), folds constants, emits a typed SSA middle IR (MIR~0.1), and lowers to an RIR module with fixed-point ports and propagated status flags.  The calling convention is the XOR-update ABI: inputs preserved, result XOR'd into the \texttt{out} register, domain/overflow state XOR'd into \texttt{status}.}, label={lst:mathfunc}]
+from pyqecclang import FixedFormat, compile_function, export_toffoli_u3_cz
+
+def pressure(rho, momentum, energy, gamma=1.4):
+    velocity = momentum / rho
+    return (gamma - 1) * (energy - 0.5 * momentum * velocity)
+
+compiled = compile_function(
+    pressure,
+    fmt=FixedFormat(width=12, fraction=6),
+    constants={"gamma": 1.4},          # generation-time parameter
+)
+operation = compiled.operation         # ports: rho, momentum, energy,
+program = compiled.program()           #       out, status
+originir = export_toffoli_u3_cz(program).text
+\end{lstlisting}
+
+The frontend performs constant folding and bounded inlining of non-recursive
+helpers; the middle IR is a typed SSA DAG (real/complex/bool kinds, explicit
+selection of booleans into numerics) with its own schema; the lowering emits
+compute / XOR-update / uncompute schedules honoring the workspace ABI.
+Elementary kernels (exponentials, trigonometric and hyperbolic functions,
+square roots, two-argument arctangent) are polynomial approximations with
+per-intrinsic interval bounds, complex kernels decompose into real ones
+(e.g.\ $e^{z} = e^{\operatorname{Re}z}(\cos\operatorname{Im}z +
+i\sin\operatorname{Im}z)$), integer powers proceed by square-and-multiply,
+and domain/accuracy status flags propagate through every path.  The result
+is that \emph{classical numerical expertise written as Python} becomes a
+reversible oracle implementation---the bridge that applications such as the
+Roe flux (\secref{sec:casestudies}) cross.
+
+\subsection{The broader scientific-computing suite}
+\label{sec:sc-suite}
+
+Beyond the linear-algebra core, the library includes input models and
+algorithms from across quantum scientific computing, each with the same
+declare/carry/bind discipline: Heinrich's quantum summation and numerical
+integration; Jordan's gradient estimation from phase oracles;
+density-matrix input models via \emph{purification access} (with Gibbs-state
+preparation by QSVT Chebyshev/Bessel truncation, partial traces, and trace
+distance); quantum PCA by density-matrix exponentiation; a quantum SDP
+solver scaffold (penalty Hamiltonians, Gibbs solves, trace estimation, and
+the matrix-multiplicative-weights outer loop at the host); low-rank
+double-factorization and tensor-hypercontraction block-encodings for
+quantum chemistry; and decoded quantum interferometry for GF(2)
+optimization.  This breadth exists to exercise the language machinery
+across input-model variety---and it is what the ODE/PDE stack of the next
+section builds on.
+
+\begin{table}[t]
+  \centering
+  \caption{Primitive inventory, organized by the strata of
+  \figref{fig:stack}.  Every family is assembled from modules and honors the
+  oracle lifecycle of \secref{sec:oracles}; ``open-slot ready'' means the
+  family can be generated against abstract declarations.}
+  \label{tab:primitives}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{3.0cm}p{7.1cm}p{3.1cm}@{}}
+    \toprule
+    \tabhead{Family} & \tabhead{Contents} & \tabhead{Status} \\
+    \midrule
+    Block-encoding algebra & products, scaling, linear combinations, LCU, tensor, adjoint, Kronecker sum, direct sum, projectors, stencil shifts, Pauli words & implemented; tested; open-slot ready \\
+    Data loading & select-swap QROM (partition cost model), alias sampling, XOR databases (gate/QRAM/banked), sparse access pairs, state preparations & implemented; native cross-checked \\
+    QSP/QSVT & phase synthesis (self-verifying, degree $\le 40$), qubitization walks, oblivious amplitude amplification, inversion / eigenstate filters / Hamiltonian simulation / fixed-point search & implemented; numerically hardened \\
+    Hamiltonian simulation & first-order Pauli Trotter; truncated-Taylor LCU (default kernel); QSP kernel injectable & Trotter/Taylor implemented; general QSP kernel by injection \\
+    Estimation & phase estimation (symbolic powers), amplitude estimation + decoder, Hadamard tests, swap tests & implemented \\
+    Arithmetic \& math functions & status-flagged fixed-point arithmetic; Python AST $\rightarrow$ SSA MIR $\rightarrow$ RIR compiler with polynomial kernels & implemented; native cross-checked \\
+    Scientific suite & integration (Heinrich), gradients (Jordan), density models via purification, Gibbs, QPCA, SDP scaffold, DF/THC low-rank, DQI & implemented at interface level; maturity varies (\secref{sec:implementation}) \\
+    \bottomrule
+  \end{tabular}
+\end{table}

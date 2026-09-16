@@ -1,0 +1,415 @@
+\section{Reproducing the examples}
+\label{app:repro}
+
+All listings in this paper are drawn from the repository's doctested
+tutorials, examples, and tests of \pqlang{} 0.8.0.  The commands below
+regenerate the artifacts referenced in the text:
+
+\begin{lstlisting}[style=pyqbase, language=bash, caption={Reproduction commands (generation and export have no third-party requirements; native cross-checks require the pinned backend environments).}, label={lst:repro}]
+# tutorials and core semantics
+python -m unittest discover -s tests/core -v
+
+# gallery: 22 cases, RIR + OriginIR-ext + strict gate set exports
+python examples/algorithm_gallery.py            # add --native for backend agreement
+
+# oracle/protocol/QODE/QHAM demonstration programs
+python examples/algorithm_contracts.py
+python examples/ode_input_models.py             # 11 input-model cases
+python examples/input_models.py                 # 14 input-model variants over 4 families
+python examples/general_qham.py                 # forced Burgers at order 2
+python examples/math_functions.py
+
+# static checks
+ruff check src tests examples
+
+# numerical verification campaign (Section 9.3): 473 experiments in 13
+# groups, writes machine-readable reports to out/verification/
+PYTHONPATH=src <backend-python> tools/run_verification.py
+\end{lstlisting}
+
+The native configuration runs the same examples under interpreters
+providing \texttt{pysparq} and \texttt{uniqc}; revision pins are recorded in
+the repository's backend revision ledger.  The verification campaign
+requires both backends: the PySparQ path executes RIR natively through
+\texttt{pysparq.rir}, and the OriginIR-ext path uses UnifiedQuantum's
+\texttt{Circuit.to\_matrix()}---both contributed as part of this work.
+
+\section{The four solver families in code}
+\label{app:families}
+
+This appendix shows, for each of the four solver territories of
+\secref{sec:ode}, a complete input program drawn verbatim from the
+repository's doctested examples (comments translated from Chinese;
+artifact bookkeeping is elided at the marked points).  The point of
+interest is not the numerics but what stays \emph{open} and what is
+\emph{swappable} in each family: every listing contains at least one
+\texttt{abstract\_*} declaration that the same program could bind
+differently, and every solver entry accepts its kernel configuration as an
+argument (R1, R2, R5).
+
+\subsection{QHAM: from a symbolic PDE to a solver-ready input model}
+\label{app:qham}
+
+\lstref{lst:qham} is the repository's forced-Burgers example
+(\texttt{examples/general\_qham.py}) in full.  The equation is entered
+\emph{symbolically}---a \texttt{PolynomialPDE} over a \texttt{Field}
+expression, with the forcing term declared as named data
+(\texttt{Known("forcing")}) rather than a baked-in array.  The homotopy
+plan fixes the linearization order ($m=2$) and the homotopy parameter
+($\eta=-0.4$); the structured finite-difference bindings carry the
+stencil-structured ports and the lifted initial state.  The result,
+\texttt{qode\_input}, is an open QODE input model: it can be handed to any
+solver family, and the physically owned pieces (coefficient block-encodings,
+forcing data) remain bindable separately.
+
+\begin{lstlisting}[style=pyqpython, caption={QHAM end to end: symbolic polynomial PDE, homotopy-analysis plan, structured discretization, and a solver handed in from outside (verbatim from the doctested example \texttt{examples/general\_qham.py}; comments translated).}, label={lst:qham}]
+from functools import partial
+
+from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.ode import linear_qode
+from pyqecclang.applications.qham import (
+    Discretization,
+    Field,
+    Grid,
+    Known,
+    PolynomialPDE,
+    QHAMPlan,
+    qham_input_model,
+    structured_fd_bindings,
+)
+
+u = Field("u")
+pde = PolynomialPDE.from_equations(
+    {"u": 0.1 * u.d("x", 2) - u * u.d("x") + Known("forcing")},
+    label="forced_burgers",
+)
+plan = QHAMPlan(pde, order=2)
+grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
+space = Discretization(pde, grid, {"forcing": [0.05, 0, -0.05, 0]})
+initial = space.encode_fields({"u": [0.1, 0.2, 0, -0.1]})
+bindings = structured_fd_bindings(space, initial)
+qode_input = qham_input_model(plan, bindings, eta=-0.4)
+
+# Schrodingerization accepts a general generator; recovery-interval and
+# time-approximation validation remains a pending item.
+solver = linear_qode(
+    "schrodingerization", hamiltonian_function=partial(taylor_hamiltonian, degree=1)
+)
+solution = qode_input.solve(solver, 0.01)
+\end{lstlisting}
+
+\subsection{Carleman: nonlinear lift with a swappable linear solver}
+\label{app:carleman}
+
+\lstref{lst:carleman} (case~6 of \texttt{examples/ode\_input\_models.py})
+runs the inviscid Burgers equation through the Carleman pipeline.  Each
+polynomial coefficient $F_p$ of the lifted generator is declared as an
+\emph{open} block-encoding slot (\texttt{BurgersF$p$}) and bound to the
+operation produced by the stencil ports, so the discretization could be
+replaced without touching the problem assembly.  The lifted problem is a
+\texttt{PolynomialODE}; the solver,
+\texttt{carleman\_qode(linear\_solver=..., cutoff=2)}, receives the linear
+solver as an argument, and the loop solves the \emph{same} nonlinear
+problem twice---once through Schr\"odingerization and once through
+norm-shifted LCHS---which is exactly the ``Carleman lands in the same
+linear-solver position'' claim of \secref{sec:ode-solvers}.
+
+\begin{lstlisting}[style=pyqpython, caption={Carleman lift of Burgers: open coefficient block-encodings, an open lifted initial state, and a linear solver injected per call (verbatim from case~6 of \texttt{examples/ode\_input\_models.py}; comments translated, artifact serialization elided).}, label={lst:carleman}]
+u = Field("u")
+pde = PolynomialPDE.from_equations({"u": 0.1 * u.d("x", 2) - u * u.d("x")})
+space = Discretization(pde, grid)
+ports = structured_fd_bindings(space, space.encode_fields({"u": [0.1, 0.2, 0, -0.1]}))
+concrete = polynomial_from_bindings(ports)
+coefficient_slots, bindings = [], {}
+for order, coefficient in concrete.coefficients:
+    name = "BurgersF" + str(order)
+    slot = abstract_block_encoding(
+        name, coefficient.width, coefficient.signal_qubits, coefficient.alpha
+    )
+    coefficient_slots.append((order, slot))
+    bindings[name] = coefficient.operation
+initial_slot = abstract_state_prep(
+    "BurgersInitial", concrete.width, concrete.initial.work_width
+)
+bindings["BurgersInitial"] = concrete.initial.operation
+problem = PolynomialODE(
+    concrete.width, tuple(coefficient_slots), initial_slot, concrete.initial_norm
+)
+recovery = {}
+for method, solver in (
+    ("schrodingerization", schrodinger),
+    ("shifted_lchs", shifted_solver(lchs, recovery)),
+):
+    nonlinear_solver = partial(carleman_qode, linear_solver=solver, cutoff=2)
+    state = qpde_solver(nonlinear_solver)(PDEInput(problem, "burgers"), time)
+\end{lstlisting}
+
+\subsection{LCHS: one open program, two data-path realizations}
+\label{app:lchs}
+
+\lstref{lst:lchs} condenses three cases of
+\texttt{examples/ode\_input\_models.py}.  The protocol object is built by
+the uniform \texttt{linear\_qode} front with two swappable arguments: the
+quadrature plan (Cauchy, cutoff 1) and the injectable Hamiltonian-function
+kernel.  The first problem declares only an abstract generator block-encoding;
+the third declares a rotation-angle database, and the \emph{same} open
+program is then closed twice---once against a gate realization of the
+database and once against a QRAM database with a runtime memory
+table---with no change to the program itself (R2).
+
+\begin{lstlisting}[style=pyqpython, caption={LCHS: the protocol takes its quadrature plan and kernel as arguments; one open program is bound to a gate database or to a QRAM database with a runtime table (verbatim from \texttt{examples/ode\_input\_models.py}, inside \texttt{main()}; comments translated, artifact records elided where marked).}, label={lst:lchs}]
+time = 0.05
+hamiltonian_function = partial(taylor_hamiltonian, degree=1)
+quadrature = QuadraturePlan.cauchy(cutoff=1, spacing=1.0)
+lchs = linear_qode("lchs", plan=quadrature, hamiltonian_function=hamiltonian_function)
+
+# Generator block-encoding given directly; G = -I.  The work qubits are
+# reserved for the QRAM initial-state realization used below.
+initial = abstract_state_prep("Initial", 1, work_width=3)
+initial_gate = gate_state_prep([1, 1], work_width=3)
+generator = abstract_block_encoding("Generator", 1, 0, 1.0)
+state = lchs(generator, initial, time)
+# ... artifact record elided ...
+
+# Same open graph, bound once against a gate database and once against
+# a QRAM database plus state preparation.  The data are rotation-angle
+# integer encodings; A = diag(1, cos(pi/4)), G = -A.
+angles = abstract_database("DiagonalAngles", 1, 2)
+a = diagonal_block_encoding(angles, alpha=1.0)
+state = lchs(scale(-1, a), initial, time)
+records.append(
+    write(
+        "given_xor_gate_lchs",
+        state,
+        {
+            "DiagonalAngles": gate_database(1, 2, [0, 1]).operation,
+            "Initial": initial_gate.operation,
+        },
+    )
+)
+# ... and the QRAM realization of the same slots:
+records.append(
+    write(
+        "given_xor_qram_lchs",
+        state,
+        {
+            "DiagonalAngles": Binding(
+                qram_database(1, 2).operation, {"table": "diagonal_angles"}
+            ),
+            "Initial": Binding(qram_state_prep(1, 2).operation, {"angles": "initial_angles"}),
+        },
+        memory={
+            "diagonal_angles": [0, 1],
+            "initial_angles": qram_state_angles([1, 1], 2),
+        },
+    )
+)
+\end{lstlisting}
+
+\subsection{CBMD: the contour family under a dissipative shift}
+\label{app:cbmd}
+
+The CBMD family is reached through the same uniform front---the only
+difference from \lstref{lst:qode-swap} is the family name string.
+Because the contour construction requires a strictly dissipative
+generator, the QHAM input model of \lstref{lst:qham} first applies
+its \texttt{dissipative\_shift} adaptation (the explicit global shift
+$G \mapsto G - \mu I$ with the host tracking the norm bookkeeping); the
+shifted model then solves against \texttt{"cbmd"} with the default contour
+configuration and the same injectable kernel.  \lstref{lst:cbmd}
+is the final block of \texttt{examples/general\_qham.py}: two lines
+separate the Schr\"odingerization solution of \lstref{lst:qham}
+from the CBMD solution of the same problem.
+
+\begin{lstlisting}[style=pyqpython, caption={CBMD: the same QHAM input model after \texttt{dissipative\_shift}, solved by naming the family (verbatim from the final block of \texttt{examples/general\_qham.py}; comments translated).}, label={lst:cbmd}]
+# For CBMD/LCHS, apply the explicit global shift that makes the
+# generator dissipative first.
+shifted = qode_input.dissipative_shift()
+cbmd_solution = shifted.solve(
+    linear_qode("cbmd", hamiltonian_function=partial(taylor_hamiltonian, degree=1)), 0.01
+)
+\end{lstlisting}
+
+Across the four families the pattern is constant: symbolic or structured
+problem entry, oracle slots declared open at the point where physics or
+hardware ownership is contested, and solver families selected by name with
+their approximation kernels injected as ordinary arguments.  None of the
+listings constructs a circuit; the closest any of them comes to circuit
+vocabulary is the binding dictionary that names which realization closes
+which slot.
+
+\subsection{One problem, many data paths: the input-model matrix}
+\label{app:input-models}
+
+Sections~\ref{app:qham}--\ref{app:cbmd} fixed one input model per family;
+\texttt{examples/input\_models.py} instead holds the \emph{problem} fixed
+and varies the data path, producing the fourteen artifacts of
+\tabref{tab:input-models}.  Three input-model families
+appear.  \emph{Structured gate stencils} bake the stencil and coefficient
+data into gate logic (the baseline of the previous subsections).
+\emph{Spectral embeddings} replace the structured construction by an
+exact Pauli-LCU decomposition of each port matrix
+(\texttt{gate\_bindings}) or of a given generator
+(\texttt{matrix\_pauli\_encoding}); the same decomposition with a
+\texttt{qram\_prepare} table turns the Pauli coefficients into QRAM
+runtime data.  \emph{QRAM data paths} leave the data in named resources:
+coefficient values become angle words in an open database slot
+(\texttt{qram\_coefficient\_encoding}, plugged into the
+\texttt{coefficient\_encoder} hook of the structured bindings), the
+grid's sparse-access position and entry oracles become QRAM tables, and
+the initial state is loaded through \texttt{qram\_state\_prep}.
+
+\begin{table}[t]
+  \centering
+  \caption{The input-model matrix of \texttt{examples/input\_models.py}.
+  All artifacts share the same small instances (forced Burgers for QHAM,
+  Burgers with a space-dependent viscosity for the Carleman QRAM row, a
+  given $2\times2$ generator, and a four-node ring Laplacian).  ``Open
+  slots'' lists what remains unbound in the exported program; ``runtime
+  tables'' lists the QRAM resources present after closing (memory
+  supplied separately).  Gate rows are exact; angle-table rows carry the
+  declared \texttt{angle\_width} quantization.}
+  \label{tab:input-models}
+  \footnotesize
+  \setlength{\tabcolsep}{3.5pt}\begin{tabular}{@{}p{1.5cm}p{4.3cm}p{3.9cm}p{4.3cm}@{}}
+    \toprule
+    \tabhead{Family} & \tabhead{Input model} & \tabhead{Open slots} & \tabhead{Runtime tables} \\
+    \midrule
+    QHAM & structured stencil ports (gate) & --- & --- \\
+    QHAM & spectral ports (Pauli LCU) & --- & --- \\
+    QHAM & coefficient-angle db + declared initial & coefficient db, initial & \texttt{coeff\_angles}, \texttt{initial\_angles} (gate table or QRAM) \\
+    \midrule
+    Carleman & structured stencil ports & $F_1$, $F_2$, initial & --- \\
+    Carleman & spectral ports (Pauli LCU) & $F_1$, $F_2$, initial & --- \\
+    Carleman & viscosity field via angle database + QRAM initial & $\nu$ db, $F_1$, $F_2$, initial & \texttt{nu\_angles}, \texttt{initial\_angles} \\
+    \midrule
+    LCHS & given spectral generator (gate) & Generator, Initial & --- \\
+    LCHS & given spectral generator, QRAM PREPARE & Generator, Initial & \texttt{spectral\_angles} \\
+    LCHS & QRAM grid stencil + QRAM initial & position, entry, initial & \texttt{positions}, \texttt{inverse\_positions}, \texttt{entries}, \texttt{grid\_angles} \\
+    \midrule
+    CBMD & given spectral generator (gate) & Generator, Initial & --- \\
+    CBMD & given spectral generator, QRAM PREPARE & Generator, Initial & \texttt{spectral\_angles} \\
+    CBMD & QRAM grid stencil + QRAM initial & position, entry, initial & \texttt{positions}, \texttt{inverse\_positions}, \texttt{entries}, \texttt{grid\_angles} \\
+    CBMD & QHAM coefficient input after \texttt{dissipative\_shift} & coefficient db, initial & \texttt{coeff\_angles}, \texttt{initial\_angles} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\lstref{lst:input-qham} shows the QHAM row: the coefficient database and
+the initial state are declared open, the program is solved once, and the
+\emph{same} open program closes against a gate truth table or against a
+QRAM database with a runtime table.  \lstref{lst:input-grid} shows the
+grid row: the four-node ring Laplacian is exposed as a sparse-access
+oracle pair whose position and entry tables are QRAM resources, wrapped
+as a \texttt{DiscretePDE} and solved unchanged by two different families.
+
+\begin{lstlisting}[style=pyqpython, caption={QHAM with a coefficient-angle database: one open program, closed against a gate database or a QRAM database (condensed from \texttt{examples/input\_models.py}; comments translated, slot discovery and artifact records elided).}, label={lst:input-qham}]
+profile = [0.1, 0.2, 0.15, 0.05]  # QRAM angle tables take non-negative amplitudes
+qinitial = space.encode_fields({"u": profile})
+encoder = partial(qram_coefficient_encoding, angle_width=8)
+open_bindings = structured_fd_bindings(space, qinitial, coefficient_encoder=encoder)
+open_bindings = QHAMBindings(
+    open_bindings.state_width,
+    open_bindings.ports,
+    abstract_state_prep("QhamInitial", open_bindings.state_width, 10),
+    open_bindings.initial_norm,
+)
+model = qham_input_model(plan, open_bindings, eta=-0.4)
+state = model.solve(schrodinger, 0.01)
+# ... the coefficient database slot is discovered from the open program ...
+records.append(write("qham_coeff_gate", state, {
+    db_slot: gate_database(2, 8, word_table).operation,
+    "QhamInitial": gate_state_prep(profile, work_width=10).operation,
+}))
+records.append(write("qham_coeff_qram", state, {
+    db_slot: Binding(qram_database(2, 8).operation, {"table": "coeff_angles"}),
+    "QhamInitial": Binding(qram_state_prep(2, 8).operation, {"angles": "initial_angles"}),
+}, memory={
+    "coeff_angles": word_table,
+    "initial_angles": qram_state_angles(profile, 8),
+}))
+\end{lstlisting}
+
+\begin{lstlisting}[style=pyqpython, caption={A QRAM-served grid discretization: the ring Laplacian as a sparse-access oracle pair with QRAM position and entry tables, plus a QRAM initial state; \texttt{make\_qpde} threads it into two solver families unchanged (verbatim from \texttt{examples/input\_models.py}; comments translated, runtime tables elided).}, label={lst:input-grid}]
+fmt = FixedFormat(4, 1)
+access = abstract_sparse_access("RingStencil", 2, fmt.width, sparsity=3)
+laplacian = real_symmetric_sparse_encoding(access, fmt, 2.0, diagonal_nonnegative=True)
+heat = DiscretePDE(
+    scale(-0.1, laplacian),
+    abstract_state_prep("GridInitial", 2, 10),
+    label="ring_heat",
+)
+# ... forward/inverse position tables, entry table, angle table elided ...
+for family, solver in (("lchs", lchs), ("cbmd", cbmd)):
+    state = make_qpde(solver)(heat, time)
+\end{lstlisting}
+
+The matrix makes the language-level point of
+\secref{sec:input-models} concrete: input models are a property
+of the \emph{program}, not of the solver.  Nothing in the LCHS, CBMD,
+Schr\"odingerization, or Carleman entries changes as the data path moves
+from gate tables to QRAM resources; the difference is entirely carried by
+which slots stay open, which resources the closed program declares, and
+which runtime tables the host must supply.  The limitations of the
+angle-table realizations are recorded honestly in the artifacts: QRAM
+state tables accept non-negative real amplitudes, and angles are
+quantized to \texttt{angle\_width} bits.  Note that the gate and QRAM
+closures of the same program encode \emph{identical} data---the gate
+truth table stores the very angle words the QRAM table would---so the two
+realizations agree exactly, and the declared quantization is the only
+approximation relative to the exact coefficients.
+
+\section{Glossary of recurring identifiers}
+\label{app:glossary}
+
+The code surface on which this paper relies is deliberately small---fifteen
+names cover every program printed here, from the minimal Bell listing to
+the QFVM pipeline.  Two conventions organize them.  First, the layering of
+\figref{fig:stack} is visible in the prefixes: \texttt{Builder} and
+\texttt{Operation} belong to the construction layer, unadorned names such
+as \texttt{Module}, \texttt{Ref}, and \texttt{Load} are RIR concepts, and
+the \texttt{abstract\_*} family lives in the algorithm libraries, which
+declare what a solver \emph{needs} without constructing anything.
+Second, solver entry points are uniform fronts rather than class
+hierarchies: \texttt{linear\_qode} and \texttt{carleman\_qode} take the
+family as data (a name string) together with injectable protocol
+arguments, which is what allows the one-line family swaps shown in
+\lstref{lst:qode-swap} and Appendix~\ref{app:families}.
+
+\begin{table}[ht]
+  \centering
+  \caption{Recurring identifiers used throughout the paper.}
+  \label{tab:glossary}
+  \small
+  \setlength{\tabcolsep}{4pt}\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{3.3cm}p{10.4cm}@{}}
+    \toprule
+    \tabhead{Identifier} & \tabhead{Meaning} \\
+    \midrule
+    \texttt{Builder} & embedded module constructor over typed register views \\
+    \texttt{Operation} & finished builder product; satisfies unitary / state-preparation / block-encoding protocols \\
+    \texttt{Module} (RIR) & named typed interface + body (or absent body $=$ open oracle slot) \\
+    \texttt{Ref} / \texttt{Span} & declarative register view; $(\text{register}, \text{start}, \text{width})$ \\
+    \texttt{QRAM} & typed resource: address width, data width, runtime table binding \\
+    \texttt{Load} & reversible memory access $|a\rangle|d\rangle \mapsto |a\rangle|d \oplus M[a]\rangle$ \\
+    \texttt{bind} / \texttt{unresolved} & oracle linking pass / open-slot gap analysis \\
+    \texttt{BlockEncoding} & operation + normalization $\alpha$ + capabilities \\
+    \texttt{QODEProblem} & linear ODE input object (generator BE, initial state, promises) \\
+    \texttt{linear\_qode} & uniform entry over LCHS / Schr\"odingerization / CBMD with injectable Hamiltonian-function kernel \\
+    \texttt{carleman\_qode} & nonlinear path: polynomial ODE $\rightarrow$ cutoff-$K$ lift $\rightarrow$ any linear solver \\
+    \texttt{qram\_coefficient\_}\\ \texttt{encoding} & coefficient diagonal as an open angle database, bound to a gate or QRAM realization \\
+    \texttt{make\_costa\_qlss} /\\ \texttt{make\_cks\_qlss} & the two QLSS kernels (interchangeable) \\
+    \texttt{SpectralPromise} & norm / smallest-singular-value bounds with provenance \\
+    \texttt{compile\_function} & pure-Python function $\rightarrow$ SSA MIR $\rightarrow$ reversible RIR module \\
+    \texttt{quantikz} & circuit-diagram export; calls as named boxes, open slots dashed \\
+    \texttt{export\_originir} & modular textual export (module calls preserved) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The table doubles as a stability statement: these names constitute the
+public surface of \pqlang{} 0.8.0 on which every doctest, gallery case,
+and catalog entry of Appendix~\ref{app:repro} is pinned.  Readers who want
+the next level of detail---constructor signatures, protocol definitions,
+and the per-family configuration records---will find them in the API
+reference shipped with the distribution, which is generated from the same
+docstrings the examples exercise.
