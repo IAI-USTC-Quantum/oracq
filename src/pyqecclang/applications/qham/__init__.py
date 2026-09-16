@@ -21,6 +21,14 @@ _EXPORTS = {
     "Discretization": ("pyqecclang.applications.qham.reference", "Discretization"),
     "Grid": ("pyqecclang.applications.qham.reference", "Grid"),
     "structured_fd_bindings": ("pyqecclang.applications.qham.stencils", "structured_fd_bindings"),
+    "qram_coefficient_encoding": (
+        "pyqecclang.applications.qham.stencils",
+        "qram_coefficient_encoding",
+    ),
+    "qram_coefficient_memory": (
+        "pyqecclang.applications.qham.stencils",
+        "qram_coefficient_memory",
+    ),
 }
 __all__ = list(_EXPORTS)
 

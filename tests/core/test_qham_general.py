@@ -6,6 +6,7 @@ import unittest
 from functools import partial
 
 from pyqecclang import ValidationError, bind, dumps, loads, simulate, unresolved
+from pyqecclang.algorithms.oracles import gate_database
 from pyqecclang.algorithms.qham import embed_rectangular, place_port
 from pyqecclang.applications.qham import (
     Block,
@@ -19,6 +20,9 @@ from pyqecclang.applications.qham import (
     gate_bindings,
     open_qham_input,
     qham_input_model,
+    qram_coefficient_encoding,
+    qram_coefficient_memory,
+    structured_fd_bindings,
     taylor_qode,
 )
 
@@ -272,3 +276,36 @@ class QhamGeneralTests(unittest.TestCase):
             entries = dict(disc.qcl_row(plan, -0.4, row))
             for column, value in enumerate(matrix[row]):
                 self.assertAlmostEqual(entries.get(column, 0), value, places=11)
+
+    def test_qram_coefficient_encoding_and_bindings(self):
+        u = Field("u")
+        pde = PolynomialPDE.from_equations({"u": u.d("x", 2) + 0.1 * Known("f")})
+        grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
+        disc = Discretization(pde, grid, {"f": [0.5, -0.25, 0.0, 1.0]})
+        monomial = next(
+            term.monomial
+            for port in disc.pde.ports
+            for term in port.terms
+            if term.monomial.known
+        )
+        encoding = qram_coefficient_encoding(disc, monomial, angle_width=8)
+        self.assertAlmostEqual(encoding.alpha, 0.1)
+        (db,) = [r.name for r in unresolved(encoding.operation.program())]
+        words = qram_coefficient_memory(disc, monomial, angle_width=8)
+        step = 2 * math.pi / (1 << 8)
+        for row, value in enumerate([0.05, -0.025, 0.0, 0.1]):
+            decoded = encoding.alpha * math.cos(words[row] * step / 2)
+            self.assertAlmostEqual(decoded, value, delta=0.1 * step / 2)
+        closed = bind(
+            encoding.operation.program(),
+            {db: gate_database(2, 8, [words.get(address, 0) for address in range(4)]).operation},
+        )
+        self.assertFalse(unresolved(closed))
+        bindings = structured_fd_bindings(
+            disc, [0.1, 0.2, 0.15, 0.05], coefficient_encoder=qram_coefficient_encoding
+        )
+        plan = QHAMPlan(pde, 2)
+        self.assertIs(bindings.validate(plan), bindings)
+        complex_disc = Discretization(pde, grid, {"f": [1j, 0, 0, 0]})
+        with self.assertRaises(ValidationError):
+            qram_coefficient_encoding(complex_disc, monomial)
