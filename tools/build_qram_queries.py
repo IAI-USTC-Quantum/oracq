@@ -5,9 +5,10 @@
 路径（结构化门端口 / 谱嵌入 / QRAM）下的对照。若产物缺失先运行
 `PYTHONPATH=src python examples/input_models.py`。
 
-运行：PYTHONPATH=src python tools/build_qram_queries.py
+运行：PYTHONPATH=src python tools/build_qram_queries.py [--cases out/input-models]
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -18,10 +19,19 @@ OUT = Path("out/resource-estimates")
 
 
 def main():
-    if not CASES.is_dir():
-        raise SystemExit("缺少 out/input-models 产物，请先运行 examples/input_models.py")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cases", type=Path, default=CASES, help="闭合 RIR 案例目录")
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=OUT / "solver_qram_queries.json",
+        help="台账产物路径",
+    )
+    args = parser.parse_args()
+    if not args.cases.is_dir():
+        raise SystemExit(f"缺少 {args.cases} 产物，请先运行 examples/input_models.py")
     records = []
-    for folder in sorted(CASES.iterdir()):
+    for folder in sorted(args.cases.iterdir()):
         closed = folder / "closed.rir.json"
         if not closed.is_file():
             continue
@@ -42,14 +52,14 @@ def main():
             f"qram={estimate.qram_total:3d} {dict(estimate.qram_queries)}",
             flush=True,
         )
-    OUT.mkdir(parents=True, exist_ok=True)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "group": "solver_qram_queries",
         "note": "out/input-models 14 个闭合案例的资源台账；同一问题不同数据路径的对照",
         "records": records,
     }
-    (OUT / "solver_qram_queries.json").write_text(json.dumps(payload, indent=2) + "\n")
-    print(f"[artifact] {OUT / 'solver_qram_queries.json'}", flush=True)
+    args.out.write_text(json.dumps(payload, indent=2) + "\n")
+    print(f"[artifact] {args.out}", flush=True)
 
 
 if __name__ == "__main__":

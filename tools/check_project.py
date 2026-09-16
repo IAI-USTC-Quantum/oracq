@@ -49,7 +49,12 @@ def main():
         ),
         (
             "qram_queries",
-            [sys.executable, "tools/build_qram_queries.py"],
+            [
+                sys.executable,
+                "tools/build_qram_queries.py",
+                "--cases",
+                str(output / "input-models"),
+            ],
         ),
     ]
     if args.docs:
