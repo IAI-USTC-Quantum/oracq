@@ -71,7 +71,7 @@ class SchrodingerPlan:
 def schrodinger_qode(
     generator, initial, time, *, plan=None, hamiltonian_function=taylor_hamiltonian
 ):
-    """u'=Gu，G=H1+iH2；Fourier lift P⊗H1-I⊗H2。"""
+    """u'=Gu，G=H1+iH2；Fourier lift −P⊗H1-I⊗H2（正 QFT 约定下恢复正向流）。"""
     operator_state_contract("schrodingerization").check(
         generator=generator, initial=initial
     ).require()
@@ -82,7 +82,7 @@ def schrodinger_qode(
     parts = HermitianParts.from_operator(generator)
     n, p = generator.width, plan.auxiliary_width
     momentum = fourier_momentum(p, plan.period)
-    hamiltonian = lcu([(1, tensor(momentum, parts.hermitian)), (-1, tensor(identity(p), parts.h))])
+    hamiltonian = lcu([(-1, tensor(momentum, parts.hermitian)), (-1, tensor(identity(p), parts.h))])
     evolution = hamiltonian_function(hamiltonian, time)
     require_instance(evolution, BlockEncoding, "schrodingerization.hamiltonian_function.output")
     grid = [

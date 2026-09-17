@@ -16,8 +16,10 @@
   * 行走算子全幺正 = (2Π−I)U，谱转角 = ±arccos(λ/α)；
   * QSVT 序列全幺正 = 交替 S(φ)·U/U† 乘积；零信号块 = p(A/α)，经典参考为
     独立实现的 2×2 乘积公式与 Chebyshev 矩阵递推（不复用被测组装逻辑）；
-  * OAA 迭代全幺正 = [R U† R U]^it；并量测零块为 X/2 的最小实例的迭代行为，
-    与标准三查询 OAA 叙事（sin θ → sin 3θ）的差距作为信息性指标记录。
+  * OAA 迭代全幺正 = U·[R U† R U]^it（历史缺陷已修复：原实现缺收尾 U，
+    只装配 [R U† R U]^it）；零块为 X/2 的最小实例上，零信号块
+    = (−1)^it·sin((2it+1)θ)·V，幅值与标准三查询 OAA 叙事（sin θ → sin 3θ）
+    逐次一致。
 
 经典参考全部独立构造：numpy/cmath 的 DFT 矩阵与置换矩阵、逐比特相位门制备
 （不经过被测 qft 组装）、显式 Pauli 展开求 α、2×2 QSP 乘积与 Chebyshev 递推。
@@ -601,7 +603,7 @@ def verify_oaa_unitary(report):
     proj = _signal_projector(dim, data)
     reflect = np.eye(dim) - 2 * proj
     iterate = reflect @ u.conj().T @ reflect @ u
-    expected = np.eye(dim, dtype=complex)
+    expected = u.copy()
     for iterations in (1, 2, 3):
         expected = expected @ iterate
         actual = originir_unitary(oblivious_amplification(be, iterations).program())
@@ -611,40 +613,42 @@ def verify_oaa_unitary(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"iterations": iterations, "dimension": dim},
             metrics={"max_error": error},
-            criterion="迭代幺正 = [R U† R U]^it（R = I − 2Π，max_error < 1e-12）",
+            criterion="迭代幺正 = U·[R U† R U]^it（R = I − 2Π，max_error < 1e-12）",
             passed=error < 1e-12,
         )
 
 
 def verify_oaa_half_block(report):
-    """零块为 X/2 的最小实例：量测实现算子的零块行为并记录与标准 OAA 的差距。
+    """零块为 X/2 的最小实例：验证标准三查询 OAA 的放大行为。
 
-    注：实现的迭代 R U† R U 的零块为 2B†B − I（B = X/2 时为 −I/2），
-    与标准三查询 OAA（sin θ → sin 3θ，θ = π/6 时应恢复为 X）不同；
-    本案例按文档给出的算子公式判定，并把与标准 OAA 的偏差列为信息性指标。
+    修复后的算子 U·[R U† R U]^it 在该夹具上零信号块
+    = (−1)^it·sin((2it+1)θ)·V（V = X，θ = π/6）：一次迭代幅值
+    sin 3θ = 1（幅值意义下完整恢复信号），幅值与标准 OAA 叙事逐次一致；
+    (−1)^it 为可观测幺正中的全局相位，作为信息性指标记录。
     """
     x_matrix = np.array([[0, 1], [1, 0]], dtype=complex)
-    b_block = x_matrix / 2
-    actual = originir_unitary(oblivious_amplification(_half_x_be(), 1).program())
-    zero_block = actual[:2, :2]
-    implemented_error = float(
-        np.abs(zero_block - (2 * b_block.conj().T @ b_block - np.eye(2))).max()
-    )
-    standard_deviation = float(np.abs(zero_block - x_matrix).max())
-    report.case(
-        "oaa-half-block-behavior",
-        paths=["originir-ext+uniqc-to_matrix"],
-        parameters={"fixture": "zero block = X/2 (sin theta = 1/2)", "iterations": 1},
-        metrics={
-            "implemented_operator_error": implemented_error,
-            "standard_oaa_deviation": standard_deviation,
-        },
-        criterion=(
-            "零块与文档算子 R U† R U 的代数结果 2B†B−I 一致（< 1e-12）；"
-            "standard_oaa_deviation 为信息性指标，记录与标准 OAA 叙事的差距"
-        ),
-        passed=implemented_error < 1e-12,
-    )
+    theta = math.pi / 6
+    for iterations in (1, 2, 3):
+        actual = originir_unitary(oblivious_amplification(_half_x_be(), iterations).program())
+        zero_block = actual[:2, :2]
+        sign = -1.0 if iterations % 2 else 1.0
+        expected_block = sign * math.sin((2 * iterations + 1) * theta) * x_matrix
+        error = float(np.abs(zero_block - expected_block).max())
+        report.case(
+            f"oaa-half-block-it{iterations}",
+            paths=["originir-ext+uniqc-to_matrix"],
+            parameters={"fixture": "zero block = X/2 (sin theta = 1/2)", "iterations": iterations},
+            metrics={
+                "amplified_zero_block_error": error,
+                "amplitude": abs(math.sin((2 * iterations + 1) * theta)),
+                "global_sign": int(sign),
+            },
+            criterion=(
+                "零信号块 = (−1)^it·sin((2it+1)θ)·X（max_error < 1e-12）；"
+                "幅值按标准 OAA 叙事 sin((2it+1)θ) 逐次一致"
+            ),
+            passed=error < 1e-12,
+        )
 
 
 def run():

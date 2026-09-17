@@ -60,21 +60,22 @@ $P$ 用 `fourier_momentum` 逐位构造：每位一个投影 BE（alpha 为 1）
 
 论文级数值实验见 `tests/verification/verify_ode.py`（ode 组，本文件覆盖 `schrodingerization.py` 的部分）。经典参考全部独立：numpy 全堆叠仿真（warp→正号 DFT→截断 Taylor 或精确 `expm` 演化→逆 DFT→通道选择）、解析解（$e^{-t}$ 衰减、解析旋转矩阵）；量子程序在真实后端 reference 与 OriginIR-ext 上执行（嵌套 LCU 的 $8^{\text{degree}}$ 分支标度使 pysparq 系路径超出预算，案例中注明）。
 
-**实验设计**：(a) 动量块——`fourier_momentum(2, 8.0)` 的零信号块对二补码有符号频率对角矩阵（幺正 `to_matrix` + reference 交叉）；(b) 标量衰减 $G=-I$、plan(auxiliary_width=2, period=1.2, selected_index=1)（$\Delta p=t$ 使网格平移逐点精确）、Taylor degree 4、$t=0.3$：组装保真度、恢复幅值与误差分解；(c) 符号绕行构造——验证脚本内用公开组合子把动量项翻转为 $K'=-P\otimes H_1-I\otimes H_2$ 的同构组装（真实量子程序）；(d) 旋转生成元 $G=J$（$H_1=0$，纯 $H_2$）对解析旋转的恢复。
+**实验设计**：(a) 动量块——`fourier_momentum(2, 8.0)` 的零信号块对二补码有符号频率对角矩阵（幺正 `to_matrix` + reference 交叉）；(b) 标量衰减 $G=-I$、plan(auxiliary_width=2, period=1.2, selected_index=1)（$\Delta p=t$ 使网格平移逐点精确）、Taylor degree 4、$t=0.3$：组装保真度、恢复幅值与误差分解；(c) 独立重组装——验证脚本内用公开组合子组装 $K'=-P\otimes H_1-I\otimes H_2$（修复后的库约定）的同构真实量子程序，作为符号约定的回归钉；(d) 旋转生成元 $G=J$（$H_1=0$，纯 $H_2$）对解析旋转的恢复。
 
 **关键指标**：
 
 | 案例 | 规模 | 路径 | 指标 | 数值 |
 |---|---|---|---|---|
 | fourier-momentum-block | 4 量子位 | originir+to_matrix、reference | 动量块最大偏差 | 2.2e-16 |
-| schrodingerization-scalar-decay-grid | 21 量子位 | reference、originir | 组装保真度（对全堆叠仿真） | 8.7e-19 |
-| 同上 | | | 恢复幅值对 $e^{+t}u_0$（时间反演解）的拟合 | 4.8e-16 |
-| 同上 | | | 对 $e^{-t}u_0$ 的失配（侦测证据） | 0.43 |
-| schrodingerization-sign-flipped-degree2/4 | 同上 | reference | 精确演化下网格误差（经典） | 1.3e-16 |
-| 同上 | | | 量子恢复误差（Nyquist 模 Taylor 余项） | 9.1e-2 → 3.3e-2 |
-| schrodingerization-rotation-recovery | 同上 | reference | 实现误差 / 恢复误差 | 2.2e-18 / 1.5e-5 |
+| schrodingerization-scalar-decay-grid | 21 量子位 | reference、originir | 组装保真度（对 $K'$ 全堆叠仿真） | 2.0e-18 |
+| 同上 | | | 恢复幅值对 $e^{-t}u_0$（正向流）的精确演化网格误差 | 1.3e-16 |
+| 同上 | | | 对 $e^{+t}u_0$（时间反演）的失配（方向性证据） | 0.43 |
+| 同上 | | | 端到端恢复误差（Nyquist 模 Taylor 余项） | 3.3e-2 |
+| schrodingerization-sign-flipped-degree2/4 | 同上 | reference | 独立重组装实现误差 / 网格误差 | 8.8e-18 / 1.3e-16 |
+| 同上 | | | 量子恢复误差（Nyquist 模 Taylor 余项，随阶数下降） | 9.1e-2 → 3.3e-2 |
+| schrodingerization-rotation-recovery | 同上 | reference | 实现误差 / 恢复误差 | 9.3e-19 / 1.5e-5 |
 
-**重要发现（符号约定）**：当前构造 $K=P\otimes H_1-I\otimes H_2$ 配合正号 DFT 约定给出的 warp 传输方向与本文 §实现要点 的恢复关系相反——恢复幅值精确拟合 $e^{-\mu t}$（$\mu$ 为 $H_1$ 本征值）而非 $e^{\mu t}$，即时间反演解（对 $e^{+t}u_0$ 拟合 4.8e-16、对 $e^{-t}u_0$ 失配 0.43，两者互为决定性证据）。把动量项符号翻转为 $-P\otimes H_1-I\otimes H_2$ 后，同一网格上精确演化的恢复误差降到 1.3e-16，证明符号是唯一结构性失配；库文档此前标注的"Fourier 正负号约定……仍待完成"由此得到数值结论，修正（动量符号或正逆 QFT 对调）留作算法层后续工作。纯 $H_2$ 生成元（旋转案例）不受该项符号影响，端到端恢复误差 1.5e-5。翻转构造的残余误差是 Nyquist 动量模（相位 $\pi$）的 Taylor 截断，随阶数下降（degree 2→4：9.1e-2→3.3e-2），属于可替换 `hamiltonian_function` 协议的方法误差。
+**符号约定的发现与修复**：历史版本装配 $K=P\otimes H_1-I\otimes H_2$，配合正号 DFT 约定给出的 warp 传输方向与恢复关系相反——恢复幅值精确拟合时间反演解（对 $e^{+t}u_0$ 拟合 4.8e-16、对 $e^{-t}u_0$ 失配 0.43，互为决定性证据）。验证轮据此把库内生成元的动量项符号修复为 $K'=-P\otimes H_1-I\otimes H_2$：同一网格上精确演化的恢复误差降到 1.3e-16，证明符号是唯一结构性失配；库现以 $K'$ 为约定，并由"独立重组装与库程序逐振幅一致"的回归案例钉住（防回退）。纯 $H_2$ 生成元（旋转案例）不受该项符号影响，端到端恢复误差 1.5e-5。端到端残余误差是 Nyquist 动量模（相位 $\pi$）的 Taylor 截断，随阶数下降（degree 2→4：9.1e-2→3.3e-2），属于可替换 `hamiltonian_function` 协议的方法误差。
 
 **复现**：
 

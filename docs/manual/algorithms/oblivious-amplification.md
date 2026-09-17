@@ -4,13 +4,15 @@
 
 ## 概述
 
-对块编码 $U$ 做 oblivious 振幅放大（OAA）：不依赖初态知识的迭代式提升零信号块幅度。记 $\Pi = |0\rangle\langle 0|_{\text{signal}} \otimes I_{\text{target}}$，单次迭代在时间顺序上依次作用 $U$、反射 $R = I - 2\Pi$、$U^\dagger$、$R$，算子为
+对块编码 $U$ 做 oblivious 振幅放大（OAA）：不依赖初态知识的迭代式提升零信号块幅度。记 $\Pi = |0\rangle\langle 0|_{\text{signal}} \otimes I_{\text{target}}$、$R = I - 2\Pi$，$m$ 次迭代的算子为
 
 $$
-R\,U^\dagger R\,U \;=\; (2\Pi - I)\,U^\dagger\,(2\Pi - I)\,U
+W_m \;=\; U\,\big(R\,U^\dagger R\,U\big)^{m}
 $$
 
-（$R$ 相对 $2\Pi - I$ 的两个全局负号相消）。典型用途是 LCU 组合出的"两支各占一半"块编码——其零信号块约为目标算子的 $1/2$ 倍——单次迭代即可把幅度恢复到 $O(1)$。该构造是 qubitization 框架的标准配套组件（框架文献 Gilyén et al. 2019, [arXiv:1806.01838](https://arxiv.org/abs/1806.01838)；行走算子背景见 [量子化行走](qubitization-walk.md)）。
+（$m=1$ 即文献标准三查询形式 $U\,R\,U^\dagger R\,U$；$R$ 相对 $2\Pi - I$ 的两个全局负号相消）。对零信号块为 $V/2$（$V$ 部分等距）的输入，$W_m$ 的零信号块为 $(-1)^m \sin\!\big((2m+1)\theta\big)\, V$（$\sin\theta = 1/2$）——幅值按标准 OAA 叙事 $\sin\theta \to \sin 3\theta \to \cdots$ 演化，一次迭代即可把幅度恢复到 $O(1)$。一般块编码满足切比雪夫恒等式 $\Pi W_1 \Pi = B\,(4B^\dagger B - 3I)$。该构造是 qubitization 框架的标准配套组件（框架文献 Gilyén et al. 2019, [arXiv:1806.01838](https://arxiv.org/abs/1806.01838)；行走算子背景见 [量子化行走](qubitization-walk.md)）。
+
+> 历史缺陷记录：2026-09 之前的版本装配 $[R\,U^\dagger R\,U]^m$（缺收尾 $U$），零信号块退化为 $2B^\dagger B - I$、不执行放大；验证轮发现后修复为上式，并以下文"库算子 = 标准序列"的回归案例钉住，详见 [数值验证](#数值验证)。
 
 ## 接口与输入模型
 
@@ -31,7 +33,7 @@ BE 归一化不经属性传播，放大后的幅度语义由调用方解释。
 
 ## 实现要点
 
-每次迭代为四次结构调用：`invoke` 挂载输入 BE → `reflect_zero(signal)`（默认 `positive=False`，信号零分支取 $-1$、其余分支取 $+1$，即 $R = I - 2\Pi$）→ 伴随 `invoke` → 再次 `reflect_zero(signal)`。迭代次数经 IR 的 `Repeat` 结构表达，不在生成或 JSON 序列化阶段无条件展开。
+程序时间顺序为：先 `invoke` 挂载输入 BE（初始 $U$），随后每次迭代四次结构调用：`reflect_zero(signal)`（默认 `positive=False`，信号零分支取 $-1$、其余分支取 $+1$，即 $R = I - 2\Pi$）→ 伴随 `invoke` → 再次 `reflect_zero(signal)` → 收尾 `invoke`。迭代次数经 IR 的 `Repeat` 结构表达，不在生成或 JSON 序列化阶段无条件展开。
 
 适用边界：输入必须是块编码。放大保证依赖"零信号块接近某个 $1/2$ 缩放的部分等距算子"这一结构假设，本函数不检查该假设；归一化远离 $1/2$ 的块编码迭代不会按 OAA 语义收敛，需先经缩放或 LCU 组合调整。
 
@@ -45,7 +47,7 @@ BE 归一化不经属性传播，放大后的幅度语义由调用方解释。
 
 ## 已知缺口与计划阶段
 
-无已知缺口（与验证覆盖矩阵 `transforms.py` 行一致），阶段 V1。OAA 迭代自身的放大语义（$1/2$ 缩放块编码经一次迭代恢复）暂无独立数值见证，由共享组件的约定与协议测试间接覆盖。
+无已知缺口（与验证覆盖矩阵 `transforms.py` 行一致），阶段 V1。放大语义有独立数值见证：$V/2$ 夹具经一次迭代幅值 $0.5 \to 1.0$（$\sin 3\theta$），一般块的切比雪夫恒等式与"库算子 = 标准序列"回归钉见 [数值验证](#数值验证)。
 
 ## 相关链接
 
@@ -56,15 +58,15 @@ BE 归一化不经属性传播，放大后的幅度语义由调用方解释。
 
 ## 数值验证
 
-论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。输入 BE 为 gate 级绑定小实例。组装正确性：迭代 $it = 1, 2, 3$ 的全幺正经 OriginIR-ext + UniQC `to_matrix` 取出，与 $[R\,U^\dagger R\,U]^{it}$（$R = I - 2\Pi$）逐元素对比，与文档给出的算子公式一致。行为量测：构造零信号块恰为 $X/2$ 的门级最小实例（$\sin\theta = 1/2$ 的"$V/2$"夹具），一次迭代后实测零信号块为 $-I/2$，与实现算子的代数结果 $\Pi R U^\dagger R U \Pi = 2B^\dagger B - I$ 精确一致；但与标准三查询 OAA 语义（$\sin\theta \to \sin 3\theta$，$\theta = \pi/6$ 时幅度应恢复为 1、零块回到 $X$）的偏差为 1.0——即本模块实现的偶数次迭代是 qubitization 迭代的伴随对称形式（零块按 $2B^\dagger B - I$ 演化），不具备概述所述"1/2 缩放块编码经单次迭代恢复到 $O(1)$"的放大效应，该叙事与实现算子的差距在此记录（信息性指标，详见验证脚本注释与最终报告）。
+论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。输入 BE 为 gate 级绑定小实例。组装正确性：迭代 $it = 1, 2, 3$ 的全幺正经 OriginIR-ext + UniQC `to_matrix` 取出，与 $U\,[R\,U^\dagger R\,U]^{it}$（$R = I - 2\Pi$）逐元素对比。行为量测：构造零信号块恰为 $X/2$ 的门级最小实例（$\sin\theta = 1/2$ 的"$V/2$"夹具），一次迭代后零信号块幅值恢复 $1.0$（$-\!X$，即 $(-1)^1\sin 3\theta \cdot X$），$it = 2, 3$ 分别为 $0.5$、$0.5$（$\sin 5\theta$、$\sin 7\theta$）——幅值与标准三查询 OAA 叙事逐次一致，全局符号 $(-1)^{it}$ 作为信息性指标记录（幺正层面可观测、测量层面不可区分）。
 
 | 案例 | 规模 | 后端路径 | 指标 | 数值 |
 |---|---|---|---|---|
-| `oaa-unitary-it1` | 8 维，1 次迭代 | originir-ext + UniQC to_matrix | max_error | 2.7e-16 |
-| `oaa-unitary-it2` | 8 维，2 次迭代（Repeat 结构） | originir-ext + UniQC to_matrix | max_error | 3.8e-16 |
-| `oaa-unitary-it3` | 8 维，3 次迭代（Repeat 结构） | originir-ext + UniQC to_matrix | max_error | 3.9e-16 |
-| `oaa-half-block-behavior` | 零块 = $X/2$ 夹具 | originir-ext + UniQC to_matrix | implemented_operator_error | 2.2e-16 |
-| 同上 | — | — | standard_oaa_deviation（信息性指标） | 1.0 |
+| `oaa-unitary-it1` | 8 维，1 次迭代 | originir-ext + UniQC to_matrix | max_error | 2.3e-16 |
+| `oaa-unitary-it2` | 8 维，2 次迭代（Repeat 结构） | originir-ext + UniQC to_matrix | max_error | 4.4e-16 |
+| `oaa-unitary-it3` | 8 维，3 次迭代（Repeat 结构） | originir-ext + UniQC to_matrix | max_error | 4.6e-16 |
+| `oaa-half-block-it1` | 零块 = $X/2$ 夹具 | originir-ext + UniQC to_matrix | 零块 vs $-\sin 3\theta\,X$ | 6.1e-17 |
+| `oaa-half-block-it2/3` | 同上（Repeat 结构） | originir-ext + UniQC to_matrix | 零块 vs $\pm\sin 5\theta\,X$、$\sin 7\theta\,X$ | 8.9e-16 / 1.1e-15 |
 
 复现命令：
 
@@ -74,15 +76,16 @@ PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_fourie
 
 产物：`out/verification/fourier.json`。
 
-### 补充验证：一般块的迭代恒等式与标准序列正面恢复（verify_hamiltonian.py）
+### 补充验证：一般块的切比雪夫恒等式与标准序列回归钉（verify_hamiltonian.py）
 
-`tests/verification/verify_hamiltonian.py`（27 案例全 PASS）给出两组互补证据，与上文 fourier 组的量测相互印证：其一，对**一般非等距块**（$2\times2$ 矩阵 BE，$\Pi U\Pi = A/\alpha$）在 reference / rir-pysparq / originir-ext 三条路径上验证库迭代体 $S = R\,U^\dagger R\,U$ 的代数恒等式 $\Pi S\Pi = 2(\Pi U\Pi)^\dagger(\Pi U\Pi) - \Pi$（max_error 1.8e-16）——对 $V/2$ 型输入该恒等式退化为标量 $-I/2$，确认库迭代体本身不执行文献 OAA 放大；其二，用库公开组件（`invoke` + `reflect_zero` + `adjoint`）按文献标准序列 $U\,R\,U^\dagger R\,U$（比库迭代体多闭合一次 $U$ 调用）组装，对 $V/2$ 夹具（$V = R_z(0.4)R_y(0.9)$）的零信号块精确恢复 $-V$（max_error 1.1e-16），目标幅度由 0.4502 放大到 0.9004（恰好 ×2.0）。结论：放大语义需要闭合的奇数次 $U$ 调用，库 `oblivious_amplification` 的迭代体缺少末次 $U$，疑似实现缺陷（库未修改，在此与验证产物中记录）。
+`tests/verification/verify_hamiltonian.py`（27 案例全 PASS）给出两组互补证据，与上文 fourier 组的量测相互印证：其一，对**一般非等距块**（$2\times2$ 矩阵 BE，$B = \Pi U \Pi = A/\alpha$）在 reference / rir-pysparq / originir-ext 三条路径上验证库算子 $W_1 = U\,R\,U^\dagger R\,U$ 的切比雪夫放大恒等式 $\Pi W_1 \Pi = B\,(4B^\dagger B - 3I)$（max_error 3.6e-16）；其二，用库公开组件（`invoke` + `reflect_zero` + `adjoint`）按文献标准序列独立组装，对 $V/2$ 夹具（$V = R_z(0.4)R_y(0.9)$）的零信号块精确恢复 $-V$（max_error 1.1e-16），目标幅度由 0.4502 放大到 0.9004（恰好 ×2.0），且**库算子与脚本组装的标准序列在全部三条路径上逐振幅一致**（library_vs_script_error = 0.0）——这是"库 = 标准三查询序列"的回归钉，防止缺收尾 $U$ 的历史缺陷回退（该缺陷由验证轮发现并修复，见上文概述的历史记录）。
 
 | 案例 | 规模 | 后端路径 | 指标 | 数值 |
 |---|---|---|---|---|
-| `oaa-iterate-block-identity` | 一般块，1 次迭代 | reference、rir-pysparq、originir-ext | 恒等式 max_error | 1.8e-16 |
+| `oaa-iterate-block-identity` | 一般块，1 次迭代 | reference、rir-pysparq、originir-ext | 切比雪夫恒等式 max_error | 3.6e-16 |
 | `oaa-standard-sequence-amplification` | $V/2$ 夹具，$URU^\dagger RU$ | reference、rir-pysparq、originir-ext | 与 $-V$ 的 max_error | 1.1e-16 |
-| 同上 | — | — | 幅度放大（0.5 → 1.0 的模长比） | 0.4502 → 0.9004（×2.0） |
+| 同上 | — | — | 库 vs 脚本组装逐振幅偏差 | 0.0 |
+| 同上 | — | — | 幅度放大（×2.0） | 0.4502 → 0.9004 |
 
 复现命令：
 

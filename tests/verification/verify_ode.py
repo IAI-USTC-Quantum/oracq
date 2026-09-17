@@ -178,7 +178,8 @@ def schrodinger_emulate(
 ):
     """Schrödingerization 全堆叠独立仿真：warp→QFT→Taylor(或精确 exp)→逆 QFT→通道。
 
-    flip_momentum=True 对应符号翻转的 K' = -P⊗H1 - I⊗H2（见组报告中的符号发现）。
+    flip_momentum=True 对应 K' = -P⊗H1 - I⊗H2（库修复后的约定）；历史上库曾
+    装配 +P⊗H1 项，恢复时间反演流，验证发现与修复记录见组报告。
     """
     n = (g_mat.shape[0] - 1).bit_length()
     p = plan.auxiliary_width
@@ -349,12 +350,12 @@ def taylor_series_solver(generator, initial, time, *, degree):
 
 
 def schrodinger_sign_flipped_qode(g_be, initial, time, plan, *, degree):
-    """符号翻转的 Schrödingerization 组装（验证脚本内的绕行构造，真实量子程序）。
+    """K' = -P⊗H1 - I⊗H2 的 Schrödingerization 独立重组装（真实量子程序）。
 
-    验证发现：库内 schrodingerization 的 K = P⊗H1 - I⊗H2 在当前 QFT 正号约定下
-    给出的 warp 传输方向与文档恢复关系相反（恢复因子为 e^{-μt} 而非 e^{μt}，
-    即时间反演解；见本组报告）。本函数用完全相同的公开组合子复刻该组装，仅把
-    动量项符号翻转为 -P⊗H1 - I⊗H2，用于数值证明翻转后恢复关系精确成立。
+    库内 schrodingerization 曾装配 K = P⊗H1 - I⊗H2，在正 QFT 约定下恢复
+    e^{+t}·u0（时间反演流，验证发现见组报告）；修复后库约定即本函数装配的
+    K'。此处用公开组合子独立重组装同一构造，作为符号约定的回归钉：与库
+    程序逐振幅一致即符号未被回退。
     """
     from pyqecclang.algorithms.fourier import qft_with_work as qft
     from pyqecclang.algorithms.ode_models import HermitianParts
@@ -406,7 +407,7 @@ def schrodinger_sign_flipped_qode(g_be, initial, time, plan, *, degree):
             "unitary",
             algorithm="schrodingerization_sign_flipped",
             correctness="pending",
-            note="动量项符号翻转的绕行构造（验证脚本）",
+            note="K'=-P⊗H1-I⊗H2 独立重组装（符号回归钉，与修复后库约定一致）",
         )
     )
 
@@ -1022,12 +1023,12 @@ def verify_cbmd_endtoend(report):
 
 
 def verify_schrodingerization_decay(report):
-    """标量衰减 G=-I：组装保真度严格通过；并记录动量项符号导致的恢复失配。
+    """标量衰减 G=-I：组装保真度与恢复关系（正向流）同时严格通过。
 
-    本案例是符号约定的数值侦测：量子程序以 1e-9 保真实现其组装算子，但恢复
-    幅值给出 e^{+t}（时间反演）而非 e^{-t}——K = P⊗H1 - I⊗H2 在当前 QFT 正号
-    约定下传输方向与恢复关系相反。证据指标（grid_error/recovery_error）按当前
-    行为断言为显著失配；若库日后修正符号，本案例应随之更新。
+    历史缺陷已修复：原装配 K = P⊗H1 - I⊗H2 在正 QFT 约定下恢复 e^{+t}·u0
+    （时间反演流，验证发现见组报告）；修复后 K' = -P⊗H1 - I⊗H2 恢复
+    e^{-t}·u0，精确演化下网格误差 < 1e-6；端到端残余为 Nyquist 动量模的
+    Taylor 截断余项（degree 4 约 3e-2，随阶数下降，信息性）。
     """
     time, degree = 0.3, 4
     plan = SchrodingerPlan(auxiliary_width=2, period=1.2, selected_index=1)  # Δp = t
@@ -1042,17 +1043,19 @@ def verify_schrodingerization_decay(report):
     state = solver(g_be, gate_state_prep(list(u0)), time)
     attrs = dict(state.operation.module.attributes)
     alpha_e = schrodinger_alpha(g_be, plan, time, degree)
-    expected = schrodinger_emulate(g_mat, u0, time, plan, degree, alpha_e)
+    expected = schrodinger_emulate(g_mat, u0, time, plan, degree, alpha_e, flip_momentum=True)
     exact = math.exp(-time) * u0
     # 分解：同一网格/通道但精确演化的参考（网格+窗口误差）与 Taylor 余项
-    exact_grid = schrodinger_emulate(g_mat, u0, time, plan, degree, alpha_e, exact_evolution=True)
+    exact_grid = schrodinger_emulate(
+        g_mat, u0, time, plan, degree, alpha_e, exact_evolution=True, flip_momentum=True
+    )
     p_sel = attrs["selected_p"]
     grid_coords = [(j if j < 2 else j - 4) * plan.period / 4 for j in range(4)]
     z_norm = math.sqrt(sum(math.exp(-2 * abs(x)) for x in grid_coords))
     recovery = alpha_e * z_norm * math.exp(p_sel)
     grid_error = float(np.abs(exact_grid * recovery - exact).max())
     taylor_remainder = float(np.abs(expected - exact_grid).max())
-    # 符号发现的量化：当前构造恢复出 e^{+t}·u0（时间反演解）
+    # 方向性证据：恢复逼近 e^{-t}·u0（正向流）而非 e^{+t}·u0（时间反演解）
     time_reversed = math.exp(time) * u0
     reversed_fit = float(np.abs(exact_grid * recovery - time_reversed).max())
     program = state.operation.program()
@@ -1077,7 +1080,7 @@ def verify_schrodingerization_decay(report):
             "plan": "auxiliary_width=2, period=1.2（Δp=t），selected p=0.3",
             "alpha_E": alpha_e,
             "pysparq_skipped": "分支约 9 万（嵌套 LCU 的 8^degree 标度），预算原因（信息性）",
-            "finding": "动量项符号使恢复给出 e^{+t}（时间反演），见 criterion 与组报告",
+            "finding": "已修复：K'=-P⊗H1-I⊗H2 恢复 e^{-t}·u0（正向流）；残余为 Taylor 截断",
         },
         metrics={
             "impl_error": impl,
@@ -1089,20 +1092,21 @@ def verify_schrodingerization_decay(report):
             "exact_path_deviation": exact_dev,
         },
         criterion=(
-            "量子与全堆叠独立仿真逐振幅一致（impl_error < 1e-9，组装保真）；"
-            "数值侦测：恢复幅值逼近 e^{+t}·u0 而非 e^{-t}·u0（time_reversed_fit_error < 1e-3，"
-            "grid_error > 1e-2）——K 的动量项符号与恢复关系相反，证据记录于组报告与文档"
+            "量子与全堆叠独立仿真（K'=-P⊗H1-I⊗H2）逐振幅一致（impl_error < 1e-9）；"
+            "恢复幅值逼近 e^{-t}·u0 而非 e^{+t}·u0（grid_error < 1e-6、"
+            "time_reversed_fit_error > 1e-1，方向性证据）；recovery_error_endtoend 为"
+            " Nyquist 动量模的 Taylor 截断余项（信息性，随 degree 下降）"
         ),
         passed=impl < 1e-9
         and block_dev < 1e-9
         and exact_dev < 1e-9
-        and reversed_fit < 1e-3
-        and grid_error > 1e-2,
+        and grid_error < 1e-6
+        and reversed_fit > 1e-1,
     )
 
 
 def verify_schrodingerization_sign_flipped(report):
-    """绕行构造（动量项符号翻转，公开组合子真实量子程序）：恢复关系精确成立。"""
+    """独立重组装（K'=-P⊗H1-I⊗H2，公开组合子真实量子程序）：恢复关系精确成立。"""
     time = 0.3
     plan = SchrodingerPlan(auxiliary_width=2, period=1.2, selected_index=1)
     g_mat = -np.eye(2)
@@ -1143,7 +1147,7 @@ def verify_schrodingerization_sign_flipped(report):
             f"schrodingerization-sign-flipped-degree{degree}",
             paths=list(results),
             parameters={
-                "construction": "验证脚本内 K' = -P⊗H1 - I⊗H2 的公开组合子组装（真实量子程序）",
+                "construction": "公开组合子独立重组装 K' = -P⊗H1 - I⊗H2（修复后库约定；符号回归钉）",
                 "time": time,
                 "degree": degree,
             },

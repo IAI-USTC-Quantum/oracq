@@ -50,10 +50,11 @@ def oblivious_amplification(a, iterations=1):
         resources_for(("a", a.operation)),
         attributes={"algorithm": "oaa"},
     )
+    invoke(b, a.operation, "a", target=b["target"], signal=b["signal"])
     with b.repeat(iterations):
-        invoke(b, a.operation, "a", target=b["target"], signal=b["signal"])
         reflect_zero(b, b["signal"])
         with b.adjoint():
             invoke(b, a.operation, "a", target=b["target"], signal=b["signal"])
         reflect_zero(b, b["signal"])
+        invoke(b, a.operation, "a", target=b["target"], signal=b["signal"])
     return b.finish()

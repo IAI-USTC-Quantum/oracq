@@ -12,11 +12,11 @@
   gibbs_purification（density.py，QSVT 消费端）：零信号块与 scipy expm /
   numpy.linalg.inv / 解析过滤多项式 / 经典 Gibbs 态对拍；报告实现误差与方法误差、
   恢复逆矩阵的条件数对比、通阻带压制、迹距离与成功概率。
-- oblivious_amplification：实测库迭代体 S = R U† R U 的零信号块满足代数恒等式
-  ΠSΠ = 2(ΠUΠ)†(ΠUΠ) − Π（精确验证）。标准 OAA 语义（V/2 → −V）需要在迭代体
-  之后再闭合一次 U 调用；脚本按文献序列 U R U† R U 组装验证放大语义。库函数
-  单独使用时零信号块退化为标量 −I/2、不恢复 V，疑似实现缺陷，见最终报告与
-  docs/manual/algorithms/oblivious-amplification.md 的数值验证节。
+- oblivious_amplification：库算子 W = U·[R U† R U]（历史缺陷已修复：原迭代体
+  [R U† R U] 缺收尾 U，零信号块退化为 2B†B − I、不执行放大）。修复后零信号块
+  满足切比雪夫放大恒等式 ΠWΠ = B(4B†B − 3I)（精确验证）；脚本按文献序列
+  U R U† R U 独立组装，断言库算子与之逐振幅一致（回归钉），V/2 → −V 放大
+  语义见 docs/manual/algorithms/oblivious-amplification.md 的数值验证节。
 
 经典 oracle 全部独立：numpy/scipy/math 闭式与矩阵例程均在本脚本内直接构造，
 不复用被测模块的内部辅助函数。
@@ -783,16 +783,17 @@ def verify_eigenstate_filter(report):
 
 
 def verify_oaa_iterate_identity(report):
-    """库迭代体 S = R U† R U 的代数恒等式：ΠSΠ = 2(ΠUΠ)†(ΠUΠ) − Π（对任意 BE 精确）。
+    """库算子 W = U·[R U† R U] 的代数恒等式：ΠWΠ = B(4B†B − 3I)（对任意 BE 精确）。
 
-    注意：该恒等式意味着对零信号块为 V/2（V 等距）的输入，库迭代体的零信号块
-    退化为标量 −I/2，并不执行文献中的 OAA 放大（见 oaa-standard-sequence 案例
-    与最终报告）；本案例把库函数实际实现的语义钉死到机器精度。
+    历史缺陷已修复：原迭代体 [R U† R U] 的零信号块退化为 2B†B − I，不执行
+    文献中的 OAA 放大（见组报告与 oaa-standard-sequence 案例）；修复后的
+    算子补上收尾 U，零信号块为切比雪夫放大 B(4B†B − 3I)——对零信号块为
+    V/2 的输入恰为 −V。本案例把库函数实际实现的语义钉死到机器精度。
     """
     matrix = np.array([[0.6, -0.2], [-0.2, 0.6]])
     be = matrix_pauli_encoding(matrix)
     source_block = matrix / be.alpha
-    expected = 2.0 * source_block.conj().T @ source_block - np.eye(2)
+    expected = source_block @ (4.0 * source_block.conj().T @ source_block - 3.0 * np.eye(2))
     oaa = oblivious_amplification(be, iterations=1)
     worst = 0.0
     for runner in (reference, rir_pysparq, originir_ext):
@@ -803,7 +804,7 @@ def verify_oaa_iterate_identity(report):
         paths=["reference", "rir-pysparq", "originir-ext"],
         parameters={"alpha": be.alpha, "iterations": 1},
         metrics={"max_error": worst},
-        criterion="ΠSΠ 等于 2(ΠUΠ)†(ΠUΠ) − Π（max_error < 1e-12）",
+        criterion="ΠWΠ 等于 B(4B†B − 3I)（max_error < 1e-12）",
         passed=worst < 1e-12,
     )
 
@@ -811,8 +812,9 @@ def verify_oaa_iterate_identity(report):
 def verify_oaa_standard_sequence(report):
     """标准 OAA 序列 U R U† R U：V/2 块编码经一次迭代恢复 −V（文献语义）。
 
-    序列用库公开组件（invoke + reflect_zero + adjoint）在脚本内组装；与库
-    oblivious_amplification 的迭代体相比多出闭合的一次 U 调用。
+    序列用库公开组件（invoke + reflect_zero + adjoint）在脚本内组装；修复后
+    的库 oblivious_amplification 与之逐振幅一致——本案例同时断言两者相等，
+    作为"库 = 标准三查询序列"的回归钉。
     """
     vb = Builder("oaa_v", {"target": Bits(1), "signal": Bits(0)})
     vb.ry(vb["target"][0], 0.9)
@@ -833,7 +835,7 @@ def verify_oaa_standard_sequence(report):
         {"target": Bits(1), "signal": Bits(be.signal_qubits)},
         resources_for(("a", be.operation)),
     )
-    # 文献标准序列 U R U† R U：比库迭代体（R U† R U）多闭合的一次 U 调用
+    # 文献标准序列 U R U† R U：与修复后的库算子逐振幅一致
     invoke(b, be.operation, "a", target=b["target"], signal=b["signal"])
     reflect_zero(b, b["signal"])
     with b.adjoint():
@@ -841,13 +843,17 @@ def verify_oaa_standard_sequence(report):
     reflect_zero(b, b["signal"])
     invoke(b, be.operation, "a", target=b["target"], signal=b["signal"])
     operation = b.finish()
+    library = oblivious_amplification(be, iterations=1)
     before, _ = zero_signal_block(be.operation, reference, 2)
     worst = 0.0
+    lib_vs_script = 0.0
     measured = None
     for runner in (reference, rir_pysparq, originir_ext):
         block, _ = zero_signal_block(operation, runner, 2)
+        lib_block, _ = zero_signal_block(library, runner, 2)
         measured = block
         worst = max(worst, float(np.abs(block + unitary_v).max()))
+        lib_vs_script = max(lib_vs_script, float(np.abs(block - lib_block).max()))
     amplification = float(abs(measured[0, 0]) / abs(before[0, 0]))
     report.case(
         "oaa-standard-sequence-amplification",
@@ -855,12 +861,16 @@ def verify_oaa_standard_sequence(report):
         parameters={"iterations": 1, "input_block": "V/2 (V 幺正)"},
         metrics={
             "max_error_vs_minus_V": worst,
+            "library_vs_script_error": lib_vs_script,
             "amplitude_before": float(abs(before[0, 0])),
             "amplitude_after": float(abs(measured[0, 0])),
             "amplification": amplification,
         },
-        criterion="零信号块等于 −V（max_error < 1e-12），幅度放大 0.5 → 1.0",
-        passed=worst < 1e-12,
+        criterion=(
+            "零信号块等于 −V（max_error < 1e-12），幅度放大 0.5 → 1.0；"
+            "库算子与脚本组装的标准序列逐振幅一致（library_vs_script_error < 1e-12）"
+        ),
+        passed=worst < 1e-12 and lib_vs_script < 1e-12,
     )
 
 

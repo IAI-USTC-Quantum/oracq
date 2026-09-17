@@ -530,7 +530,7 @@ PYTHONPATH=src /path/to/backend/python examples/ode_input_models.py --native-par
 | Carleman Riccati 端到端 | 18 量子位 | reference、rir | 实现 2.8e-17 / Taylor 余项 1.4e-4 / 截断 1.1e-3 |
 | Carleman 截断趋势 K=1→3 | $t=0.2$ | 量子+经典 | 9.3e-3 → 1.1e-3 → 1.05e-4 |
 
-两项库级发现随验证产出：(1) Schrödingerization 的动量项符号与文档恢复关系相反（恢复为时间反演解；符号翻转构造后恢复精确，详见 [Schrödingerization 页](algorithms/schrodingerization.md#数值验证)）；(2) pysparq 两实现（rir/adapter）在深嵌套 LCU 程序的 junk 分支上存在约 1e-7 的数值地板（剪除 <1e-7 振幅与 ~0.3% 相对抖动），reference 与 OriginIR-ext 在相同分支一致到 1e-17；所有物理后选择块在所有路径上仍一致到 1e-9 以内。LCHS/CBMD 的方法误差为各自文档标注 pending 的求积/省略余项；Carleman 截断误差每升一阶约降一个量级。
+两项库级发现随验证产出并已修复：(1) Schrödingerization 历史版本的动量项符号与文档恢复关系相反（恢复为时间反演解）；验证轮据此把库内生成元修复为 $K'=-P\otimes H_1-I\otimes H_2$（正向流恢复精确到 1.3e-16，详见 [Schrödingerization 页](algorithms/schrodingerization.md#数值验证)），并以独立重组装回归钉防回退；(2) pysparq 两实现（rir/adapter）在深嵌套 LCU 程序的 junk 分支上存在约 1e-7 的数值地板（剪除 <1e-7 振幅与 ~0.3% 相对抖动），reference 与 OriginIR-ext 在相同分支一致到 1e-17；所有物理后选择块在所有路径上仍一致到 1e-9 以内。LCHS/CBMD 的方法误差为各自文档标注 pending 的求积/省略余项；Carleman 截断误差每升一阶约降一个量级。
 
 **复现**：
 
