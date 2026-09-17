@@ -1,4 +1,4 @@
-\documentclass[a4paper,onecolumn,11pt,titlepage,unpublished]{quantumarticle}
+\documentclass[a4paper,onecolumn,11pt,unpublished]{quantumarticle}
 \pdfoutput=1
 
 \usepackage[english]{babel}
@@ -77,7 +77,7 @@
 \lstdefinestyle{pyqir}{
   style=pyqbase,
   language=,
-  morekeywords={DEF, ENDDEF, QRAMDECL, QINIT, CREG, H, X, Y, Z, S, T, RX, RY, RZ, controlled_by, DAGGER, ENDDAGGER, REPEAT},
+  morekeywords={DEF, ENDDEF, QRAMDECL, QINIT, CREG, H, X, Y, Z, S, T, RX, RY, RZ, U1, CNOT, SWAP, controlled_by, DAGGER, ENDDAGGER},
 }
 
 \lstset{style=pyqpython}
@@ -97,11 +97,13 @@
 
 \title{pyqecclang: An Embedded Quantum Programming Language for Scientific Computing}
 
-% TODO: fill in real author information before submission
-\author{Author One}
-\affiliation{Affiliation to be determined, City, Country}
-\author{Author Two}
-\affiliation{Affiliation to be determined, City, Country}
+\author{Zhao-Yun Chen}
+\email{chenzhaoyun@iai.ustc.edu.cn}
+\affiliation{Institute of Artificial Intelligence, Hefei Comprehensive National Science Center, Hefei, Anhui, 230088, China}
+\author{Ming-Yang Tan}
+\affiliation{University of Science and Technology of China, Hefei, Anhui, 230088, China}
+\author{Guo-Ping Guo}
+\affiliation{University of Science and Technology of China, Hefei, Anhui, 230088, China}
 
 \begin{document}
 
@@ -110,9 +112,9 @@ Quantum algorithms for scientific computing---quantum linear-system solvers, Ham
 These algorithms are stated relative to \emph{mathematical access models} (block-encodings, sparse-access oracles, quantum random-access memories) whose physical realizations are deliberately left open; they compose deep hierarchies of subroutines whose adjoint and controlled versions must remain available; and they carry precision parameters and structural promises that must travel with the code that produced them.
 We present \pqlang, a Python-embedded language that addresses these needs through three coupled mechanisms: (i) a \emph{pluggable oracle} design in which abstract oracles are declared with one of nine named paradigms, carried symbolically as open modules in a register-level intermediate representation (RIR), and linked to concrete implementations---gate networks, QRAM resources, or alternative data-loading strategies---by a separate binding pass; (ii) \emph{algorithm protocols}, structural interfaces through which algorithm libraries declare, check, and compose their input models without extending the core language or its IR; and (iii) a library of \emph{quantum scientific computing primitives}---block-encoding algebra, qubitization/QSVT with a self-verifying quantum signal processing phase engine, quantum data loading, reversible fixed-point arithmetic, and a compiler from pure Python numerical functions to reversible circuits---out of which six distinct ODE solver families and several nonlinear PDE paths are assembled.
 The same open program can be partially bound, re-bound to different implementations, exported to a modular textual IR, executed on native register-level backends---including a new RIR-native interpreter that ships with PySparQ---or checked by a dependency-free reference simulator.
-We survey existing quantum programming languages and frameworks, derive language requirements from the structure of quantum scientific computing itself, and compare feature and algorithm coverage in detail.
-We verify the entire library numerically on real backends: a campaign of 473 experiments in thirteen groups executes every algorithm family through up to four independently implemented paths---among them an RIR-native interpreter now shipped with PySparQ and a \texttt{Circuit.to\_matrix} unitary export contributed to UnifiedQuantum, both created for this campaign---and certifies implementations against truncated-oracle references at register-exact scale, with implementation and method errors reported separately.
-The campaign surfaced and recorded two genuine defects (an oblivious-amplification iteration and a Schr\"odingerization momentum sign), which we report openly alongside the certified results.
+We survey existing quantum programming languages, frameworks, and commercial scientific-computing platforms, derive language requirements from the structure of quantum scientific computing itself, and compare feature and algorithm coverage in detail.
+We verify the entire library numerically on real backends: a campaign of 475 experiments in thirteen groups executes every algorithm family through up to four independently implemented paths---among them an RIR-native interpreter now shipped with PySparQ and a \texttt{Circuit.to\_matrix} unitary export contributed to UnifiedQuantum, both created for this campaign---and certifies implementations against truncated-oracle references at register-exact scale, with implementation and method errors reported separately and per-family certification status recorded.
+The campaign surfaced two genuine defects (an oblivious-amplification iteration and a Schr\"odingerization momentum sign), both now repaired and pinned by regression tests, which we report openly alongside the certified results.
 A compositional resource estimator---enabled by the same structure preservation---compiles programs to a module-preserving Toffoli+Clifford+T+QRAM netlist and reports qubit, Toffoli, synthesis-adjusted $T$, and, as a first-class metric, QRAM query counts, with scaling validated against theoretical expectations across ten algorithm families.
 Parameter-scaling studies, the repair of the recorded defects, and the physical layer of resource estimation remain future work.
 \end{abstract}
@@ -131,7 +133,7 @@ Parameter-scaling studies, the repair of the recorded defects, and the physical 
 \input{sections/discussion}
 
 \section*{Acknowledgments}
-% TODO: acknowledgments.
+This work has been supported by the National Key Research and Development Program of China (Grant No. 2023YFB4502500), the National Natural Science Foundation of China (Grant No. 12404564).
 
 \appendix
 \input{sections/appendix}

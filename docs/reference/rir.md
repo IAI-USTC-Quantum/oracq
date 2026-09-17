@@ -164,9 +164,67 @@ Python 中的不可变元组编码为 JSON 数组。反序列化将其恢复为�
 
 模块 attributes 的顺序也会保留。Builder 按键排序属性；外部直接构造的 IR 应采用相同次序，以获得相同的规范输出。当前规范保证同一 IR 的确定性输出，不要求所有语义等价线路具有相同 JSON。
 
-Schema 文件见 [rir.schema.json](schemas/rir.schema.json)。它描述 JSON 结构和局部范围；引用解析、别名、元数、跨节点类型、控制保护及调用图规则仍须运行语义验证器。
+Schema 文件见 [rir.schema.json](schemas/rir.schema.json)。它描述 JSON 结构和局部范围；引用解析、别名、元数、跨节点类型、控制保护及调用图规则仍须运行语义验证器。对象形状的形式产生式汇总见第 8 节。
 
-## 8. 后端降低规则
+## 8. 形式文法
+
+本节以产生式汇总第 2 节至第 7 节定义的对象形状，供独立实现对照。文法只覆盖结构与字段；别名、控制保护、调用图和数值范围等语义规则以正文和语义验证器为准。
+
+词法约定：name 匹配 `[A-Za-z_][A-Za-z0-9_]*`；integer 是严格整数，布尔值不能冒充；float 是有限浮点数；string 是任意 JSON 字符串。`∅` 表示字段缺失（开放声明的空体，或未使用的 angle/value）。`X*` 表示有序不可变元组，允许为空。
+
+```text
+program     = Program { entry: name;
+                        modules: module*;
+                        version: "0.1" | "0.2" | "0.3" } .
+
+module      = Module { name: name;
+                       registers: register*;
+                       resources: resource*;
+                       body: instruction* | ∅;
+                       attributes: attribute*;
+                       locals: register* } .
+
+register    = Register { name: name; type: regtype } .
+regtype     = RegType { kind: "bits" | "uint" | "sint" | "rational";
+                        width: integer } .
+resource    = Resource { name: name; type: qram } .
+qram        = QRAM { address_width: integer; data_width: integer } .
+attribute   = name "×" (string | integer | float | boolean) .
+span        = Span { register: name; start: integer; width: integer } .
+ref         = Ref { parts: span*; type: regtype } .
+
+instruction = primitive | load | call | repeat | control | adjoint .
+
+primitive   = Primitive { op: gate-op;
+                          operands: ref*;
+                          angle: float | ∅;
+                          value: integer | ∅ } .
+gate-op     = "h" | "x" | "y" | "z" | "s" | "t"
+            | "rx" | "ry" | "rz" | "phase" | "gphase"
+            | "xor" | "swap" | "add_const" .
+load        = Load { resource: name; address: ref; data: ref } .
+call        = Call { module: name; arguments: ref*; resources: name* } .
+repeat      = Repeat { count: integer; body: instruction* } .
+control     = Control { register: ref; value: integer; body: instruction* } .
+adjoint     = Adjoint { body: instruction* } .
+```
+
+angle 与 value 是否出现由 op 决定（见第 5.1 节），未使用者序列化为 null。开放模块的 body 为 ∅ 且不得声明 locals。版本 "0.1" 与 "0.2" 的 Module 不携带 locals 字段。
+
+主要数值范围：RegType.width 处于 0..64；QRAM 两个宽度处于 1..64；Repeat.count 处于 0..2^63−1；Control.value 处于控制视图的无符号范围；add_const 的 value 处于 0..2^width−1；模块调用深度和结构块嵌套深度不超过 127。
+
+JSON 编码把每条记录映射为携带 "tag" 的对象，字段名与记录字段一致；元组映射为 JSON 数组，标量与 null 原样传递：
+
+```text
+json(T, f1: v1, …, fn: vn) = { "tag": T, "f1": enc(v1), …, "fn": enc(vn) }
+enc((e1, …, ek)) = [ enc(e1), …, enc(ek) ]
+enc(∅)           = null
+enc(标量)        = 标量
+```
+
+解码要求字段集合与 tag 记录完全一致，并拒绝未知 tag、多余或缺失字段、重复键、非有限数和未知版本（见第 7 节）。规范输出为 UTF-8、按键排序、两空格缩进、末尾一个换行。
+
+## 9. 后端降低规则
 
 OriginIR-ext 后端可以将寄存器操作降低为物理位操作，但必须保留模块定义与调用。QRAM 资源按实际绑定进行模块特化。Repeat 可以转换成共享的辅助模块图。
 
@@ -176,6 +234,6 @@ PySparQ 后端将非空入口寄存器映射到原生命名整数寄存器。对
 
 后端可以施加比 IR 更严格的执行预算，例如状态向量位数、QRAM 物化长度和展开次数。遇到限制时必须报错，不能静默截断 Repeat、量子位或内存内容。
 
-## 9. 模块私有工作寄存器
+## 10. 模块私有工作寄存器
 
 Module.locals 是有序 Register 数组，不属于公开调用签名。每次调用从零态借入，必须在返回前复净；IR 只检查宽度和引用，复净是实现义务，模拟器提供运行期检查。开放模块不得声明 locals。Adjoint 和 Control 包括完整模块行为，工作区不能跨调用逃逸。OriginIR 导出为模块工作参数，顺序调用复用一段物理工作区；PySparQ 可在模块边界截获 native 实现，跳过其内部工作区与分解。原生注册表不是 IR 的一部分，不能将原生可执行误报为门级闭合。0.1/0.2 旧 JSON 仍可读写，其 Module 不含 locals；0.3 显式携带该字段。

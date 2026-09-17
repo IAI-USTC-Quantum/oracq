@@ -31,7 +31,8 @@ future-validation program of \secref{sec:reserved}:
   still carries recorded pending items (finite quadrature, omitted contour
   poles, Carleman tails, recovery windows, success channels); the
   Schr\"odingerization momentum-sign and oblivious-amplification iteration
-  defects found by the campaign are recorded but not yet repaired.  None is
+  defects found by the campaign are repaired and pinned by regression
+  tests.  None is
   a certified production solver yet (Table~\ref{tab:status-matrix}).
 \item \textbf{Hamiltonian-simulation kernels are partial.}  First-order
   Trotter and truncated Taylor are built in; a general QSP-based
@@ -59,7 +60,11 @@ future-validation program of \secref{sec:reserved}:
 Beyond the reserved validation axis (backend campaigns at scale, solver
 certification studies, and a first-class resource estimator), the natural
 extensions are: a general QSP Hamiltonian-simulation kernel closing the
-injection point; robust and maximum-likelihood amplitude estimation; a
+injection point; vendoring a proven high-degree phase-synthesis backend
+(e.g.\ Laurent exact decomposition) behind the existing phase-value
+interface---an implementation upgrade that, by design, requires no change
+to the language, the IR, or the verification pass; robust and
+maximum-likelihood amplitude estimation; a
 wider nonlinear-PDE repertoire on the QHAM path (systems, higher
 dimensions); classical-optimization protocol objects for variational
 workloads; and, on the formal side, a denotational semantics for RIR
@@ -79,8 +84,11 @@ injected; programs remain module-level, symbolic in scale, serializable,
 and honest about what they assume and what they omit.  Its coverage---six
 ODE solver families, several PDE paths, a reversible-arithmetic and
 math-function compiler feeding physics kernels, and a QSVT/QSP engine that
-verifies its own synthesis---is, to our knowledge, unmatched by existing
-quantum programming systems.  Its verification discipline is deliberately
+verifies its own synthesis---is, to our knowledge, not matched as an
+integrated whole by existing quantum programming systems: several
+ecosystems provide parts of the primitive layer (\secref{sec:related}),
+but none combines them with open, re-linkable oracle programs and six
+ODE solver families.  Its verification discipline is deliberately
 graduated, and the campaign of \secref{sec:numverify} shows what that
 discipline buys: register-exact certification against independent oracles
 for the whole library, two real defects exposed and recorded rather than

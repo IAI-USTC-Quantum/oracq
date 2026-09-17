@@ -2,9 +2,12 @@
 \label{sec:related}
 
 We situate \pqlang{} among quantum programming languages and frameworks,
-then among algorithm libraries, and finally record the feature comparison of
-Table~\ref{tab:qpl-comparison} and the coverage comparison of
-Table~\ref{tab:ode-coverage}.  The discussion is organized by the
+then among fault-tolerant algorithm-analysis libraries, and finally among
+the commercial platforms that now target quantum scientific computing; the
+feature comparison of Table~\ref{tab:qpl-comparison}, the coverage
+comparison of Table~\ref{tab:ode-coverage}, and the platform comparison
+of Table~\ref{tab:platform-comparison} record the outcome.  The
+discussion is organized by the
 requirements R1--R8 of \secref{sec:qsc-requirements}; general surveys of the
 field are available~\cite{selinger2004towards,heim2020quantum,garhwal2021systematic}.
 
@@ -17,14 +20,24 @@ functional programming: a Haskell host generates gate-level circuits, with
 ``boxing'' providing a form of abstraction over generated subcircuits.
 Scaffold~\cite{javadiabhari2015scaffcc} embedded modules and classical
 control in a C-like surface, compiled by ScaffCC with early
-resource-estimation passes.  Notably, Quipper later served as the vehicle
+resource-estimation passes.  LIQUi|>~\cite{wecker2014liquid} was the
+earliest vertically integrated attempt: an F\#-embedded DSL with
+compilation, simulation, and gate-count resource costing, whose authors'
+repository later shipped a complete phase-estimation-based linear-system
+example (QLSA)---both our workload and our resource axis appeared there,
+but as monolithic, concrete circuits with no oracle abstraction; the
+project is unmaintained and was superseded by Q\#.  Notably, Quipper later served as the vehicle
 for landmark resource analyses of quantum linear systems---although as
 external studies over generated circuits, not as a language
 mechanism~\cite{scherer2017resource,fillion2017dirac}.  QWIRE and the Proto-Quipper line developed linear and dependent type
 disciplines for safety guarantees~\cite{paykin2017qwire,fu2023protoquipper}.
 Silq~\cite{bichsel2020silq} introduced safe automatic uncomputation through
 its type system---a genuine language-level answer to the invertibility half
-of our R4.  None of these lines, however, provides deferred-oracle
+of our R4.  On the standalone-language axis, isQ~\cite{guo2023isq}
+integrates a compiler and instruction set with classical control in a
+maintained software stack; its public compiler repository has been
+inactive since 2023, a data point on the sustainability cost of
+standalone language efforts.  None of these lines, however, provides deferred-oracle
 semantics with paradigm contracts and late linking (R1/R2): abstractions
 expand to circuits, and the open state of a program is not a shareable
 artifact.  Their IRs target gate-level compilation rather than
@@ -46,6 +59,17 @@ algorithms module and has since been retired with it, and no QSVT or
 block-encoding abstraction exists in the library today.  Its objects are
 concrete circuits, its transpiler flattens structure, and alternative oracle
 realizations are separate programs rather than bindings of one open slot.
+PennyLane~\cite{bergholm2018pennylane} centers differentiable hybrid
+programming and, notably, ships subroutine templates that overlap our
+primitive layer---\texttt{QSVT}, \texttt{GQSP}, \texttt{Qubitization}, and
+the \texttt{FABLE} block-encoding construction---together with an
+experimental fault-tolerant computing module; these are circuit templates
+with externally supplied phase angles, not packaged solvers, and no QLSS
+or ODE/PDE stack is assembled from them.  The mainstream Chinese
+SDKs---QPanda/pyQPanda~\cite{originq2024qpanda} and MindSpore
+Quantum/MindQuantum~\cite{xu2024mindquantum}---are NISQ- and
+variational-centric, with at most demonstration-level HHL examples and no
+block-encoding or QSVT abstractions.
 OpenQASM~3~\cite{cross2022openqasm3} standardizes a textual interchange
 language whose subroutines and loops preserve some structure, and whose
 ``opaque'' declarations gesture toward R1---but at gate granularity,
@@ -82,6 +106,87 @@ families (Table~\ref{tab:ode-coverage}).  The distinction is one of
 \emph{when} semantics attach: Q\# resolves capabilities at compile time of
 concrete operations, whereas \pqlang{} keeps the \emph{link} itself as a
 first-class, repeatable, partial operation on stored programs.
+
+\paragraph{Fault-tolerant algorithm-analysis libraries.}
+In the open-source world, the systems closest to our primitive layer are
+libraries that express fault-tolerant algorithms as composable units for
+\emph{analysis} rather than for storage, linking, and execution.
+Qualtran~\cite{harrigan2024qualtran} is the most direct structural
+precedent for our IR: algorithms are trees of named \emph{bloqs} with
+declared signatures, and the call structure survives down to resource
+analysis and surface-code cost modeling.  Its standard library includes
+block-encoding constructors, generalized QSP (which subsumes the QSVT
+machinery), qubitization, and GQSP-based Hamiltonian simulation; it does
+not carry open modules (every bloq is concrete), paradigm contracts,
+promise provenance, or packaged solver families---there is no assembled
+QLSS bloq and no ODE/PDE generators.
+pyLIQTR~\cite{obenland2026pyliqtr} generates QSP/QSVT and block-encoding
+circuits over Cirq and Qualtran with Clifford+T resource analysis; its
+\texttt{clam} layer integrates differential equations \emph{classically},
+and no quantum solver families ship with it.
+pyqsp~\cite{chuang2021pyqsp} computes QSP phase angles by exact
+divide-and-conquer and Newton iteration and is the numerical predecessor
+of our phase engine; our engine differs in verifying its computed phases
+against the polynomial identity inside the language's validation pass,
+rather than acting as an offline numerical tool.
+qsp4pde~\cite{kim2026qsp4pde} applies QSP to linear PDEs (advection,
+wave, and Poisson equations) in Fourier space with Qiskit-based circuits
+and hardware experiments---a single-path solver package, not a language
+or an IR.
+OpenFermion~\cite{mcclean2020openfermion} plays the analogous input-model
+role for quantum chemistry (fermion--qubit mappings, low-rank
+decompositions, Trotterization), with no QLSS/QSVT or PDE content.
+An external reimplementation study---six published-anchor tasks
+reimplemented across these frameworks under a pre-registered
+protocol---quantifies the resulting code-volume differences in
+Appendix~\ref{app:expressiveness}, keeping language-level expressiveness
+and bundled-numerics capability separate (our own degree-limited phase
+synthesis is an implementation matter behind a protocol seam, recorded
+there as such).
+These libraries confirm that fault-tolerant scientific computing demands
+structure-preserving composition; none of them, however, treats the
+\emph{program} as an open, re-linkable artifact, and none couples the
+primitives to a solver-family protocol architecture.
+
+\paragraph{Commercial and industrial platforms.}
+A second class of counterparts is commercial.
+UnitaryLab~\cite{unitarylab2025platform}, launched in 2025 by the
+Shanghai Jiao Tong University team behind the Schr\"odingerization
+program~\cite{jin2024schrodingerization,hu2024schrocircuits}, positions
+itself as a dedicated quantum scientific computing platform: an
+agent-driven web studio over a proprietary simulator SDK, with an
+MIT-licensed algorithm library spanning HHL, a QSVT linear-system solver,
+variational and adiabatic alternatives, several Hamiltonian-simulation
+kernels, and Schr\"odingerization-based heat- and advection-equation
+solvers---the closest commercial counterpart to our ODE/PDE coverage.  It
+is a product stack rather than a language: programs are
+platform-internal, and no open-program artifact, oracle contract, or
+resource estimation is surfaced in its public materials.
+Classiq~\cite{classiq2026platform} industrializes the synthesis route: the
+statically typed Qmod language models algorithms as constraint-annotated
+function hierarchies that a closed synthesis engine compiles to
+hardware-constrained circuits, and its example library includes QSVT
+matrix inversion, HHL, quantum differential equations, and GQSP---but
+abstraction ends at synthesis time; there is no open oracle, no late
+linking, and no serializable open program.  On the axis we deliberately
+reserve, the Microsoft Azure Quantum Resource
+Estimator~\cite{microsoft2026azureqe} is the strongest industrial answer:
+language-agnostic fault-tolerant estimation from Q\#, QIR, or logical
+counts through to physical-qubit and runtime estimates under
+error-correction
+assumptions~\cite{beverland2022assessing}.  Vertical scientific products
+such as Quantinuum's InQuanto~\cite{quantinuum2026inquanto} (quantum
+chemistry, with variational and phase-estimation methods and
+quantum-error-corrected experiments in its recent results) and algorithm
+companies such as
+Phasecraft~\cite{phasecraft2026} deliver domains and results rather than
+languages, and execution infrastructure such as NVIDIA's
+CUDA-Q~\cite{nvidia2026cudaq} and Amazon
+Braket~\cite{amazonbraket2026sdk} targets hybrid workloads at the circuit
+level.  Across this landscape one pattern repeats: strong synthesis,
+estimation, or domain workflows, but no system in which the scientific
+algorithm is a stored, partially linked program whose promises travel
+with it.
 
 \paragraph{Research codebases for scientific algorithms.}
 Individual algorithm implementations---LCHS, Schr\"odingerization, Carleman
@@ -123,6 +228,8 @@ not computationally, absent exactly the contracts of
     \multicolumn{7}{@{}p{14.3cm}@{}}{\scriptsize $^a$Boxes abstract over generated subcircuits, but there is no open-program state.  $^b$Operations are passed as parameters and remain abstract to the algorithm, but bodies are concrete and no link-time openness or paradigm contracts exist.  $^c$The extensible engine chain can emulate oracles at execution time, but not in a serializable program artifact.  $^d$Block-encoding algebra,
     QSVT/QSP engine, sparse-access and QRAM input models, reversible
     fixed-point arithmetic with a math-function compiler.
+    $^e$Resource analyses exist as external studies over generated
+    circuits~\cite{scherer2017resource}; no integrated estimator.
     $^f$Scoped and reserved (\secref{sec:reserved}); the IR preserves the
     structure an estimator needs.}
   \end{tabular}
@@ -131,10 +238,14 @@ not computationally, absent exactly the contracts of
 \begin{table}[t]
   \centering
   \caption{Algorithm and solver coverage: \pqlang{} against the major
-  frameworks' standard libraries (research-prototype implementations
-  published outside a framework's libraries do not count).  \ok~= provided
-  as a composable, contract-checked library component; \half~=
-  demonstration-level implementation; \noent~= absent.}
+  frameworks' standard libraries.  The scoring counts each framework's
+  \emph{own} standard library only; ecosystem-level implementations
+  (Qualtran, pyLIQTR, PennyLane's subroutine templates, Classiq's
+  example library, UnitaryLab's algorithm library) are surveyed
+  separately in Table~\ref{tab:platform-comparison} and the text, so
+  that no side is credited or discounted by the choice of boundary.
+  \ok~= provided as a composable, contract-checked library component;
+  \half~= demonstration-level implementation; \noent~= absent.}
   \label{tab:ode-coverage}
   \small
   \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{5.4cm}ccccc@{}}
@@ -164,6 +275,33 @@ not computationally, absent exactly the contracts of
   \end{tabular}
 \end{table}
 
+\begin{table}[t]
+  \centering
+  \caption{Fault-tolerant algorithm-analysis libraries and commercial
+  scientific-computing platforms, compared with \pqlang{} on the axes of
+  \secref{sec:qsc-requirements}.  \ok~= provided; \half~= partial (see
+  text and footnotes); \noent~= absent.  Claims are referenced to the
+  systems' publications, repositories, and documentation; entries for
+  closed-source products are limited to what those sources state.}
+  \label{tab:platform-comparison}
+  \small
+  \setlength{\tabcolsep}{3pt}\begin{tabular}{@{}p{3.2cm}cccccc@{}}
+    \toprule
+    & \textbf{Qualtran} & \textbf{pyLIQTR} & \textbf{PennyLane} & \textbf{Classiq} & \textbf{UnitaryLab} & \textbf{\pqlang} \\
+    \midrule
+    Open-program oracles (R1/R2) & \half$^{a}$ & \noent & \noent & \half$^{b}$ & \noent & \ok \\
+    Structure-preserving IR (R3) & \ok & \noent & \noent & \half & \noent & \ok \\
+    Block-encoding primitives & \ok & \ok & \half$^{c}$ & \ok & \half$^{d}$ & \ok \\
+    QSP/QSVT phase machinery & \ok & \ok & \half$^{c}$ & \ok & \ok & \ok$^{e}$ \\
+    QLSS library components & \noent$^{f}$ & \noent & \noent & \ok & \ok & \ok \\
+    ODE/PDE solver families & \noent & \noent$^{g}$ & \noent & \half & \ok & \ok \\
+    Fault-tolerant resource estimation & \ok & \ok & \noent & \half & \noent & \half$^{h}$ \\
+    Open-source core & \ok & \ok & \ok & \noent$^{i}$ & \half$^{j}$ & \ok \\
+    \bottomrule
+    \multicolumn{7}{@{}p{14.3cm}@{}}{\scriptsize $^a$Bloq signatures abstract subcircuits, but every bloq has a concrete body; no late or partial linking.  $^b$Qmod functions are abstract until synthesis, which concretizes them; no serializable open program.  $^c$Subroutine templates (\texttt{QSVT}, \texttt{GQSP}, \texttt{FABLE}) rather than packaged algorithms; phase angles are supplied externally.  $^d$Block encodings underlie the QSVT linear solver, while the Schr\"odingerization path documents its block-encoding backend as pending.  $^e$Self-verifying: computed phases are checked against the polynomial identity during validation.  $^f$Block-encoding and QSP bloqs exist; no assembled solver.  $^g$The \texttt{clam} layer integrates ODEs classically.  $^h$Logical-level estimator; the physical layer is reserved (\secref{sec:reserved}).  $^i$Closed synthesis engine; the example library is open.  $^j$Proprietary simulator SDK; the algorithm library is MIT-licensed.}
+  \end{tabular}
+\end{table}
+
 \subsection{Positioning}
 \label{sec:positioning}
 
@@ -176,9 +314,19 @@ scientific-computing workload, where the unit of progress is a
 \emph{mathematical algorithm against declared access models}, the unit of
 sharing is a \emph{program artifact with open slots and recorded promises},
 and the unit of validation is \emph{graduated evidence} rather than a single
-simulator's output.  To our knowledge, no previously published system
-combines these three units; Tables~\ref{tab:qpl-comparison}
-and~\ref{tab:ode-coverage} make the comparison concrete, and the honest
+simulator's output.  The commercial and analysis-library landscape of
+Table~\ref{tab:platform-comparison} sharpens the same boundary: Qualtran
+and pyLIQTR pair serious primitive and resource machinery with concrete
+program trees; Classiq resolves abstraction at synthesis time;
+UnitaryLab ships solver products on a closed stack; Azure's estimator
+prices any program's logical counts without asking how the program was
+written.  None of them makes the \emph{open program}---partially bound,
+contract-checked, promise-carrying---the unit of sharing.  To our
+knowledge, no previously published system, open-source framework, or
+commercial platform we surveyed combines these three units;
+Tables~\ref{tab:qpl-comparison} and~\ref{tab:ode-coverage}
+and~\ref{tab:platform-comparison} make the comparison concrete, and the honest
 counterpoint is equally explicit: resource estimation---strong in Scaffold,
-Q\# tooling, and ProjectQ---is the deliberately reserved axis of
+Q\# tooling, ProjectQ, Qualtran, pyLIQTR, and Azure's estimator---is the
+deliberately reserved axis of
 \secref{sec:reserved}.

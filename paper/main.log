@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.8.16)  16 SEP 2026 15:03
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.8.16)  17 SEP 2026 22:35
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1074,24 +1074,24 @@ Package caption Info: listings package is loaded.
 ) (./main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 106.
-LaTeX Font Info:    ... okay on input line 106.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 108.
+LaTeX Font Info:    ... okay on input line 108.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -1199,13 +1199,13 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-LaTeX Info: Redefining \microtypecontext on input line 106.
-Package microtype Info: Applying patch `item' on input line 106.
-Package microtype Info: Applying patch `toc' on input line 106.
-Package microtype Info: Applying patch `eqnum' on input line 106.
-Package microtype Info: Applying patch `footnote' on input line 106.
-Package microtype Info: Applying patch `verbatim' on input line 106.
-LaTeX Info: Redefining \microtypesetup on input line 106.
+LaTeX Info: Redefining \microtypecontext on input line 108.
+Package microtype Info: Applying patch `item' on input line 108.
+Package microtype Info: Applying patch `toc' on input line 108.
+Package microtype Info: Applying patch `eqnum' on input line 108.
+Package microtype Info: Applying patch `footnote' on input line 108.
+Package microtype Info: Applying patch `verbatim' on input line 108.
+LaTeX Info: Redefining \microtypesetup on input line 108.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
@@ -1225,7 +1225,7 @@ Package pgfplots notification 'compat/show suggested version=true': document ha
 s been generated with the most recent feature set (\pgfplotsset{compat=1.18}).
 
 \c@lstlisting=\count383
-Package hyperref Info: Link coloring ON on input line 106.
+Package hyperref Info: Link coloring ON on input line 108.
 (./main.out) (./main.out)
 \@outlinefile=\write4
 \openout4 = `main.out'.
@@ -1234,7 +1234,7 @@ Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: End \AtBeginDocument code.
 Package babel Info: Main language set to 'english'.
 LaTeX Font Info:    Trying to load font information for T1+lmss on input line 1
-08.
+10.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmss.fd
 File: t1lmss.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1245,46 +1245,46 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             See the microtype manual for details.
 \@titelsaveboxHuge=\box78
 
-Underfull \hbox (badness 5832) in paragraph at lines 108--108
+Underfull \hbox (badness 5832) in paragraph at lines 110--110
 []\T1/lmss/m/n/24.88 (+20) pyqecclang: An Em-bed-ded Quan-tum
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 108--108
+Underfull \hbox (badness 10000) in paragraph at lines 110--110
 \T1/lmss/m/n/24.88 (+20) Pro-gram-ming Lan-guage for Sci-en-tific
  []
 
 \@titelsaveboxHugeoneline=\box79
 \@titelsaveboxhhuge=\box80
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 1
-08.
+10.
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 1
-08.
+10.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-108.
+110.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-108.
+110.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 108.
+(Font)              <10.95> on input line 110.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 108.
+(Font)              <8> on input line 110.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 108.
+(Font)              <6> on input line 110.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
@@ -1293,18 +1293,15 @@ File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
 \c@@authornum=\count384
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <12> on input line 110.
 \c@@affiliationnum=\count385
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 10
-8.
-
-(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmr.fd
-File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [1
-
-{/home/agony/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/home/a
-gony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}]
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <9> on input line 110.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5> on input line 110.
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-14.
+16.
 
 (/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1314,34 +1311,43 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
-pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has 
-been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.118 \end{abstract}
-                     [1{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/cm-
-super/cm-super-t1.enc}{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/l
-m-mathit.enc}] (./sections/introduction.tex
-pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has 
-been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.75 ...(\secref{sec:oracles}, \secref{sec:ode}).]
-                                                   [1{/home/agony/texlive/2026/
-texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/home/agony/texlive/2026/texmf-dis
-t/fonts/enc/dvips/lm/lm-rm.enc}]
+Underfull \hbox (badness 1454) in paragraph at lines 111--120
+[]\T1/cmr/m/n/10.95 Quantum al-go-rithms for sci-en-tific computing---quantum l
+inear-system
+ []
+
+
+Underfull \hbox (badness 4193) in paragraph at lines 111--120
+\T1/cmr/m/n/10.95 ordinary- and partial-differential-equation (ODE/PDE) solvers
+---have a
+ []
+
+
+Underfull \hbox (badness 2452) in paragraph at lines 111--120
+\T1/cmr/m/n/10.95 uni-tary ex-port con-tributed to Uni-fiedQuan-tum, both cre-a
+ted for this
+ []
+
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 12
+0.
+(/home/agony/texlive/2026/texmf-dist/tex/latex/lm/t1lmr.fd
+File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+) [1
+
+{/home/agony/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/home/a
+gony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/home/agony/texlive/
+2026/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}] (./sections/introduc
+tion.tex [2{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathit.en
+c}{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/home/
+agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}]
 Underfull \hbox (badness 1831) in paragraph at lines 83--99
 \T1/cmr/m/n/10.95 qubiti-za-tion/QSVT/QSP stack with a self-verifying quantum-s
 ignal-processing
  []
 
-[2{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.en
-c}]) (./sections/requirements.tex [3]
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 73.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 73.
- [4{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathex.enc}] [5]
+[3]) (./sections/requirements.tex [4{/home/agony/texlive/2026/texmf-dist/fonts/
+enc/dvips/cm-super/cm-super-ts1.enc}] [5{/home/agony/texlive/2026/texmf-dist/fo
+nts/enc/dvips/lm/lm-mathex.enc}] [6] [7]
 LaTeX Font Info:    External font `lmex10' loaded for size
 (Font)              <10> on input line 203.
 LaTeX Font Info:    External font `lmex10' loaded for size
@@ -1415,88 +1421,115 @@ Underfull \hbox (badness 2671) in paragraph at lines 214--214
 []|\T1/lmr/m/n/10 (+20) New solvers re-quire
  []
 
-) (./sections/related.tex [6] [7] [8]
-Overfull \hbox (4.9187pt too wide) in paragraph at lines 87--97
+) (./sections/related.tex [8] [9] [10]
+Overfull \hbox (4.9187pt too wide) in paragraph at lines 192--202
  []\T1/lmr/bx/n/10.95 (-20) Research code-bases for sci-en-tific al-go-rithms.[
 ] \T1/cmr/m/n/10.95 In-di-vid-ual al-go-rithm implementations---
  []
 
-
-Underfull \hbox (badness 4316) in paragraph at lines 111--111
+[11]
+Underfull \hbox (badness 4316) in paragraph at lines 216--216
 []|\T1/lmr/m/n/10 (+20) R2 re-al-iza-tion
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 112--112
+Underfull \hbox (badness 10000) in paragraph at lines 217--217
 []|\T1/lmr/m/n/10 (+20) R3 structure-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 113--113
+Underfull \hbox (badness 10000) in paragraph at lines 218--218
 []|\T1/lmr/m/n/10 (+20) R4 ad-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 113--113
+Underfull \hbox (badness 10000) in paragraph at lines 218--218
 \T1/lmr/m/n/10 (+20) joint/control
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 114--114
+Underfull \hbox (badness 10000) in paragraph at lines 219--219
 []|\T1/lmr/m/n/10 (+20) R5 sym-bolic
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 115--115
+Underfull \hbox (badness 10000) in paragraph at lines 220--220
 []|\T1/lmr/m/n/10 (+20) R6 promise
  []
 
 
-Underfull \hbox (badness 1163) in paragraph at lines 117--117
+Underfull \hbox (badness 1163) in paragraph at lines 222--222
 []|\T1/lmr/m/n/10 (+20) R8 li-brary ex-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 119--119
+Underfull \hbox (badness 10000) in paragraph at lines 224--224
 []|\T1/lmr/m/n/10 (+20) Scientific
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 120--120
+Underfull \hbox (badness 10000) in paragraph at lines 225--225
 []|\T1/lmr/m/n/10 (+20) ODE/PDE
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 121--121
+Underfull \hbox (badness 10000) in paragraph at lines 226--226
 []|\T1/lmr/m/n/10 (+20) Resource es-ti-
  []
 
+LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <10> not available
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 248.
 
-Underfull \hbox (badness 10000) in paragraph at lines 147--147
+Underfull \hbox (badness 10000) in paragraph at lines 258--258
 []|\T1/lmr/m/n/10 (+20) Hamiltonian sim-u-la-tion
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 151--151
+Underfull \hbox (badness 10000) in paragraph at lines 262--262
 []|\T1/lmr/m/n/10 (+20) QRAM/QROM in-put mod-els
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 156--156
+Underfull \hbox (badness 10000) in paragraph at lines 267--267
 []|\T1/lmr/m/n/10 (+20) ODE: con-tour de-com-po-si-tion
  []
 
 
-Underfull \hbox (badness 1824) in paragraph at lines 160--160
+Underfull \hbox (badness 1824) in paragraph at lines 271--271
 []|\T1/lmr/m/n/10 (+20) PDE: sym-bolic non-lin-ear PDEs
  []
 
-) (./sections/language.tex [9] [10]
+
+Underfull \hbox (badness 6944) in paragraph at lines 292--292
+[]|\T1/lmr/m/n/10 (+20) Open-program or-a-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 293--293
+[]|\T1/lmr/m/n/10 (+19) Structure-preserving
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 295--295
+[]|\T1/lmr/m/n/10 (+20) QSP/QSVT phase
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 297--297
+[]|\T1/lmr/m/n/10 (+20) ODE/PDE solver
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 298--298
+[]|\T1/lmr/m/n/10 (+20) Fault-tolerant re-
+ []
+
+) (./sections/language.tex [12] [13]
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
 nput line 19.
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <9> not available
 (Font)              Font shape `T1/lmtt/b/n' tried instead on input line 20.
- [11]
+ [14]
 LaTeX Font Info:    Trying to load font information for OT1+lmtt on input line 
 92.
 
@@ -1507,22 +1540,19 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `lmtt' (encoding: OT1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
-
+ [15{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-rmtt.enc}]
 Underfull \hbox (badness 1087) in paragraph at lines 127--128
 []|\T1/lmr/m/n/10 (+20) name; reg-is-ters (quan-tum in-ter-face); re-sources (Q
 RAM);
  []
 
-[12{/home/agony/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-rmtt.enc}]
+
 Underfull \hbox (badness 2744) in paragraph at lines 151--156
 []\T1/cmr/b/n/10.95 Purity. \T1/cmr/m/n/10.95 RIR rep-re-sents quan-tum op-er-a
 -tions af-ter compile-time pa-ram-e-ter
  []
 
-[13] [14]) (./sections/oracles.tex [15] [16] [17]
-LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <10> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 143.
- [18]
+[16] [17] [18]) (./sections/oracles.tex [19] [20] [21]
 Underfull \hbox (badness 4792) in paragraph at lines 233--244
  []\T1/lmr/bx/n/10.95 (+20) Structural in-ter-faces.[] \T1/cmr/m/n/10.95 The li
 -brary de-fines small \T1/lmtt/m/n/10.95 typing.Protocol \T1/cmr/m/n/10.95 in-t
@@ -1543,326 +1573,384 @@ Underfull \hbox (badness 3088) in paragraph at lines 233--244
 Protocol\T1/cmr/m/n/10.95 , and
  []
 
-[19]) (./sections/primitives.tex [20] [21] [22]
-Underfull \hbox (badness 1077) in paragraph at lines 142--156
+[22] [23]) (./sections/primitives.tex [24] [25]
+Underfull \hbox (badness 1077) in paragraph at lines 151--165
 \T1/cmr/m/n/10.95 outer loop at the host); low-rank double-factorization and te
 nsor-hypercontraction
  []
 
-
-Underfull \hbox (badness 1975) in paragraph at lines 169--169
+[26]
+Underfull \hbox (badness 1975) in paragraph at lines 178--178
 []|\T1/lmr/m/n/10 (+20) Block-encoding al-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 170--170
+Underfull \hbox (badness 10000) in paragraph at lines 179--179
 []|\T1/lmr/m/n/10 (+20) select-swap QROM (par-ti-tion cost
  []
 
 
-Underfull \hbox (badness 4416) in paragraph at lines 170--170
+Underfull \hbox (badness 4416) in paragraph at lines 179--179
 \T1/lmr/m/n/10 (+20) model), alias sam-pling, XOR databases
  []
 
 
-Underfull \hbox (badness 1137) in paragraph at lines 170--170
+Underfull \hbox (badness 1137) in paragraph at lines 179--179
 \T1/lmr/m/n/10 (+20) (gate/QRAM/banked), sparse ac-cess pairs,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 171--172
+Underfull \hbox (badness 10000) in paragraph at lines 180--181
 []|\T1/lmr/m/n/10 (+20) implemented; nu-
  []
 
 
-Underfull \hbox (badness 4543) in paragraph at lines 172--173
+Underfull \hbox (badness 4543) in paragraph at lines 181--182
 []|\T1/lmr/m/n/10 (+20) Trotter/Taylor im-
  []
 
 
-Underfull \hbox (badness 3590) in paragraph at lines 175--176
+Underfull \hbox (badness 3590) in paragraph at lines 184--185
 \T1/lmr/m/n/10 (+20) ter-face level; ma-
  []
 
 
-Underfull \hbox (badness 2913) in paragraph at lines 175--176
+Underfull \hbox (badness 2913) in paragraph at lines 184--185
 \T1/lmr/m/n/10 (+20) tu-rity varies (Sec-
  []
 
-) (./sections/ode.tex [23] [24] [25] [26]) (./sections/casestudies.tex [27]
-[28]
+) (./sections/ode.tex [27] [28] [29]) (./sections/casestudies.tex [30] [31]
+[32]
 Underfull \hbox (badness 1231) in paragraph at lines 152--163
 \T1/cmr/m/n/10.95 arith-metic, search and am-pli-fi-ca-tion, es-ti-ma-tion (pha
 se, am-pli-tude, count-ing,
  []
 
-) (./sections/implementation.tex [29]
-Underfull \hbox (badness 10000) in paragraph at lines 81--81
+) (./sections/implementation.tex [33]
+Underfull \hbox (badness 10000) in paragraph at lines 82--82
 []|\T1/lmr/m/n/10 (+20) QSP phase syn-the-sis /
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 82--82
+Underfull \hbox (badness 10000) in paragraph at lines 83--83
 []|\T1/lmr/m/n/10 (+20) Data load-ing (QROM,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 83--83
+Underfull \hbox (badness 10000) in paragraph at lines 84--84
 []|\T1/lmr/m/n/10 (+20) Reversible arith-metic &
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 85--85
+Underfull \hbox (badness 10000) in paragraph at lines 86--86
 []|\T1/lmr/m/n/10 (+20) Hamiltonian sim-u-la-tion
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 90--90
+Underfull \hbox (badness 10000) in paragraph at lines 91--91
 []|\T1/lmr/m/n/10 (+20) Scientific suite (Gibbs,
  []
 
-[30]
-Overfull \hbox (16.29819pt too wide) in paragraph at lines 121--134
+
+Overfull \hbox (16.29819pt too wide) in paragraph at lines 122--135
 \T1/lmtt/m/n/10.95 tools/run_verification.py \T1/cmr/m/n/10.95 and archived as 
 machine-readable JSON (\T1/lmtt/m/n/10.95 out/verification/\T1/cmr/m/n/10.95 ).
 
  []
 
-
-Underfull \hbox (badness 1616) in paragraph at lines 150--151
+[34]
+Underfull \hbox (badness 1616) in paragraph at lines 151--152
 []|\T1/lmr/m/n/10 (+20) QFT vs DFT $\OT1/lmr/m/n/10 (+20) 3\OML/lmm/m/it/10 :\O
 T1/lmr/m/n/10 (+20) 8[]10[]$ \T1/lmr/m/n/10 (+20) ($\OML/lmm/m/it/10 n[]\OT1/lm
 r/m/n/10 (+20) 4$\T1/lmr/m/n/10 (+20) ); Fourier ad-di-tion
  []
 
 
-Underfull \hbox (badness 5878) in paragraph at lines 151--151
+Underfull \hbox (badness 5878) in paragraph at lines 152--152
 []|\T1/lmr/m/n/10 (+20) State prepa-ra-tion &
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 153--153
+Underfull \hbox (badness 10000) in paragraph at lines 154--154
 []|\T1/lmr/m/n/10 (+20) Search & quan-tum
  []
 
 
-Overfull \hbox (2.84889pt too wide) in paragraph at lines 145--164
+Overfull \hbox (2.84889pt too wide) in paragraph at lines 146--165
  [][] 
  []
 
-[31]
-Package pgfplots info on input line 234: Using 'lua backend=false' for axis: xm
+Package pgfplots info on input line 241: Using 'lua backend=false' for axis: xm
 ode=log unsupported (yet).
-Package pgfplots info on input line 234: Using 'lua backend=false' for axis: ym
+Package pgfplots info on input line 241: Using 'lua backend=false' for axis: ym
 ode=log unsupported (yet).
-Package pgfplots info on input line 242: Using 'lua backend=false' for axis: xm
+Package pgfplots info on input line 249: Using 'lua backend=false' for axis: xm
 ode=log unsupported (yet).
-Package pgfplots info on input line 242: Using 'lua backend=false' for axis: ym
+Package pgfplots info on input line 249: Using 'lua backend=false' for axis: ym
 ode=log unsupported (yet).
-Package pgfplots info on input line 250: Using 'lua backend=false' for axis: xm
+Package pgfplots info on input line 257: Using 'lua backend=false' for axis: xm
 ode=log unsupported (yet).
-Package pgfplots info on input line 250: Using 'lua backend=false' for axis: ym
+Package pgfplots info on input line 257: Using 'lua backend=false' for axis: ym
 ode=log unsupported (yet).
-Package pgfplots info on input line 258: Using 'lua backend=false' for axis: xm
+Package pgfplots info on input line 265: Using 'lua backend=false' for axis: xm
 ode=log unsupported (yet).
-Package pgfplots info on input line 258: Using 'lua backend=false' for axis: ym
+Package pgfplots info on input line 265: Using 'lua backend=false' for axis: ym
 ode=log unsupported (yet).
 
-Underfull \hbox (badness 10000) in paragraph at lines 286--286
-[]\T1/lmss/m/n/10 (+20) Table 9: |Resource-scaling study at the Tof-foli+Cliffo
-rd+T+QRAM level
+Underfull \hbox (badness 10000) in paragraph at lines 293--293
+[]\T1/lmss/m/n/10 (+20) Table 10: |Resource-scaling study at the Tof-foli+Cliff
+ord+T+QRAM level
  []
 
 
-Underfull \hbox (badness 3000) in paragraph at lines 300--300
+Underfull \hbox (badness 3000) in paragraph at lines 307--307
 []|\T1/lmr/m/n/10 (+20) QPE, sym-bolic pow-ers
  []
 
 
-Underfull \hbox (badness 1577) in paragraph at lines 310--310
+Underfull \hbox (badness 1577) in paragraph at lines 317--317
 []|\T1/lmr/m/n/10 (+20) Roe flux face (QFVM,
  []
 
 
-Underfull \hbox (badness 1577) in paragraph at lines 311--311
+Underfull \hbox (badness 1577) in paragraph at lines 318--318
 []|\T1/lmr/m/n/10 (+20) Roe flux face (QFVM,
  []
 
-[32]
-Underfull \hbox (badness 10000) in paragraph at lines 359--359
+[35]
+Underfull \hbox (badness 10000) in paragraph at lines 366--366
 []|\T1/lmr/m/n/10 (+20) estimator vs strict
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 359--359
+Underfull \hbox (badness 10000) in paragraph at lines 366--366
 \T1/lmr/m/n/10 (+20) netlist (15 hand-
  []
 
 
-Underfull \hbox (badness 1558) in paragraph at lines 359--359
+Underfull \hbox (badness 1558) in paragraph at lines 366--366
 \T1/lmr/m/n/10 (+20) computed and cross
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 359--360
+Underfull \hbox (badness 10000) in paragraph at lines 366--367
 []|\T1/lmr/m/n/10 (+20) atom-by-atom
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 360--360
+Underfull \hbox (badness 10000) in paragraph at lines 367--367
 []|\T1/lmr/m/n/10 (+20) fixed-point mul-ti-ply,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 360--360
+Underfull \hbox (badness 10000) in paragraph at lines 367--367
 []|$\OT1/lmr/m/n/10 (+20) 1\OML/lmm/m/it/10 :\OT1/lmr/m/n/10 (+20) 940$
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 361--361
+Underfull \hbox (badness 10000) in paragraph at lines 368--368
 []|$\OT1/lmr/m/n/10 (+20) 2\OML/lmm/m/it/10 :\OT1/lmr/m/n/10 (+20) 854$
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 361--362
+Underfull \hbox (badness 10000) in paragraph at lines 368--369
 \T1/lmr/m/n/10 (+20) ro-ta-tions drop
  []
 
 
-Underfull \hbox (badness 1527) in paragraph at lines 362--362
+Underfull \hbox (badness 1527) in paragraph at lines 369--369
 []|\T1/lmr/m/n/10 (+20) dense state prepa-ra-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 362--363
+Underfull \hbox (badness 10000) in paragraph at lines 369--370
 []|$\OML/lmm/m/it/10 O\OT1/lmr/m/n/10 (+20) (2[])$ \T1/lmr/m/n/10 (+20) mul-ti-
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 363--363
+Underfull \hbox (badness 10000) in paragraph at lines 370--370
 []|$\OT1/lmr/m/n/10 (+20) 1\OML/lmm/m/it/10 :\OT1/lmr/m/n/10 (+20) 791$
  []
 
 
-Underfull \hbox (badness 7667) in paragraph at lines 364--364
+Underfull \hbox (badness 7667) in paragraph at lines 371--371
 []|\T1/lmr/m/n/10 (+20) Grover per-iteration
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 364--365
+Underfull \hbox (badness 10000) in paragraph at lines 371--372
 []|$\OMS/lmsy/m/n/10 b[]\OT1/lmr/m/n/10 (+20) 2[]\OMS/lmsy/m/n/10 c$ \T1/lmr/m/
 n/10 (+20) it-er-a-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 366--367
+Underfull \hbox (badness 10000) in paragraph at lines 373--374
 []|$\OML/lmm/m/it/10 O\OT1/lmr/m/n/10 (+20) (\OML/lmm/m/it/10 n\OT1/lmr/m/n/10 
 (+20) )$ \T1/lmr/m/n/10 (+20) adders
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 366--367
+Underfull \hbox (badness 10000) in paragraph at lines 373--374
 \T1/lmr/m/n/10 (+20) [[]]; stair-case
  []
 
 
-Underfull \hbox (badness 7759) in paragraph at lines 367--367
+Underfull \hbox (badness 7759) in paragraph at lines 374--374
 []|\T1/lmr/m/n/10 (+20) QROM emit-ted vs
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 367--367
+Underfull \hbox (badness 10000) in paragraph at lines 374--374
 []|$\OT1/lmr/m/n/10 (+20) 344 064$ \T1/lmr/m/n/10 (+20) vs
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 367--368
+Underfull \hbox (badness 10000) in paragraph at lines 374--375
 []|\T1/lmr/m/n/10 (+20) unary-iteration
  []
 
-Package pgfplots info on input line 383: Using 'lua backend=false' for axis: xm
+Package pgfplots info on input line 390: Using 'lua backend=false' for axis: xm
 ode=log unsupported (yet).
-Package pgfplots info on input line 383: Using 'lua backend=false' for axis: ym
+Package pgfplots info on input line 390: Using 'lua backend=false' for axis: ym
 ode=log unsupported (yet).
 
-Overfull \hbox (9.1498pt too wide) in paragraph at lines 416--436
+Overfull \hbox (9.1498pt too wide) in paragraph at lines 423--443
  [][] 
  []
 
-[33]) (./sections/discussion.tex [34]) [35] (./sections/appendix.tex
+[36] [37]) (./sections/discussion.tex [38]) (./sections/appendix.tex [39]
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
 (/home/agony/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
-) [36]
-Underfull \hbox (badness 1275) in paragraph at lines 104--116
-\T1/cmr/m/n/10.95 Listing [][]10[][] (case 6 of \T1/lmtt/m/n/10.95 examples/ode
-_input_models.py\T1/cmr/m/n/10.95 ) runs the in-vis-cid Burg-ers
+) [40]
+[41] [42]
+Underfull \hbox (badness 1158) in paragraph at lines 225--230
+\T1/cmr/m/n/10.95 con-stant ad-di-tion (the \T1/lmtt/m/n/10.95 controlled_by \T
+1/cmr/m/n/10.95 stair-case), a \T1/lmtt/m/n/10.95 Repeat \T1/cmr/m/n/10.95 of f
+ive ro-ta-tions (the
  []
 
-
-Underfull \hbox (badness 2671) in paragraph at lines 104--116
-\T1/lmtt/m/n/10.95 carleman_qode(linear_solver=..., cutoff=2)\T1/cmr/m/n/10.95 
-, re-ceives the lin-ear solver as an
- []
-
-[37] [38] [39]
-Underfull \hbox (badness 10000) in paragraph at lines 280--281
+[43] [44] [45] [46] [47] [48] [49] [50] [51]
+Underfull \hbox (badness 10000) in paragraph at lines 750--751
 []|\T1/lmtt/m/n/9 coeff_angles\T1/lmr/m/n/9 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 280--281
+Underfull \hbox (badness 10000) in paragraph at lines 750--751
 \T1/lmtt/m/n/9 initial_angles \T1/lmr/m/n/9 (+20) (gate ta-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 284--284
+Underfull \hbox (badness 10000) in paragraph at lines 754--754
 []|\T1/lmr/m/n/9 (+20) viscosity field via an-gle
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 287--287
+Underfull \hbox (badness 10000) in paragraph at lines 757--757
 []|\T1/lmr/m/n/9 (+20) given spec-tral gen-er-a-tor,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 288--289
+Underfull \hbox (badness 10000) in paragraph at lines 758--759
 []|\T1/lmtt/m/n/9 positions\T1/lmr/m/n/9 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 291--291
+Underfull \hbox (badness 10000) in paragraph at lines 761--761
 []|\T1/lmr/m/n/9 (+20) given spec-tral gen-er-a-tor,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 292--293
+Underfull \hbox (badness 10000) in paragraph at lines 762--763
 []|\T1/lmtt/m/n/9 positions\T1/lmr/m/n/9 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 293--294
+Underfull \hbox (badness 10000) in paragraph at lines 763--764
 []|\T1/lmtt/m/n/9 coeff_angles\T1/lmr/m/n/9 (+20) ,
  []
 
-[40] [41]) (./main.bbl [42] [43] [44]) [45] [46] [47] [48] [49] [50] [51]
-(./main.aux)
+[52]
+Underfull \hbox (badness 10000) in paragraph at lines 865--865
+[]|\T1/lmr/bx/n/10 (+20) Task ($\OML/lmm/m/it/10 ^^T[]\OT1/lmr/m/n/10 (+20) 8$\
+T1/lmr/bx/n/10 (+20) ,
+ []
+
+
+Underfull \hbox (badness 2828) in paragraph at lines 865--865
+\OML/lmm/m/it/10 "[]\OT1/lmr/m/n/10 (+20) 10[]$ \T1/lmr/bx/n/10 (+20) un-less
+ []
+
+
+Underfull \hbox (badness 3323) in paragraph at lines 867--867
+[]|\T1/lmr/m/n/10 (+20) T1 QSP in-ver-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 870--870
+[]|\T1/lmr/m/n/10 (+20) PennyLane
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 871--871
+[]|\T1/lmr/m/n/10 (+20) Qualtran
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 880--880
+[]|\T1/lmr/m/n/10 (+20) Qualtran
+ []
+
+
+Underfull \hbox (badness 1082) in paragraph at lines 882--882
+[]|\T1/lmr/m/n/10 (+20) T5 Schrödin-ger-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 882--882
+[]|\T1/lmr/m/n/10 (+20) UnitaryLab
+ []
+
+
+Underfull \hbox (badness 1199) in paragraph at lines 886--886
+[]|\T1/lmr/m/n/10 (+20) T6 QSP ad-vec-
+ []
+
+[53]) (./main.bbl [54] [55] [56]
+Underfull \hbox (badness 1715) in paragraph at lines 359--367
+\T1/cmr/m/n/10.95 MIT-licensed al-go-rithm li-brary ([][]$\T1/lmtt/m/n/10.95 ht
+tps : / / github . com / unitarylab / unitarylab _
+ []
+
+
+Underfull \hbox (badness 1701) in paragraph at lines 376--382
+[]\T1/cmr/m/n/10.95 Microsoft Quan-tum.  ``Azure quan-tum re-source es-ti-ma-to
+r''.  [][]$\T1/lmtt/m/n/10.95 https : / / learn .
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 376--382
+\T1/lmtt/m/n/10.95 microsoft . com / en-[]us / azure / quantum / intro-[]to-[]r
+esource-[]estimation$[][] \T1/cmr/m/n/10.95 (2026).
+ []
+
+[57] [58]) [59] [60] [61] [62] [63] [64] [65] [66] (./main.aux)
  ***********
 LaTeX2e <2026-06-01>
 L3 programming layer <2026-07-20>
  ***********
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 2DDC2D80FC329C09866D3FDDF780305C;13450.
+(rerunfilecheck)             Checksum: C8ED28025D57A1B3B6C4FAFB4B4AD5A1;15303.
  ) 
 Here is how much of TeX's memory you used:
- 48019 strings out of 467159
- 1072657 string characters out of 5408695
- 1993972 words of memory out of 5000000
- 75712 multiletter control sequences out of 15000+600000
- 757762 words of font info for 271 fonts, out of 8000000 for 9000
+ 48436 strings out of 467159
+ 1079228 string characters out of 5408695
+ 2043530 words of memory out of 5000000
+ 75885 multiletter control sequences out of 15000+600000
+ 769174 words of font info for 298 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  92i,22n,117p,1930b,2617s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></home/
@@ -1882,27 +1970,29 @@ lmri8.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmri9.pfb>
 </home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmss10.pfb></home/ag
 ony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmss12.pfb></home/agony/texli
 ve/2026/texmf-dist/fonts/type1/public/lm/lmss17.pfb></home/agony/texlive/2026/t
-exmf-dist/fonts/type1/public/lm/lmss9.pfb></home/agony/texlive/2026/texmf-dist/
-fonts/type1/public/lm/lmsso10.pfb></home/agony/texlive/2026/texmf-dist/fonts/ty
-pe1/public/lm/lmsy10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publi
-c/lm/lmsy6.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy7
-.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy8.pfb></hom
-e/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy9.pfb></home/agony/te
-xlive/2026/texmf-dist/fonts/type1/public/lm/lmtk10.pfb></home/agony/texlive/202
-6/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></home/agony/texlive/2026/texmf-d
-ist/fonts/type1/public/lm/lmtt8.pfb></home/agony/texlive/2026/texmf-dist/fonts/
-type1/public/lm/lmtt9.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publ
-ic/lm/lmtti10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/amsfo
-nts/symbols/msam10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/
-amsfonts/symbols/msbm10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/pu
-blic/cm-super/sfcc1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/pub
-lic/cm-super/sfrb1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publ
-ic/cm-super/sfrm1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publi
-c/cm-super/sfti1095.pfb>
-Output written on main.pdf (53 pages, 968746 bytes).
+exmf-dist/fonts/type1/public/lm/lmss8.pfb></home/agony/texlive/2026/texmf-dist/
+fonts/type1/public/lm/lmss9.pfb></home/agony/texlive/2026/texmf-dist/fonts/type
+1/public/lm/lmsso10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public
+/lm/lmsy10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy6
+.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy7.pfb></hom
+e/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmsy8.pfb></home/agony/te
+xlive/2026/texmf-dist/fonts/type1/public/lm/lmsy9.pfb></home/agony/texlive/2026
+/texmf-dist/fonts/type1/public/lm/lmtk10.pfb></home/agony/texlive/2026/texmf-di
+st/fonts/type1/public/lm/lmtt10.pfb></home/agony/texlive/2026/texmf-dist/fonts/
+type1/public/lm/lmtt8.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/publ
+ic/lm/lmtt9.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt
+i10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbol
+s/msam10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/s
+ymbols/msbm10.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-su
+per/sfcc1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-sup
+er/sfrb1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-supe
+r/sfrm0800.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-super
+/sfrm1095.pfb></home/agony/texlive/2026/texmf-dist/fonts/type1/public/cm-super/
+sfti1095.pfb>
+Output written on main.pdf (66 pages, 1086248 bytes).
 PDF statistics:
- 1551 PDF objects out of 1728 (max. 8388607)
- 1388 compressed objects within 14 object streams
- 534 named destinations out of 1000 (max. 500000)
- 76221 words of extra memory for PDF output out of 89155 (max. 10000000)
+ 1973 PDF objects out of 2073 (max. 8388607)
+ 1782 compressed objects within 18 object streams
+ 736 named destinations out of 1000 (max. 500000)
+ 82429 words of extra memory for PDF output out of 89155 (max. 10000000)
 

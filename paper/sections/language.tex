@@ -228,6 +228,12 @@ m_demo_b89906731f4fe79582ed7931(q[0], q[1], q[2], q[3], q[4])
   \label{fig:nested-circuit}
 \end{figure}
 
+Appendix~\ref{app:spec} condenses both machine-facing formats for
+reference: an EBNF grammar of the RIR object model together with its JSON
+encoding rules and a canonical worked example, and the grammar of the
+OriginIR-ext dialect together with the lowering rules that produce it from
+RIR.
+
 \subsection{Adjoint and control as a capability discipline}
 \label{sec:capabilities}
 
@@ -297,11 +303,11 @@ Measurement, reset, and statistics are planned as host-side
       darr/.style={-{Stealth[length=2.2mm]}, black!35, dashed},
     ]
     % Phase tags and separators
-    \node[phase] at (-6.85, 2.7) {generate};
-    \node[phase] at (-6.85, -1.6) {store \& link};
-    \node[phase] at (-6.85, -5.45) {export / execute};
-    \draw[sepline] (-6.4, -0.5) -- (7.15, -0.5);
-    \draw[sepline] (-6.4, -4.05) -- (7.15, -4.05);
+    \node[phase] at (-7.5, 2.7) {generate};
+    \node[phase] at (-7.5, -1.6) {store \& link};
+    \node[phase] at (-7.5, -5.45) {export / execute};
+    \draw[sepline] (-7.0, -0.5) -- (7.15, -0.5);
+    \draw[sepline] (-7.0, -4.05) -- (7.15, -4.05);
 
     % Generation phase
     \node[box, fill=black!8] (python) at (0, 3.5) {\textbf{Python host}};
@@ -324,7 +330,7 @@ Measurement, reset, and statistics are planned as host-side
     \draw[arr] (builder) -- (rir);
     \draw[arr] (validate) -- (rir);
     \draw[arr] (rir) -- (bindbox);
-    \draw[arr] (bindbox.south) to[bend left=25] (rir.south);
+    \draw[arr] (bindbox.south) to[bend left=14] (rir.south east);
     \draw[arr] (rir) -- (json);
 
     % Backends

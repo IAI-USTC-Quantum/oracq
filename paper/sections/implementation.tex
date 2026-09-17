@@ -17,7 +17,8 @@ libraries), and \texttt{applications} (QFVM, QHAM mathematics, the catalog).
 The RIR specification (currently version 0.3), its JSON Schema, the
 serializer, and the semantic tests are maintained in lockstep---a norm from
 the project's development conventions---and readers accept prior versions,
-so stored programs remain loadable across format revisions.  Native backends
+so stored programs remain loadable across format revisions; a condensed
+form of the specification appears in Appendix~\ref{app:spec}.  Native backends
 (PySparQ; the uniqc OriginIR simulator) are optional environments pinned in
 a reviewed revision ledger rather than installed dependencies; generation
 and serialization work without them, and integration tests run in whichever
@@ -90,7 +91,7 @@ generated modules (R6).
     Scientific suite (Gibbs, QPCA, SDP, DQI, \dots) & \ok & \ok & \ok & \ok \\
     Resource estimator (strict gate set) & \ok & \ok$^{f}$ & --- & --- \\
     \bottomrule
-    \multicolumn{5}{@{}p{14.3cm}@{}}{\scriptsize $^a$QSP synthesis self-verifies polynomial round-trips; transforms are certified end-to-end in \secref{sec:numverify}.  $^b$assembled-circuit agreement on real backends.  $^c$all six families certified against truncated-oracle references at small scale, except Schr\"odingerization, where the campaign exposed a momentum-sign defect that is recorded with reproductions (\secref{sec:numverify}); success channels and large-scale accuracy remain pending.  $^d$classical flux and flow-state witnesses.  $^e$fixed-point physics certified against an independent fixed-point semantics at \texttt{FixedFormat(5,2)}; generation-time constant quantization dominates the method error in coarser formats.  $^f$hand-computed counts and atom-by-atom cross-checks against the strict netlist; scaling expectations validated in \secref{sec:resources}.}
+    \multicolumn{5}{@{}p{14.3cm}@{}}{\scriptsize $^a$QSP synthesis self-verifies polynomial round-trips; transforms are certified end-to-end in \secref{sec:numverify}.  $^b$assembled-circuit agreement on real backends.  $^c$all six families certified against truncated-oracle references at small scale; the Schr\"odingerization momentum-sign defect found by an earlier campaign round is repaired and pinned by regression cases (\secref{sec:numverify}); success channels and large-scale accuracy remain pending.  $^d$classical flux and flow-state witnesses.  $^e$fixed-point physics certified against an independent fixed-point semantics at \texttt{FixedFormat(5,2)}; generation-time constant quantization dominates the method error in coarser formats.  $^f$hand-computed counts and atom-by-atom cross-checks against the strict netlist; scaling expectations validated in \secref{sec:resources}.}
   \end{tabular}
 \end{table}
 
@@ -118,7 +119,7 @@ defect in the new interpreter (addition on a register slice wrapping at the
 register width instead of the view width), which is fixed and covered by
 regression tests on both sides.
 
-The campaign (Table~\ref{tab:verify-matrix}) comprises 473 experiments in
+The campaign (Table~\ref{tab:verify-matrix}) comprises 475 experiments in
 thirteen groups, driven by \texttt{tools/run\_verification.py} and archived
 as machine-readable JSON (\texttt{out/verification/}).  Every experiment
 compares against a correctness oracle that is independent of the
@@ -134,7 +135,7 @@ branch by branch.
 
 \begin{table*}[t]
   \centering
-  \caption{Numerical-verification campaign: thirteen groups, 473 experiments,
+  \caption{Numerical-verification campaign: thirteen groups, 475 experiments,
   all passing their stated criteria on real backends.  Paths: O =
   OriginIR-ext + UnifiedQuantum full amplitudes (incl.\
   \texttt{to\_matrix}); P = PySparQ RIR sparse-state execution; X =
@@ -147,14 +148,14 @@ branch by branch.
     \tabhead{Group} & \tabhead{cases} & \tabhead{paths} & \tabhead{headline metrics} \\
     \midrule
     Reversible arithmetic \& fixed point & 20 & O, P, X & adders permutation-exact to 64 bit; compiled polynomials $\le 1$ quantum; $\sin$ impl.\ $0.055$ / method $0.045$ (deg.\ 3) \\
-    Fourier \& unitary transforms & 39 & O, P, X & QFT vs DFT $3.8{\times}10^{-15}$ ($n{=}4$); Fourier addition $1.0{\times}10^{-15}$; OAA defect recorded (text) \\
+    Fourier \& unitary transforms & 41 & O, P, X & QFT vs DFT $3.8{\times}10^{-15}$ ($n{=}4$); Fourier addition $1.0{\times}10^{-15}$; OAA amplifies $\sin\theta \to \sin 3\theta$ exactly after repair ($0.5 \to 1.0$; unitary $\le 4.6{\times}10^{-16}$) \\
     State preparation \& data loading & 37 & O, P, X & fidelity $\ge 1 - 2{\times}10^{-16}$; QROM/select-swap $\le 8.4{\times}10^{-17}$; alias TVD within analytic bounds \\
     Oracle algorithms & 30 & O, P, X & BV recovery $= 1$ ($w = 3$--$8$, both paths); DJ/Simon exact; XOR database exhaustive $5.6{\times}10^{-17}$ \\
     Search \& quantum walks & 16 & O, P, X & Grover curve $2.3{\times}10^{-15}$ vs $\sin^2(2k{+}1)\theta$; MNRS vs independent reference $1.2{\times}10^{-15}$ \\
     Block encodings & 73 & O, P, X & diagonal/sparse/LCU blocks $\le 1.1{\times}10^{-16}$; PySparQ BE cross-check $\le 6.7{\times}10^{-16}$; Taylor method trend $0.141 \to 7.8{\times}10^{-4}$ \\
     Hamiltonian simulation \& QSVT & 27 & O, P, X & Trotter order $1.008$/$1.013$ measured (theory $1$); QSVT HamSim total $\le 4.5{\times}10^{-4}$; inversion within prescribed error \\
     Estimation suite & 41 & O, P, X & QPE Dirichlet TVD $\le 7.3{\times}10^{-16}$; QAE within the Brassard bound; Jordan gradient exact on linear oracles \\
-    ODE solvers & 27 & O, P, X & LCHS impl.\ $\le 1.2{\times}10^{-16}$ over five input models; CBMD direction error $3.0{\times}10^{-3}$ vs LCHS $4.5{\times}10^{-2}$; Carleman tail $9.3{\times}10^{-3} \to 1.1{\times}10^{-4}$ \\
+    ODE solvers & 27 & O, P, X & LCHS impl.\ $\le 1.7{\times}10^{-16}$ over five input models; CBMD direction error $3.0{\times}10^{-3}$ vs LCHS $4.5{\times}10^{-2}$; Carleman tail $9.3{\times}10^{-3} \to 1.1{\times}10^{-4}$; Schr.\ forward-flow recovery after sign repair (grid $1.3{\times}10^{-16}$, Taylor remainder $3.3{\times}10^{-2}$) \\
     QHAM \& QFVM & 15 & P, X & generator matrices $\le 1.5{\times}10^{-17}$; input-model agreement; Roe face bit-exact vs independent fixed-point semantics \\
     Math-function gallery & 28 & P, X & five gallery functions + Roe face bit-exact vs independent fixed-point semantics; domain flags exact \\
     Density, QPCA, SDP, DQI, variational, QEC & 24 & O, P, X & LMR trace distance with first-order scaling ratio $\approx 0.51$; DQI planted instance TVD $4{\times}10^{-16}$; repetition codes exact \\
@@ -165,18 +166,24 @@ branch by branch.
 
 Three findings are worth reporting explicitly, because they are exactly the
 kind of evidence a language-level verification story should produce.
-\emph{First, the campaign found real defects.}  The oblivious-amplitude-
-amplification iterator assembles $R\,U^\dagger R\,U$ and realizes its
-documented operator to $10^{-16}$, but that operator is not the amplifying
-sequence: the standard three-query form $U\,R\,U^\dagger R\,U$ recovers the
-signal exactly on the same fixture, so the iteration is missing the closing
-$U$ call.  Schr\"odingerization assembles its advertised generator
-faithfully, yet the recovered signal matches the time-reversed flow to
-$4.8{\times}10^{-16}$ under the library's positive-QFT convention; flipping
-the momentum sign in an independently re-assembled variant restores the
-correct flow to $1.3{\times}10^{-16}$.  Both defects are recorded with
-minimal reproductions in the verification documents and are queued for
-repair; we report them unfixed rather than silently patched, per R6.
+\emph{First, the campaign found real defects---and repaired them with
+regression coverage.}  The oblivious-amplitude-amplification iterator
+originally assembled $R\,U^\dagger R\,U$, realizing its documented operator
+to $10^{-16}$, but that operator is not the amplifying sequence; the
+repaired form $U\,[R\,U^\dagger R\,U]^{m}$ equals the standard three-query
+sequence, satisfies the Chebyshev identity
+$\Pi W \Pi = B(4B^\dagger B - 3I)$ on its signal block, and amplifies
+$0.5 \to 1.0$ exactly, with the library assembly asserted equal to an
+independently reassembled sequence ($\le 10^{-15}$) as a regression pin.
+Schr\"odingerization likewise assembled its advertised generator
+faithfully, yet recovered the \emph{time-reversed} flow to
+$4.8{\times}10^{-16}$ under the library's positive-QFT convention; the
+repair flips the momentum sign of the lifted generator
+($K' = -P\otimes H_1 - I\otimes H_2$), restoring the forward flow to
+$1.3{\times}10^{-16}$ under exact evolution, with the end-to-end residual
+equal to the Taylor remainder of the Nyquist momentum mode
+($3.3{\times}10^{-2}$ at degree four, decreasing with degree).  Both
+defects are reported openly with their repairs, per R6.
 \emph{Second, the dominant error in the fixed-point scientific kernels is
 not circuit noise but generation-time constant quantization} (e.g.\
 $\gamma - 1 = 0.4 \mapsto 0.25$ at six-bit formats): implementation error

@@ -3,44 +3,44 @@ Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
 The style file: quantum.bst
 Database file #1: refs.bib
-You've used 56 entries,
+You've used 74 entries,
             2781 wiz_defined-function locations,
-            990 strings with 16902 characters,
-and the built_in function-call counts, 27106 in all, are:
-= -- 2367
-> -- 788
+            1080 strings with 20975 characters,
+and the built_in function-call counts, 31832 in all, are:
+= -- 2735
+> -- 1016
 < -- 7
-+ -- 432
-- -- 228
-* -- 1406
-:= -- 3578
-add.period$ -- 189
-call.type$ -- 56
-change.case$ -- 133
++ -- 525
+- -- 295
+* -- 1647
+:= -- 4257
+add.period$ -- 256
+call.type$ -- 74
+change.case$ -- 165
 chr.to.int$ -- 0
-cite$ -- 56
-duplicate$ -- 1001
-empty$ -- 3173
-format.name$ -- 228
-if$ -- 6851
+cite$ -- 74
+duplicate$ -- 1157
+empty$ -- 3671
+format.name$ -- 295
+if$ -- 8036
 int.to.chr$ -- 0
-int.to.str$ -- 56
-missing$ -- 484
-newline$ -- 303
-num.names$ -- 56
-pop$ -- 224
+int.to.str$ -- 74
+missing$ -- 594
+newline$ -- 403
+num.names$ -- 74
+pop$ -- 335
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 1514
+skip$ -- 1702
 stack$ -- 0
-substring$ -- 2911
-swap$ -- 205
+substring$ -- 3107
+swap$ -- 227
 text.length$ -- 7
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 0
 warning$ -- 0
-while$ -- 199
-width$ -- 58
-write$ -- 595
+while$ -- 224
+width$ -- 76
+write$ -- 798

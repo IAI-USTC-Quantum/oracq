@@ -64,7 +64,16 @@ processing phase engine}: given a target polynomial, it synthesizes QSP
 phases by complement-polynomial rooting (a Durand--Kerner iteration)
 followed by layer stripping, supports degrees up to $40$, and
 \emph{self-verifies} by round-tripping the synthesized phases to a residual
-around $10^{-9}$ before any circuit is built.  Standard transformations are
+around $10^{-9}$ before any circuit is built.  Standalone phase-computation
+tools predate this engine---most prominently
+pyqsp~\cite{chuang2021pyqsp}, which solved the same problem offline with
+exact and Newton-based methods; here, synthesis and verification are folded
+into the language's validation pass, so a phase set cannot enter the IR
+unverified.  The bundled engine is one source among possible ones: phases
+are ordinary values at the QSVT interface, so a proven external backend
+can supply them---through the same verification---without touching the
+language or the IR; the degree-40 cap is a property of this routine, not
+of the design.  Standard transformations are
 provided on top: matrix inversion (the $\mathrm{J}$-polynomial response for
 QLSS), eigenstate filtering, Hamiltonian simulation via Jacobi--Anger
 cosine/sine branches, and fixed-point search in closed form.  This is

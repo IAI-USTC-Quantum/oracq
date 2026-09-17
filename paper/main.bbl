@@ -178,6 +178,12 @@ Ali JavadiAbhari, Shruti Patil, Daniel Kudrow, Jeff Heckey, Alexey Lvov,
 \newblock \href{https://dx.doi.org/10.1016/j.parco.2014.12.001}{Parallel
   Computing {\bf 45}, 2--17}~(2015).
 
+\bibitem{wecker2014liquid}
+Dave Wecker and Krysta~M. Svore.
+\newblock ``{LIQUi|>}: A software design architecture and domain-specific
+  language for quantum computing''~(2014).
+\newblock  \href{http://arxiv.org/abs/1402.4467}{arXiv:1402.4467}.
+
 \bibitem{scherer2017resource}
 Artur Scherer, Beno{\^i}t Valiron, Siun-Chuon Mau, Scott Alexander, Eric
   van~den Berg, and Thomas~E. Chapuran.
@@ -217,6 +223,13 @@ Benjamin Bichsel, Maximilian Baader, Timon Gehr, and Martin Vechev.
 \newblock \href{https://dx.doi.org/10.1145/3385412.3386007}{Pages 286--300}.
 \newblock ~(2020).
 
+\bibitem{guo2023isq}
+Jingzhe Guo, Huazhe Lou, Jintao Yu, Riling Li, Fang Wang, Junyi Liu, Peixun
+  Long, Shenggang Ying, and Mingsheng Ying.
+\newblock ``isq: An integrated software stack for quantum programming''.
+\newblock \href{https://dx.doi.org/10.1109/TQE.2023.3275868}{IEEE Transactions
+  on Quantum Engineering {\bf 4}, 1--16}~(2023).
+
 \bibitem{steiger2018projectq}
 Damian~S. Steiger, Thomas H{\"a}ner, and Matthias Troyer.
 \newblock ``{ProjectQ}: An open source software framework for quantum
@@ -241,6 +254,25 @@ Ali Javadi-Abhari, Matthew Treinish, Kevin Krsulich, Christopher~J. Wood, Jake
   Andrew~W. Cross, Blake~R. Johnson, and Jay~M. Gambetta.
 \newblock ``Quantum computing with {Qiskit}''~(2024).
 \newblock  \href{http://arxiv.org/abs/2405.08810}{arXiv:2405.08810}.
+
+\bibitem{bergholm2018pennylane}
+Ville Bergholm, Josh Izaac, Maria Schuld, Christian Gogolin, Shahnawaz Ahmed,
+  Vishnu Ajith, et~al.
+\newblock ``{PennyLane}: Automatic differentiation of hybrid quantum-classical
+  computations''~(2018).
+\newblock  \href{http://arxiv.org/abs/1811.04968}{arXiv:1811.04968}.
+
+\bibitem{originq2024qpanda}
+{Origin Quantum Computing Technology}.
+\newblock ``{QPanda} and pyqpanda''.
+\newblock \url{https://github.com/OriginQ/QPanda-2}~(2024).
+\newblock Apache-2.0; accessed September 2026.
+
+\bibitem{xu2024mindquantum}
+Xusheng Xu, Jiangyu Cui, Zidong Cui, Runhong He, Qingyu Li, Xiaowei Li, et~al.
+\newblock ``Mindspore quantum: A user-friendly, high-performance, and
+  {AI}-compatible quantum computing framework''~(2024).
+\newblock  \href{http://arxiv.org/abs/2406.17248}{arXiv:2406.17248}.
 
 \bibitem{cross2022openqasm3}
 Andrew~W. Cross, Ali Javadi-Abhari, Thomas Alexander, Niel de~Beaudrap, Lev~S.
@@ -285,6 +317,102 @@ Krysta~M. Svore, Alan Geller, Matthias Troyer, John Azariah, Christopher
 \newblock \href{https://dx.doi.org/10.1145/3183895.3183901}{Pages 1:1--1:10}.
 \newblock ~(2018).
 
+\bibitem{harrigan2024qualtran}
+Matthew~P. Harrigan, Tanuj Khattar, Charles Yuan, Anurudh Peduri, Noureldin
+  Yosri, Fionn~D. Malone, Ryan Babbush, and Nicholas~C. Rubin.
+\newblock ``Expressing and {Analyzing} {Quantum} {Algorithms} with
+  {Qualtran}''~(2024).
+\newblock  \href{http://arxiv.org/abs/2409.04643}{arXiv:2409.04643}.
+
+\bibitem{obenland2026pyliqtr}
+Kevin Obenland, Justin Elenewski, Kaitlyn Morrell, Benjamin Rempfer, Parker
+  Kuklinski, Rylee Neumann, Arthur Kurlej, Robert Rood, John Blue, and Joseph
+  Belarge.
+\newblock ``pyliqtr''.
+\newblock Zenodo~(2026).
+\newblock QSP/QSVT and block-encoding circuit generation with Clifford+T
+  resource analysis, version 1.4.2;
+  \url{https://github.com/isi-usc-edu/pyLIQTR}.
+
+\bibitem{chuang2021pyqsp}
+Isaac~L. Chuang, J.~Docter, John~M. Martyn, Zane~M. Rossi, and Andrew~K. Tan.
+\newblock ``pyqsp: Python quantum signal processing''.
+\newblock \url{https://github.com/ichuang/pyqsp}~(2021).
+\newblock Version 0.2.0; QSP phase-angle generation by exact divide-and-conquer
+  and Newton iteration.
+
+\bibitem{kim2026qsp4pde}
+Hyeongjin Kim, Revathi Jambunathan, Jan Balewski, and Daan Camps.
+\newblock ``Quantum signal processing for linear {PDEs}: Circuit design and
+  experimental validation''~(2026).
+\newblock  \href{http://arxiv.org/abs/2606.00368}{arXiv:2606.00368}.
+
+\bibitem{mcclean2020openfermion}
+Jarrod~R. McClean, Kevin~J. Sung, Ian~D. Kivlichan, Yudong Cao, Chengyu Dai,
+  E.~Schuyler Fried, et~al.
+\newblock ``{OpenFermion}: The electronic structure package for quantum
+  computers''.
+\newblock \href{https://dx.doi.org/10.1088/2058-9565/ab8ebc}{Quantum Science
+  and Technology {\bf 5}, 034014}~(2020).
+
+\bibitem{unitarylab2025platform}
+{UnitaryLab}.
+\newblock ``Unitarylab quantum scientific computing platform''.
+\newblock \url{https://www.unitarylab.com}~(2025).
+\newblock Agent-driven studio, proprietary simulator SDK, and MIT-licensed
+  algorithm library
+  (\url{https://github.com/unitarylab/unitarylab_algorithms}); launched
+  November 2025 by the Shanghai Jiao Tong University quantum scientific
+  computing team; accessed September 2026.
+
+\bibitem{classiq2026platform}
+{Classiq Technologies}.
+\newblock ``The classiq platform and the {Qmod} quantum modeling language''.
+\newblock \url{https://www.classiq.io}~(2026).
+\newblock Constraint-driven circuit synthesis; open example library at
+  \url{https://github.com/Classiq/classiq-library}; accessed September 2026.
+
+\bibitem{microsoft2026azureqe}
+{Microsoft Quantum}.
+\newblock ``Azure quantum resource estimator''.
+\newblock
+  \url{https://learn.microsoft.com/en-us/azure/quantum/intro-to-resource-estimation}~(2026).
+\newblock Open-source component of the Quantum Development Kit; accepts Q\#,
+  QIR, and logical-count inputs; accessed September 2026.
+
+\bibitem{beverland2022assessing}
+Michael~E. Beverland, Prakash Murali, Matthias Troyer, Krysta~M. Svore, Torsten
+  Hoefler, Vadym Kliuchnikov, Guang~Hao Low, Mathias Soeken, Aarthi Sundaram,
+  and Alexander Vaschillo.
+\newblock ``Assessing requirements to scale to practical quantum
+  advantage''~(2022).
+\newblock  \href{http://arxiv.org/abs/2211.07629}{arXiv:2211.07629}.
+
+\bibitem{quantinuum2026inquanto}
+{Quantinuum}.
+\newblock ``Inquanto quantum chemistry platform''.
+\newblock \url{https://quantinuum.com/products/inquanto/}~(2026).
+\newblock Proprietary Python platform; accessed September 2026.
+
+\bibitem{phasecraft2026}
+{Phasecraft Ltd}.
+\newblock ``Advanced quantum algorithms ({Phasecraft} research program)''.
+\newblock \url{https://www.phasecraft.io}~(2026).
+\newblock Accessed September 2026.
+
+\bibitem{nvidia2026cudaq}
+{NVIDIA Corporation}.
+\newblock ``{CUDA-Q}: Hybrid quantum-classical computing platform''.
+\newblock \url{https://github.com/NVIDIA/cuda-quantum}~(2026).
+\newblock Apache-2.0; accessed September 2026.
+
+\bibitem{amazonbraket2026sdk}
+{Amazon Web Services}.
+\newblock ``Amazon braket sdk''.
+\newblock
+  \url{https://github.com/amazon-braket/amazon-braket-sdk-python}~(2026).
+\newblock Apache-2.0; accessed September 2026.
+
 \bibitem{dalzell2025qram}
 Alexander~M. Dalzell, Andr{\'a}s Gily{\'e}n, Connor~T. Hann, Sam McArdle, Grant
   Salton, Quynh~T. Nguyen, Aleksander Kubica, and Fernando G. S.~L.
@@ -312,7 +440,8 @@ Gilles Brassard, Peter H{\o}yer, Michele Mosca, and Alain Tapp.
   Mathematics {\bf 305}, 53--74}~(2002).
 
 \bibitem{wang2026cbmd}
-Chao Wang.
+Chao Wang, Huan-Yu Liu, Cheng Xue, Xi-Ning Zhuang, Menghan Dou, Zhao-Yun Chen,
+  and Guo-Ping Guo.
 \newblock ``Quantum simulation of non-{Hermitian} special functions and
   dynamics via contour-based matrix decomposition''.
 \newblock \href{https://dx.doi.org/10.1088/2058-9565/ae7b7e}{Quantum Science
@@ -338,21 +467,6 @@ Neil~J. Ross and Peter Selinger.
 \newblock \href{https://dx.doi.org/10.26421/QIC16.11-12-1}{Quantum Information
   and Computation {\bf 16}, 901--953}~(2016).
 \newblock  \href{http://arxiv.org/abs/1403.2975}{arXiv:1403.2975}.
-
-\bibitem{beverland2022assessing}
-Michael~E. Beverland, Prakash Murali, Matthias Troyer, Krysta~M. Svore, Torsten
-  Hoefler, Vadym Kliuchnikov, Guang~Hao Low, Mathias Soeken, Aarthi Sundaram,
-  and Alexander Vaschillo.
-\newblock ``Assessing requirements to scale to practical quantum
-  advantage''~(2022).
-\newblock  \href{http://arxiv.org/abs/2211.07629}{arXiv:2211.07629}.
-
-\bibitem{harrigan2024qualtran}
-Matthew~P. Harrigan, Tanuj Khattar, Charles Yuan, Anurudh Peduri, Noureldin
-  Yosri, Fionn~D. Malone, Ryan Babbush, and Nicholas~C. Rubin.
-\newblock ``Expressing and {Analyzing} {Quantum} {Algorithms} with
-  {Qualtran}''~(2024).
-\newblock  \href{http://arxiv.org/abs/2409.04643}{arXiv:2409.04643}.
 
 \bibitem{su2026resource}
 Bonan Su, Yuan Feng, Li~Zhou, and Mingsheng Ying.
@@ -395,5 +509,18 @@ Craig Gidney and Martin Eker{\aa}.
   noisy qubits''.
 \newblock \href{https://dx.doi.org/10.22331/q-2021-04-15-433}{Quantum {\bf 5},
   433}~(2021).
+
+\bibitem{liao2003beyond}
+Shijun Liao.
+\newblock ``Beyond perturbation: Introduction to the homotopy analysis
+  method''.
+\newblock \href{https://dx.doi.org/10.1201/9780203491164}{Modern Mechanics and
+  Mathematics}. Chapman \& Hall/CRC. Boca Raton, FL~(2003).
+
+\bibitem{liao2012homotopy}
+Shijun Liao.
+\newblock ``Homotopy analysis method in nonlinear differential equations''.
+\newblock \href{https://dx.doi.org/10.1007/978-3-642-25132-0}{Springer}.
+  Berlin, Heidelberg~(2012).
 
 \end{thebibliography}

@@ -22,7 +22,7 @@ python examples/math_functions.py
 # static checks
 ruff check src tests examples
 
-# numerical verification campaign (Section 9.3): 473 experiments in 13
+# numerical verification campaign (Section 9.3): 475 experiments in 13
 # groups, writes machine-readable reports to out/verification/
 PYTHONPATH=src <backend-python> tools/run_verification.py
 \end{lstlisting}
@@ -34,13 +34,252 @@ requires both backends: the PySparQ path executes RIR natively through
 \texttt{pysparq.rir}, and the OriginIR-ext path uses UnifiedQuantum's
 \texttt{Circuit.to\_matrix()}---both contributed as part of this work.
 
-\section{The four solver families in code}
+\section{Condensed specifications: RIR and OriginIR-ext}
+\label{app:spec}
+
+This appendix makes the paper self-contained at the machine-facing layer
+by condensing the two formats of \secref{sec:rir}: the object model and
+JSON encoding of RIR~0.3, and the grammar of the OriginIR-ext dialect to
+which RIR exports.  The normative artifacts---prose specification, JSON
+Schema, serializer, and semantic tests, maintained in lockstep---ship with
+the repository; everything below is derived from them, and the JSON and
+export listings are verbatim outputs of the repository toolchain.
+
+\subsection{RIR 0.3}
+\label{app:spec-rir}
+
+\lstref{lst:rir-grammar} summarizes the abstract grammar.  A program is a
+versioned table of modules with one designated entry; a module is a typed
+interface (ordered quantum registers, ordered QRAM resources, optional
+private \texttt{locals}) plus an ordered instruction body, or no body at
+all (open declaration).  Instructions are the six closed node kinds of
+Table~\ref{tab:rir-nodes}; views (\texttt{Ref}) are lists of spans and
+never mention physical qubits.
+
+\begin{lstlisting}[style=pyqbase, caption={Abstract grammar of the RIR 0.3 object model.  $X^{*}$ denotes an ordered immutable tuple (possibly empty); \texttt{null} marks an absent body or an unused field; \texttt{name} matches \texttt{[A-Za-z\_][A-Za-z0-9\_]*}.  Shape only: alias-freedom, control protection, call matching, and numeric ranges are enforced by the semantic validator (\secref{sec:rir}).}, label={lst:rir-grammar}]
+program     = Program{entry: name; modules: module*;
+                    version: "0.1" | "0.2" | "0.3"} .
+module      = Module{name: name; registers: register*;
+                    resources: resource*; body: instruction* | null;
+                    attributes: attribute*; locals: register*} .
+register    = Register{name: name; type: regtype} .
+regtype     = RegType{kind: "bits" | "uint" | "sint" | "rational";
+                    width: integer} .
+resource    = Resource{name: name; type: qram} .
+qram        = QRAM{address_width: integer; data_width: integer} .
+attribute   = (name, (string | integer | float | boolean)) .
+span        = Span{register: name; start: integer; width: integer} .
+ref         = Ref{parts: span*; type: regtype} .
+
+instruction = primitive | load | call | repeat | control | adjoint .
+primitive   = Primitive{op: gate-op; operands: ref*;
+                    angle: float | null; value: integer | null} .
+gate-op     = "h" | "x" | "y" | "z" | "s" | "t" | "rx" | "ry" | "rz"
+            | "phase" | "gphase" | "xor" | "swap" | "add_const" .
+load        = Load{resource: name; address: ref; data: ref} .
+call        = Call{module: name; arguments: ref*; resources: name*} .
+repeat      = Repeat{count: integer; body: instruction*} .
+control     = Control{register: ref; value: integer; body: instruction*} .
+adjoint     = Adjoint{body: instruction*} .
+\end{lstlisting}
+
+Serialization maps every record to a tagged JSON object whose keys are
+exactly the record's fields; tuples become JSON arrays; scalars and null
+pass through unchanged.  Whether \texttt{angle} and \texttt{value} are
+present is determined by \texttt{op} (unused ones serialize as null).
+Decoding is strict---unknown tags or fields, duplicate keys, non-finite
+floats, and unknown versions are rejected---and canonical output is UTF-8,
+key-sorted, two-space indented, with one trailing newline.  Readers accept
+prior versions 0.1 and 0.2, whose modules carry no \texttt{locals} field.
+The complete canonical JSON of a minimal closed program---a single
+\texttt{h} on a one-bit register, produced by
+\texttt{dumps()} on a one-line builder program---is shown in
+\lstref{lst:rir-json}.
+
+\begin{lstlisting}[style=pyqjson, caption={Canonical RIR 0.3 JSON (verbatim \texttt{dumps} output) of the module \texttt{h1\{q: Bits(1)\}} containing one \texttt{h}.  All fields are written, including nulls and empty tuples; keys are sorted.}, label={lst:rir-json}]
+{
+  "entry": "h1",
+  "modules": [
+    {
+      "attributes": [],
+      "body": [
+        {
+          "angle": null,
+          "op": "h",
+          "operands": [
+            {
+              "parts": [
+                {
+                  "register": "q",
+                  "start": 0,
+                  "tag": "Span",
+                  "width": 1
+                }
+              ],
+              "tag": "Ref",
+              "type": {
+                "kind": "bits",
+                "tag": "RegType",
+                "width": 1
+              }
+            }
+          ],
+          "tag": "Primitive",
+          "value": null
+        }
+      ],
+      "locals": [],
+      "name": "h1",
+      "registers": [
+        {
+          "name": "q",
+          "tag": "Register",
+          "type": {
+            "kind": "bits",
+            "tag": "RegType",
+            "width": 1
+          }
+        }
+      ],
+      "resources": [],
+      "tag": "Module"
+    }
+  ],
+  "tag": "Program",
+  "version": "0.3"
+}
+\end{lstlisting}
+
+\subsection{OriginIR-ext}
+\label{app:spec-originir}
+
+OriginIR-ext is the modular textual dialect emitted by
+\texttt{export\_originir}.  It is a strict superset of the classical
+OriginIR gate vocabulary extended with module definitions, module calls,
+QRAM resource declarations, inline control, and symbolic inversion; the
+grammar of \emph{emitted} programs is given in \lstref{lst:originir-grammar}.
+Every RIR construct has a translation that preserves module definitions
+and calls (\secref{sec:rir}, R3/R5): nothing is inlined.
+
+\begin{lstlisting}[style=pyqir, caption={Grammar of the OriginIR-ext dialect as emitted by \texttt{export\_originir}.  \texttt{id} is \texttt{[A-Za-z\_][A-Za-z0-9\_]*}; \texttt{ram} names a declared QRAM resource; definition names consist of the module name and a content hash, making exports deterministic and diff-stable.}, label={lst:originir-grammar}]
+program     = qramdecl* qinit creg def* entrycall .
+qramdecl    = "QRAMDECL" ram int "," int .
+qinit       = "QINIT" int .
+creg        = "CREG" int .
+def         = "DEF" symbol "(" formal ("," formal)* ")"
+              stmt* "ENDDEF" .
+formal      = id "[" int "]" .
+stmt        = gate | load | call | dagger .
+gate        = op bit ("," bit)? ("," "(" num ")")? ctrl? .
+ctrl        = "controlled_by" "(" bit ("," bit)* ")" .
+load        = ram bit ("," bit)* .
+call        = symbol "(" bit ("," bit)* ")" .
+dagger      = "DAGGER" stmt* "ENDDAGGER" .
+bit         = id "[" int "]" .
+qbit        = "q" "[" int "]" .
+entrycall   = symbol "(" qbit ("," qbit)* ")" .
+op          = "H" | "X" | "Y" | "Z" | "S" | "T" | "RX" | "RY" | "RZ"
+            | "U1" | "CNOT" | "SWAP" .
+\end{lstlisting}
+
+The header declares the entry program's QRAM resources
+(\texttt{QRAMDECL ram\_\ s a,d}), allocates the total qubit count including
+workspace (\texttt{QINIT n}), and fixes the classical register width
+(\texttt{CREG 0}: RIR is pure, so there is nothing to read out in-text).
+The lowering rules for the RIR surface are:
+
+\begin{itemize}
+\item \textbf{Definitions.}  Each module compiles to one \texttt{DEF} per
+  required specialization, with formals \texttt{v\_\ s[w]} for the
+  interface registers, \texttt{pw\_work[k]} when workspace must be passed
+  through to the body or callees, and \texttt{pc\_control[c]} when the
+  definition is a control specialization.  Definition names embed a
+  content hash, so identical specializations are shared and the export is
+  reproducible.
+\item \textbf{Control.}  On gates and QRAM loads, control is an inline
+  \texttt{controlled\_by (bits)} suffix; control bits testing~0 are
+  X-conjugated around the statement.  On module calls, control does not
+  fan out per gate: the callee is specialized with \texttt{pc\_control}
+  formals and the control bits are passed as ordinary call arguments.
+\item \textbf{Adjoint.}  \texttt{DAGGER}~\dots~\texttt{ENDDAGGER} wraps the
+  lowered body; the adjoint of a call is the daggered call line.
+\item \textbf{Repeat.}  There is no textual repetition construct: a count
+  of $n$ compiles to a chain of shared definitions in which the definition
+  for $n$ calls the definition for $\lfloor n/2 \rfloor$ twice (plus the
+  base once more when $n$ is odd).  The body text is emitted once and the
+  listing grows logarithmically in $n$---the property asserted by
+  \lstref{lst:repeat}.
+\item \textbf{Primitives.}  Broadcast gates fan out per bit;
+  \texttt{rx/ry/rz/phase} become \texttt{RX/RY/RZ/U1} with the angle in
+  parentheses; \texttt{xor} and \texttt{swap} become per-bit
+  \texttt{CNOT}/\texttt{SWAP}; \texttt{add\_const} lowers to a
+  multi-controlled-X staircase; \texttt{gphase} anchors a conjugated
+  \texttt{U1} pair on the first interface bit (the four-line sandwich
+  realizes $e^{i\theta}I$ on the whole register).
+\item \textbf{Entry.}  The single top-level call binds the entry module to
+  the physical bits \texttt{q[0..n-1]} in register order followed by
+  workspace---the only place physical qubit indices appear, and they
+  appear in text, not in the RIR.
+\end{itemize}
+
+\lstref{lst:originir-lowered} shows a complete export exercising the
+non-trivial rules: a controlled constant addition (the
+\texttt{controlled\_by} staircase), a \texttt{Repeat} of five rotations
+(the two-definitions-plus-base chain of the shared-module rule), and a
+symbolic adjoint.
+
+\begin{lstlisting}[style=pyqir, caption={OriginIR-ext export (verbatim \texttt{export\_originir} output) of the module \texttt{demo\{word: UInt(4), flag: Bits(1)\}} that applies \texttt{h} to \texttt{word}, adds the constant 3 under control of \texttt{flag}, repeats \texttt{rz(0.5)} on \texttt{word[0]} five times, and adjoints \texttt{x} on \texttt{word[1]}.  The three \texttt{m\_demo\_*} definitions are the logarithmic chain for count 5; note the propagated \texttt{v\_flag[0]} argument replacing per-gate controls inside called modules.}, label={lst:originir-lowered}]
+QINIT 5
+CREG 0
+DEF m_demo_f1a56b9995841efc84b9e7fa(v_word[4], v_flag[1])
+RZ v_word[0], (0.5)
+ENDDEF
+DEF m_demo_28de1671d87f7f6741cc1b1e(v_word[4], v_flag[1])
+m_demo_f1a56b9995841efc84b9e7fa(v_word[0], v_word[1], v_word[2], v_word[3], v_flag[0])
+m_demo_f1a56b9995841efc84b9e7fa(v_word[0], v_word[1], v_word[2], v_word[3], v_flag[0])
+ENDDEF
+DEF m_demo_69bd809b9442abd5102ed4d4(v_word[4], v_flag[1])
+m_demo_28de1671d87f7f6741cc1b1e(v_word[0], v_word[1], v_word[2], v_word[3], v_flag[0])
+m_demo_28de1671d87f7f6741cc1b1e(v_word[0], v_word[1], v_word[2], v_word[3], v_flag[0])
+m_demo_f1a56b9995841efc84b9e7fa(v_word[0], v_word[1], v_word[2], v_word[3], v_flag[0])
+ENDDEF
+DEF m_demo_5470c8daec78cb3d0a711209(v_word[4], v_flag[1])
+H v_word[0]
+H v_word[1]
+H v_word[2]
+H v_word[3]
+X v_word[3] controlled_by (v_flag[0], v_word[0], v_word[1], v_word[2])
+X v_word[2] controlled_by (v_flag[0], v_word[0], v_word[1])
+X v_word[1] controlled_by (v_flag[0], v_word[0])
+X v_word[0] controlled_by (v_flag[0])
+X v_word[3] controlled_by (v_flag[0], v_word[1], v_word[2])
+X v_word[2] controlled_by (v_flag[0], v_word[1])
+X v_word[1] controlled_by (v_flag[0])
+m_demo_69bd809b9442abd5102ed4d4(v_word[0], v_word[1], v_word[2], v_word[3], v_flag[0])
+DAGGER
+X v_word[1]
+ENDDAGGER
+ENDDEF
+m_demo_5470c8daec78cb3d0a711209(q[0], q[1], q[2], q[3], q[4])
+\end{lstlisting}
+
+A second backend pass lowers the same artifact further to the strict
+\{\textsc{toffoli}, $U_3$, \textsc{cz}\} gate set with ancilla pooling
+(\secref{sec:architecture}); it operates on the OriginIR-ext text and,
+like every downstream consumer, never feeds back into the RIR.
+
+
+\section{Four solver families in code}
 \label{app:families}
 
-This appendix shows, for each of the four solver territories of
-\secref{sec:ode}, a complete input program drawn verbatim from the
-repository's doctested examples (comments translated from Chinese;
-artifact bookkeeping is elided at the marked points).  The point of
+This appendix shows complete input programs---drawn verbatim from the
+repository's doctested examples---for four representative solver
+territories of \secref{sec:ode}: three of the six ODE families
+(Carleman, LCHS, and the contour family CBMD) and the QHAM PDE path; the
+remaining families (Schr\"odingerization, Euler--QLSS history systems,
+and Taylor kernels) follow the same pattern with their own generators.
+Comments are translated from Chinese, and artifact bookkeeping is elided
+at the marked points.  The point of
 interest is not the numerics but what stays \emph{open} and what is
 \emph{swappable} in each family: every listing contains at least one
 \texttt{abstract\_*} declaration that the same program could bind
@@ -49,6 +288,76 @@ argument (R1, R2, R5).
 
 \subsection{QHAM: from a symbolic PDE to a solver-ready input model}
 \label{app:qham}
+
+\subsubsection{Background, method, and input models}
+\label{app:qham-method}
+
+\paragraph{The method, tutorially.}
+Two ideas anchor this family, and the listing is best read as their
+composition.  The first is the homotopy analysis method
+(HAM)~\cite{liao2003beyond,liao2012homotopy}: to solve a nonlinear
+equation $N[u]=0$, do not linearize around a small parameter (there may
+not be one); instead \emph{deform} a solvable linear problem into the
+target along an artificial embedding parameter $q\in[0,1]$,
+\[
+H(v,q) \;=\; (1-q)\,\bigl(L[v]-f\bigr) \;+\; q\,N[v] \;=\; 0 ,
+\]
+where $L$ is a chosen linear base operator.  At $q=0$ the problem is
+linear; at $q=1$ it is the target.  Expanding the solution as a power
+series in $q$ and truncating at order $m$ yields a \emph{hierarchy of
+linear problems} whose solvability and convergence are governed by an
+auxiliary parameter (the $\eta=-0.4$ of the listing) that the analyst
+chooses freely---this freedom is what distinguishes HAM from perturbation
+expansions.  For a polynomial PDE, the order-$m$ truncation collapses the
+hierarchy into a single \emph{lifted linear generator} whose coefficients
+are polynomial functions of the state; a quantum computer never touches
+the nonlinearity directly, only block-encodings of these coefficient
+tensors.
+
+The second idea is the solver the listing hands the lifted problem to:
+Schr\"odingerization~\cite{jin2024schrodingerization,hu2024schrocircuits}.
+A linear evolution $u'=Gu$ with $G=H_1+iH_2$ is not unitary, so it cannot
+be simulated directly; the trick is to embed the state in a space with
+one extra \emph{momentum} coordinate $p$, prepare the warped initial
+state $e^{-|p|}\otimes u_0$, and Fourier-transform along $p$.  In the
+transformed space the dynamics become an honest Hamiltonian evolution
+under the lifted generator $K'=-P\otimes H_1 - I\otimes H_2$ (our
+convention after the sign repair of \secref{sec:numverify}), which
+ordinary Hamiltonian simulation handles; the physical solution is
+recovered from a single Fourier channel, up to the known factor
+$e^{p_{\mathrm{sel}}}$---the warp $e^{-|p|}$ decays exactly at the rate
+the non-unitary part $H_1$ demands, which is why one channel suffices.
+
+\paragraph{What the input models represent.}
+The listing states the \emph{mathematics} and defers the \emph{physics
+ownership}.  A \texttt{PolynomialPDE} over \texttt{Field} expressions is
+the problem itself, entered symbolically; the forcing term
+\texttt{Known("forcing")} is \emph{data by name}---the program says
+``some table with this identity exists'' without deciding whether it will
+be baked into gates, served from a QRAM, or supplied by a collaborator.
+\texttt{structured\_fd\_bindings} then makes the one concrete decision
+the tutorial level requires---a finite-difference discretization---and
+returns \emph{stencil-structured ports}: gate-level realizations of the
+stencil operators plus a norm-preserving lifted initial state.  The
+product \texttt{qode\_input} is an open QODE input model; the solver is
+selected by name at the far end of the pipeline with its approximation
+kernel injected (\texttt{taylor\_hamiltonian}, degree 1 here).  Every
+binding above is replaceable without touching the problem statement,
+which is the R1/R2 discipline the appendix exists to exhibit.
+
+\paragraph{Flow of the listing.}
+\begin{enumerate}
+\item enter the PDE symbolically (\texttt{PolynomialPDE.from\_equations},
+  forcing as \texttt{Known} data);
+\item fix the homotopy truncation order $m{=}2$ and parameter
+  $\eta{=}{-}0.4$ in a lazily computed \texttt{QHAMPlan} (a row-rule plan
+  that never materializes tensor blocks, R5);
+\item discretize (\texttt{structured\_fd\_bindings}) into stencil ports
+  and the lifted initial state;
+\item emit the open input model \texttt{qham\_input\_model}; and
+\item solve: \texttt{linear\_qode("schrodingerization",} $\ldots)$ at
+  $t=0.01$, with recovery-interval validation recorded pending.
+\end{enumerate}
 
 \lstref{lst:qham} is the repository's forced-Burgers example
 (\texttt{examples/general\_qham.py}) in full.  The equation is entered
@@ -101,6 +410,60 @@ solution = qode_input.solve(solver, 0.01)
 \subsection{Carleman: nonlinear lift with a swappable linear solver}
 \label{app:carleman}
 
+\subsubsection{Background, method, and input models}
+\label{app:carleman-method}
+
+\paragraph{The method, tutorially.}
+Carleman linearization trades nonlinearity for
+dimension~\cite{liu2021pnas,liu2023carleman}.  For a polynomial ODE
+$u'=F(u)=\sum_p F_p\,u^{\otimes(p-1)}\!\cdot u$ on $d$-dimensional state
+space, form the \emph{level space} whose $j$-th block is the rank-$j$
+tensor power $z_j = u^{\otimes j}$.  Differentiating each level couples it
+only to \emph{higher} levels, $z_j' = \sum_{p\ge 1} F_p\, z_{j+p-1}$: the
+nonlinear dynamics induce a genuinely linear---but infinite---system on
+level space.  Truncating at cutoff $K$ (levels above $K$ discarded)
+yields a finite linear system $G_K$ of dimension $O(dK)$, solvable by any
+linear solver; the physical state is the level-one block.  The error is
+where physics enters: for \emph{strongly dissipative} systems the
+reaction terms are too weak to pump amplitude into high levels, and the
+truncation tail decays exponentially in $K$---the main result of the
+Carleman line is that in this regime the quantum cost is polynomial in
+$\log(1/\varepsilon)$ and $d$, with no dependence on integration
+time~\cite{liu2021pnas,liu2023carleman}.  Dissipativity is thus a
+quantitative promise about the problem, exactly the kind of thing R6
+wants carried with the code.
+
+\paragraph{What the input models represent.}
+The listing makes the trade visible at the interface.  Each polynomial
+coefficient $F_p$ of the lifted generator is declared as an \emph{open}
+block-encoding slot \texttt{BurgersF$p$}: the slot says ``this is a
+block-encoding of the order-$p$ coefficient tensor, width and scale
+factor $\alpha$ as recorded,'' while the binding dict supplies the
+concrete operation produced by the stencil ports.  Swap the
+discretization, rebind five names---problem assembly is untouched.  The
+lifted initial state is likewise an open slot
+(\texttt{BurgersInitial}) with the host tracking \texttt{initial\_norm}:
+because level $j$ has norm $\lVert u_0\rVert^{\,j}$, the norm is a real
+promise about the lifted problem, not a typing detail.  Finally, the
+\emph{linear solver is an argument}: \texttt{carleman\_qode(linear\_solver=...,
+cutoff=2)} lands in exactly the same solver position as every other
+family---the listing solves the same Burgers problem twice, through
+Schr\"odingerization and through norm-shifted LCHS, to show that the
+Carleman pipeline is solver-agnostic by construction.
+
+\paragraph{Flow of the listing.}
+\begin{enumerate}
+\item discretize the nonlinear PDE and expose each $F_p$ as the open slot
+  \texttt{BurgersF$p$} (with width/$\alpha$ recorded at declaration);
+\item declare the lifted initial state open
+  (\texttt{BurgersInitial}), the host tracking the initial norm;
+\item assemble the truncated generator at \texttt{cutoff=2} over level
+  space; and
+\item solve the lifted \emph{linear} problem with the injected
+  \texttt{linear\_solver}, then read the level-one block; the truncation
+  tail is a recorded pending item.
+\end{enumerate}
+
 \lstref{lst:carleman} (case~6 of \texttt{examples/ode\_input\_models.py})
 runs the inviscid Burgers equation through the Carleman pipeline.  Each
 polynomial coefficient $F_p$ of the lifted generator is declared as an
@@ -146,6 +509,63 @@ for method, solver in (
 
 \subsection{LCHS: one open program, two data-path realizations}
 \label{app:lchs}
+
+\subsubsection{Background, method, and input models}
+\label{app:lchs-method}
+
+\paragraph{The method, tutorially.}
+The obstacle LCHS removes is non-Hermiticity: $e^{Gt}$ with
+$G=H_1+iH_2$ is not unitary, so none of the Hamiltonian-simulation
+machinery applies.  The observation is that for a \emph{dissipative}
+generator ($H_1$ negative semidefinite), the decaying exponential has a
+Cauchy-type integral representation whose branches are unitary: in
+discretized form~\cite{an2026lchs},
+\[
+e^{Gt} \;\approx\; \sum_{k \,\le\, \text{cutoff}} w_k \,
+e^{-i\,(H_1 + k\,H_2)\,t},
+\qquad
+w_k \ \text{of Cauchy type} \ (w_k \sim 1/k^2) ,
+\]
+and each branch $e^{-i(H_1+kH_2)t}$ \emph{is} an ordinary Hermitian
+simulation.  The algorithm is thus an LCU whose branches are standard
+kernels and whose weights and nodes are quadrature data; the main result
+is that this achieves query complexity optimal up to logarithms among
+black-box methods, with no conditioning or spectral-gap assumption on
+$G$~\cite{an2026lchs}---the dissipation promise substitutes for
+invertibility.  The two approximation knobs are honest and separate:
+the quadrature cutoff (a \emph{method} remainder) and the branch-simulation
+degree (the injected kernel's own error).
+
+\paragraph{What the input models represent.}
+The listing deliberately solves the same problem through two input models
+plus two data paths.  (i)~An \emph{abstract generator block-encoding}
+(\texttt{Generator}): the strongest form of deferral---any realization of
+a block-encoding of $G$ (sparse access, LCU, application circuit) can
+close this slot; the algorithm consumes only width and $\alpha$.  (ii)~A
+\emph{rotation-angle database} (\texttt{DiagonalAngles}) composed by
+\texttt{diagonal\_block\_encoding}: when $G$ is diagonal in a known basis,
+the block-encoding needs nothing but a table of rotation angles, and the
+XOR-database paradigm makes that table \emph{data}---the same open slot
+is then closed twice, once against \texttt{gate\_database} (the table
+compiled into logic) and once against \texttt{qram\_database} with a
+runtime memory table (\texttt{Binding(..., \{"table": ...\})}), with the
+program text unchanged (R2).  (iii)~An \emph{abstract state preparation}
+(\texttt{Initial}) with work qubits reserved, closed by a gate
+preparation or a QRAM angle-word loader.  Appendix~\ref{app:input-models}
+varies these paths systematically.
+
+\paragraph{Flow of the listing.}
+\begin{enumerate}
+\item declare the input model (abstract block-encoding, or angle database
+  composed into a diagonal block-encoding, plus abstract initial state);
+\item fix the quadrature plan (\texttt{QuadraturePlan.cauchy}, cutoff and
+  spacing)---its finite truncation is a recorded pending remainder;
+\item assemble the weighted LCU over branches $e^{-i(H_1+kH_2)t}$, each
+  realized by the injected kernel (truncated Taylor by default); and
+\item apply to the initial state, recovering $\lVert u(t)\rVert$ from the
+  branch weights, with the \emph{same} open program bound to gate and
+  QRAM realizations in turn.
+\end{enumerate}
 
 \lstref{lst:lchs} condenses three cases of
 \texttt{examples/ode\_input\_models.py}.  The protocol object is built by
@@ -208,6 +628,56 @@ records.append(
 
 \subsection{CBMD: the contour family under a dissipative shift}
 \label{app:cbmd}
+
+\subsubsection{Background, method, and input models}
+\label{app:cbmd-method}
+
+\paragraph{The method, tutorially.}
+Contour-based matrix decomposition evaluates holomorphic \emph{matrix
+functions} $f(G)$---here $e^{Gt}$ with non-Hermitian $G$---through the
+matrix Cauchy integral
+\[
+f(G) \;=\; \frac{1}{2\pi i} \oint_\Gamma f(z)\,(zI-G)^{-1}\,dz ,
+\]
+where the contour $\Gamma$ encloses the spectrum.  Naively this trades
+one hard problem (non-unitary evolution) for many (resolvents), and a
+Taylor-series route does exactly that badly: the non-Hermitian components
+grow along the series and force repeated amplitude amplification.  CBMD's
+contribution is to reorganize the contour identity so that it collapses
+into a \emph{linear combination of Hermitian
+components} with controlled truncation error~\cite{wang2026cbmd}: for
+first-order dynamics the resulting algorithm attains query complexity
+that strictly matches the optimal bounds within the LCHS paradigm,
+systematically suppresses the growing non-Hermitian terms (hence fewer
+amplifications), and---because it never diagonalizes anything---is immune
+to ill-conditioned eigenvectors and Jordan blocks that break
+diagonalization-based methods.  The price is a promise: the construction
+requires a \emph{strictly dissipative} generator.
+
+\paragraph{What the input models represent.}
+The CBMD listing is deliberately the shortest of the four, because its
+input model is the QHAM model of \lstref{lst:qham} with one promise
+applied: \texttt{dissipative\_shift()} performs
+$G \mapsto G - \mu I$ so that the shifted generator meets the strict-dissipativity
+requirement, and the \emph{host} records the norm bookkeeping---the
+solved system evolves under $G-\mu I$, and readout multiplies the known
+factor $e^{\mu t}$ back into the recovered state.  This is R6 in miniature: a promise
+manipulation with quantitative provenance, applied to the input model
+rather than woven into the algorithm.  The contour configuration
+(default here) and the injectable kernel are then the family's only
+approximation knobs; omitted contour poles are a recorded pending item.
+
+\paragraph{Flow of the listing.}
+\begin{enumerate}
+\item take the open QHAM input model and apply
+  \texttt{dissipative\_shift()} (host-tracked norm bookkeeping);
+\item decompose the shifted holomorphic generator function along the
+  contour into an LCU of Hermitian components (default contour
+  configuration, injectable kernel); and
+\item recombine via the LCU weights and undo the shift; two lines of code
+  separate this from the Schr\"odingerization solution of the same
+  problem.
+\end{enumerate}
 
 The CBMD family is reached through the same uniform front---the only
 difference from \lstref{lst:qode-swap} is the family name string.
@@ -358,6 +828,102 @@ closures of the same program encode \emph{identical} data---the gate
 truth table stores the very angle words the QRAM table would---so the two
 realizations agree exactly, and the declared quantization is the only
 approximation relative to the exact coefficients.
+
+\section{A reimplementation study: code volume across peer frameworks}
+\label{app:expressiveness}
+
+The evidence in the main text for \pqlang's expressiveness is drawn from its
+own examples and tests.  To anchor that claim externally, we reimplemented
+six algorithm tasks, each pinned to a published anchor, in every peer
+framework that provides a documented path for it, and compared code
+volume.  The protocol was fixed before any measurement: each task has a
+written numeric specification; frameworks may use their documented
+highest-level APIs; a framework with no native path is recorded as
+\emph{infeasible} (never as zero); lines of code count non-blank,
+non-comment lines uniformly; and every implementation must pass its
+correctness witness against an independent classical reference or be
+recorded as failed.  The \pqlang-side scripts are in
+\texttt{tools/expressiveness/}; the multi-framework bundle (per-framework
+environments, frozen versions, and per-task specifications) is archived
+with the project artifact.
+
+\begin{table}[t]
+  \centering
+  \caption{Reimplementation study.  LOC counts non-blank, non-comment
+  lines; correctness is the task's witness metric (direction or relative
+  $\ell_2$ error against an independent reference).  \ok~= passes its
+  threshold; \noent~= infeasible (no native path); F~= failed its
+  threshold; ``f-s''~= a from-scratch implementation, recorded because no
+  native path exists.  Anchors: T1--T2 Martyn et al.~\cite{martyn2021grand};
+  T3 the historical Qiskit-textbook HHL; T4 An et
+  al.~\cite{an2026lchs}; T5 Hu et al.~\cite{hu2024schrocircuits}; T6
+  Kim et al.~\cite{kim2026qsp4pde}.}
+  \label{tab:expressiveness}
+  \small
+  \setlength{\tabcolsep}{3pt}\begin{tabular}{@{}p{2.6cm}p{2.1cm}rrp{5.6cm}@{}}
+    \toprule
+    \tabhead{Task ($\kappa{=}8$, $\varepsilon{=}10^{-2}$ unless noted)} & \tabhead{Framework} & \tabhead{LOC} & \tabhead{Err.} & \tabhead{Notes} \\
+    \midrule
+    T1 QSP inversion phases & pyqsp 0.2.0 & 30 & $1.4{\times}10^{-4}$ & \ok; degree 853 synthesized ($b{=}427$) \\
+     & pyqecclang & 57 & $8.7{\times}10^{-7}$ & \ok; round-trip only---degree cap 40, max $b{=}9$ \\
+    \addlinespace[2pt]
+    T2 QSVT matrix inversion $2{\times}2$ & PennyLane 0.45.1 & 65 & $3.8{\times}10^{-4}$ & \ok; \texttt{QSVT}+FABLE, max $b{=}59$ \\
+     & Qualtran 0.7.0 & 78 & $6.1{\times}10^{-3}$ & \ok; GQSP, $b{=}293$ \\
+     & pyqecclang & 70 & $3.2{\times}10^{-2}$ & F at spec: bundled synthesizer degree-capped; phases are values at the interface (see text) \\
+    \addlinespace[2pt]
+    T3 HHL $2{\times}2$ & Qiskit 2.5.2 & 77 & $0.0$ & f-s; HHL retired from the library \\
+     & Qrisp 0.9.8 & 41 & $1.5{\times}10^{-8}$ & \ok; documented HHL ships with Qrisp \\
+     & pyqecclang & 107 & $4.7{\times}10^{-3}$ & \ok; CKS order 40, agrees with its Chebyshev oracle to $1.5{\times}10^{-8}$ \\
+    \addlinespace[2pt]
+    T4 LCHS assembly $u'{=}Gu$ & pyqecclang & 87 & $5.2{\times}10^{-6}$ & \ok; native \texttt{linear\_qode("lchs")} \\
+     & Qiskit 2.5.2 & \noent{} / 84 & $4.2{\times}10^{-4}$ & infeasible natively; f-s minimal variant \\
+     & Qualtran 0.7.0 & \noent & --- & infeasible (no quadrature/LCU assembly path) \\
+    \addlinespace[2pt]
+    T5 Schr\"odingerization, 1D heat & UnitaryLab algos & 59 & $6.8{\times}10^{-4}$ & \ok; documented solver (classical path) \\
+     & Qiskit 2.5.2 & 59 & $5.1{\times}10^{-2}$ & f-s; error equals the grid's method floor \\
+     & pyqecclang & 68 & $6.8{\times}10^{-2}$ & \ok; Taylor degree 2 (degree 4 exceeds the reference executor's sparse-state budget at this width) \\
+    \addlinespace[2pt]
+    T6 QSP advection (16 points) & qsp4pde 1.0.0 & 30 & $3.4{\times}10^{-10}$ & \ok; package's own example \\
+     & pyqecclang & 98 & $3.0{\times}10^{-3}$ & \ok; reimplementation of the same spec \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Three readings of Table~\ref{tab:expressiveness} seem fair.
+\emph{First, on native algorithm coverage the comparison is sharp}: LCHS
+has no native path in either Qiskit or Qualtran (both lack the
+block-encoding/LCU/quadrature assembly layer, not the gates); HHL is no
+longer packaged in Qiskit at all, while Qrisp ships a documented
+implementation---code volume tracks what a framework chooses to package,
+which is precisely the library-architecture claim of this paper.
+\emph{Second, the study separates the language layer from the bundled
+numerics on our side}: the self-verifying QSP phase engine caps at
+degree~40 and its complement-polynomial rooting succeeds only to $b{=}9$,
+so at the $\kappa{=}8$ inversion specification (requiring $b{=}293$)
+\pqlang{}'s \emph{bundled synthesizer} fails where pyqsp synthesizes
+degree-853 phases and Qualtran consumes $b{=}293$ directly.  We report
+this as what it is---a limitation of one shipped numerical routine, not
+of the language: phases enter the QSVT constructors as ordinary values,
+so the fix is to vendor a proven synthesis backend (e.g.\ the Laurent
+exact decomposition behind pyqsp) behind the existing interface, with
+the same round-trip verification applied to whatever arrives; no change
+to the grammar, the IR, or the validation pass is required, and the
+assembled circuit already implements its constructed polynomial to
+$5{\times}10^{-7}$.  The comparison that matters to this paper is the
+first one---which abstractions each system offers---not the speed of
+either system's numerics.  \emph{Third, code volume alone is a
+crude instrument}: Qrisp's 41-line HHL exists because someone packaged
+the algorithm; the claim of this paper is that such packaging should be
+composable, contract-checked, and realization-swappable, and the six
+anchor scripts are released so the comparison can be re-run as the
+ecosystems move.
+
+Threats to validity: one instance per task; correctness witnesses differ
+in kind (statevector-exact for some frameworks, method-error-floored for
+others); from-scratch implementations were optimized for the fixture; and
+the counting rule (non-blank, non-comment) ignores API ergonomics that
+LOC cannot see.  The protocol, thresholds, and frozen versions are
+recorded per task in the bundle.
 
 \section{Glossary of recurring identifiers}
 \label{app:glossary}
