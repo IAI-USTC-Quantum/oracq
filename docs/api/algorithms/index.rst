@@ -28,6 +28,9 @@
    operators
    oracle_algorithms
    oracles
+   newton
+   qcnn
+   qcnn_layer
    pde
    prepare_select
    qham
@@ -38,6 +41,8 @@
    schrodingerization
    sde
    search
+   spectral
+   spectral_synthesis
    sparse
    state_preparation
    transforms
