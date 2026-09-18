@@ -1,0 +1,31 @@
+name: Docs HTML preview
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # 与 python-ci.yml 相同的镜像策略；发布凭据来自仓库 secrets：
+    # PREVIEW_API_BASE / PREVIEW_API_KEY（与本机 html-previewer 配置一致）
+    env:
+      PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+      UV_DEFAULT_INDEX: https://mirrors.aliyun.com/pypi/simple/
+      PREVIEW_API_BASE: ${{ secrets.PREVIEW_API_BASE }}
+      PREVIEW_API_KEY: ${{ secrets.PREVIEW_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv==0.12.1
+      - run: uv sync --frozen --extra docs
+      - name: Build docs HTML (warnings as errors)
+        run: uv run --frozen python -m sphinx -W --keep-going -b html docs out/docs/html
+      - name: Publish preview
+        # 分支名中的 / 替换为 -，保证 topic 是合法的 URL 标签；
+        # 同名 topic 原地更新，预览 30 天未更新自动过期
+        run: |
+          TOPIC="pyqecclang-docs-$(echo "${{ github.ref_name }}" | tr '/' '-')"
+          uv run --frozen --with html-previewer==0.1.1 preview-publish out/docs/html "$TOPIC" 30
