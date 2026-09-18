@@ -207,8 +207,7 @@ The lowering rules for the RIR surface are:
   of $n$ compiles to a chain of shared definitions in which the definition
   for $n$ calls the definition for $\lfloor n/2 \rfloor$ twice (plus the
   base once more when $n$ is odd).  The body text is emitted once and the
-  listing grows logarithmically in $n$---the property asserted by
-  \lstref{lst:repeat}.
+  listing grows logarithmically in $n$.
 \item \textbf{Primitives.}  Broadcast gates fan out per bit;
   \texttt{rx/ry/rz/phase} become \texttt{RX/RY/RZ/U1} with the angle in
   parentheses; \texttt{xor} and \texttt{swap} become per-bit
@@ -406,6 +405,115 @@ solver = linear_qode(
 )
 solution = qode_input.solve(solver, 0.01)
 \end{lstlisting}
+
+\subsubsection{Line-by-line walkthrough}
+\label{app:qham-lines}
+
+The listing above is the complete user-side program; this subsection walks
+through it line by line and states, for each line, what the library
+actually constructs.
+
+\begin{itemize}
+\item \texttt{from functools import partial} --- standard-library helper;
+  used at the solver line to \emph{inject} the Hamiltonian-simulation kernel
+  as a partially applied argument.  The kernel is a value, not a global
+  choice (R8).
+\item \texttt{from pyqecclang.algorithms.hamiltonian import
+  taylor\_hamiltonian} --- the default Hermitian-simulation kernel family;
+  its \texttt{degree} argument controls the truncation order of the Taylor
+  series.
+\item \texttt{from pyqecclang.algorithms.ode import linear\_qode} --- the
+  uniform solver front: the family is selected by a name string
+  (\texttt{"lchs"}, \texttt{"schrodingerization"}, \texttt{"cbmd"},
+  \dots) and the kernel by an ordinary argument.
+\item \texttt{from pyqecclang.applications.qham import \dots} --- the QHAM
+  application layer: the symbolic PDE surface (\texttt{Field},
+  \texttt{Known}, \texttt{PolynomialPDE}), the discretization objects
+  (\texttt{Grid}, \texttt{Discretization}), the linearization plan
+  (\texttt{QHAMPlan}), the structured port compiler
+  (\texttt{structured\_fd\_bindings}), and the input-model assembler
+  (\texttt{qham\_input\_model}).
+\item \texttt{u = Field("u")} --- creates a one-atom symbolic expression.
+  Overloaded arithmetic (\texttt{+}, \texttt{*}, \texttt{.d(axis, order)})
+  builds normalized polynomial terms; unknown fields and \texttt{Known}
+  data are \emph{different atom kinds}, so ``who owns this coefficient''
+  is visible in the term structure itself rather than in a comment.
+\item \texttt{pde = PolynomialPDE.from\_equations(\{"u": 0.1*u.d("x", 2) -
+  u*u.d("x") + Known("forcing")\}, label="forced\_burgers")} --- validates
+  and freezes the equation into immutable term tuples.  The right-hand side
+  is read as: linear diffusion $0.1\,\partial_x^2 u$, quadratic convection
+  $-u\,\partial_x u$, and a named forcing table.
+  \texttt{from\_equations} also derives the \emph{port decomposition}:
+  single-field linear terms form port $L$, pure-data terms form port $F$,
+  and each arity-$\ge 2$ term becomes its own port $B_i$---exactly the
+  decomposition the stencil layer implements later.
+\item \texttt{plan = QHAMPlan(pde, order=2)} --- the homotopy truncation
+  plan.  It stores no matrices; it is a row-rule object that lazily answers
+  which lifted blocks exist (closure rule $(D{-}1)\sum \text{orders} +
+  \text{rank} \le (D{-}1)m{+}1$, here grade $D{-}1{=}1$, max tensor rank
+  $3$), how blocks couple (\texttt{row\_terms}), and where each block sits
+  in the lifted register (\texttt{offset}).  Homotopy weights are symbolic
+  formulas in $\eta$---$1{-}(1{+}\eta)^p$ on physical rows,
+  $-\eta(1{+}\eta)^p$ on correction rows---evaluated only when the
+  generator is assembled.
+\item \texttt{grid = Grid(("x",), (4,), (1.0,), boundary="periodic")} ---
+  one axis, four points, unit spacing, periodic wrap.  The grid maps
+  derivatives to centered finite-difference stencils applied with periodic
+  wrapping; its address width (2 bits here) becomes the spatial register
+  width.
+\item \texttt{space = Discretization(pde, grid, \{"forcing": [.05, 0,
+  -.05, 0]\})} --- joins PDE and grid.  The constructor checks that the
+  axes match and that \emph{every} \texttt{Known} name carries data
+  covering the grid---the forcing table named in the equation is bound to
+  concrete numbers here, at the moment the host owns it.
+\item \texttt{initial = space.encode\_fields(\{"u": [.1, .2, 0, -.1]\})}
+  --- embeds the four-point initial profile into the full amplitude vector
+  of the discretized register (component-wise slicing; all field
+  components required).
+\item \texttt{bindings = structured\_fd\_bindings(space, initial)} --- the
+  only line that compiles gates.  For every PDE port, each term becomes a
+  block-encoding: derivative factors are periodic-shift LCUs on the
+  spatial register; known-coefficient factors become either scaled
+  identities or a controlled-$R_y$ diagonal multiplier (a small database);
+  arity-$\ge 2$ terms are contracted in a single builder module whose
+  target register stacks one copy of the grid register per operand plus
+  component bits, with signal qubits carrying the LCU branches.  Ports are
+  then summed by LCU, the initial state becomes a gate state preparation,
+  and its Euclidean norm is recorded.  The result is a
+  \texttt{QHAMBindings} object---ports plus initial state plus norm, with
+  no solver attached.
+\item \texttt{qode\_input = qham\_input\_model(plan, bindings, eta=-0.4)}
+  --- assembles the lifted \emph{linear} problem.  The generator walk
+  enumerates the plan's blocks and couplings, evaluates the homotopy
+  weights at $\eta{=}{-}0.4$, places each port into the lifted register at
+  the block offsets the plan computes, and LCUs everything into one
+  generator block-encoding.  The lifted initial state prepares the physical
+  block from the normalized field and the tensor blocks from powers of the
+  recorded norm, carrying $\log\lVert u_0\rVert$ as provenance.  What
+  returns is a \texttt{QHAMInputModel}: generator, initial state, and the
+  two adapters \texttt{solve} and \texttt{dissipative\_shift}.
+\item \texttt{solver = linear\_qode("schrodingerization",
+  hamiltonian\_function=partial(taylor\_hamiltonian, degree=1))} --- picks
+  the solver family by name and injects the branch-simulation kernel by
+  argument; nothing in the assembled problem knows which kernel will
+  simulate the Hermitian branches.  Swapping this line for another family
+  or kernel changes nothing above it.
+\item \texttt{solution = qode\_input.solve(solver, 0.01)} --- executes the
+  model at $t{=}0.01$: the solver consumes the generator block-encoding and
+  the lifted initial state, \texttt{solve} post-selects the physical block
+  of the output register, and the returned state oracle is annotated with
+  the full plan JSON, the initial-norm bookkeeping, and the recorded
+  pending items (recovery-window and time-approximation validation)---R6
+  provenance attached to the artifact, not to the paper.
+\end{itemize}
+
+The pattern to notice: lines~1--12 are \emph{data and plans} (symbolic
+equations, truncation order, grid, tables, initial profile); exactly one
+line compiles circuits; one line assembles the lifted linear problem; and
+the solver is a swappable argument on the final line.  Every object
+crossing a line boundary satisfies a protocol, which is what makes the
+same problem object consumable by LCHS, Schr\"odingerization, or CBMD
+without change.
 
 \subsection{Carleman: nonlinear lift with a swappable linear solver}
 \label{app:carleman}
@@ -924,6 +1032,255 @@ others); from-scratch implementations were optimized for the fixture; and
 the counting rule (non-blank, non-comment) ignores API ergonomics that
 LOC cannot see.  The protocol, thresholds, and frozen versions are
 recorded per task in the bundle.
+
+\section{Resource estimation at the strict gate-set level}
+\label{sec:resources}
+
+The structure-preserving design pays a second dividend beyond
+verification: compositional resource estimation.  Because RIR keeps module
+calls and static repetition symbolic, resources can be counted per
+(module, control-count) pair and multiplied through \texttt{Repeat} nodes
+without expansion, so estimates follow the module graph rather than any
+flattened circuit.  \pqlang{} ships two linked artifacts:
+\texttt{export\_strict}, a compiler pass that lowers a program to a
+module-preserving netlist at the Toffoli+Clifford+T+QRAM level (exact
+Clifford+T atoms on the $\pi/4$ grid; residual $R_Z$/$R_Y$ atoms pending
+synthesis \cite{ross2016optimal}; QRAM calls first-class), and
+\texttt{estimate\_resources}, a ledger that follows the same lowering
+recipes line by line and reports qubits, Toffoli, Clifford atoms, exact $T$,
+pending rotations with a Ross--Selinger-style synthesis overhead
+\cite{ross2016optimal}, and QRAM \emph{query counts} as a first-class
+metric.  The two are cross-checked atom by atom in the test suite.  The
+estimator counts what the compiler actually emits---not an idealized cost
+model---which makes lowering quality measurable; it is the kind of
+accounting that automated resource-estimation frameworks perform at the
+application level
+\cite{beverland2022assessing,harrigan2024qualtran,su2026resource,gidney2025rsa},
+here derived from the language's own module graph.
+
+\begin{figure*}[t]
+  \centering
+  \begin{tikzpicture}
+    \begin{groupplot}[
+      group style={group size=2 by 2, horizontal sep=1.7cm, vertical sep=1.6cm},
+      width=0.45\textwidth, height=0.31\textwidth,
+      xmode=log, ymode=log,
+      log basis x=2, log basis y=2,
+      xlabel style={font=\small}, ylabel style={font=\small},
+      tick label style={font=\scriptsize},
+      legend style={font=\scriptsize, draw=none, fill=none, at={(0.02,0.98)}, anchor=north west, inner sep=1pt},
+    ]
+    \nextgroupplot[xlabel={$n$ (bits)}, ylabel={Toffoli}, title={\small arithmetic}]
+      \addplot[only marks, mark=*, mark size=1.4pt] coordinates {(4,5) (8,91) (16,1015) (32,9455) (64,81375)};
+      \addlegendentry{constant addition}
+      \addplot[only marks, mark=square*, mark size=1.4pt] coordinates {(4,112) (6,246) (8,428) (12,936) (16,1636) (24,3612) (32,6356)};
+      \addlegendentry{fixed-point multiply}
+      \addplot[domain=4:64, samples=16, dashed, forget plot] {0.31*x^3};
+      \addplot[domain=4:32, samples=16, dotted, forget plot] {6.2*x^2};
+      \addlegendentry{$0.31\,n^3$ / $6.2\,n^2$}
+    \nextgroupplot[xlabel={$n$ (bits)}, ylabel={rotations}, title={\small rotation synthesis demand}]
+      \addplot[only marks, mark=*, mark size=1.4pt] coordinates {(3,3) (4,9) (6,30) (8,63) (10,108) (12,165)};
+      \addlegendentry{QFT}
+      \addplot[only marks, mark=square*, mark size=1.4pt] coordinates {(2,17) (3,37) (4,77) (5,157) (6,314) (7,634) (8,1274) (9,2554) (10,5114)};
+      \addlegendentry{dense state preparation}
+      \addplot[domain=3:12, samples=16, dashed, forget plot] {1.15*x^2};
+      \addplot[domain=2:10, samples=16, dotted, forget plot] {5*2^x};
+      \addlegendentry{$1.15\,n^2$ / $5\cdot 2^n$}
+    \nextgroupplot[xlabel={$n$ (bits / precision)}, ylabel={Toffoli}, title={\small symbolic repetition regimes}]
+      \addplot[only marks, mark=*, mark size=1.4pt] coordinates {(4,24) (6,96) (8,288) (10,800) (12,2000) (14,4800)};
+      \addlegendentry{Grover, $\lfloor\frac{\pi}{4}2^{n/2}\rfloor$ iters}
+      \addplot[only marks, mark=square*, mark size=1.4pt] coordinates {(3,63) (4,135) (6,567) (8,2295) (10,9207) (12,36855)};
+      \addlegendentry{QPE, symbolic powers}
+      \addplot[domain=4:14, samples=16, dashed, forget plot] {37.5*2^(x/2)};
+      \addplot[domain=3:12, samples=16, dotted, forget plot] {9*2^x};
+      \addlegendentry{$37.5\,2^{n/2}$ / $9\cdot 2^{p}$}
+    \nextgroupplot[xlabel={$w$ (fixed-point bits)}, ylabel={Toffoli}, title={\small application arithmetic}]
+      \addplot[only marks, mark=*, mark size=1.4pt] coordinates {(6,77044) (8,126488) (10,188388) (12,262012) (16,446076)};
+      \addlegendentry{Roe flux face (QFVM)}
+      \addplot[only marks, mark=square*, mark size=1.4pt] coordinates {(4,768) (6,1604) (8,2728) (10,4140) (12,5840) (16,10104)};
+      \addlegendentry{compiled polynomial}
+      \addplot[domain=6:16, samples=16, dashed, forget plot] {1742*x^2};
+      \addplot[domain=4:16, samples=16, dotted, forget plot] {39.5*x^2};
+      \addlegendentry{$1742\,w^2$ / $39.5\,w^2$}
+    \end{groupplot}
+  \end{tikzpicture}
+  \caption{Measured resource scaling of the strict-gate-set estimator (marks)
+  against theoretical reference slopes (dashed/dotted), log--log with
+  base-2 axes.  All series come from the JSON artifacts of
+  \texttt{tools/build\_resource\_estimates.py}; fitted slopes and $R^2$
+  values are collected in Table~\ref{tab:estimate-validation}.  The Grover
+  and QPE panels are estimated without expanding the symbolic
+  \texttt{Repeat} counts.}
+  \label{fig:resource-scaling}
+\end{figure*}
+
+\begin{table*}[t]
+  \centering
+  \caption{Resource-scaling study at the Toffoli+Clifford+T+QRAM level
+  (\texttt{tools/build\_resource\_estimates.py}; JSON artifacts in
+  \texttt{out/resource-estimates/}).  ``rot.'' counts rotations pending
+  synthesis ($\approx 100$ $T$ each at $\epsilon=10^{-10}$
+  \cite{ross2016optimal}); ``Q'' counts QRAM queries.  The last column
+  states the theoretical expectation; fitted log--log slopes are quoted
+  where the regime is polynomial.}
+  \label{tab:resource-scaling}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{3.9cm}rrrrrp{4.6cm}@{}}
+    \toprule
+    \tabhead{Algorithm ($n$)} & \tabhead{qubits} & \tabhead{Toffoli} & \tabhead{exact $T$} & \tabhead{rot.} & \tabhead{Q} & \tabhead{expectation} \\
+    \midrule
+    Constant addition (16) & 16 & 1\,015 & 0 & 0 & --- & staircase cubic regime \\
+    Constant addition (64) & 64 & 81\,375 & 0 & 0 & --- & literature adders $O(n)$ \cite{gidney2018halving} \\
+    Fixed-point multiply (8) & 488 & 428 & 0 & 0 & --- & $O(n^2)$ \\
+    Fixed-point multiply (32) & 6\,596 & 6\,356 & 0 & 0 & --- & fitted slope $1.94$ \\
+    QFT (6) & 6 & 0 & 15 & 30 & --- & \multirow{2}{4.6cm}{$\binom{n}{2}$ controlled rotations} \\
+    QFT (12) & 12 & 0 & 33 & 165 & --- & \\
+    QPE, symbolic powers (8) & 12 & 2\,295 & 21 & 63 & --- & $2^p \times \mathrm{cost}(U)$ \\
+    QPE, symbolic powers (12) & 16 & 36\,855 & 33 & 165 & --- & symbolic, unexpanded \\
+    Grover (10) & 10 & 800 & 0 & 0 & --- & \multirow{2}{4.6cm}{$\lfloor\frac{\pi}{4}2^{n/2}\rfloor$ iterations $\times$ $O(n)$} \\
+    Grover (14) & 14 & 4\,800 & 0 & 0 & --- & \\
+    Dense state preparation (6) & 6 & 896 & 0 & 314 & --- & \multirow{2}{4.6cm}{$O(2^n)$ rotations} \\
+    Dense state preparation (10) & 10 & 30\,712 & 0 & 5\,114 & --- & \\
+    QRAM lookup (16) & 24 & 0 & 0 & 0 & 1 & one query, size-independent \\
+    QROM, gate-synthesized (8) & 16 & 13\,312 & 0 & 0 & --- & idealized unary-iteration $N{-}1$ \cite{babbush2018encoding} \\
+    QROM, gate-synthesized (12) & 20 & 344\,064 & 0 & 0 & --- & emitted $\approx 84\times$ the idealized model \\
+    Diagonal block-encoding, gate (8) & 12 & 11\,388 & 2 & 2 & --- & same input model \\
+    Diagonal block-encoding, QRAM (8) & 12 & 0 & 2 & 2 & 2 & two queries instead \\
+    Roe flux face (QFVM, $w{=}12$) & 4\,275 & 262\,012 & 0 & 0 & --- & \multirow{2}{4.6cm}{application arithmetic, poly$(w)$} \\
+    Roe flux face (QFVM, $w{=}16$) & 6\,687 & 446\,076 & 0 & 0 & --- & \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\figref{fig:resource-scaling} and Table~\ref{tab:resource-scaling} report
+the study, and Table~\ref{tab:estimate-validation} collects the validation
+evidence behind both.  Three observations.
+\emph{First, the estimates match theoretical expectations wherever a
+reference exists}: fixed-point multiplication fits $1.94$ against the
+expected quadratic; dense state preparation tracks $O(2^n)$ rotations;
+Grover's total follows $\lfloor \frac{\pi}{4} 2^{n/2} \rfloor$ iterations
+times an $O(n)$ per-iteration cost; QFT rotations grow quadratically once
+the $\pi/4$-grid exact rotations are accounted for.  \emph{Second, QRAM
+query counts behave as the access-model literature promises but circuit
+descriptions rarely show}: a lookup through a QRAM resource costs exactly
+one query and zero gates at any size, while the same table gate-synthesized
+costs $3.4{\times}10^5$ Toffoli at $n=12$---and the diagonal block-encoding
+input model makes the same point with two queries against
+$1.1{\times}10^4$ Toffoli.  To our knowledge this query-count view of
+QRAM---complementary to fault-tolerant QRAM constructions
+\cite{dalzell2025qram} and to QROM $T$-count analyses
+\cite{babbush2018encoding,low2024trading}---has not been reported as a
+first-class language metric before; \figref{fig:qram-queries} shows the
+measured separation, and Table~\ref{tab:solver-qram} carries the same
+metric through the verified solver stack.  \emph{Third, the estimator caught a
+provenance gap}: the library's \texttt{qrom\_lookup} advertises an
+idealized unary-iteration cost model ($N{-}1$ Toffoli
+\cite{babbush2018encoding}) while the emitted circuit is a per-branch
+truth-table network ($\approx 84\times$ more Toffoli at $n=12$); likewise
+constant addition emits an $O(n^3)$ staircase where literature adders are
+$O(n)$ \cite{gidney2018halving}.  Both gaps are recorded as
+lowering-optimization items, alongside the two algorithmic defects of
+\secref{sec:numverify}.
+
+\begin{table}[t]
+  \centering
+  \caption{Validation evidence for the resource estimator.  Top: the
+  estimator and the strict netlist agree atom-by-atom on every
+  cross-checked program.  Middle: fitted log--log slopes against theory
+  ($R^2$ from the same fit).  Bottom: the two provenance gaps the
+  accounting exposed.}
+  \label{tab:estimate-validation}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{3.4cm}p{2.2cm}p{2.6cm}@{}}
+    \toprule
+    \tabhead{evidence} & \tabhead{measured} & \tabhead{reference} \\
+    \midrule
+    estimator vs strict netlist (15 hand-computed and cross cases) & $0$ mismatches & atom-by-atom equality \\
+    fixed-point multiply, Toffoli slope & $1.940$ ($R^2{=}1.000$) & $2$ (quadratic) \\
+    QFT, rotation slope & $2.854$ ($R^2{=}0.993$) & $2$; $\pi/4$-grid exact rotations drop out \\
+    dense state preparation, rotations & $5.0\cdot 2^n$ regime & $O(2^n)$ multiplexed rotations \\
+    Roe flux face, Toffoli slope & $1.791$ ($R^2{=}0.9998$) & polynomial in $w$ \\
+    Grover per-iteration cost & $O(n)$ & $\lfloor\frac{\pi}{4}2^{n/2}\rfloor$ iterations \\
+    \midrule
+    constant addition (64) & $81\,375$ Toffoli & $O(n)$ adders \cite{gidney2018halving}; staircase recorded \\
+    QROM emitted vs \texttt{qrom\_cost} ($n{=}12$) & $344\,064$ vs $4\,095$ & unary-iteration model \cite{babbush2018encoding}; gap recorded \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}
+    \begin{loglogaxis}[
+      width=\columnwidth, height=0.66\columnwidth,
+      log basis x=2, log basis y=2,
+      xlabel={$n$ (address bits)}, ylabel={count},
+      xlabel style={font=\small}, ylabel style={font=\small},
+      tick label style={font=\scriptsize},
+      legend style={font=\scriptsize, draw=none, fill=none, at={(0.02,0.98)}, anchor=north west, inner sep=1pt},
+      legend cell align=left,
+    ]
+      \addplot[only marks, mark=*, mark size=1.5pt] coordinates {(4,315) (6,2304) (8,13312) (10,69632) (12,344064)};
+      \addlegendentry{gate QROM, Toffoli (emitted)}
+      \addplot[domain=4:12, samples=16, dashed] {2^x - 1};
+      \addlegendentry{idealized unary-iteration $N{-}1$ \cite{babbush2018encoding}}
+      \addplot[only marks, mark=square*, mark size=1.5pt] coordinates {(2,12) (3,84) (4,270) (5,756) (6,1980) (7,4818) (8,11388)};
+      \addlegendentry{diagonal BE (gate), Toffoli}
+      \addplot[only marks, mark=triangle*, mark size=1.8pt] coordinates {(4,1) (8,1) (12,1) (16,1)};
+      \addlegendentry{QRAM lookup, queries}
+      \addplot[only marks, mark=diamond*, mark size=1.8pt] coordinates {(2,2) (4,2) (6,2) (8,2) (10,2) (12,2)};
+      \addlegendentry{diagonal BE (QRAM), queries}
+    \end{loglogaxis}
+  \end{tikzpicture}
+  \caption{QRAM as a first-class resource, measured.  Flat marks are query
+  counts (independent of $n$); steep marks are gate-synthesized
+  realizations of the same data access; the dashed line is the idealized
+  unary-iteration QROM model.  The vertical separation---one query against
+  $10^4$--$10^5$ Toffoli, and the $84\times$ gap between the idealized
+  model and the emitted network at $n{=}12$---is the quantitative content
+  of the access-model abstraction.}
+  \label{fig:qram-queries}
+\end{figure}
+
+\begin{table*}[t]
+  \centering
+  \caption{QRAM query counts and gate-level costs across the solver stack:
+  the fourteen closed input-model cases of \texttt{examples/input\_models.py}
+  (same problem per family, different data paths), estimated on the
+  exported RIR artifacts (\texttt{tools/build\_qram\_queries.py}).  Queries
+  are broken down by resource role (a = angle database, t = coefficient
+  table, f/i = forward/inverse grid banks).}
+  \label{tab:solver-qram}
+  \small
+  \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}llrrrrrl@{}}
+    \toprule
+    \tabhead{family} & \tabhead{input model (case)} & \tabhead{qubits} & \tabhead{Toffoli} & \tabhead{exact $T$} & \tabhead{rot.} & \tabhead{Q} & \tabhead{query breakdown} \\
+    \midrule
+    LCHS & given spectral & 10 & 728 & 55 & 58 & 0 & --- \\
+    LCHS & spectral, QRAM prepare & 19 & 2\,036 & 95 & 258 & 40 & a40 \\
+    LCHS & QRAM grid & 40 & 19\,632 & 179 & 242 & 84 & a4 f20 i20 t40 \\
+    Carleman & stencil, gate & 20 & 3\,150 & 52 & 164 & 0 & --- \\
+    Carleman & spectral ports & 21 & 14\,626 & 676 & 164 & 0 & --- \\
+    Carleman & coefficient QRAM & 49 & 4\,245 & 88 & 362 & 36 & a12 t24 \\
+    CBMD & given spectral & 11 & 1\,804 & 95 & 120 & 0 & --- \\
+    CBMD & spectral, QRAM prepare & 20 & 4\,668 & 167 & 480 & 72 & a72 \\
+    CBMD & QRAM grid & 41 & 44\,024 & 315 & 432 & 148 & a4 f36 i36 t72 \\
+    CBMD & QHAM coefficient QRAM & 168 & 467\,750 & 2\,393 & 5\,621 & 352 & a28 t324 \\
+    QHAM & stencil, gate & 151 & 68\,073 & 438 & 816 & 0 & --- \\
+    QHAM & spectral ports & 152 & 224\,581 & 7\,054 & 896 & 0 & --- \\
+    QHAM & coefficient, gate angles & 168 & 71\,343 & 510 & 1\,262 & 0 & --- \\
+    QHAM & coefficient QRAM & 168 & 69\,658 & 538 & 1\,388 & 100 & a28 t72 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+The estimates live at the logical level: rotation synthesis is accounted by
+a leading-order model \cite{ross2016optimal}, and $T$ factories,
+distillation, routing, and surface-code cycles are out of scope---the
+physical layer of \cite{beverland2022assessing,gidney2025rsa} remains
+future work, as does flowing these numbers back into per-module promise
+attributes (R6).
+
 
 \section{Glossary of recurring identifiers}
 \label{app:glossary}

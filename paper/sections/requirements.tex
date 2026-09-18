@@ -156,13 +156,14 @@ eigenstate filtering).  Whether a composed object admits adjoint or control
 is a compositional property of its parts; a language must infer and check it
 \emph{at composition time}, before any backend is asked to realize it.
 
-\paragraph{R5: Symbolic scale.}
-Parameters such as $\mathrm{Repeat}(2^{40})$ or a $64$-qubit addressing width
-are legitimate.  The frontend must never expand them; cost models, not
-materialization, must guard execution; and even textual export must remain
-logarithmic in repetition counts.  Scale invariants must be part of the
-specification, not folklore: ``serialization must not unconditionally
-replicate a repeated body'' is a testable statement.
+\paragraph{R5: Symbolic structure.}
+Repetition counts, addressing widths, and truncation degrees are program
+parameters, not reasons to replicate text.  The frontend must never expand
+them; cost models, not materialization, must guard execution; and even
+textual export must remain logarithmic in repetition counts.  Scale
+invariants must be part of the specification, not folklore:
+``serialization must not unconditionally replicate a repeated body'' is a
+testable statement.
 
 \paragraph{R6: Promise and precision provenance.}
 Block-encoding factors $\alpha$, spectral-norm promises
@@ -208,7 +209,7 @@ protocols, new input models, new generator functions---over a fixed core.
     R2 & Realization independence & Realization choice hard-wired into algorithm code & One oracle slot, many bindings: gate networks, QRAM-typed resources, alias sampling; partial and repeated binding via the \texttt{bind} linking pass (\secref{sec:oracles}) \\
     R3 & Structure preservation & Frontends flatten to gate lists; exports lose call structure & Module-preserving RIR: \texttt{Call}/\texttt{Repeat}/\texttt{Control}/\texttt{Adjoint} stay symbolic in IR, JSON, and export (\secref{sec:rir}) \\
     R4 & Tracked adjoint/control & Adjoint/control availability discovered (or not) at backend & Compositional capability inference checked against contextual usage at validation time (\secref{sec:capabilities}) \\
-    R5 & Symbolic scale & Counts materialized eagerly; programs explode with system size & \texttt{Repeat} up to $2^{63}-1$ with logarithmic export; cost-model guards; unrolling forbidden in generation and serialization (\secref{sec:rir}) \\
+    R5 & Symbolic structure & Counts materialized eagerly; programs explode with system size & \texttt{Repeat} nodes preserved with static counts; logarithmic export; cost-model guards; unrolling forbidden in generation and serialization (\secref{sec:rir}) \\
     R6 & Promise provenance & $\alpha$, norm bounds, dissipativity, approximation caveats live in papers, not code & First-class attributes ($\alpha$, \texttt{SpectralPromise} with evidence strings, dissipativity flags, per-method pending items) attached to modules and contracts (\secref{sec:oracles}, \secref{sec:ode}) \\
     R7 & Readout separation & Measurement embedded in circuits blocks coherent composition & Purely unitary IR; readout as host-side actions planned after export (\secref{sec:readout}) \\
     R8 & Extensibility & New solvers require core language changes & Library-level \texttt{Protocol} contracts and generator protocols; new algorithms define new protocols in their own files (\secref{sec:protocols}) \\

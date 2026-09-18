@@ -60,20 +60,9 @@ structure---arithmetic, oracles, entire solver kernels---is expressed as
 \emph{module calls}, so that the IR's semantics remain auditable at a fixed
 size.
 
-Control and repetition are structured blocks, entered as Python context
-managers:
-
-\begin{lstlisting}[style=pyqpython, caption={Symbolic scale: a legitimate program with a repetition count of $2^{40}$.  The finished program contains a single \texttt{Repeat} node; export remains logarithmic (this is asserted in the test suite).}, label={lst:repeat}]
-b = Builder("main", {"word": UInt(8)})
-with b.repeat(1 << 40):
-    b.add_const(b["word"], 1)
-p = b.finish().program()
-
-assert len(p.main.body) == 1                    # one Repeat node
-assert export_originir(p).text.count("DEF ") < 45   # log-time export
-\end{lstlisting}
-
-Repetition counts may range up to $2^{63}-1$; the body must be structurally
+Control, repetition, and inversion are structured blocks, entered as Python
+context managers.  A \texttt{Repeat} node carries a static count and its body
+exactly once; the body must be structurally
 valid even at count zero; and---as a normative rule of the IR
 specification---generation and serialization must never replicate a repeated
 body according to its count (R5).  Guards against runaway expansion are cost
@@ -83,23 +72,6 @@ control values are compile-time constants attached to protected registers,
 and nested controls must not overlap.  \texttt{Adjoint} blocks are symbolic:
 their semantics are defined without rewriting the body, so the adjoint of a
 composition is available without duplicating it.
-
-\begin{figure}[t]
-  \centering
-  \begin{quantikz}[remember picture, every matrix/.append style={name=pqRep}]
-  \lstick{$\mathtt{q}_{0}$} & \gate{H} & \ctrl{1} \\
-  \lstick{$\mathtt{q}_{1}$} & \qw & \targ{} \\
-  \end{quantikz}
-  \begin{tikzpicture}[remember picture, overlay]
-  \node[draw=black!55, dashed, rounded corners=2pt, inner sep=3pt, fit=(pqRep-1-1)(pqRep-1-2)(pqRep-2-2), label={[font=\footnotesize\color{black!65}]above:$\times 2^{40}$}] {};
-  \end{tikzpicture}
-  \caption{A \texttt{Repeat} block drawn by the quantikz export.  The dashed
-  group is a single \texttt{Repeat} node with a static count of $2^{40}$; the
-  body appears exactly once in the program, its serialization, and every
-  export---expansion, if a backend performs it, is logarithmic and leaves no
-  trace in the IR (\lstref{lst:repeat}).}
-  \label{fig:repeat-circuit}
-\end{figure}
 
 \subsection{The register-level IR (RIR)}
 \label{sec:rir}
@@ -132,7 +104,7 @@ Table~\ref{tab:rir-nodes} summarizes the node kinds.
     \texttt{Primitive} & instruction & broadcast unary gate, \texttt{xor}, \texttt{swap}, \texttt{add\_const}, \texttt{global\_phase} \\
     \texttt{Load} & instruction & QRAM access $|a\rangle|d\rangle \mapsto |a\rangle|d \oplus M[a]\rangle$; self-inverse \\
     \texttt{Call} & instruction & module invocation; kind-and-width-exact, alias-free argument matching; modules are shared, never copied \\
-    \texttt{Repeat} & instruction & static count $0..2^{63}{-}1$; body preserved, never replicated \\
+    \texttt{Repeat} & instruction & static count; body preserved, never replicated \\
     \texttt{Control} & instruction & coherent conditioning on protected registers with compile-time values \\
     \texttt{Adjoint} & instruction & symbolic inversion; no body rewriting \\
     \bottomrule

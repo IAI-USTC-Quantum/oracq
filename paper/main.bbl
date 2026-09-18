@@ -461,23 +461,43 @@ Satish~S. Bharadwaj and Katepalli~R. Sreenivasan.
 \newblock \href{https://dx.doi.org/10.1007/s12046-024-02660-3}{S{\=a}dhan{\=a}
   {\bf 50}, 57}~(2025).
 
-\bibitem{ross2016optimal}
-Neil~J. Ross and Peter Selinger.
-\newblock ``Optimal ancilla-free {Clifford}+{T} approximation of z-rotations''.
-\newblock \href{https://dx.doi.org/10.26421/QIC16.11-12-1}{Quantum Information
-  and Computation {\bf 16}, 901--953}~(2016).
-\newblock  \href{http://arxiv.org/abs/1403.2975}{arXiv:1403.2975}.
-
 \bibitem{su2026resource}
 Bonan Su, Yuan Feng, Li~Zhou, and Mingsheng Ying.
 \newblock ``Resource estimation for fault-tolerant quantum programs''~(2026).
 \newblock  \href{http://arxiv.org/abs/2608.04573}{arXiv:2608.04573}.
+
+\bibitem{gidney2021factor}
+Craig Gidney and Martin Eker{\aa}.
+\newblock ``How to factor 2048 bit {RSA} integers in 8 hours using 20 million
+  noisy qubits''.
+\newblock \href{https://dx.doi.org/10.22331/q-2021-04-15-433}{Quantum {\bf 5},
+  433}~(2021).
 
 \bibitem{gidney2025rsa}
 Craig Gidney.
 \newblock ``How to factor 2048 bit {RSA} integers with less than a million
   noisy qubits''~(2025).
 \newblock  \href{http://arxiv.org/abs/2505.15917}{arXiv:2505.15917}.
+
+\bibitem{liao2003beyond}
+Shijun Liao.
+\newblock ``Beyond perturbation: Introduction to the homotopy analysis
+  method''.
+\newblock \href{https://dx.doi.org/10.1201/9780203491164}{Modern Mechanics and
+  Mathematics}. Chapman \& Hall/CRC. Boca Raton, FL~(2003).
+
+\bibitem{liao2012homotopy}
+Shijun Liao.
+\newblock ``Homotopy analysis method in nonlinear differential equations''.
+\newblock \href{https://dx.doi.org/10.1007/978-3-642-25132-0}{Springer}.
+  Berlin, Heidelberg~(2012).
+
+\bibitem{ross2016optimal}
+Neil~J. Ross and Peter Selinger.
+\newblock ``Optimal ancilla-free {Clifford}+{T} approximation of z-rotations''.
+\newblock \href{https://dx.doi.org/10.26421/QIC16.11-12-1}{Quantum Information
+  and Computation {\bf 16}, 901--953}~(2016).
+\newblock  \href{http://arxiv.org/abs/1403.2975}{arXiv:1403.2975}.
 
 \bibitem{gidney2018halving}
 Craig Gidney.
@@ -502,25 +522,5 @@ Guang~Hao Low, Vadym Kliuchnikov, and Luke Schaeffer.
 \newblock \href{https://dx.doi.org/10.22331/q-2024-06-17-1375}{Quantum {\bf 8},
   1375}~(2024).
 \newblock  \href{http://arxiv.org/abs/1812.00954}{arXiv:1812.00954}.
-
-\bibitem{gidney2021factor}
-Craig Gidney and Martin Eker{\aa}.
-\newblock ``How to factor 2048 bit {RSA} integers in 8 hours using 20 million
-  noisy qubits''.
-\newblock \href{https://dx.doi.org/10.22331/q-2021-04-15-433}{Quantum {\bf 5},
-  433}~(2021).
-
-\bibitem{liao2003beyond}
-Shijun Liao.
-\newblock ``Beyond perturbation: Introduction to the homotopy analysis
-  method''.
-\newblock \href{https://dx.doi.org/10.1201/9780203491164}{Modern Mechanics and
-  Mathematics}. Chapman \& Hall/CRC. Boca Raton, FL~(2003).
-
-\bibitem{liao2012homotopy}
-Shijun Liao.
-\newblock ``Homotopy analysis method in nonlinear differential equations''.
-\newblock \href{https://dx.doi.org/10.1007/978-3-642-25132-0}{Springer}.
-  Berlin, Heidelberg~(2012).
 
 \end{thebibliography}
