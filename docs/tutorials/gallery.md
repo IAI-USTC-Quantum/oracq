@@ -17,9 +17,13 @@ uv run python examples/algorithm_gallery.py
 ```{testcode}
 from pyqecclang.applications.gallery import algorithm_gallery
 
+# 构造全部展示案例，并按名字建索引方便查询。
 cases = {case.name: case for case in algorithm_gallery()}
+# 确认 QAOA 最大割案例存在（展示库覆盖变分类）。
 assert "qaoa_maxcut" in cases
+# 每个案例带族标签：序数查找属于 number_theory 族。
 assert cases["order_finding"].family == "number_theory"
+# 展示库共 22 个案例，增删案例时这行断言会提醒同步更新。
 assert len(cases) == 22
 ```
 

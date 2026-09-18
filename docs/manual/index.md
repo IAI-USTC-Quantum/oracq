@@ -15,6 +15,7 @@ differential-equations
 math-functions
 qfvm
 qham
+qcnn-walkthrough
 backends
 resource-estimation
 cli

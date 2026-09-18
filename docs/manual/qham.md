@@ -19,12 +19,17 @@ QHAM 生成器将规则化 PDE、有限阶 HAM 推导和量子适配线性化连
 ```python
 from pyqecclang.applications.qham import Field, Known, PolynomialPDE, QHAMPlan
 
+# 声明两个未知场 u、v：各自是一个单项式原子，参与多项式运算。
 u, v = Field("u"), Field("v")
+# 用普通 Python 运算符书写方程右端：u.d("x", 2) 是二阶空间导数，
+# u*u.d("x") 是二次对流项，Known("f") 是按名字引用的已知强迫数据。
+# from_equations 会校验并冻结成不可变项集合，同时拆出 L/F/B 端口。
 pde = PolynomialPDE.from_equations({
     "u": 0.1*u.d("x", 2) - u*u.d("x") + Known("f"),
     "v": -0.3*v + 0.2*u*v - 0.1*v**3,
 }, axes=("x",), label="coupled_flow")
 
+# HAM 截断阶 m=3：plan 只保存 PDE 和阶数，块闭包惰性生成，不物化矩阵。
 plan = QHAMPlan(pde, order=3)
 ```
 
@@ -118,13 +123,21 @@ flowchart LR
 ```python
 from pyqecclang.applications.qham import Grid, Discretization, structured_fd_bindings, qham_input_model
 
+# 一维周期网格：4 个格点、间距 1.0；地址宽 2 位，导数用中心差分加周期回绕。
 grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
+# 把 PDE 和网格接起来；第二个参数为每个 Known 名字提供覆盖全网格的数据，
+# 缺表或长度不符会在这里报错（数据所有权在此刻由宿主决定）。
 space = Discretization(pde, grid, {"f": [0.05, 0.0, -0.05, 0.0]})
+# 把各分量初值嵌入完整 2^width 维振幅向量；必须覆盖全部未知场。
 u_in = space.encode_fields({
     "u": [0.1, 0.2, 0.0, -0.1],
     "v": [0.0, 0.1, 0.0, -0.1],
 })
+# 唯一编译电路的一步：每个端口变成移位 LCU + 对角系数 + 矩形收缩的 BE，
+# 初值变成门级制备，范数被记录；不物化 N^r×N^r 端口矩阵。
 bindings = structured_fd_bindings(space, u_in)
+# 按 plan 闭包装配提升后的线性生成元 BE 与提升初态，返回带 solve /
+# dissipative_shift 适配器的输入模型；eta 在此代入同伦权重。
 model = qham_input_model(plan, bindings, eta=-0.4)
 ```
 
@@ -161,11 +174,17 @@ from functools import partial
 from pyqecclang.algorithms.ode import linear_qode
 from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
 
+# 按名字选择求解器族（schrodingerization），并把 Hermitian 分支模拟核
+# 作为普通参数注入：partial 固定 degree=1 的截断 Taylor 核。
+# 换族或换核只改这一行，上面的输入模型不动。
 qode = linear_qode(
     "schrodingerization",
     hamiltonian_function=partial(taylor_hamiltonian, degree=1),
 )
+# 在 t=0.01 求解：消耗生成元 BE 与提升初态，后选物理输出块，
+# 返回带 plan/范数/待办项属性的 state oracle。
 solution = model.solve(qode, 0.01)
+# 取出其中的 RIR Program，用于序列化、导出或后端执行。
 program = solution.operation.program()
 ```
 
@@ -251,3 +270,99 @@ PYTHONPATH=src .venv/bin/python tools/build_general_qham.py
 - **求解链**：有限 Taylor QODE 端到端（BE 生成元 + 提升初态 + 物理块选取）对照经典 (I+tG)Y_in，两种输入模型各 1.11e-16；显式耗散移位 G−μI 在完整 2ʷ 空间的全矩阵误差 5.70e-17。
 
 仍属求解器一侧的收敛认证、η/m 自动选择与大规模性能不在本次验证范围（见第 9 节）。复现命令与完整指标见[算法页数值验证](algorithms/qham.md#数值验证)与 `out/verification/qham_qfvm.json`。
+
+## 11. QRAM 数据路径逐行讲解
+
+本节针对第 4 节的已知系数项（`Known` 数据），逐行讲清同一条 open 程序如何在"系数烧进门里"与"系数留在 QRAM 角表"两种实现之间切换。源码：`applications/qham/stencils.py`；端到端示例：`examples/input_models.py` 的 QHAM 行。
+
+### 11.1 门实现：`coefficient_encoding`
+
+```python
+values = [discretization.known_product(monomial, row) if row < grid.size else 0j
+          for row in range(1 << width)]     # 经典侧算出每个地址的对角值
+alpha = max((abs(v) for v in values), default=0)
+for address, value in enumerate(values):
+    with b.control(b["target"], address):   # 按地址受控的分支
+        b.ry(b["signal"], 2 * math.acos(min(1, abs(value) / alpha)))
+        if value:
+            b.global_phase(cmath.phase(value))   # 复系数走全局相位
+```
+
+逐行：对角块编码的角块约定是 `D_jj = alpha·cos(theta_j/2)`——每个地址一个受控 RY，旋转角由 `|value|/alpha` 反余弦给出；复相位用 `gphase` 分支写入。注意 `values` 表被**编译进了控制字**：换一批系数就是换一段电路。超过 `max_words`（默认 4096）时此实现直接报错，要求改绑 QRAM 或自定义系数 BE。
+
+### 11.2 QRAM 实现：`qram_coefficient_encoding`
+
+```python
+values = [...]                              # 同一张经典值表
+if any(v.imag for v in values):
+    raise ValidationError("QRAM 角编码的系数数据必须为实数")
+alpha = max((abs(v.real) for v in values), default=0)
+db = abstract_database(_name("coefficient_angles", values), width, angle_width)
+return diagonal_block_encoding(db, alpha=alpha)
+```
+
+与门版本共用同一合同（target 为空间位、alpha 相同），差别只有两步：**开放**一个"地址宽 = 空间位宽、数据宽 = angle_width"的 XOR 数据库槽，再由 `diagonal_block_encoding` 把它组装成对角 BE（内部：查角字 → 按位受控 RY 合成，机制与第 4 节结构化端口一致）。数据不进门：程序此时仍是 open 的，槽位名里带值表的内容哈希（`_name`），闭合前后 α 声明不变。代价是两条明确的约束：只接受**实系数**（复相位没有对应编码），以及角量化引入不超过 `alpha·pi/2**angle_width` 的幅值误差。
+
+### 11.3 运行时角表：`qram_coefficient_memory`
+
+```python
+alpha = max((abs(v.real) for v in values), default=0)
+step = 2 * math.pi / (1 << angle_width)
+return {
+    address: round(2 * math.acos(min(1, max(-1, v.real / alpha))) / step) % (1 << angle_width)
+    for address, v in enumerate(values)
+}
+```
+
+逐行：α 与 11.2 声明的同源（换数据表必须同步 α 与谱声明）；每个地址的角字 = θ 除以步进 `2π/2^aw` 后四舍五入取模。这个量化界就是第 10 节"QRAM 角表路径 5.99e-05，界 9.20e-03"那条验证的来源。
+
+### 11.4 提升初态：`qram_state_angles`
+
+初态角树与 QFVM 的 RHS 符号残差树是**同一机制**（同一 `qram_state_prep` 电路：每层查一个内部节点角字、按位合成 RY、反查询复净，共 `2·width` 次查询）。差别只在权重：这里的分支权重是各提升块的相对范数（第 5 节的 r, r, r², …），同样要求非负实幅度：
+
+```python
+qram_state_angles(profile, 8)   # {树节点: 角字}，编址 (1<<depth)-1+prefix
+```
+
+### 11.5 端到端：一条 open 程序、两种闭合
+
+```python
+profile = [0.1, 0.2, 0.15, 0.05]   # QRAM 角表只接受非负实幅度
+qinitial = space.encode_fields({"u": profile})
+# 换编码器：structured_fd_bindings 的 coefficient_encoder 钩子接 QRAM 版本（角字 8 位）。
+encoder = partial(qram_coefficient_encoding, angle_width=8)
+open_bindings = structured_fd_bindings(space, qinitial, coefficient_encoder=encoder)
+# 初值也换成开放槽（宽度 + 10 位工作区）：闭合时可绑门制备或 QRAM 制备。
+open_bindings = QHAMBindings(
+    open_bindings.state_width, open_bindings.ports,
+    abstract_state_prep("QhamInitial", open_bindings.state_width, 10),
+    open_bindings.initial_norm,
+)
+model = qham_input_model(plan, open_bindings, eta=-0.4)
+state = model.solve(schrodinger, 0.01)
+# 从 open 程序中找出角库槽：除初值外唯一的未解析声明。
+db_slot = [r.name for r in unresolved(state.operation.program()) if r.name != "QhamInitial"][0]
+# 找到方程里含 Known 的单项式，经典侧算出它的角字表并补零到全地址域。
+(forcing_monomial,) = (t.monomial for p in space.pde.ports for t in p.terms if t.monomial.known)
+angle_words = qram_coefficient_memory(space, forcing_monomial, angle_width=8)
+word_table = [angle_words.get(address, 0) for address in range(4)]
+```
+
+两种闭合（程序文本不变，只换绑定字典）：
+
+```python
+# 闭合 A（门）：把同一批角字烧进真值表数据库。
+{db_slot: gate_database(2, 8, word_table).operation,
+ "QhamInitial": gate_state_prep(profile, work_width=10).operation}
+# 闭合 B（QRAM）：槽位绑 QRAM 库，数据运行时给。
+{db_slot: Binding(qram_database(2, 8).operation, {"table": "coeff_angles"}),
+ "QhamInitial": Binding(qram_state_prep(2, 8).operation, {"angles": "initial_angles"})}
+# 闭合 B 的配套内存表：
+{"coeff_angles": word_table, "initial_angles": qram_state_angles(profile, 8)}
+```
+
+三个要点：
+
+1. **两种闭合编码同一批数据**。门真值表存的就是 QRAM 表里那些角字，所以两条路径逐位一致（第 10 节验证）；相对精确系数的唯一近似是角量化。
+2. **α 随数据走**。`qram_coefficient_memory` 的 α 与编码器声明同源；改数据表必须同步 α、谱声明与初始范数，否则闭合检查会拒绝。
+3. **接口约束如实记录**。非负实幅度是当前 QRAM 态制备/角表实现的接口约束，不是数学限制；带符号数据要像 QFVM 那样配独立符号库（对照其 `rhs_sign` 的 Z 反冲），属于另一条实现路径。
