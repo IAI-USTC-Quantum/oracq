@@ -38,9 +38,9 @@ algorithms and the \emph{computational} structure of the tools:
 \item \textbf{Programs are deep, symbolic, and large.}  Scientific-computing
   programs assemble solvers from primitives through many layers (input model
   $\rightarrow$ block-encoding $\rightarrow$ transform $\rightarrow$ solver
-  $\rightarrow$ readout), with iteration counts and system sizes that make
-  eager flattening to gate lists meaningless: a repetition count of $2^{40}$
-  is a legitimate parameter in this regime.  What is needed is an intermediate
+  $\rightarrow$ readout); by the time a solver is assembled, the gate list is
+  already far too deep to review, diff, or serialize as flat text.  What is
+  needed is an intermediate
   representation that \emph{preserves} modular calls and static repetition,
   so that programs remain small, serializable, reviewable, and composable,
   and so that backends---not frontends---decide how far to expand.
@@ -119,13 +119,14 @@ interpretation time.
 \item \textbf{A requirements analysis} that derives, from the structure of
   quantum scientific computing itself, eight concrete language requirements
   (deferred oracle realization, realization independence, structure
-  preservation, capability tracking, symbolic scale, promise provenance,
+  preservation, capability tracking, symbolic structure, promise provenance,
   readout separation, and library extensibility), and identifies how existing
   languages fail them (\secref{sec:requirements}, \secref{sec:related}).
 \item \textbf{A language design} meeting these requirements: an embedded
   builder over typed register views; a module-preserving register-level IR
-  with an open-module oracle system, a linking pass, capability checking, and
-  a canonical JSON serialization with schema
+  with an open-module oracle system, a linking pass, capability checking,
+  and a canonical JSON serialization with schema---executed natively by a
+  register-level RIR interpreter contributed to PySparQ
   (\secref{sec:language}, \secref{sec:oracles}).
 \item \textbf{A protocol-based algorithm architecture} in which input models,
   adapters, and solver generators are first-class Python objects with
@@ -146,18 +147,18 @@ interpretation time.
   interpreter and UnifiedQuantum's \texttt{Circuit.to\_matrix}---alongside
   the pre-existing reference executor and adapter, cross-checks up to four
   independent implementations, separates implementation from method error,
-  and surfaced two genuine defects, which are recorded openly with
-  reproductions.  What remains open is the parameter-scaling axis, the
-  defect repairs, and resource estimation---tracked explicitly rather than
-  overclaimed.
+  and surfaced two genuine defects, both now repaired and pinned by
+  regression tests.  What remains open is the parameter-scaling
+  axis---tracked explicitly rather than overclaimed.
 \item \textbf{A compositional resource estimator}
-  (\secref{sec:implementation}): a strict Toffoli+Clifford+T+QRAM compile
+  (Appendix~\ref{sec:resources}): a strict Toffoli+Clifford+T+QRAM compile
   and a per-(module, control-count) ledger that multiplies through symbolic
   \texttt{Repeat} nodes without expansion, reporting qubit, Toffoli,
   exact-$T$, pending-rotation, and QRAM query counts---the latter, to our
   knowledge, not previously reported as a first-class language
-  metric---with scaling validated against theoretical expectations and with
-  two lowering gaps (and counting) exposed by the accounting itself.
+  metric.  We present this as a secondary capability enabled by the same
+  structure preservation; the scaling study, the query-count view of QRAM,
+  and two lowering gaps exposed by the accounting appear in the appendix.
 \end{itemize}
 
 Everything described in this paper is implemented in the open-source \pqlang{}
@@ -173,6 +174,7 @@ analysis.  \secref{sec:related} surveys related languages and frameworks.
 \secref{sec:casestudies} three case studies.  \secref{sec:implementation}
 describes implementation and verification status: the evidence ladder, the
 numerical-verification campaign with its per-family outcomes and recorded
-defects, the resource-estimation study at the strict gate-set level, and
+defects, a brief summary of the resource-estimation capability (detailed in
+Appendix~\ref{sec:resources}), and
 the deliberately reserved parts (validation at scale and the physical layer
 of resource estimation).  \secref{sec:discussion} discusses limitations and future work.
