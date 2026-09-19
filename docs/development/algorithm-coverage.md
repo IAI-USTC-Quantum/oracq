@@ -58,7 +58,7 @@
 | Oracle/搜索/估计 | Deutsch–Jozsa、Bernstein–Vazirani、Simon、Grover、振幅放大、QAE/量子计数、QPE、Hadamard/SWAP test |
 | Fourier/数论 | QFT、QFT 加法、模乘、order finding |
 | 模拟 | Trotter、Taylor 化、qubitization walk、QSVT 序列骨架、OAA |
-| 线性系统 | CKS（Chebyshev）、Costa（离散绝热 walk） |
+| 线性系统 | CKS（Chebyshev）、Costa（离散绝热 walk）、CKS §5 VTAA 变时求解器 |
 | 微分方程 | LCHS、CBMD、Schrödingerization、Carleman、Euler 历史态、结构化 FD、QHAM、QFVM |
 | 其他 | 变分（QAOA-MaxCut/VQE）、重复码纠错、定点算术、mathfunc 前端 |
 

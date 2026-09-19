@@ -15,6 +15,7 @@
 | Hamiltonian 演化 | `hamiltonian.py` | Pauli 项演化、Trotter 组合、Taylor BE、可注入的 QSP 接口 |
 | 矩阵变换 | `transforms.py` | qubitization、显式相位序列 QSVT、oblivious amplification 的组装 |
 | 线性系统 | `qlss.py` | 问题契约、Costa walk/filter、CKS 基础 Chebyshev/LCU 路线 |
+| 线性系统（VTAA） | `vtaa_cks.py` | CKS §5 变时幅度放大：QSP 判决时钟、分频带逆 LCU、Ambainis 嵌套放大与 A' 反计算 |
 | 线性演化 | `ode.py` | QODE 协议和 Euler history 组装；具体方法在独立文件中 |
 | 微分方程方法 | `lchs.py`、`schrodingerization.py`、`cbmd.py`、`carleman.py` | 各自维护输入模型、配置和生成步骤 |
 | QHAM | `qham.py` | 从有限 HAM 闭包构造 QODE 输入及物理输出通道 |

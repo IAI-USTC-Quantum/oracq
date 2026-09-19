@@ -4,7 +4,7 @@
 
 ## 概述
 
-稀疏 Hermitian 线性系统 $Ax = b$ 的基础 Chebyshev/LCU 求解路线（Childs–Kothari–Somma, arXiv:1511.02306 §4 的基础构造，无 VTAA）。把 $1/x$ 的截断 Chebyshev 展开作用到编码矩阵 $A/\alpha$ 的谱上：
+稀疏 Hermitian 线性系统 $Ax = b$ 的基础 Chebyshev/LCU 求解路线（Childs–Kothari–Somma, arXiv:1511.02306 §4 的基础构造）。第 5 节的 VTAA 变时层见 [VTAA-CKS 求解器](vtaa-cks.md)。把 $1/x$ 的截断 Chebyshev 展开作用到编码矩阵 $A/\alpha$ 的谱上：
 
 $$
 A^{-1} \approx \sum_{j=0}^{d-1} c_j\, T_{2j+1}(A/\alpha), \qquad
@@ -54,12 +54,12 @@ CKSConfig(order=2, terms=None)      # order 1..128；terms 为截断项数，≤
 
 ## 已知缺口与计划阶段
 
-与 HHL 论文参考值的端到端对拍缺失（阶段 V3，可入 catalog 目录）：当前见证覆盖输入适配、kappa 换算与范数恢复的局部语义，求解精度本身仍是 prototype 声明。与验证覆盖矩阵 `qlss.py` 行的缺口列一致。
+与 HHL 论文参考值的端到端对拍缺失（阶段 V3，可入 catalog 目录）：当前见证覆盖输入适配、kappa 换算与范数恢复的局部语义，求解精度本身仍是 prototype 声明。VTAA 变时层已由 [VTAA-CKS 求解器](vtaa-cks.md) 单独实现；本页保持 §4 基础路线的定位。与验证覆盖矩阵 `qlss.py` 行的缺口列一致。
 
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/qlss.py`
-- 同族页面：[Costa 行走求解器](costa-walk.md)、[稀疏矩阵块编码](sparse-block-encoding.md)
+- 同族页面：[Costa 行走求解器](costa-walk.md)、[VTAA-CKS 变时求解器](vtaa-cks.md)、[稀疏矩阵块编码](sparse-block-encoding.md)
 - API 参考：[量子线性系统](../../api/algorithms/qlss.rst)
 - 输入模型审查：[QFVM 输入模型审查](../../reference/qfvm-input-models.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
