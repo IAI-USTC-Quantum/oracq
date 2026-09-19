@@ -12,6 +12,7 @@ from pyqecclang.infrastructure.ir import (
     Program,
     Ref,
     Repeat,
+    Store,
     ValidationError,
 )
 
@@ -139,6 +140,14 @@ class _Renderer:
         rows = self.rows(node.address) + self.rows(node.data)
         self.box(rows, f"\\mathrm{{QRAM}}_{{\\mathtt{{{_escape(node.resource)}}}}}", controls)
 
+    def emit_store(self, node: Store, controls):
+        rows = self.rows(node.address) + self.rows(node.data)
+        self.box(
+            rows,
+            f"\\mathrm{{QRAM}}^{{\\mathrm{{w}}}}_{{\\mathtt{{{_escape(node.resource)}}}}}",
+            controls,
+        )
+
     def emit_call(self, node: Call, controls):
         rows = []
         for argument in node.arguments:
@@ -175,6 +184,8 @@ class _Renderer:
                 self.emit_primitive(node, controls)
             elif isinstance(node, Load):
                 self.emit_load(node, controls)
+            elif isinstance(node, Store):
+                self.emit_store(node, controls)
             elif isinstance(node, Call):
                 self.emit_call(node, controls)
             elif isinstance(node, Repeat):

@@ -15,6 +15,7 @@ from pyqecclang.infrastructure.ir import (
     Primitive,
     Ref,
     Repeat,
+    Store,
     ValidationError,
 )
 from pyqecclang.infrastructure.validation import locations, validate
@@ -54,7 +55,7 @@ def _counter(program, limit, native_modules=frozenset()):
         for node in nodes:
             if isinstance(node, Primitive):
                 cost = max(4, sum(r.width for r in node.operands) ** 2)
-            elif isinstance(node, Load):
+            elif isinstance(node, (Load, Store)):
                 cost = 1
             elif isinstance(node, Call):
                 if node.module in native_modules:
@@ -152,6 +153,16 @@ def events(program, *, max_steps=1_000_000, native_modules=frozenset()):
             elif isinstance(node, Load):
                 yield (
                     Load(
+                        resources[node.resource],
+                        remap(node.address, mapping),
+                        remap(node.data, mapping),
+                    ),
+                    controls,
+                    inverse,
+                )
+            elif isinstance(node, Store):
+                yield (
+                    Store(
                         resources[node.resource],
                         remap(node.address, mapping),
                         remap(node.data, mapping),
@@ -294,6 +305,19 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
 
         def active(values, controls=controls):
             return all(read(ref, values) == expected for ref, expected in controls)
+
+        if isinstance(node, Store):
+            observed = {
+                (read(node.address, values), read(node.data, values)) for values in state
+            }
+            if len(observed) != 1:
+                raise ValidationError("Store 要求地址与数据寄存器在执行时处于确定基矢")
+            address, value = observed.pop()
+            if value:
+                memories[node.resource][address] = value
+            else:
+                memories[node.resource].pop(address, None)
+            continue
 
         if isinstance(node, Primitive) and node.op not in {"xor", "swap", "add_const", "gphase"}:
             matrix = gate_matrix(node.op, node.angle, inverse)

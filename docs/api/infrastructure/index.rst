@@ -18,6 +18,7 @@
    mathfunc/lowering
    mathfunc/numeric
    native
+   qmem
    readout
    serialization
    validation

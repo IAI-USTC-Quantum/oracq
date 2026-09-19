@@ -13,7 +13,8 @@ Repeat 调用行）两侧各翻转一次（2×零位数个 X）；受控单比�
 多控走 ``mcx`` 配方（c≥3 时 2c−3 Toffoli）。
 
 QRAM 查询数按 ``Load`` 节点逐资源计数（每次 Load = 1 次查询），是
-独立于门级成本的第一类指标。
+独立于门级成本的第一类指标。QRAM 随机写按 ``Store`` 节点逐资源计入
+``qram_writes``：存储单元按经典单元建模，随机写不计入门成本。
 """""
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from pyqecclang.infrastructure.ir import (
     Load,
     Primitive,
     Repeat,
+    Store,
     ValidationError,
 )
 from pyqecclang.infrastructure.layout import workspace_table
@@ -191,6 +193,7 @@ class ResourceEstimate:
     atoms: Counter = field(default_factory=Counter)
     rotations: list = field(default_factory=list)
     qram_queries: Counter = field(default_factory=Counter)
+    qram_writes: Counter = field(default_factory=Counter)
     mcx_ancilla: int = 0
 
     @property
@@ -208,6 +211,10 @@ class ResourceEstimate:
     @property
     def qram_total(self):
         return sum(self.qram_queries.values())
+
+    @property
+    def qram_write_total(self):
+        return sum(self.qram_writes.values())
 
     @property
     def gate_total(self):
@@ -237,6 +244,8 @@ class ResourceEstimate:
             "atoms": dict(sorted(self.atoms.items())),
             "qram_queries": dict(sorted(self.qram_queries.items())),
             "qram_total": self.qram_total,
+            "qram_writes": dict(sorted(self.qram_writes.items())),
+            "qram_write_total": self.qram_write_total,
             "gate_total": self.gate_total,
             "epsilon": epsilon,
         }
@@ -251,16 +260,18 @@ def estimate_resources(program, *, require_closed=True):
     max_controls = 0
 
     def merge(total, part, factor=1):
-        counts, rotations, queries = part
+        counts, rotations, queries, writes = part
         for atom, n in counts.items():
             total[0][atom] += n * factor
         total[1].extend(rotations * factor)
         for resource, n in queries.items():
             total[2][resource] += n * factor
+        for resource, n in writes.items():
+            total[3][resource] += n * factor
 
     def primitive_cost(node, n_controls):
         nonlocal max_controls
-        counts, rotations, queries = Counter(), [], Counter()
+        counts, rotations, queries, writes = Counter(), [], Counter(), Counter()
         widths = [ref.width for ref in node.operands]
         if node.op in {"xor", "swap"}:
             for _ in range(widths[0]):
@@ -296,33 +307,35 @@ def estimate_resources(program, *, require_closed=True):
                 counts += part
                 rotations += rot
             max_controls = max(max_controls, n_controls)
-        return counts, rotations, queries
+        return counts, rotations, queries, writes
 
     def body_cost(nodes, n_controls, n_zeros):
-        counts, rotations, queries = Counter(), [], Counter()
+        counts, rotations, queries, writes = Counter(), [], Counter(), Counter()
         for node in nodes:
             if isinstance(node, Primitive):
                 if n_zeros and not (node.op == "add_const" and not node.value % (1 << node.operands[0].width)):
                     counts["x"] += 2 * n_zeros
-                merge((counts, rotations, queries), primitive_cost(node, n_controls))
+                merge((counts, rotations, queries, writes), primitive_cost(node, n_controls))
             elif isinstance(node, Load):
                 queries[node.resource] += 1
+            elif isinstance(node, Store):
+                writes[node.resource] += 1
             elif isinstance(node, Call):
                 if n_zeros:
                     counts["x"] += 2 * n_zeros
-                merge((counts, rotations, queries), module_cost(node.module, n_controls))
+                merge((counts, rotations, queries, writes), module_cost(node.module, n_controls))
             elif isinstance(node, Repeat):
                 if node.count and node.body:
                     if n_zeros:
                         counts["x"] += 2 * n_zeros
                     merge(
-                        (counts, rotations, queries),
+                        (counts, rotations, queries, writes),
                         body_cost(node.body, n_controls, 0),
                         node.count,
                     )
             elif isinstance(node, Control):
                 merge(
-                    (counts, rotations, queries),
+                    (counts, rotations, queries, writes),
                     body_cost(
                         node.body,
                         n_controls + node.register.width,
@@ -330,8 +343,8 @@ def estimate_resources(program, *, require_closed=True):
                     ),
                 )
             elif isinstance(node, Adjoint):
-                merge((counts, rotations, queries), body_cost(node.body, n_controls, n_zeros))
-        return counts, rotations, queries
+                merge((counts, rotations, queries, writes), body_cost(node.body, n_controls, n_zeros))
+        return counts, rotations, queries, writes
 
     def module_cost(name, n_controls):
         key = (name, n_controls)
@@ -343,11 +356,12 @@ def estimate_resources(program, *, require_closed=True):
         memo[key] = body_cost(module.body, n_controls, 0)
         return memo[key]
 
-    counts, rotations, queries = module_cost(program.entry, 0)
+    counts, rotations, queries, writes = module_cost(program.entry, 0)
     return ResourceEstimate(
         qubits=sum(r.type.width for r in program.main.registers) + workspace[program.entry],
         atoms=counts,
         rotations=rotations,
         qram_queries=queries,
+        qram_writes=writes,
         mcx_ancilla=max(0, max_controls - 1),
     )

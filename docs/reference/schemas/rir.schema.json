@@ -226,6 +226,31 @@
       ],
       "additionalProperties": false
     },
+    "Store": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Store"
+        },
+        "resource": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "address": {
+          "$ref": "#/$defs/Ref"
+        },
+        "data": {
+          "$ref": "#/$defs/Ref"
+        }
+      },
+      "required": [
+        "tag",
+        "resource",
+        "address",
+        "data"
+      ],
+      "additionalProperties": false
+    },
     "Call": {
       "type": "object",
       "properties": {
@@ -337,6 +362,9 @@
         },
         {
           "$ref": "#/$defs/Load"
+        },
+        {
+          "$ref": "#/$defs/Store"
         },
         {
           "$ref": "#/$defs/Call"

@@ -19,6 +19,7 @@ TYPES = {
         ir.Resource,
         ir.Primitive,
         ir.Load,
+        ir.Store,
         ir.Call,
         ir.Repeat,
         ir.Control,

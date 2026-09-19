@@ -17,6 +17,7 @@ from pyqecclang.infrastructure.ir import (
     Repeat,
     Resource,
     Span,
+    Store,
     ValidationError,
 )
 from pyqecclang.infrastructure.validation import validate
@@ -43,6 +44,30 @@ def calls(nodes):
             yield node
         elif isinstance(node, (Repeat, Control, Adjoint)):
             yield from calls(node.body)
+
+
+def stores(nodes):
+    """列出指令体（含嵌套结构块）中的全部 Store 副作用。"""
+    for node in nodes or ():
+        if isinstance(node, Store):
+            yield node
+        elif isinstance(node, (Repeat, Control, Adjoint)):
+            yield from stores(node.body)
+
+
+def uses_store(program: Program) -> bool:
+    """入口可达的模块中是否存在 QRAM 随机写。"""
+    modules = program.module_map
+    pending, seen = [program.entry], set()
+    while pending:
+        key = pending.pop()
+        if key in seen:
+            continue
+        seen.add(key)
+        body = modules[key].body
+        if body is not None and any(True for _ in stores(body)):
+            return True
+        pending.extend(call.module for call in calls(body))
 
 
 def unresolved(program: Program) -> tuple[OracleRequirement, ...]:
@@ -83,6 +108,8 @@ def capability_table(program: Program):
         module = modules[name]
         attrs = dict(module.attributes)
         result = {cap: attrs.get(cap, True) for cap in ("supports_adjoint", "supports_controlled")}
+        if module.body is not None and any(True for _ in stores(module.body)):
+            result = {cap: False for cap in result}
         for call in calls(module.body):
             child = infer(call.module)
             result = {cap: result[cap] and child[cap] for cap in result}

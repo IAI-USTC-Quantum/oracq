@@ -29,7 +29,11 @@ def run_pysparq(
     native_registry=None,
     report=None,
 ):
+    from pyqecclang.infrastructure.linking import uses_store
+
     program = validate(program, require_closed=native_registry is None)
+    if uses_store(program):
+        raise ValidationError("PySparQ 适配器暂不支持运行期 QRAM 写（Store）")
     native_modules = frozenset() if native_registry is None else native_registry.matching(program)
     if native_registry is not None and native_registry.missing(program):
         raise ValidationError("PySparQ 缺少实现：" + ", ".join(native_registry.missing(program)))
@@ -211,9 +215,12 @@ def run_pysparq_rir(
     max_states=65536,
 ):
     """经 PySparQ 原生 RIR 解释器执行；与 run_pysparq 互为独立实现，用于交叉验证。"""
+    from pyqecclang.infrastructure.linking import uses_store
     from pyqecclang.infrastructure.serialization import dumps
 
     program = validate(program, require_closed=True)
+    if uses_store(program):
+        raise ValidationError("PySparQ RIR 解释器暂不支持运行期 QRAM 写（Store）")
     memories = check_memory(program, memory)
     try:
         import pysparq as ps

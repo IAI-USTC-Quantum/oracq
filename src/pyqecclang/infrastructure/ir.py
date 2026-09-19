@@ -113,6 +113,13 @@ class Load:
 
 
 @dataclass(frozen=True)
+class Store:
+    resource: str
+    address: Ref
+    data: Ref
+
+
+@dataclass(frozen=True)
 class Call:
     module: str
     arguments: tuple[Ref, ...]
@@ -137,7 +144,7 @@ class Adjoint:
     body: tuple[Instruction, ...]
 
 
-Instruction: TypeAlias = Primitive | Load | Call | Repeat | Control | Adjoint
+Instruction: TypeAlias = Primitive | Load | Store | Call | Repeat | Control | Adjoint
 
 
 @dataclass(frozen=True)

@@ -16,6 +16,7 @@ from pyqecclang.infrastructure.ir import (
     Ref,
     RegType,
     Repeat,
+    Store,
     ValidationError,
 )
 
@@ -121,7 +122,7 @@ def _validate(program: Program) -> Program:
                 require(not current & protected, "操作数修改了受保护的控制寄存器")
                 used |= current
 
-        def body(nodes, protected=frozenset(), depth=0, resources=resources, module=module):
+        def body(nodes, protected=frozenset(), depth=0, resources=resources, module=module, unitary=True):
             require(depth < 128, "嵌套深度超过 127")
             require(type(nodes) is tuple, "指令体必须不可变")
             for node in nodes:
@@ -158,6 +159,14 @@ def _validate(program: Program) -> Program:
                     distinct((node.address, node.data), protected)
                     require(node.address.width == spec.address_width, "QRAM 地址宽度不符")
                     require(node.data.width == spec.data_width, "QRAM 数据宽度不符")
+                elif isinstance(node, Store):
+                    require(unitary, "Store 是非酉副作用，不能出现在 Control 或 Adjoint 体内")
+                    require(program.version == VERSION, "旧 RIR 不支持 Store")
+                    require(node.resource in resources, "QRAM 资源没有声明")
+                    spec = resources[node.resource]
+                    distinct((node.address, node.data), protected)
+                    require(node.address.width == spec.address_width, "QRAM 地址宽度不符")
+                    require(node.data.width == spec.data_width, "QRAM 数据宽度不符")
                 elif isinstance(node, Call):
                     require(
                         type(node.arguments) is tuple and type(node.resources) is tuple,
@@ -178,15 +187,15 @@ def _validate(program: Program) -> Program:
                     graph[module.name].add(node.module)
                 elif isinstance(node, Repeat):
                     integer(node.count, 0, 2**63 - 1, "重复次数必须为 0..2^63-1")
-                    body(node.body, protected, depth + 1)
+                    body(node.body, protected, depth + 1, unitary=unitary)
                 elif isinstance(node, Control):
                     locs = check_ref(node.register)
                     require(bool(locs), "控制寄存器不能为空")
                     integer(node.value, 0, (1 << node.register.width) - 1, "控制值越界")
                     require(not locs & protected, "嵌套控制寄存器重叠")
-                    body(node.body, protected | locs, depth + 1)
+                    body(node.body, protected | locs, depth + 1, unitary=False)
                 elif isinstance(node, Adjoint):
-                    body(node.body, protected, depth + 1)
+                    body(node.body, protected, depth + 1, unitary=False)
                 else:
                     raise ValidationError(f"未知指令类型：{type(node).__name__}")
 

@@ -24,7 +24,7 @@ def lower_toffoli_u3_cz(artifact):
         gate = head.split(" ", 1)[0]
         if gate in {"CNOT", "CZ"}:
             controls.append("implicit")
-        if gate not in {"DEF", "ENDDEF"} and not gate.startswith(("m_", "ram_")):
+        if gate not in {"DEF", "ENDDEF", "QRAMWRITE"} and not gate.startswith(("m_", "ram_")):
             maximum = max(maximum, len(controls))
     count = max(0, maximum - 1)
     total = int(next(line.split()[1] for line in lines if line.startswith("QINIT ")))
@@ -107,7 +107,7 @@ def lower_toffoli_u3_cz(artifact):
                 )
             result.append(line)
             continue
-        if line in {"DAGGER", "ENDDAGGER"} or line.startswith(("QRAMDECL ", "CREG ", "ram_")):
+        if line in {"DAGGER", "ENDDAGGER"} or line.startswith(("QRAMDECL ", "QRAMWRITE ", "CREG ", "ram_")):
             result.append(line)
             continue
         head, _, tail = line.partition(" controlled_by (")

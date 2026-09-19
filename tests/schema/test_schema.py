@@ -41,6 +41,16 @@ class SchemaTests(unittest.TestCase):
                     b.call(be.operation, target=b["target"], signal=b["signal"])
         self.validator.validate(json.loads(dumps(b.finish().program())))
 
+    def test_store_node_is_schema_valid(self):
+        from pyqecclang import QRAM, Builder, QMem, UInt
+
+        b = Builder("schema_store", {"a": UInt(2), "v": UInt(4)}, {"ram": QRAM(2, 4)})
+        QMem(b, "ram")[b["a"]].store(b["v"])
+        data = json.loads(dumps(b.finish().program()))
+        self.validator.validate(data)
+        node = data["modules"][0]["body"][-1]
+        self.assertEqual(node["tag"], "Store")
+
     def test_rejects_invalid_version_and_unknown_fields(self):
         data = json.loads(dumps(identity(1).operation.program()))
         data["version"] = "1.0"

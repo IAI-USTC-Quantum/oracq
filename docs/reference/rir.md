@@ -2,15 +2,15 @@
 
 本规范定义 RIR 0.3。开放声明、能力与绑定的详细规则见[开放 IR](open-ir.md)。
 
-规范日期：2026-09-09。Python API、序列化器、参考执行器与后端适配器必须遵守本文。JSON Schema 只覆盖对象形状；跨节点约束由 validate 检查。
+规范日期：2026-09-19。Python API、序列化器、参考执行器与后端适配器必须遵守本文。JSON Schema 只覆盖对象形状；跨节点约束由 validate 检查。
 
 本规范将 RIR 作为一个完整的语言层规范来组织，分为五个部分：
 
 - **第 1 部分：设计定位**——RIR 表达什么、不表达什么；
 - **第 2 部分：数据模型**——对象模型、存储类型与位序、寄存器引用与视图；
-- **第 3 部分：指令集合**——六种指令的逐条语义与约束；
+- **第 3 部分：指令集合**——七种指令的逐条语义与约束；
 - **第 4 部分：程序级规则**——调用图、JSON 编码、形式文法、后端降低与私有工作区；
-- **第 5 部分：完整案例**——五个可以直接运行的端到端程序，逐字段对照前四部分的规则。
+- **第 5 部分：完整案例**——六个可以直接运行的端到端程序，逐字段对照前四部分的规则。
 
 ## 第 1 部分：设计定位
 
@@ -18,7 +18,7 @@
 
 RIR 表示已经完成编译期参数求值的量子操作。所有寄存器宽度、整数常量和旋转角度均已具体化。RIR 保留模块定义、模块调用、静态重复、控制及伴随块，不要求展开成量子位级线路。
 
-RIR 的已实现主体由酉操作构成；未实现模块以开放声明表示。它不包含测量、重置、运行期经典反馈或不透明 Python callback。对固定的外部 QRAM 内容，所有合法指令在完整量子空间上具有下文规定的酉语义。
+RIR 的已实现主体由酉操作构成；未实现模块以开放声明表示。它不包含测量、重置、运行期经典反馈或不透明 Python callback。对固定的外部 QRAM 内容，所有合法指令在完整量子空间上具有下文规定的酉语义；唯一的例外是 Store——QRAM 随机写按经典存储单元建模，它演化内存映射本身而不是量子态（见 3.2 节），因此只能出现在模块体的非控制、非伴随位置。
 
 公开工作区和信号寄存器出现在调用接口中；模块还可以通过 locals 声明私有零输入、零输出工作区。结构验证不提供任意辅助位复净证明。
 
@@ -89,11 +89,11 @@ Primitive 具有 op、operands、angle 和 value。operands 是 Ref 列表。没
 
 广播门在 IR 中仍然是单条寄存器级操作，不因为内部有多个物理门就变成多个 RIR 节点。零宽度上的广播、异或、交换和加零均为空操作。
 
-### 3.2 Load
+### 3.2 Load 与 Store
 
 Load 具有 resource、address 和 data。resource 引用当前模块的 QRAM 形式参数。address 和 data 的宽度必须与声明一致，两个视图不能重叠。
 
-QRAM 类型具有 address_width 与 data_width，两者均为 1..64。内存是由地址到无符号数据字的固定映射 M，未指定的单元为零。内存数据不写入程序 JSON，而是作为执行输入另行绑定。
+QRAM 类型具有 address_width 与 data_width，两者均为 1..64。内存是由地址到无符号数据字的映射 M，未指定的单元为零。内存数据不写入程序 JSON，而是作为执行输入另行绑定。不含 Store 的程序中 M 固定不变；含 Store 的程序中 M 按指令序演化。
 
 ```text
 |address>|data>  ↦  |address>|data XOR M[address]>
@@ -101,13 +101,21 @@ QRAM 类型具有 address_width 与 data_width，两者均为 1..64。内存是�
 
 Load 对任意数据目标成立，不要求目标初始为零。Load 自逆，且不修改地址或经典内存。
 
+Store 具有与 Load 相同的 resource、address 和 data 字段及相同的宽度、重叠约束。其语义是随机写：在执行该指令的时刻，地址与数据视图必须处于确定基矢（在完整量子态上取值唯一），随后经典单元被赋值：
+
+```text
+M[address] := data
+```
+
+Store 不改变任何量子位，也不计入后端门成本。存储单元按经典单元建模；叠加地址或叠加数据下的写没有线性语义，执行器遇到时必须报错。结构上 Store 只能出现在模块体或 Repeat 体内；Control 和 Adjoint 体内禁止出现，含 Store 的模块（含经调用可达者）不具备 supports_adjoint 与 supports_controlled 能力。Store 仅在 RIR 0.3 中合法。
+
 ### 3.3 Call
 
 Call 具有 module、arguments 和 resources。module 引用被调 Module。量子实参和资源实参均按被调模块的签名顺序绑定。
 
 每个量子实参的 kind 和 width 必须与形式参数完全相同。需要改变位解释时，调用方必须显式 reinterpret。所有量子实参之间必须不重叠。
 
-资源实参引用当前模块的资源名字，其 QRAM 类型必须与形式参数完全一致。多个只读资源形式参数允许绑定到同一个实际 QRAM。资源绑定不绑定量子地址或数据寄存器。
+资源实参引用当前模块的资源名字，其 QRAM 类型必须与形式参数完全一致。多个只读资源形式参数允许绑定到同一个实际 QRAM；由于资源绑定指向同一内存映射，经某个形式名执行的 Store 对其他别名可见。资源绑定不绑定量子地址或数据寄存器。
 
 调用语义是将被调模块的所有局部引用替换为实际视图，在同一量子状态上执行主体。该定义不要求存储时内联主体。
 
@@ -123,7 +131,7 @@ Control 具有 register、value 和 body。register 必须是非空视图，valu
 
 当控制视图等于 value 时施加 body，否则施加恒等。控制寄存器作为量子条件参与相干控制，不被测量或转换成 Python 条件。
 
-控制位在整个 body 内受到保护。基元、QRAM 和模块调用的量子实参不能与它们重叠。模块调用采用保守规则，即使被调模块实际上没有修改某个形式参数，也不能将控制位作为该参数传入。
+控制位在整个 body 内受到保护。基元、QRAM 和模块调用的量子实参不能与它们重叠。模块调用采用保守规则，即使被调模块实际上没有修改某个形式参数，也不能将控制位作为该参数传入。Store 不能出现在 Control 体内。
 
 嵌套控制的视图不能相互重叠。不同控制条件按逻辑合取组合。gphase 不具有操作数，因此允许控制覆盖模块全部量子位；这时语义仍然是受控相位。
 
@@ -131,7 +139,7 @@ Control 具有 register、value 和 body。register 必须是非空视图，valu
 
 Adjoint 具有 body。其语义是将 body 的指令顺序反转，并对每条操作取伴随。rx、ry、rz、phase 和 gphase 的角度取负；add_const 转为模减法；Load、xor、swap、h、x、y、z 自逆；s 和 t 采用相应的逆相位。
 
-Call 的伴随指向被调模块的逆操作，Repeat 的伴随重复其逆主体，Control 的伴随保持控制条件并对其主体取逆。双重伴随恢复原操作。
+Call 的伴随指向被调模块的逆操作，Repeat 的伴随重复其逆主体，Control 的伴随保持控制条件并对其主体取逆。双重伴随恢复原操作。Store 是非酉副作用，不能出现在 Adjoint 体内；含 Store 的模块不具备伴随能力。
 
 这些规则是指令的语义，不要求 RIR 在创建 Adjoint 时立即改写或展开其主体。
 
@@ -151,7 +159,7 @@ Program 的调用图必须无环。所有声明的模块都要检查，包括不
 
 ```text
 Program, Module, Register, RegType, Span, Ref, QRAM, Resource,
-Primitive, Load, Call, Repeat, Control, Adjoint
+Primitive, Load, Store, Call, Repeat, Control, Adjoint
 ```
 
 所有字段都必须写出，包括 null、空列表和空 attributes。解码器拒绝多余字段、缺失字段、未知 tag、重复 JSON 键、非有限浮点数以及未知版本。
@@ -207,7 +215,7 @@ attribute   = name "×" (string | integer | float | boolean) .
 span        = Span { register: name; start: integer; width: integer } .
 ref         = Ref { parts: span*; type: regtype } .
 
-instruction = primitive | load | call | repeat | control | adjoint .
+instruction = primitive | load | store | call | repeat | control | adjoint .
 
 primitive   = Primitive { op: gate-op;
                           operands: ref*;
@@ -217,6 +225,7 @@ gate-op     = "h" | "x" | "y" | "z" | "s" | "t"
             | "rx" | "ry" | "rz" | "phase" | "gphase"
             | "xor" | "swap" | "add_const" .
 load        = Load { resource: name; address: ref; data: ref } .
+store       = Store { resource: name; address: ref; data: ref } .
 call        = Call { module: name; arguments: ref*; resources: name* } .
 repeat      = Repeat { count: integer; body: instruction* } .
 control     = Control { register: ref; value: integer; body: instruction* } .
@@ -240,7 +249,7 @@ enc(标量)        = 标量
 
 ### 4.4 后端降低规则
 
-OriginIR-ext 后端可以将寄存器操作降低为物理位操作，但必须保留模块定义与调用。QRAM 资源按实际绑定进行模块特化。Repeat 可以转换成共享的辅助模块图。
+OriginIR-ext 后端可以将寄存器操作降低为物理位操作，但必须保留模块定义与调用。QRAM 资源按实际绑定进行模块特化。Repeat 可以转换成共享的辅助模块图。Load 降低为以资源名为操作字的 QRAM 查询行；Store 降低为 `QRAMWRITE <资源名> <地址位>, <数据位>` 扩展行，不参与门级计数。下游文本执行器（UnifiedQuantum、PySparQ）暂不接受运行期写，遇到含 Store 的程序必须在执行入口报错；文本导出不受影响。
 
 只有运行具体下游执行器时，才允许按其执行能力遍历或展开模块。下游自身可能展平，但这种处理不能反向改变 RIR 或替代 RIR 的结构序列化。
 
@@ -255,7 +264,7 @@ Module.locals 是有序 Register 数组，不属于公开调用签名。每次�
 
 ## 第 5 部分：完整案例
 
-以下五个案例都是可以独立运行的完整程序。每例先给出全部生成代码（含逐行注释），再给出 `dumps()` 的规范 JSON 输出——**逐字节来自真实序列化器**，未经删节——最后按字段对照前四部分的规则讲解。建议先读案例 1 建立整体形状，再按特性跳读。
+以下六个案例都是可以独立运行的完整程序。每例先给出全部生成代码（含逐行注释），再给出 `dumps()` 的规范 JSON 输出——**逐字节来自真实序列化器**，未经删节——最后按字段对照前四部分的规则讲解。建议先读案例 1 建立整体形状，再按特性跳读。
 
 ### 案例 1：最小酉程序（Bell 对）
 
@@ -1058,3 +1067,146 @@ print(dumps(op.program()))
 - `attributes` 按键排序：`oracle_paradigm="database_xor"` 声明九种命名范式之一；`supports_adjoint` / `supports_controlled` 是能力声明，`bind` 链接实现时会核对实现方是否真的具备；`implementation_status="unresolved"` 记录实现状态。属性不改变指令语义（2.1 节）；能力与绑定的完整规则见[开放 IR](open-ir.md)。
 - 寄存器接口照常声明（`address: bits/3`、`data: bits/1`）：调用方按签名使用这个槽位，即使实现尚不存在。
 - 开放模块不得声明 `locals`；本例 `locals` 为空列表（4.5 节）。
+
+### 案例 6：QRAM 随机写与读回（指针式访问）
+
+```python
+from pyqecclang import Builder, QRAM, QMem, UInt, dumps, simulate
+
+b = Builder("store_load", {"addr": UInt(2), "val": UInt(4)}, {"ram": QRAM(2, 4)})
+mem = QMem(b, "ram")            # 把资源 ram 绑定为数组视图
+mem[b["addr"]].store(b["val"])  # 随机写：M[addr] := val
+mem[b["addr"]].load(b["val"])   # XOR-Load：val ^= M[addr]
+print(dumps(b.finish().program()))
+print(simulate(b.finish().program(), {"ram": [0, 0, 0, 0]}, initial={"addr": 2, "val": 13}).amplitudes)
+```
+
+地址表达式恰好是单个全宽寄存器且无常量分量时，`QMem` 直接以该寄存器为 Load/Store 地址，不引入寻址算术。`dumps()` 输出：
+
+```json
+{
+  "entry": "store_load",
+  "modules": [
+    {
+      "attributes": [],
+      "body": [
+        {
+          "address": {
+            "parts": [
+              {
+                "register": "addr",
+                "start": 0,
+                "tag": "Span",
+                "width": 2
+              }
+            ],
+            "tag": "Ref",
+            "type": {
+              "kind": "uint",
+              "tag": "RegType",
+              "width": 2
+            }
+          },
+          "data": {
+            "parts": [
+              {
+                "register": "val",
+                "start": 0,
+                "tag": "Span",
+                "width": 4
+              }
+            ],
+            "tag": "Ref",
+            "type": {
+              "kind": "uint",
+              "tag": "RegType",
+              "width": 4
+            }
+          },
+          "resource": "ram",
+          "tag": "Store"
+        },
+        {
+          "address": {
+            "parts": [
+              {
+                "register": "addr",
+                "start": 0,
+                "tag": "Span",
+                "width": 2
+              }
+            ],
+            "tag": "Ref",
+            "type": {
+              "kind": "uint",
+              "tag": "RegType",
+              "width": 2
+            }
+          },
+          "data": {
+            "parts": [
+              {
+                "register": "val",
+                "start": 0,
+                "tag": "Span",
+                "width": 4
+              }
+            ],
+            "tag": "Ref",
+            "type": {
+              "kind": "uint",
+              "tag": "RegType",
+              "width": 4
+            }
+          },
+          "resource": "ram",
+          "tag": "Load"
+        }
+      ],
+      "locals": [],
+      "name": "store_load",
+      "registers": [
+        {
+          "name": "addr",
+          "tag": "Register",
+          "type": {
+            "kind": "uint",
+            "tag": "RegType",
+            "width": 2
+          }
+        },
+        {
+          "name": "val",
+          "tag": "Register",
+          "type": {
+            "kind": "uint",
+            "tag": "RegType",
+            "width": 4
+          }
+        }
+      ],
+      "resources": [
+        {
+          "name": "ram",
+          "tag": "Resource",
+          "type": {
+            "address_width": 2,
+            "data_width": 4,
+            "tag": "QRAM"
+          }
+        }
+      ],
+      "tag": "Module"
+    }
+  ],
+  "tag": "Program",
+  "version": "0.3"
+}
+```
+
+讲解：
+
+- `body` 依次为一条 `Store` 和一条 `Load`：Store 先把经典单元 `M[addr]` 赋值为 `val`（3.2 节），随后的 XOR-Load 读回新值，模拟器输出 `(2, 13)`。
+- 两条指令的 `address`/`data` 宽度与 `QRAM(2, 4)` 声明逐一相符；Store 位于模块体顶层，满足「不出现在 Control/Adjoint 体内」的结构约束（3.5、3.6 节）。
+- 含 Store 的模块不具备 `supports_adjoint`/`supports_controlled` 能力；本例没有被控或伴随调用，验证通过（4.1 节、开放 IR）。
+- `QMem` 的指针、偏移与多维视图是 Python 生成阶段的寻址糖衣：地址表达式物化为寄存器算术后，落在 IR 里的仍然只是 Primitive、Load 与 Store（第 1 部分设计定位）。

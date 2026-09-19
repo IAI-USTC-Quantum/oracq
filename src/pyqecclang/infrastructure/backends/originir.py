@@ -13,6 +13,7 @@ from pyqecclang.infrastructure.ir import (
     Primitive,
     Program,
     Repeat,
+    Store,
     ValidationError,
 )
 from pyqecclang.infrastructure.validation import validate
@@ -177,6 +178,9 @@ class _Exporter:
                 lines.extend(
                     self._wrap([f"{resources[node.resource]} {', '.join(args)}"], controls)
                 )
+            elif isinstance(node, Store):
+                args = self._bits(node.address, mapping) + self._bits(node.data, mapping)
+                lines.append(f"QRAMWRITE {resources[node.resource]} {', '.join(args)}")
             elif isinstance(node, Primitive):
                 lines.extend(self.primitive(node, module, mapping, controls))
         return lines
@@ -243,8 +247,11 @@ class _Exporter:
 def run_originir(program: Program, memory=None, *, max_qubits=24, max_steps=1_000_000):
     """通过实际 UnifiedQuantum 后端执行小规模实例；依赖为可选安装。"""
     from pyqecclang.infrastructure.execution import check_memory, expanded_steps
+    from pyqecclang.infrastructure.linking import uses_store
 
     program = validate(program, require_closed=True)
+    if uses_store(program):
+        raise ValidationError("UnifiedQuantum 执行暂不支持运行期 QRAM 写（Store）；文本导出不受影响")
     width = sum(r.type.width for r in program.main.registers)
     from pyqecclang.infrastructure.layout import workspace_table
 

@@ -20,6 +20,7 @@ from pyqecclang.infrastructure.ir import (
     Repeat,
     Resource,
     Span,
+    Store,
     ValidationError,
 )
 from pyqecclang.infrastructure.validation import validate
@@ -149,6 +150,9 @@ class Builder:
 
     def qram(self, resource: str, address: Ref, data: Ref):
         self.emit(Load(resource, address, data))
+
+    def store(self, resource: str, address: Ref, data: Ref):
+        self.emit(Store(resource, address, data))
 
     def call(
         self, operation: Operation, *, resources: dict[str, str] | None = None, **arguments: Ref

@@ -10,7 +10,7 @@ QRAM。角度分类与 ``estimate`` 模块共享同一实现，保证网表计�
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pyqecclang.infrastructure.backends.basis import lower_toffoli_u3_cz
 from pyqecclang.infrastructure.backends.originir import OriginIRArtifact, export_originir
@@ -39,6 +39,7 @@ class StrictArtifact:
     resources: dict
     workspace_qubits: tuple
     qram_queries: Counter
+    qram_writes: Counter = field(default_factory=Counter)
 
 
 def _emit_rz(lines, counts, target, angle):
@@ -82,7 +83,7 @@ def _emit_u3(lines, counts, target, theta, phi, lam):
 
 
 def lower_strict(artifact: OriginIRArtifact) -> StrictArtifact:
-    lines, counts, qram = [], Counter(), Counter()
+    lines, counts, qram, writes = [], Counter(), Counter(), Counter()
     for line in artifact.text.splitlines():
         if line.startswith("U3 "):
             head, _, tail = line.partition("(")
@@ -98,6 +99,8 @@ def lower_strict(artifact: OriginIRArtifact) -> StrictArtifact:
             counts[lowered] += 1
         elif keyword.startswith("ram_"):
             qram[keyword] += 1
+        elif line.startswith("QRAMWRITE "):
+            writes[line.split()[1]] += 1
         lines.append(line)
     return StrictArtifact(
         "\n".join(lines) + "\n",
@@ -106,6 +109,7 @@ def lower_strict(artifact: OriginIRArtifact) -> StrictArtifact:
         artifact.resources,
         artifact.workspace_qubits,
         qram,
+        writes,
     )
 
 
