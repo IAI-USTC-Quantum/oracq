@@ -33,11 +33,13 @@
    qcnn_layer
    pde
    prepare_select
+   qdata
    qham
    qlss
    qpca
    qsdp
    qsvt
+   recommendation
    schrodingerization
    sde
    search
@@ -47,4 +49,5 @@
    state_preparation
    transforms
    variational
+   vtaa_cks
    walks

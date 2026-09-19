@@ -8,6 +8,7 @@
    flow_data
    gallery
    qfvm
+   qfvm_qmem
    qham/examples
    qham/linearization
    qham/pde

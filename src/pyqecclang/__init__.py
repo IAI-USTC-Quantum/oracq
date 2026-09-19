@@ -29,6 +29,7 @@ from pyqecclang.algorithms.operators import (
     zero,
 )
 from pyqecclang.algorithms.oracles import declare
+from pyqecclang.algorithms.qdata import QMatrix, QVector
 from pyqecclang.algorithms.qlss import (
     BlockSystem,
     LinearSystem,
@@ -36,6 +37,12 @@ from pyqecclang.algorithms.qlss import (
     SolveResult,
     SparseSystem,
     SpectralPromise,
+)
+from pyqecclang.algorithms.recommendation import (
+    KPRecommendationConfig,
+    RecommendationResult,
+    kp_recommendation,
+    sigma_from_phase,
 )
 from pyqecclang.infrastructure.backends import (
     OriginIRArtifact,
@@ -69,6 +76,7 @@ from pyqecclang.infrastructure.ir import (
     Resource,
     SInt,
     Span,
+    Store,
     UInt,
     ValidationError,
     fuse,
@@ -90,6 +98,7 @@ from pyqecclang.infrastructure.mathfunc import (
     lower_math_ir,
 )
 from pyqecclang.infrastructure.native import DynamicCppFactory, NativeRegistry
+from pyqecclang.infrastructure.qmem import QMem, QPtr
 from pyqecclang.infrastructure.serialization import dumps, loads
 from pyqecclang.infrastructure.validation import validate
 
@@ -108,6 +117,8 @@ __all__ = [
     "Module",
     "Operation",
     "OriginIRArtifact",
+    "QMem",
+    "QPtr",
     "ResourceEstimate",
     "StrictArtifact",
     "Primitive",
@@ -122,6 +133,7 @@ __all__ = [
     "Resource",
     "SInt",
     "Span",
+    "Store",
     "UInt",
     "ValidationError",
     "block_encoding",
@@ -188,6 +200,17 @@ __all__ += [
     "describe_oracle",
     "QODEProblem",
     "QODEProtocol",
+]
+
+
+__all__ += ["QMatrix", "QVector"]
+
+
+__all__ += [
+    "KPRecommendationConfig",
+    "RecommendationResult",
+    "kp_recommendation",
+    "sigma_from_phase",
 ]
 
 __all__ += ["requires"]

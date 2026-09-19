@@ -282,3 +282,14 @@ memories = qfvm_memories(inputs, flow, amax=4.0)
 - **RHS 制备**：残差态振幅与独立残差/范数计算一致（误差 1.11e-16），符号经 Z 反冲精确写入，角度树与符号 bank 逐点真值。
 
 验证用 `FixedFormat(5,2)` 与 `entropy_delta=0.5`（全部常数精确可表示）；更低精度格式下 2δ 可能截断为零导致熵修正分支除零、条目按文档行为归零（详见[算法页数值验证](algorithms/qfvm.md#数值验证)）。QLSS 两条路线的数值求解精度属求解器一侧，不在本页验证范围。产物：`out/verification/qham_qfvm.json`。
+
+## QMem 直连并行路径
+
+`applications/qfvm_qmem.py` 提供同一套 QFVM 数据访问的并行实现，数据面全部改经[指针式 QRAM 访问](qdata.md)：
+
+- 三个守恒量库合并为一张 `(场, 单元)` 状态表 `QMem(b, "state", shape=(3, n))`；周期邻居在 cell_width 位 scratch 上做模加（与旧路径相同），再经二维指针 `[field, addr]` 查询。
+- 几何表按 `(槽位, 列)` 二维寻址（旧路径的 `fuse(column, slot)` 编址逐点一致）。
+- 残差态由 `QVector` 平方范数树制备（取代 `qram_state_prep` + 符号库组合）。
+- 模块直接声明 QRAM 形式资源，不再经过抽象数据库槽位与 `bind_qfvm`。
+
+可逆 Roe 算术、九槽位几何选择、补齐对角与原地位置置换的电路结构与本路径完全相同。等价性证据（`tests/core/test_qfvm_qmem.py`）：几何/状态/周期邻居的叠加探针逐字一致、位置 oracle 全列置换逐振幅一致、残差态振幅一致、含编译 Roe 算术的物理层在单点上逐位一致。本页上文描述的槽位-绑定路径仍是 QLSS 集成的主路径；QMem 路径当前定位是数据访问层的等价重写与后续演进的基线。
