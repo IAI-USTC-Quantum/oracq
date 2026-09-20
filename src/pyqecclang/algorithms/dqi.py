@@ -122,6 +122,7 @@ class DecoderOracle(OracleView):
     operation: Operation
 
     def decoder(self):
+        """译码器角色访问器，返回自身；与其他 ``OracleView`` 的角色方法一致。"""
         return self
 
     def __post_init__(self):
@@ -129,10 +130,12 @@ class DecoderOracle(OracleView):
 
     @property
     def syndrome_width(self):
+        """syndrome 寄存器位宽，直接读取 RIR 寄存器签名。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "syndrome")
 
     @property
     def error_width(self):
+        """error 寄存器位宽，直接读取 RIR 寄存器签名。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "error")
 
 

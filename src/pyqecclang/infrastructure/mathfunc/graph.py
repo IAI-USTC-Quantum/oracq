@@ -11,6 +11,15 @@ from pyqecclang.infrastructure.validation import name
 
 @dataclass(frozen=True)
 class Index:
+    """无符号整数索引参数的位宽说明，用于 ``inputs`` 映射。
+
+    为行列索引等无符号整数提供较短的公开寄存器；进入数学计算时
+    转换为当前定点表示，格式必须容纳其完整范围。
+
+    Attributes:
+        width: 无符号位宽，范围为 1..64。
+    """
+
     width: int
 
     def __post_init__(self):
@@ -20,6 +29,14 @@ class Index:
 
 @dataclass(frozen=True)
 class Parameter:
+    """MIR 函数形参的名字与数学类型。
+
+    Attributes:
+        name: 参数名，在所在函数内唯一。
+        kind: 参数类型，为 real、complex、bool 或 index。
+        width: 仅 index 参数使用的无符号位宽；其他类型必须为 0。
+    """
+
     name: str
     kind: str = "real"
     width: int = 0
@@ -27,6 +44,18 @@ class Parameter:
 
 @dataclass(frozen=True)
 class MathNode:
+    """MIR 顺序 SSA 图中的一个值节点。
+
+    节点编号为其在函数 ``nodes`` 序列中的位置；``args`` 只能引用
+    编号更小的节点。
+
+    Attributes:
+        op: 操作名，如 ``input``、``const``、四则运算或 ``call``。
+        kind: 结果值类型，为 real、complex 或 bool。
+        args: 操作数节点编号组成的 tuple。
+        data: 附加数据：input 存参数名，const 存常量编码，intrinsic 存数学函数名，call 存目标函数符号与返回索引。
+    """
+
     op: str
     kind: str
     args: tuple[int, ...] = ()
@@ -35,6 +64,16 @@ class MathNode:
 
 @dataclass(frozen=True)
 class MathFunction:
+    """MIR 中的一个纯数学函数：形参表与顺序 SSA 节点序列。
+
+    Attributes:
+        name: 函数符号名，在程序内唯一。
+        label: 源码中的函数名，用于展示与模块属性。
+        parameters: 按形参顺序排列的参数表。
+        nodes: 顺序 SSA 节点序列。
+        returns: 非空的返回节点编号 tuple；多个编号表示多个独立结果。
+    """
+
     name: str
     label: str
     parameters: tuple[Parameter, ...]
@@ -44,15 +83,36 @@ class MathFunction:
 
 @dataclass(frozen=True)
 class MathProgram:
+    """MIR 0.1 顶层对象：入口函数符号与全部函数表。
+
+    Attributes:
+        entry: 入口函数的符号名，必须出现在 ``functions`` 中。
+        functions: 全部 ``MathFunction`` 组成的不可变 tuple。
+        version: MIR 版本号，当前为 0.1。
+    """
+
     entry: str
     functions: tuple[MathFunction, ...]
     version: str = "0.1"
 
     @property
     def function_map(self):
+        """函数符号名到 ``MathFunction`` 的映射。"""
         return {f.name: f for f in self.functions}
 
     def validate(self):
+        """核对程序的结构与类型约束并返回自身。
+
+        覆盖版本号、函数表不可变性与入口有效性、参数唯一性与类型、
+        顺序 SSA 引用、操作元数与类型提升、常量有限性、调用接口
+        一致性，以及函数图无递归。
+
+        Returns:
+            MathProgram: 校验通过的自身。
+
+        Raises:
+            ValidationError: 任一结构或类型约束不满足。
+        """
         if self.version != "0.1":
             raise ValidationError("未知 MIR 版本")
         if type(self.functions) is not tuple:
@@ -242,6 +302,14 @@ class MathProgram:
         return self
 
     def dumps(self):
+        """先校验再把程序序列化为规范化 JSON 文本。
+
+        Returns:
+            str: 按键排序、两格缩进、以换行结尾的 JSON 文本；非 ASCII 字符原样保留。
+
+        Raises:
+            ValidationError: 程序未通过校验。
+        """
         self.validate()
         return (
             json.dumps(asdict(self), ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False)
@@ -250,6 +318,17 @@ class MathProgram:
 
     @classmethod
     def loads(cls, text):
+        """从 JSON 文本反序列化并校验 MIR 程序。
+
+        Args:
+            text: ``MathProgram.dumps`` 生成的 JSON 文本。
+
+        Returns:
+            MathProgram: 校验通过的程序对象。
+
+        Raises:
+            ValidationError: 文本不是合法的 MIR JSON，或未通过校验。
+        """
         try:
             raw = json.loads(text)
             if set(raw) != {"entry", "functions", "version"}:

@@ -41,6 +41,16 @@ from pyqecclang.infrastructure.linking import bind
 
 @dataclass(frozen=True)
 class GalleryCase:
+    """算法展示目录中的单个演示条目。
+
+    Attributes:
+        name: 条目名，在目录内唯一。
+        family: 所属算法类别，与 ``pyqecclang.algorithms`` 的模块名对应。
+        operation: 演示用完整 ``Operation``。
+        readout: 读出说明，描述期望的测量结果或判定方式。
+        opened: 绑定前的开放 ``Operation``；仅演示 oracle 绑定的条目提供，否则为 ``None``。
+    """
+
     name: str
     family: str
     operation: Operation

@@ -11,6 +11,15 @@ from pyqecclang.infrastructure.ir import ValidationError
 
 @dataclass(frozen=True)
 class MemoryPatch:
+    """一次更新返回的不可变写入记录。
+
+    Attributes:
+        version: 应用写入之后的存储版本号；无实际写入时保持不变。
+        changes: 实际发生变化的存储项，按 bank 名映射地址到整数值。
+        recomputed_faces: 本次更新重算 Riemann 通量的界面编号；存储层直写时为空。
+        recomputed_cells: 本次更新重算残差的单元编号；存储层直写时为空。
+    """
+
     version: int
     changes: dict[str, dict[int, int]]
     recomputed_faces: tuple[int, ...] = ()
@@ -18,10 +27,28 @@ class MemoryPatch:
 
 
 class QRAMStore:
+    """带版本号的多 bank 经典整数存储，作为可查询 QRAM 的数据源。
+
+    Attributes:
+        banks: 按 bank 名组织的存储内容；每个 bank 是地址到整数值的映射。
+        version: 版本号；每次产生实际写入的 apply 调用自增一。
+    """
+
     def __init__(self):
         self.banks, self.version = {}, 0
 
     def apply(self, changes):
+        """写入一批更新并返回实际发生的写入记录。
+
+        与当前存储值相同（未写地址按零计）的项不会记入结果；存在实际写入时
+        版本号自增。
+
+        Args:
+            changes: 写入内容，按 bank 名映射地址到整数值。
+
+        Returns:
+            MemoryPatch: 写入后的版本号与实际写入项，不含重算范围。
+        """
         actual = {}
         for bank, cells in changes.items():
             target = self.banks.setdefault(bank, {})
@@ -34,6 +61,11 @@ class QRAMStore:
         return MemoryPatch(self.version, actual)
 
     def snapshot(self):
+        """返回全部 bank 内容的独立副本。
+
+        Returns:
+            dict: 每个 bank 的地址到值映射的拷贝，修改快照不影响存储。
+        """
         return {k: dict(v) for k, v in self.banks.items()}
 
     def materialize_changed(self, patch, factory):
@@ -65,6 +97,24 @@ def _inverse3(a):
 
 
 def riemann_flux(left, right, *, gamma=1.4, entropy_delta=0.125):
+    """计算单个界面上的经典 Roe 近似 Riemann 通量。
+
+    以左右守恒状态的 Roe 平均构造特征向量矩阵 ``R``，特征值 ``u-c``、``u``、
+    ``u+c`` 取熵修正后的绝对值，组装 ``|A| = R*diag(|lambda|)*R**-1`` 参与
+    通量公式。
+
+    Args:
+        left: 左侧单元的守恒变量三元组，依次为密度、动量、能量。
+        right: 右侧单元的守恒变量三元组，分量顺序同 ``left``。
+        gamma: 比热比。
+        entropy_delta: Harten 熵修正阈值；绝对值小于它的特征值改用平滑值。
+
+    Returns:
+        tuple: 三个守恒分量的数值通量 ``0.5*(f_l+f_r) - 0.5*|A|*(u_r-u_l)``。
+
+    Raises:
+        ValidationError: 任一侧密度非正，或 Roe 平均的声速平方非正。
+    """
     def primitive(state):
         rho, m, e = state
         if rho <= 0:
@@ -119,6 +169,21 @@ class RoeFlowData:
         self.last_patch = self.update(dict(enumerate(self.states)), initialize=True)
 
     def update(self, changed, *, initialize=False):
+        """用给定的单元新值执行一次局部更新并写入 QRAM 存储。
+
+        只重算受影响界面（含周期邻居）的 Riemann 通量及其相邻单元的残差；
+        守恒量、符号、右端平方范数二叉树与角度各 bank 同步维护。
+
+        Args:
+            changed: 单元编号到新守恒变量三元组的映射。
+            initialize: 为 True 时残差对全部单元重算，仅用于构造时的首次填充。
+
+        Returns:
+            MemoryPatch: 本次实际写入与重算范围，同时保存为 ``last_patch``。
+
+        Raises:
+            ValidationError: 单元编号越界或分量数不是三。
+        """
         for cell, values in changed.items():
             if not 0 <= cell < self.n or len(values) != 3:
                 raise ValidationError("流场局部更新的地址/分量无效")
@@ -187,4 +252,5 @@ class RoeFlowData:
 
     @property
     def rhs_norm(self):
+        """残差场的 L2 范数，即平方和二叉树根节点值开平方。"""
         return math.sqrt(self.tree[1])

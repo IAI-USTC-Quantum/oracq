@@ -25,6 +25,15 @@ from pyqecclang.infrastructure.validation import validate
 
 @dataclass(frozen=True)
 class OracleRequirement:
+    """描述一个未实现的开放 oracle 声明及其调用位置。
+
+    Attributes:
+        name: 开放声明的模块名，即绑定时使用的槽名。
+        paradigm: 声明指定的 ``oracle_paradigm`` 范式。
+        path: 从入口模块到该声明的最短调用路径上的模块名序列。
+        registers: 声明的形式寄存器签名元组。
+        attributes: 声明的属性条目元组，每项为键值二元组。
+    """
     name: str
     paradigm: str
     path: tuple[str, ...]
@@ -34,11 +43,19 @@ class OracleRequirement:
 
 @dataclass(frozen=True)
 class Binding:
+    """把一个开放声明槽绑定到实现操作，并可携带 QRAM 资源映射。
+
+    Attributes:
+        operation: 提供实现的 ``Operation``；其模块名必须不同于声明槽名。
+        resources: 实现的资源形式参数到入口逻辑资源名的映射；未显式
+            覆盖的资源按 ``槽名__资源名`` 自动捕获并提升为入口资源。
+    """
     operation: Operation
     resources: dict[str, str] | None = None
 
 
 def calls(nodes):
+    """按出现顺序产出指令体（含嵌套结构块）中的全部模块调用节点。"""
     for node in nodes or ():
         if isinstance(node, Call):
             yield node
@@ -122,6 +139,18 @@ def capability_table(program: Program):
 
 
 def capabilities(program: Program, key: str | None = None):
+    """返回指定模块（默认入口）的变换能力字典。
+
+    能力取值由模块声明与被调用模块的能力保守合取推导，见
+    ``capability_table``。
+
+    Args:
+        program: 待分析的 ``Program``。
+        key: 目标模块名；省略时使用入口模块。
+
+    Returns:
+        dict: 以 ``supports_adjoint`` 和 ``supports_controlled`` 为键的布尔字典。
+    """
     return capability_table(program)[key or program.entry]
 
 

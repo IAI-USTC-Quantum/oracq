@@ -1,5 +1,5 @@
 算法 API
-==============================
+============
 
 .. toctree::
    :maxdepth: 1
@@ -22,17 +22,17 @@
    interfaces
    lchs
    lowrank
+   newton
    number_theory
    ode
    ode_models
    operators
    oracle_algorithms
    oracles
-   newton
-   qcnn
-   qcnn_layer
    pde
    prepare_select
+   qcnn
+   qcnn_layer
    qdata
    qham
    qlss
@@ -43,9 +43,9 @@
    schrodingerization
    sde
    search
+   sparse
    spectral
    spectral_synthesis
-   sparse
    state_preparation
    transforms
    variational

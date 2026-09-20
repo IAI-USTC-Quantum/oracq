@@ -13,6 +13,20 @@ from pyqecclang.infrastructure.mathfunc.numeric import Numeric, NumericEmitter
 
 
 def ports(name, kind, fmt, index_width=0):
+    """按数学类型展开一个端口的物理寄存器名与位宽。
+
+    complex 拆为实部/虚部两个定点寄存器，real 占一个定点字，
+    bool 占一位，index 占 ``index_width`` 位的无符号寄存器。
+
+    Args:
+        name: 端口基名；复数端口在其上追加 ``_real``/``_imag`` 后缀。
+        kind: 端口类型，为 real、complex、bool 或 index。
+        fmt: ``FixedFormat`` 定点格式，决定数值端口的寄存器位宽。
+        index_width: index 类型的无符号位宽。
+
+    Returns:
+        list: ``(寄存器名, Bits)`` 对组成的列表。
+    """
     if kind == "complex":
         return [(name + "_real", Bits(fmt.width)), (name + "_imag", Bits(fmt.width))]
     return [(name, Bits(1 if kind == "bool" else index_width if kind == "index" else fmt.width))]
@@ -20,6 +34,17 @@ def ports(name, kind, fmt, index_width=0):
 
 @dataclass(frozen=True)
 class CompiledFunction:
+    """一次数学函数编译的完整结果。
+
+    Attributes:
+        operation: 降低得到的可逆 ``Operation``；输入保持不变，输出与 status 以 XOR 写回。
+        math_ir: 生成该模块的 ``MathProgram`` 原对象。
+        fmt: 生成使用的 ``FixedFormat`` 定点格式。
+        output_names: 入口各返回值对应的输出端口名。
+        input_layout: 各逻辑输入到其展开物理寄存器名的对应表，每项为 (参数名, (寄存器名, ...))。
+        output_layout: 各逻辑输出到其展开物理寄存器名的对应表，结构与 ``input_layout`` 相同。
+    """
+
     operation: object
     math_ir: object
     fmt: FixedFormat
@@ -28,10 +53,28 @@ class CompiledFunction:
     output_layout: tuple[tuple[str, tuple[str, ...]], ...]
 
     def program(self):
+        """返回编译结果的完整 RIR 程序。
+
+        Returns:
+            Program: 入口模块与依赖模块合并后的程序；语义同 ``Operation.program``。
+        """
         return self.operation.program()
 
 
 class Lowerer:
+    """把 MIR 数学函数图降低为模块化 RIR 的可逆量子模块。
+
+    每个函数（含 helper）降低为独立 RIR 模块，调用保留为 Call，
+    不在降低阶段展开。输入端口保持不变，结果与状态位以 XOR 写回，
+    私有中间量最终反算清零。
+
+    Args:
+        program: 待降低的 ``MathProgram``；构造时立即做完整校验。
+        fmt: ``FixedFormat`` 定点格式。
+        config: ``MathConfig`` 数学核阶数与近似区间配置。
+        output_names: 入口各返回值的输出寄存器名；省略时单返回值为 out，多返回值依次为 out_0、out_1 等。
+    """
+
     def __init__(self, program, fmt, config, output_names=None):
         self.program = program.validate()
         self.fmt, self.config = fmt, config
@@ -39,6 +82,17 @@ class Lowerer:
         self.cache = {}
 
     def lower(self, key):
+        """降低指定函数并缓存结果，同一函数只编译一次。
+
+        Args:
+            key: ``program.function_map`` 中的函数符号名，通常为入口。
+
+        Returns:
+            CompiledFunction: 该函数的模块、输入/输出布局与生成配置。
+
+        Raises:
+            ValidationError: 输出端口名与返回值个数不符、展开后的寄存器重名，或定点格式容不下 index 参数的完整范围。
+        """
         if key in self.cache:
             return self.cache[key]
         graph = self.program.function_map[key]

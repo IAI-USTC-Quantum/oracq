@@ -49,6 +49,19 @@ class NewtonFunction:
 
     @classmethod
     def declare(cls, equations):
+        """从 (依赖下标, 数值函数) 序列声明一个稀疏非线性系统。
+
+        Args:
+            equations: ``(indices, function)`` 序列；indices 为该方程依赖的变量
+                下标（与 function 的位置形参一一对应），function 为纯 Python 数值函数。
+
+        Returns:
+            NewtonFunction: 通过维度与稀疏依赖校验后的系统描述。
+
+        Raises:
+            ValidationError: 方程数不是 2 的幂，或某方程的下标重复、越界。
+            OSError: 某个函数取不到源码（``inspect.getsource``，量子编译需要）。
+        """
         pattern = tuple(tuple(indices) for indices, _ in equations)
         functions = tuple(function for _, function in equations)
         size = len(equations)
@@ -61,17 +74,28 @@ class NewtonFunction:
 
     @property
     def size(self):
+        """方程个数；系统为方系统，也等于变量个数。"""
         return len(self.functions)
 
     @property
     def width(self):
+        """变量（方程）下标寄存器的位宽，即 log2(size)；声明时已保证 size 是 2 的幂。"""
         return _log2_exact(self.size)
 
     @property
     def sparsity(self):
+        """稀疏度：单个方程依赖变量个数的最大值。"""
         return max(len(row) for row in self.pattern)
 
     def evaluate(self, x):
+        """经典求值 F(x)。
+
+        Args:
+            x: 长度为 ``size`` 的实数向量。
+
+        Returns:
+            list: 按声明顺序排列的各方程函数值 f_i(x)。
+        """
         return [
             function(*(x[j] for j in indices))
             for function, indices in zip(self.functions, self.pattern, strict=True)
@@ -127,6 +151,7 @@ class NewtonTree:
 
     @property
     def norm_f(self):
+        """当前的 ||F(x)||_2；树根保存各 f_i(x) 的平方和。"""
         return math.sqrt(self.tree[1])
 
     def update(self, delta_x):
@@ -169,6 +194,13 @@ class NewtonTree:
         return {"pattern_forward": forward, "pattern_inverse": inverse}
 
     def memories(self):
+        """导出全部 QRAM 存储表。
+
+        Returns:
+            dict[str, dict[int, int]]: 四个数据 bank（``x``、``f``、``f_sign``、
+            ``f_angles``）的副本，外加 ``pattern_memories`` 生成的两张模式表；
+            所有表均为新建副本，修改不影响树的内部状态。
+        """
         result = {name: dict(bank) for name, bank in self.banks.items()}
         result.update(self.pattern_memories())
         return result

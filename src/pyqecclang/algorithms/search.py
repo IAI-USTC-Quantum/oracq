@@ -63,6 +63,18 @@ def grover(phase_oracle, width, *, iterations=1, preparation=None):
 
 
 def phase_from_database(database: XorDatabase):
+    """把一位输出的 XOR database 转换为相位 oracle。
+
+    Args:
+        database: 只有一个结果位的谓词数据库。
+
+    Returns:
+        Operation: 接口为 target 和一位 work；对 f(x)=1 的基态附加相位 -1，work 复净。
+
+    Raises:
+        ValidationError: 数据库结果位宽不为一。
+
+    输入的 work 必须为零；database 调用与其逆对消，只留下相位翻转。"""
     if database.data_width != 1:
         raise ValidationError("谓词数据库必须有一个输出位")
     b = Builder(

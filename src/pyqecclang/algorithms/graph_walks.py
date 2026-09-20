@@ -46,6 +46,7 @@ class AdjacencyOracle(OracleView):
     operation: Operation
 
     def adjacency_oracle(self):
+        """返回自身的 ``AdjacencyOracle`` 视图，作为邻接 oracle 协议的适配入口。"""
         return self
 
     def __post_init__(self):
@@ -58,18 +59,22 @@ class AdjacencyOracle(OracleView):
 
     @property
     def vertex_bits(self):
+        """顶点寄存器 ``vertex`` 的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "vertex")
 
     @property
     def degree_bits(self):
+        """出边下标寄存器 ``index`` 的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "index")
 
     @property
     def vertices(self):
+        """可寻址的顶点总数，即 ``2**vertex_bits``。"""
         return 1 << self.vertex_bits
 
     @property
     def degree(self):
+        """补齐后每个顶点的出边表列数 ``D``，即 ``2**degree_bits``。"""
         return 1 << self.degree_bits
 
     def xor_database(self):
@@ -94,6 +99,18 @@ class AdjacencyOracle(OracleView):
 
 
 def as_adjacency(value) -> AdjacencyOracle:
+    """把图邻接输入适配为 ``AdjacencyOracle`` 视图。
+
+    Args:
+        value: 已是 ``AdjacencyOracle`` 时原样返回；否则须是带
+            ``(vertex, index, neighbor)`` 签名的完整 ``Operation``。
+
+    Returns:
+        AdjacencyOracle: 包装给定操作的邻接 oracle 视图。
+
+    Raises:
+        ValidationError: value 既不是 ``AdjacencyOracle`` 也不是 ``Operation``。
+    """
     if isinstance(value, AdjacencyOracle):
         return value
     return AdjacencyOracle(require_instance(value, Operation, "adjacency"))

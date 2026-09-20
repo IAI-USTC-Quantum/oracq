@@ -39,6 +39,7 @@ from pyqecclang.infrastructure.validation import validate
 _PI = math.pi
 
 CLIFFORD_ATOMS = ("h", "x", "y", "z", "s", "sdg", "cnot", "cz")
+"""Clifford 原子名集合；``ResourceEstimate.clifford`` 按这些名字汇总 ``atoms`` 计数。"""
 
 
 def _rz_exact_counts(k):
@@ -198,26 +199,32 @@ class ResourceEstimate:
 
     @property
     def toffoli(self):
+        """``atoms`` 中的 Toffoli 门总数。"""
         return self.atoms.get("toffoli", 0)
 
     @property
     def t_exact(self):
+        """精确落入 Clifford+T 的 T 与 TDG 门总数（不含待合成旋转的 T 开销）。"""
         return self.atoms.get("t", 0) + self.atoms.get("tdg", 0)
 
     @property
     def clifford(self):
+        """``atoms`` 中 ``CLIFFORD_ATOMS`` 所列原子的计数总和。"""
         return sum(self.atoms.get(name, 0) for name in CLIFFORD_ATOMS)
 
     @property
     def qram_total(self):
+        """``qram_queries`` 中全部资源的查询次数总和。"""
         return sum(self.qram_queries.values())
 
     @property
     def qram_write_total(self):
+        """``qram_writes`` 中全部资源的随机写次数总和。"""
         return sum(self.qram_writes.values())
 
     @property
     def gate_total(self):
+        """``atoms`` 中全部原子计数的总和（不含 QRAM 查询与写入）。"""
         return sum(self.atoms.values())
 
     def synthesis_t_per_rotation(self, epsilon=1e-10):
@@ -225,12 +232,32 @@ class ResourceEstimate:
         return max(1, math.ceil(3 * math.log2(1 / epsilon)))
 
     def t_synthesis(self, epsilon=1e-10):
+        """待合成旋转的总 T 开销：旋转数乘以 ``synthesis_t_per_rotation(epsilon)``。
+
+        Args:
+            epsilon: 单个旋转的合成精度。
+        """
         return len(self.rotations) * self.synthesis_t_per_rotation(epsilon)
 
     def t_total(self, epsilon=1e-10):
+        """精确 T 数与待合成旋转的 T 开销之和（``t_exact + t_synthesis``）。
+
+        Args:
+            epsilon: 单个旋转的合成精度。
+        """
         return self.t_exact + self.t_synthesis(epsilon)
 
     def to_dict(self, epsilon=1e-10):
+        """导出 JSON 友好的扁平资源台账。
+
+        Args:
+            epsilon: 旋转合成精度，同时作为 ``epsilon`` 键记入结果。
+
+        Returns:
+            dict: 包含量子位数与 ``mcx_ancilla``、Toffoli/Clifford/精确 T
+            计数、待合成旋转总数及按轴统计、T 开销估计、逐原子 ``atoms``
+            明细、逐资源 QRAM 查询/写入计数与总和，以及 ``gate_total``。
+        """
         return {
             "qubits": self.qubits,
             "mcx_ancilla": self.mcx_ancilla,

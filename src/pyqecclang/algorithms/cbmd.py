@@ -46,10 +46,14 @@ class ContourPlan:
 
     @property
     def nodes(self):
+        """主级数实节点，第 k 项为 k/a，k 取 -cutoff..cutoff，共 2*cutoff+1 个。"""
         return tuple(k / self.a for k in range(-self.cutoff, self.cutoff + 1))
 
     @property
     def weights(self):
+        """主级数各节点的复权重，与 ``nodes`` 一一对应。
+
+        按 QST Eq.12 的留数闭式计算，分母包含 (q+i) 因子与全部辅助极点。"""
         numerator = math.expm1(-2 * math.pi * self.a)
         return tuple(
             numerator
@@ -66,6 +70,9 @@ class ContourPlan:
 
     @property
     def auxiliary_coefficients(self):
+        """各辅助极点的复系数，与 ``poles`` 一一对应。
+
+        对应的非 Hermitian 演化分支当前不生成，仅在 ``metadata`` 的 omitted 列表中声明。"""
         numerator = math.expm1(-2 * math.pi * self.a)
         return tuple(
             numerator
@@ -77,6 +84,10 @@ class ContourPlan:
         )
 
     def metadata(self):
+        """导出计划参数与遗漏项声明的 JSON 文本。
+
+        Returns:
+            str: 含 a、cutoff、节点、极点、权重、辅助系数、omitted 遗漏项、assumption 前提与 source 文献来源。"""
         def pair(z):
             return [complex(z).real, complex(z).imag]
 
@@ -97,6 +108,21 @@ class ContourPlan:
 
 
 def cbmd_qode(model, time, *, plan=None, hamiltonian_function=taylor_hamiltonian):
+    """基于轮廓分解组装 u'=-Au 的量子模拟程序。
+
+    Args:
+        model: LinearODE 输入模型，parts.hermitian 为 L、parts.h 为 H，initial 为初态制备。
+        time: 非负演化时间。
+        plan: ContourPlan 轮廓计划；省略时使用默认计划。
+        hamiltonian_function: 接受 (K, time) 并返回 BlockEncoding 的可替换协议。
+
+    Returns:
+        StateOracle: 逐节点 K_k=H+q_k*L 分支经 LCU 组合后作用到初态，成功子空间为 signal 全零。
+
+    Raises:
+        ValidationError: model 或 plan 类型不符、time 非法或输入能力契约不满足。
+
+    辅助极点分支与无穷级数尾不生成，只在 contour_plan 元数据中显式声明。"""
     plan = plan or ContourPlan()
     require_instance(plan, ContourPlan, "cbmd.plan")
     return _lcu_dynamics(

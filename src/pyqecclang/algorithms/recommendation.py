@@ -55,6 +55,18 @@ class KPRecommendationConfig:
 
 @dataclass(frozen=True)
 class RecommendationResult:
+    """KP 推荐采样电路及其读出契约。
+
+    Attributes:
+        operation: 推荐采样电路；寄存器 row、item、phase、flag，QRAM 资源为
+            row_angles 与 root_angles。
+        matrix: 构造电路所用的 QMatrix 输入。
+        user: 目标用户编号。
+        precision: 相位寄存器位数。
+        sigma: 实际采用的奇异值阈值；config 未指定时取 0.5·frobenius。
+        frobenius: 矩阵的 Frobenius 范数，sigma_from_phase 解码时使用。
+    """
+
     operation: Operation
     matrix: QMatrix
     user: int
@@ -63,6 +75,11 @@ class RecommendationResult:
     frobenius: float
 
     def memories(self):
+        """提取电路所需两座 QRAM 角度库的初值。
+
+        Returns:
+            dict: 键为 row_angles（行树）与 root_angles（行范数根树），值为
+            地址到角度字的映射，供执行入口绑定电路声明的 QRAM 资源。"""
         snapshot = self.matrix.snapshot()
         return {"row_angles": snapshot["row_angles"], "root_angles": snapshot["root_angles"]}
 

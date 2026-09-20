@@ -8,11 +8,34 @@ from pyqecclang.infrastructure.ir import ValidationError
 
 @dataclass(frozen=True)
 class ReadoutAction:
+    """一条末端宿主读出动作的描述。
+
+    Attributes:
+        kind: 动作类别，``measure`` 或 ``reset``。
+        register: 作用的公开寄存器名。
+    """
+
     kind: str
     register: str
 
 
 def export_with_readout(program, actions=()):
+    """导出闭合程序的 OriginIR，并按序在末端追加宿主读出动作。
+
+    Args:
+        program: 已闭合、待导出的程序。
+        actions: 依次执行的 ``ReadoutAction`` 序列；为空时直接返回导出结果。
+
+    Returns:
+        OriginIRArtifact: 追加动作后的导出产物；无动作时为原样导出结果。
+
+    Raises:
+        ValidationError: 动作类别不是测量或重置，或寄存器名不在导出产物中。
+
+    仅在提供动作时才延迟导入 ``uniqc``，把模块化文本展平为扩展 OriginIR
+    （宿主动态解析器不接收 DEF）；测量结果写入顺序编号的经典位，
+    并相应改写 CREG 行。
+    """
     artifact = export_originir(program)
     if not actions:
         return artifact

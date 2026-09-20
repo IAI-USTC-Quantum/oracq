@@ -22,6 +22,23 @@ from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 
 def reversible_lookup(inputs, outputs, database: XorDatabase, *, name=None):
+    """把 ``XorDatabase`` 的 address/data 接口适配到命名的输入/输出寄存器组。
+
+    输入寄存器按声明顺序融合为地址视图，输出寄存器融合为数据视图，查询语义
+    仍是 XOR 数据库的 ``data ^= memory[address]``。
+
+    Args:
+        inputs: 名字到位宽的映射，总宽度须等于 ``database.address_width``。
+        outputs: 名字到位宽的映射，总宽度须等于 ``database.data_width``。
+        database: 被适配的 XOR 数据库。
+        name: 可选模块名，省略时由内容生成。
+
+    Returns:
+        Operation: 寄存器为 inputs 与 outputs 的并集，范式为 ``reversible_function``。
+
+    Raises:
+        ValidationError: 输入/输出总宽度与数据库不符，或两边名字冲突。
+    """
     if (
         sum(inputs.values()) != database.address_width
         or sum(outputs.values()) != database.data_width
@@ -48,6 +65,20 @@ def reversible_lookup(inputs, outputs, database: XorDatabase, *, name=None):
 
 
 def word_rotation(value_width, *, scale=None, name=None):
+    """把数值字的整数值线性转成 ``amplitude`` 比特上 Ry 角度的可逆转导。
+
+    逐位受控叠加后总旋转角为 ``scale * value``（value 取无符号整数）；
+    缺省 ``scale = 2*pi / 2**value_width``，使整个取值域恰好转满一周。
+
+    Args:
+        value_width: value 寄存器位宽。
+        scale: 每单位整数值的旋转角；省略时取 ``2*pi / 2**value_width``。
+        name: 可选模块名，省略时由内容生成。
+
+    Returns:
+        Operation: 寄存器为 value 与单比特 amplitude，范式为 ``reversible_function``，
+        模块属性 ``angle_scale`` 记录所用 scale。
+    """
     scale = 2 * math.pi / (1 << value_width) if scale is None else scale
     b = Builder(
         name or _name("word_rotation", value_width, scale),
@@ -110,6 +141,16 @@ def sparse_block_encoding(access: SparseAccess, transducer=None, *, alpha=None):
 
 
 def batch_lookup(database, count):
+    """对同一 XOR 数据库做多路并发查询的批量线路。
+
+    Args:
+        database: XOR 数据库。
+        count: 查询路数。
+
+    Returns:
+        Operation: 寄存器为 ``address{i}`` 与 ``data{i}``，i 从 0 到 count-1，
+        位宽分别等于数据库的 address/data 宽度，逐路调用同一数据库操作。
+    """
     registers = {}
     for i in range(count):
         registers[f"address{i}"] = Bits(database.address_width)
@@ -126,6 +167,17 @@ def batch_lookup(database, count):
 
 @lru_cache(maxsize=64)
 def compare_words(width, kind="eq"):
+    """两个字宽度无符号整数的相等或小于比较网络。
+
+    Args:
+        width: 每个输入字的位宽。
+        kind: ``"eq"`` 生成相等判定，``"lt"`` 生成无符号小于判定。
+
+    Returns:
+        Operation: 输入寄存器 a、b，输出单比特 flag，比较成立时为 1。
+        布尔网络经 compute/copy/uncompute 编译为可逆量子操作，私有 bank
+        零进零出。结果按 ``(width, kind)`` 缓存复用。
+    """
     net = BooleanNetwork()
     a, b = net.input("a", width), net.input("b", width)
     bit = (
@@ -162,6 +214,19 @@ def value_transposition(width):
 
 
 def prefix_state(width, count):
+    """在前 count 个基态上制备均匀叠加态。
+
+    Args:
+        width: target 寄存器位宽。
+        count: 叠加覆盖的基态个数，范围为 ``1..2**width``。
+
+    Returns:
+        Operation: 单个 target 寄存器上的零输入制备，支撑集为 ``|0>`` 到
+        ``|count-1>`` 且幅度相等。
+
+    Raises:
+        ValidationError: count 不在 ``1..2**width`` 范围内。
+    """
     if not 1 <= count <= 1 << width:
         raise ValidationError("均匀前缀范围无效")
     b = Builder("uniform_prefix_" + str(width) + "_" + str(count), {"target": Bits(width)})
@@ -266,6 +331,22 @@ def real_symmetric_sparse_encoding(access, fmt, amax, *, diagonal_nonnegative=Fa
 
 
 def chebyshev_block(a, degree):
+    """Chebyshev 行走幂：零信号块实现缩放矩阵的第 degree 阶 Chebyshev 多项式。
+
+    阶数以 Repeat 保存，每步交替信号零态正反射与调用 ``a``；被编码矩阵按
+    ``a.alpha`` 缩放后进入多项式。
+
+    Args:
+        a: 模块属性显式声明 ``self_adjoint_extension`` 的 ``BlockEncoding``。
+        degree: Chebyshev 阶数，非负整数。
+
+    Returns:
+        BlockEncoding: ``be_alpha`` 为 1.0，``argument_scale`` 记录 ``a.alpha``，
+        零信号块为 ``T_degree(A / a.alpha)``。
+
+    Raises:
+        ValidationError: 输入块编码缺少自伴酉扩张声明，或阶数为负。
+    """
     if not dict(a.operation.module.attributes).get("self_adjoint_extension"):
         raise ValidationError("Chebyshev walk 需要显式的自伴酉扩张，普通 BE 不足以保证")
     if degree < 0:

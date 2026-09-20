@@ -21,6 +21,15 @@ from pyqecclang.infrastructure.validation import validate
 
 @dataclass(frozen=True)
 class OriginIRArtifact:
+    """模块化 OriginIR-ext 导出的文本结果及配套映射信息。
+
+    Attributes:
+        text: 完整的 OriginIR-ext 源文本，含 QRAMDECL、全部 DEF 定义和入口调用。
+        registers: 入口寄存器名到其占用全局量子位下标元组的映射。
+        resources: RIR 资源名到导出文本中 QRAM 名称的映射。
+        workspace_qubits: 入口私有工作区占用的全局量子位下标元组，默认为空。
+    """
+
     text: str
     registers: dict[str, tuple[int, ...]]
     resources: dict[str, str]
@@ -28,6 +37,21 @@ class OriginIRArtifact:
 
 
 def export_originir(program: Program) -> OriginIRArtifact:
+    """把闭合程序导出为模块化 OriginIR-ext 文本。
+
+    纯文本导出，不需要安装任何量子后端。模块调用与 Repeat 保留为可复用的
+    DEF 定义及调用，不在导出阶段展开；控制以逐门 ``controlled_by`` 和附加
+    控制形式参数表达。
+
+    Args:
+        program: 待导出的闭合程序。
+
+    Returns:
+        OriginIRArtifact: 导出文本及寄存器、资源与工作区的映射信息。
+
+    Raises:
+        ValidationError: 程序结构非法或存在未绑定的 oracle。
+    """
     return _Exporter(validate(program, require_closed=True)).run()
 
 

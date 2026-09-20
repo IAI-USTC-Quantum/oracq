@@ -1,5 +1,5 @@
 谱线路的算子级合成优化
-==============================
+======================
 
 ``pyqecclang.algorithms.spectral_synthesis``
 

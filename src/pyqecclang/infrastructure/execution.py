@@ -22,6 +22,18 @@ from pyqecclang.infrastructure.validation import locations, validate
 
 
 def check_memory(program, memory):
+    """校验并规整入口的 QRAM 绑定数据。
+
+    Args:
+        program: 封闭 RIR 程序。
+        memory: 按资源名提供的数据；每项为字序列或 ``地址 -> 字`` 的稀疏字典，``None`` 视为全零。
+
+    Returns:
+        dict: 资源名到稀疏单元映射的字典；值为零的单元被丢弃，缺省单元按零解释。
+
+    Raises:
+        ValidationError: 数据不是按资源名的映射、资源集合与入口声明不符、地址越界或字不是位宽内的无符号整数。
+    """
     memory = {} if memory is None else memory
     if not isinstance(memory, Mapping):
         raise ValidationError("QRAM 数据必须按资源名提供映射")
@@ -78,6 +90,19 @@ def _counter(program, limit, native_modules=frozenset()):
 
 
 def expanded_steps(program, limit=1_000_000, native_modules=frozenset()):
+    """估计程序完全展开后的执行步数，用于执行前的预算检查。
+
+    原语按操作数总位宽加权，Load/Store 计 1 步；模块调用递归计入被调体，Repeat 按次数相乘。
+    计数一旦达到上限即被钳制在 ``limit + 1``，不再继续增长。
+
+    Args:
+        program: RIR 程序。
+        limit: 计数钳制上限。
+        native_modules: 按单步计的原生模块名集合；入口本身为原生模块时直接返回 1。
+
+    Returns:
+        int: 展开步数的饱和估计值。
+    """
     if program.entry in native_modules:
         return 1
     return _counter(program, limit, native_modules)(program.main.body)
@@ -85,17 +110,40 @@ def expanded_steps(program, limit=1_000_000, native_modules=frozenset()):
 
 @dataclass(frozen=True)
 class LocalEnter:
+    """局部寄存器进入作用域的事件，寄存器以零值加入执行状态。
+
+    Attributes:
+        name: 分配给局部寄存器的唯一合成名。
+        type: 局部寄存器的类型。
+    """
+
     name: str
     type: object
 
 
 @dataclass(frozen=True)
 class LocalExit:
+    """局部寄存器离开作用域的事件，退出时要求全部分支复净为零。
+
+    Attributes:
+        name: 被释放的局部寄存器名。
+        width: 局部寄存器位宽。
+    """
+
     name: str
     width: int
 
 
 def remap(ref, mapping):
+    """按寄存器名替换表重写引用，用于模块调用时把形参绑定到实参视图。
+
+    Args:
+        ref: 待重写的 ``Ref``。
+        mapping: 寄存器名到 ``Ref`` 的映射；原引用的每段截取替换结果的对应区间后顺序拼接。
+
+    Returns:
+        Ref: 重写后的新引用，类型与原引用一致。
+    """
     parts = []
     for span in ref.parts:
         parts.extend(mapping[span.register][span.start : span.start + span.width].parts)
@@ -209,6 +257,19 @@ def events(program, *, max_steps=1_000_000, native_modules=frozenset()):
 
 
 def gate_matrix(op, angle=None, inverse=False):
+    """返回单比特门的标准 2x2 西矩阵。
+
+    Args:
+        op: 门名，取 ``h``、``x``、``y``、``z``、``s``、``t``、``phase``、``rx``、``ry``、``rz`` 之一。
+        angle: 旋转与相位门的角度（弧度）；``s`` 与 ``t`` 使用固定角度，忽略该参数。
+        inverse: 为真时返回共轭转置，即门的逆矩阵。
+
+    Returns:
+        tuple: 2x2 复数矩阵，以行元组的形式给出。
+
+    Raises:
+        ValidationError: 门名不在支持列表中。
+    """
     if op == "h":
         a = 1 / math.sqrt(2)
         matrix = ((a, a), (a, -a))
@@ -235,10 +296,28 @@ def gate_matrix(op, angle=None, inverse=False):
 
 @dataclass(frozen=True)
 class RegisterState:
+    """参考执行的终态：入口寄存器布局与稀疏振幅。
+
+    Attributes:
+        registers: 入口模块的寄存器元组，规定取值元组的顺序。
+        amplitudes: 寄存器取值元组到复振幅的映射。
+    """
+
     registers: tuple
     amplitudes: dict[tuple[int, ...], complex]
 
     def statevector(self, max_qubits=20):
+        """把稀疏态打包为密集态向量，各寄存器按声明顺序 LSB-first 占据下标位段。
+
+        Args:
+            max_qubits: 允许的最大总位数。
+
+        Returns:
+            list: 长度为 ``2**总位数`` 的复振幅列表。
+
+        Raises:
+            ValidationError: 寄存器总位数超过 ``max_qubits``。
+        """
         width = sum(r.type.width for r in self.registers)
         if width > max_qubits:
             raise ValidationError("密集状态转换超过位数预算")
@@ -253,6 +332,29 @@ class RegisterState:
 
 
 def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_states=65536):
+    """在稀疏寄存器态上参考执行封闭程序，只依赖标准库。
+
+    初态是各寄存器取给定整数值的单基矢（缺省全零），态保存为寄存器整数值元组到复振幅的稀疏
+    字典。指令流由 ``events`` 惰性展开：单比特门对首个操作数逐位作用，``xor``、``swap``、
+    ``add_const`` 与 ``gphase`` 按 RIR 语义更新寄存器取值或幅值；``Control`` 条件按逻辑合取
+    限定作用分支，``Adjoint`` 逆序取逆，``Repeat`` 按次数重复。QRAM 的 ``Load`` 是 XOR 读，
+    叠加地址天然支持；``Store`` 是随机写，要求地址与数据处于确定基矢。局部寄存器进入时置零，
+    退出时检查全部分支复净。
+
+    Args:
+        program: 待执行的封闭 RIR 程序。
+        memory: 按资源名提供的 QRAM 数据，格式同 ``check_memory``。
+        initial: 寄存器名到初始整数值的映射，缺省为全零。
+        max_steps: 展开步数预算，超限报错。
+        max_states: 稀疏基矢数预算，超限报错。
+
+    Returns:
+        RegisterState: 入口寄存器布局与终态稀疏振幅；幅值不超过 1e-15 的分量被截去。
+
+    Raises:
+        ValidationError: 程序或 QRAM 数据校验失败、初态寄存器未知或越界、Store 不在确定基矢、
+            局部寄存器未复净，或超出步数与稀疏态数量预算。
+    """
     program = validate(program, require_closed=True)
     memories = check_memory(program, memory)
     registers = program.main.registers

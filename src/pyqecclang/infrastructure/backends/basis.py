@@ -12,10 +12,39 @@ _PI = math.pi
 
 
 def export_toffoli_u3_cz(program):
+    """导出 Toffoli+U3+CZ 门集上的 OriginIR-ext 网表。
+
+    等价于 ``lower_toffoli_u3_cz(export_originir(program))``；模块调用和
+    QRAM 声明保持不展开。
+
+    Args:
+        program: 待编译的封闭 RIR 程序。
+
+    Returns:
+        OriginIRArtifact: 降低后的网表，``workspace_qubits`` 含新增的
+        ``pb_work`` 辅助比特编号。
+    """
     return lower_toffoli_u3_cz(export_originir(program))
 
 
 def lower_toffoli_u3_cz(artifact):
+    """把 OriginIR-ext 网表中的门降低到 Toffoli、U3 与 CZ。
+
+    X 型多控门（含 CNOT，SWAP 展开为三次交换）按 ``mcx`` 配方用 Toffoli
+    梯子实现，受控单比特门按 ``controlled_u3`` 配方实现，两者共享按最大
+    控制数分配的 ``pb_work`` 辅助比特池；池位追加进 ``QINIT``、``DEF``
+    形参与 ``m_`` 调用行。``DAGGER``、QRAM 与 ``CREG`` 行原样保留。
+
+    Args:
+        artifact: ``export_originir`` 产出的 OriginIR-ext 网表。
+
+    Returns:
+        OriginIRArtifact: 降低后的网表；``workspace_qubits`` 追加新增的
+        辅助比特编号，``registers`` 与 ``resources`` 原样透传。
+
+    Raises:
+        ValidationError: 遇到参数表不支持的目标门。
+    """
     lines = artifact.text.splitlines()
     maximum = 0
     for line in lines:

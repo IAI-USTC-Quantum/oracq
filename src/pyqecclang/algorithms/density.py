@@ -227,6 +227,11 @@ class PurificationAccess(OracleView):
     operation: object
 
     def purification_access(self):
+        """纯化访问的结构化协议访问器，返回 ``self``。
+
+        宿主对象实现同名方法并返回 ``PurificationAccess`` 即可被按协议适配，
+        与 ``state_preparation``、``block_encoding`` 等访问器同构。
+        """
         return self
 
     def __post_init__(self):
@@ -236,17 +241,23 @@ class PurificationAccess(OracleView):
 
     @property
     def width(self):
+        """system 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "system"
         )
 
     @property
     def environment_width(self):
+        """environment 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "environment"
         )
 
     def describe(self):
+        """返回类型为 ``purification_access`` 的 ``OracleSpec`` 快照。
+
+        system 宽度记入 main_qubit，environment 宽度记入 anc_qubit。
+        """
         from pyqecclang.algorithms.contracts import describe_oracle
 
         base = describe_oracle(self.operation)
@@ -331,6 +342,11 @@ class ApproximatePurification(OracleView):
     operation: object
 
     def approximate_purification(self):
+        """近似纯化的结构化协议访问器，返回 ``self``。
+
+        宿主对象实现同名方法并返回 ``ApproximatePurification`` 即可被按协议适配，
+        与 ``state_preparation``、``block_encoding`` 等访问器同构。
+        """
         return self
 
     def __post_init__(self):
@@ -342,35 +358,45 @@ class ApproximatePurification(OracleView):
 
     @property
     def width(self):
+        """system 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "system"
         )
 
     @property
     def environment_width(self):
+        """environment 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "environment"
         )
 
     @property
     def signal_qubits(self):
+        """signal 寄存器位宽；后置选择要求其读出全 0。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "signal"
         )
 
     @property
     def attributes(self):
+        """模块属性字典的副本；保存 beta、error 等算法参数。"""
         return dict(self.operation.module.attributes)
 
     @property
     def beta(self):
+        """逆温度 β，取自模块属性；未记录时为 ``None``。"""
         return self.attributes.get("beta")
 
     @property
     def error(self):
+        """多项式一致逼近误差参数，取自模块属性；未记录时为 ``None``。"""
         return self.attributes.get("error")
 
     def describe(self):
+        """返回类型为 ``approximate_purification`` 的 ``OracleSpec`` 快照。
+
+        system 宽度记入 main_qubit，environment 与 signal 宽度之和记入 anc_qubit。
+        """
         from pyqecclang.algorithms.contracts import describe_oracle
 
         base = describe_oracle(self.operation)

@@ -25,6 +25,8 @@ uv run python tools/generate_api_docs.py
 uv run sphinx-build -W --keep-going -b html docs out/docs/html
 ```
 
+生成器还会从根包 `pyqecclang.__all__` 产出 `docs/api/toplevel.rst`（包总览页，按定义模块分组链接到各模块页）；新增根导出名字或调整 `__all__` 后同样需要重跑生成器。生成器内 `TITLES` 表维护每个模块的中文页标题，新模块记得补一条。旧导入路径只保留兼容，不出现在 API 文档中。
+
 API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必须继续在执行入口导入，以便在核心环境中构建文档。完整使用方式参见 [Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html)。
 
 ## 中文与 API 名称搜索

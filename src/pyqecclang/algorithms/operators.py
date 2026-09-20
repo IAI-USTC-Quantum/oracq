@@ -15,6 +15,12 @@ from pyqecclang.infrastructure.serialization import dumps
 
 
 class Generator(Protocol):
+    """量子操作生成器的结构协议。
+
+    任何以任意位置与关键字参数调用并返回 ``Operation`` 的可调用对象都在结构上
+    满足本协议；算法侧据此接受操作工厂而不绑定具体的生成签名。
+    """
+
     def __call__(self, *args, **kwargs) -> Operation: ...
 
 
@@ -25,10 +31,22 @@ def _name(kind, *values):
 
 @dataclass(frozen=True)
 class BlockEncoding(OracleView):
+    """以零信号投影角块表示线性算子的视图。
+
+    包装的 ``Operation`` 恰含 ``target`` 与 ``signal`` 两个 bits 寄存器，并以
+    模块属性 ``be_alpha`` 声明有限正的归一化常数：若酉 ``U`` 的零信号角块满足
+    ``<0|U|0> = A/alpha``，则本视图把 ``U`` 当作算子 ``A`` 的块编码。alpha 只在
+    生成期参与组合代数，执行器不会据此缩放量子态。
+
+    Attributes:
+        operation: 被包装的 ``Operation``。
+    """
+
     oracle_kind = "block_encoding"
     operation: Operation
 
     def block_encoding(self):
+        """返回自身；实现 ``BlockEncodingProtocol`` 的视图适配方法。"""
         return self
 
     def __post_init__(self):
@@ -46,18 +64,36 @@ class BlockEncoding(OracleView):
 
     @property
     def alpha(self):
+        """模块属性 ``be_alpha`` 中声明的归一化常数。"""
         return dict(self.operation.module.attributes)["be_alpha"]
 
     @property
     def width(self):
+        """``target`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
     def signal_qubits(self):
+        """``signal`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "signal")
 
 
 def block_encoding(operation: Operation, alpha: float = 1.0) -> BlockEncoding:
+    """把 ``target``/``signal`` 签名的操作包装为块编码。
+
+    在模块属性中写入 ``be_alpha`` 与 ``oracle_paradigm``，并按内容确定性重命名
+    模块；签名与 alpha 约束由 ``BlockEncoding`` 的构造检查完成。
+
+    Args:
+        operation: 恰含 ``target`` 与 ``signal`` bits 寄存器的 ``Operation``。
+        alpha: 有限正的归一化常数，缺省为一。
+
+    Returns:
+        BlockEncoding: 补全属性后的块编码视图。
+
+    Raises:
+        ValidationError: 操作不符合块编码的签名或 alpha 约束。
+    """
     attributes = dict(operation.module.attributes)
     attributes["be_alpha"] = alpha
     attributes["oracle_paradigm"] = "block_encoding"
@@ -70,17 +106,20 @@ def block_encoding(operation: Operation, alpha: float = 1.0) -> BlockEncoding:
 
 
 def identity(width: int) -> BlockEncoding:
+    """构造单位算子的块编码；alpha 为一且不需要信号位。"""
     b = Builder(f"identity_{width}", {"target": Bits(width), "signal": Bits(0)})
     return block_encoding(b.finish())
 
 
 def pauli_x(width: int) -> BlockEncoding:
+    """构造 ``width`` 个 X 门张量幂的块编码；alpha 为一且无信号位。"""
     b = Builder(f"pauli_x_{width}", {"target": Bits(width), "signal": Bits(0)})
     b.x(b["target"])
     return block_encoding(b.finish())
 
 
 def zero(width: int) -> BlockEncoding:
+    """构造零算子的块编码；用一个被翻转的信号位使零信号角块恒为零，alpha 为一。"""
     b = Builder(f"zero_{width}", {"target": Bits(width), "signal": Bits(1)})
     b.x(b["signal"])
     return block_encoding(b.finish())
@@ -101,6 +140,21 @@ def _call(builder, operand, target, signal, prefix):
 
 
 def product(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
+    """组合两个块编码的矩阵乘积 ``A·B``。
+
+    两个操作依次作用于共享的 ``target``（先 ``b`` 后 ``a``），信号位按 ``a`` 在
+    高位拼接；返回块编码的 alpha 为 ``a.alpha * b.alpha``，信号位数为两者之和。
+
+    Args:
+        a: 左因子块编码。
+        b: 右因子块编码。
+
+    Returns:
+        BlockEncoding: 编码 ``A·B`` 的块编码，两个操作以模块调用保留。
+
+    Raises:
+        ValidationError: 两个目标宽度不同。
+    """
     if a.width != b.width:
         raise ValidationError("BE 乘积的目标宽度不同")
     builder = Builder(
@@ -115,6 +169,21 @@ def product(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
 
 
 def scale(coefficient: complex, a: BlockEncoding) -> BlockEncoding:
+    """用复系数缩放块编码所表示的算子。
+
+    系数相位以 ``global_phase`` 记账，返回块编码的 alpha 为
+    ``abs(coefficient) * a.alpha``；系数为零时直接返回 ``zero(a.width)``。
+
+    Args:
+        coefficient: 有限复系数。
+        a: 被缩放的块编码。
+
+    Returns:
+        BlockEncoding: 编码 ``coefficient * A`` 的块编码。
+
+    Raises:
+        ValidationError: 系数的实部或虚部不有限。
+    """
     if not (math.isfinite(coefficient.real) and math.isfinite(coefficient.imag)):
         raise ValidationError("BE 系数必须有限")
     if coefficient == 0:
@@ -132,6 +201,25 @@ def scale(coefficient: complex, a: BlockEncoding) -> BlockEncoding:
 def linear_combination(
     ca: complex, a: BlockEncoding, cb: complex, b: BlockEncoding
 ) -> BlockEncoding:
+    """组合两个块编码的线性组合 ``ca*A + cb*B``。
+
+    单个选择位按 ``abs(ca)*a.alpha`` 与 ``abs(cb)*b.alpha`` 的权重比例分支，
+    两路各经 ``global_phase`` 补偿系数相位后作用于共享的 ``target``；返回块编码
+    的 alpha 为两个权重之和，信号位在两操作信号之外多出一个选择位。某项系数
+    为零时退化为 ``scale``。
+
+    Args:
+        ca: ``a`` 的有限复系数。
+        a: 第一个块编码。
+        cb: ``b`` 的有限复系数。
+        b: 第二个块编码。
+
+    Returns:
+        BlockEncoding: 编码 ``ca*A + cb*B`` 的块编码。
+
+    Raises:
+        ValidationError: 目标宽度不同，或任一系数含非有限分量。
+    """
     if a.width != b.width:
         raise ValidationError("BE 求和的目标宽度不同")
     if not all(math.isfinite(x) for c in (ca, cb) for x in (c.real, c.imag)):

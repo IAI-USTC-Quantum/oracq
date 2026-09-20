@@ -244,6 +244,17 @@ class RoeQmemData:
         return table
 
     def memories(self, inputs):
+        """导出 QMem 直连数据路径的全部运行时内存表。
+
+        Args:
+            inputs: ``roe_qfvm_inputs`` 声明的槽位集合，决定几何表布局。
+
+        Returns:
+            dict: ``state`` 状态表、``geometry`` 几何表，以及残差 ``QVector``
+            快照的角字与符号 bank（默认 ``residual_angles`` 和
+            ``residual_sign``，名字随构造时的 ``name`` 参数）；供执行入口
+            按名绑定模块声明的 QRAM 资源。
+        """
         return {
             "state": self.state_bank,
             "geometry": geometry_cells(inputs),

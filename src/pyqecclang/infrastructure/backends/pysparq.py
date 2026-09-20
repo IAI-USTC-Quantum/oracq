@@ -29,6 +29,30 @@ def run_pysparq(
     native_registry=None,
     report=None,
 ):
+    """经 PySparQ 稀疏寄存器模拟器按事件执行程序。
+
+    RIR 根寄存器映射为 PySparQ 的原生命名寄存器，门与 QRAM 查询在稀疏态上
+    逐个应用。需要已安装 pysparq 的解释器，依赖缺失时抛 ValidationError。
+    整个执行持有模块级互斥锁，接管前要求 PySparQ 全局寄存器表为空，并在
+    结束或异常退出时清理本适配器创建的寄存器。
+
+    Args:
+        program: 待执行的程序；未提供 ``native_registry`` 时必须闭合。
+        memory: 按资源名提供的 QRAM 数据，值为完整字序列或地址到字的稀疏字典；省略时全部为零，提供时必须恰好覆盖入口的全部资源。
+        max_steps: 展开预算，估计步骤数超过该值即拒绝执行。
+        max_states: 稀疏基态数量预算，门或原生算子应用后超出即中止。
+        native_registry: 模块级原生实现注册表；提供后，开放 oracle 可由原生实现闭合。
+        report: 传入的字典会被就地填充执行统计，键为 ``native_calls``、
+            ``gate_events``、``native_labels`` 与 ``correctness``（后者初始化为 ``pending``）。
+
+    Returns:
+        RegisterState: 以入口各寄存器整数值元组为键的稀疏复幅度，幅度低于 1e-15 的分量被丢弃。
+
+    Raises:
+        ValidationError: 程序非法、含运行期 Store、原生实现缺失或与模块描述不匹配、
+            QRAM 物化超过 2^20 项、超出展开或稀疏态预算、局部工作区未复净、
+            PySparQ 全局寄存器表非空，或 pysparq 未安装。
+    """
     from pyqecclang.infrastructure.linking import uses_store
 
     program = validate(program, require_closed=native_registry is None)

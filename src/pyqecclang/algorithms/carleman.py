@@ -26,6 +26,20 @@ from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 @dataclass(frozen=True)
 class PolynomialODE:
+    """多项式 ODE 输入模型与 Carleman 组装所需的输入声明。
+
+    Attributes:
+        width: 单层状态向量宽度 d（寄存器位数）。
+        coefficients: (次数 p, 块编码 F_p) 二元组序列，次数不重复且非空；
+            F_p 作用在 d^p 维张量幂上，宽度为 ``max(1, p) * width``。
+        initial: 初态 u(0) 的制备。
+        initial_norm: 初态范数，用于各张量层的加权，默认 1.0。
+
+    Raises:
+        ValidationError: 宽度/次数/范数取值非法、系数表为空或次数重复、
+            F_p 宽度不匹配或初态布局不符时在构造时抛出。
+    """
+
     width: int
     coefficients: tuple[tuple[int, BlockEncoding], ...]
     initial: StatePreparation
@@ -97,6 +111,22 @@ def _carleman_term(coefficient, n, cutoff, output_level, order, position):
 
 
 def carleman_lift(problem, *, cutoff=2):
+    """组装截断 Carleman 线性嵌入的块编码。
+
+    对每个目标张量层与多项式次数枚举放置项，以等权 LCU 组合；输出属性
+    记录 ``cutoff`` 与填充行零假设（首 d 行之外的补齐行、d^p 之外的列均为零）。
+
+    Args:
+        problem: ``PolynomialODE`` 输入模型。
+        cutoff: Carleman 截断阶，必须为正。
+
+    Returns:
+        BlockEncoding: 作用在 ``cutoff * width`` 位数据加层级寄存器上的
+        嵌入算子。
+
+    Raises:
+        ValidationError: problem 不是 ``PolynomialODE`` 或 cutoff 无效。
+    """
     require_instance(problem, PolynomialODE, "carleman.problem")
     positive_integer(cutoff, "carleman.cutoff")
     if cutoff < 1:
@@ -125,6 +155,22 @@ def carleman_lift(problem, *, cutoff=2):
 
 
 def carleman_initial(problem, *, cutoff=2):
+    """构造张量初态的零输入制备。
+
+    层级寄存器按 ``initial_norm`` 的幂加权制备，再受控地把初态复制到
+    前 k 层，形成 u(0) 的张量幂向量。
+
+    Args:
+        problem: ``PolynomialODE`` 输入模型。
+        cutoff: Carleman 截断阶，必须为正。
+
+    Returns:
+        StatePreparation: 目标为 ``cutoff * width`` 位数据加层级寄存器，
+        工作区按 ``initial`` 的宽度逐层复用。
+
+    Raises:
+        ValidationError: problem 不是 ``PolynomialODE`` 或 cutoff 无效。
+    """
     require_instance(problem, PolynomialODE, "carleman.problem")
     positive_integer(cutoff, "carleman.cutoff")
     n, lb = problem.width, cutoff.bit_length()
@@ -162,6 +208,26 @@ def carleman_initial(problem, *, cutoff=2):
 
 
 def carleman_qode(problem, time, linear_solver, *, cutoff=2):
+    """把 Carleman 嵌入交给线性求解器并投影回第一层。
+
+    先组装 ``carleman_lift`` 与 ``carleman_initial``，再由 ``linear_solver``
+    演化到时刻 ``time``，最后选取第一张量层作为解态；截断尾项的影响
+    以 ``truncation_assumption`` 记录为待验证。
+
+    Args:
+        problem: ``PolynomialODE`` 输入模型。
+        time: 目标演化时刻，非负。
+        linear_solver: 形如 ``(generator, initial, time) -> StateOracle``
+            的可调用线性求解器。
+        cutoff: Carleman 截断阶，必须为正。
+
+    Returns:
+        StateOracle: 宽度为 ``problem.width`` 的第一层解态。
+
+    Raises:
+        ValidationError: 输入类型或取值非法、``linear_solver`` 不可调用
+            或其输出不是 ``StateOracle``。
+    """
     require_instance(problem, PolynomialODE, "carleman.problem")
     finite_real(time, "carleman.time", minimum=0)
     if not callable(linear_solver):

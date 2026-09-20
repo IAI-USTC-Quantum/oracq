@@ -98,6 +98,7 @@ class QMem:
 
     @property
     def strides(self) -> tuple[int, ...]:
+        """row-major 各维跨步，即沿该维前进一个下标对应的地址增量。"""
         result = [1] * len(self.shape)
         for axis in range(len(self.shape) - 2, -1, -1):
             result[axis] = result[axis + 1] * self.shape[axis + 1]
@@ -105,10 +106,12 @@ class QMem:
 
     @property
     def address_width(self) -> int:
+        """底层 QRAM 资源的地址宽度。"""
         return self.spec.address_width
 
     @property
     def data_width(self) -> int:
+        """底层 QRAM 资源的数据字宽度。"""
         return self.spec.data_width
 
     def ptr(self, base=None) -> QPtr:

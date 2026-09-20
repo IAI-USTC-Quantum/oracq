@@ -5,6 +5,17 @@ from dataclasses import asdict
 
 
 def input_manifest(plan, state_width):
+    """构造交给 QODE 求解侧的输入 manifest。
+
+    Args:
+        plan: ``QHAMPlan`` 闭包计划。
+        state_width: 单分量状态位宽。
+
+    Returns:
+        dict: 在 ``plan.summary()`` 基础上补充状态位宽与维数、生成元目标
+        位宽、提升总维数、各端口的输入/输出位宽与 block encoding 要求，
+        以及初值制备、时间依赖和稀疏访问等约束说明。
+    """
     dimension = 1 << state_width
     raw = plan.raw_dimension(dimension)
     return {
@@ -34,6 +45,18 @@ def input_manifest(plan, state_width):
 
 
 def row_description(plan, block, state_width, eta):
+    """构造单个行块的推导描述。
+
+    Args:
+        plan: ``QHAMPlan`` 闭包计划。
+        block: 闭包内的行块。
+        state_width: 单分量状态位宽。
+        eta: 同伦参数。
+
+    Returns:
+        dict: 含块标签、张量字、块偏移与块维数，以及各线性边的源块、
+        端口、作用位置、权重公式与 ``eta`` 处取值（实部/虚部）。
+    """
     dimension = 1 << state_width
     return {
         "row": block.label,
@@ -61,6 +84,27 @@ def row_description(plan, block, state_width, eta):
 
 
 def export_derivation(plan, directory, *, state_width=2, eta=-1.0, max_blocks=256, row=None):
+    """把自动推导结果导出为可审阅的 JSON、Markdown 与 QODE manifest。
+
+    在 ``directory`` 下写入 ``pde.json``、``qcl-plan.json``、
+    ``rows.json``、``qode-input.json`` 与 ``derivation.md``；目录不存在时
+    递归创建。
+
+    Args:
+        plan: ``QHAMPlan`` 闭包计划。
+        directory: 导出目录。
+        state_width: 单分量状态位宽。
+        eta: 同伦参数，须为有限复数。
+        max_blocks: 显式枚举行块的预算；闭包块数超过时不枚举行，
+            manifest 保留计划摘要并注明预算超限。
+        row: 指定时只导出该行块，否则导出全部行块。
+
+    Returns:
+        dict: 写入 ``qode-input.json`` 的 manifest（含 ``eta``）。
+
+    Raises:
+        ValidationError: ``eta`` 非有限，或 ``row`` 不在 QCL 闭包内。
+    """
     import math
     from pathlib import Path
 

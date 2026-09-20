@@ -83,6 +83,22 @@ def _emit_u3(lines, counts, target, theta, phi, lam):
 
 
 def lower_strict(artifact: OriginIRArtifact) -> StrictArtifact:
+    """把 Toffoli+U3+CZ 网表进一步降低为严格原子网表。
+
+    ``U3`` 行按与 ``estimate`` 共享的角度分类改写：π/4 整数倍角度发射
+    精确 Clifford+T 原子，其余保留为 ``RZ``/``RY`` 待合成旋转原子；其余
+    行原样保留，同时逐行累计原子计数、QRAM 查询（``ram_`` 行）与随机写
+    （``QRAMWRITE`` 行）。
+
+    Args:
+        artifact: ``lower_toffoli_u3_cz`` 产出的网表。
+
+    Returns:
+        StrictArtifact: 严格网表文本、逐原子计数与原布局信息。
+
+    Raises:
+        ValidationError: ``U3`` 行的角度参数不是三个。
+    """
     lines, counts, qram, writes = [], Counter(), Counter(), Counter()
     for line in artifact.text.splitlines():
         if line.startswith("U3 "):

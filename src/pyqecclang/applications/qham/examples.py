@@ -4,6 +4,21 @@ from pyqecclang.applications.qham.pde import Field, Known, PolynomialPDE
 
 
 def example_pde(name):
+    """按名字返回内置的示例 PDE。
+
+    可用案例为 ``burgers``、``kdv``、``reaction``、``coupled`` 和
+    ``vector_burgers_2d``；除 ``vector_burgers_2d`` 使用 ``("x", "y")``
+    空间轴外，其余均为一维。
+
+    Args:
+        name: 案例名。
+
+    Returns:
+        PolynomialPDE: 对应案例的 PDE，``label`` 即案例名。
+
+    Raises:
+        ValueError: 案例名未知。
+    """
     u, v = Field("u"), Field("v")
     if name == "burgers":
         return PolynomialPDE.from_equations(

@@ -20,6 +20,23 @@ from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 
 def derivative_encoding(grid, derivative):
+    """构造周期网格上空间导数的移位 LCU 块编码。
+
+    每个轴的导数按中心差分模板分解为若干循环移位项，项系数为模板权重除以
+    ``spacing**order``；各轴算子复合到整个空间地址寄存器上，各算子只作用
+    于自己轴的地址位。无导数的轴贡献恒等，模板系数全部相消的轴贡献零算子。
+
+    Args:
+        grid: 周期边界、各轴长度均为 2 的幂的 ``Grid``。
+        derivative: 形如 ``((axis, order), ...)`` 的导数说明。
+
+    Returns:
+        BlockEncoding: target 为空间寄存器（宽 ``grid.spatial_width``）的
+        差分算子块编码。
+
+    Raises:
+        ValidationError: 网格边界不是周期，或存在非 2 的幂的轴长。
+    """
     if grid.boundary != "periodic" or any(n & (n - 1) for n in grid.shape):
         raise ValidationError("结构化移位端口需要各轴为二次幂的周期网格；其他边界可提供自己的 BE")
     width = grid.spatial_width
@@ -51,6 +68,24 @@ def derivative_encoding(grid, derivative):
 
 
 def coefficient_encoding(discretization, monomial, *, max_words=4096):
+    """构造已知系数对角乘子的门实现块编码。
+
+    逐地址求出已知场（含其空间导数）与单项式系数的乘积值，按地址受控旋转
+    单个 signal 量子比特并补偿复相位，使 signal 投影回零时实现对角值除以
+    ``alpha`` 的作用；值取遍整个空间地址寄存器，网格外的填充地址为 0。
+
+    Args:
+        discretization: 提供网格与已知场数据的 ``Discretization``。
+        monomial: 待编码的单项式；无已知场且网格无填充位时退化为常数缩放。
+        max_words: 门系数表允许的最大地址数。
+
+    Returns:
+        BlockEncoding: target 为空间寄存器、``alpha`` 为对角值最大模的
+        块编码；对角值全为零时返回零算子。
+
+    Raises:
+        ValidationError: 系数表超过 ``max_words`` 预算。
+    """
     grid = discretization.grid
     width = grid.spatial_width
     if not monomial.known and grid.size == 1 << width:
@@ -126,6 +161,29 @@ def qram_coefficient_memory(discretization, monomial, *, angle_width=8):
 
 
 def term_encoding(discretization, term, *, max_coefficient_words=4096, coefficient_encoder=coefficient_encoding):
+    """为单个 PDE 方程项构造结构化差分端口的多线性块编码。
+
+    端口由各因子字段的中心差分导数、已知系数对角乘子、分量选择与外导数
+    组装而成：因子各自在空间位上差分，多因子情形先收缩到同一点再对角
+    合并；signal 中的两个拒绝位分别标记分量不符与（多因子时）各因子不在
+    同一点的输入坐标，零阶项则标记非零地址并在空间位上取均匀叠加。
+    不物化端口矩阵。
+
+    Args:
+        discretization: 提供网格、分量布局与已知数据的 ``Discretization``。
+        term: 含输出分量与一个单项式的 ``EquationTerm``。
+        max_coefficient_words: 传给系数编码器的地址数预算。
+        coefficient_encoder: 系数对角乘子的编码函数，合同同
+            ``coefficient_encoding``（如 ``qram_coefficient_encoding``）。
+
+    Returns:
+        BlockEncoding: target 宽 ``max(1, arity)*discretization.width`` 的
+        矩形块编码，``rectangular_arity`` 属性记录元数；``alpha`` 为系数、
+        外导数与各因子导数的 alpha 之积，零阶项另乘 ``sqrt(2**spatial_width)``。
+
+    Raises:
+        ValidationError: 端口 target 宽超过 64，或系数编码器报告超预算。
+    """
     n = discretization.width
     ns = discretization.grid.spatial_width
     nc = discretization.component_width

@@ -47,6 +47,17 @@ def fourier_momentum(width, period):
 
 @dataclass(frozen=True)
 class SchrodingerPlan:
+    """Schrödingerization 辅助网格与读出通道的配置计划。
+
+    Attributes:
+        auxiliary_width: 辅助 p 寄存器位数，有效范围为 1..63。
+        period: 辅助网格的周期，必须为正的有限实数。
+        selected_index: 最终读出物理解的通道编号，范围为 0..2**auxiliary_width-1。
+
+    Raises:
+        ValidationError: 任一字段越界或不是有限数值。
+    """
+
     auxiliary_width: int = 2
     period: float = 8.0
     selected_index: int = 1

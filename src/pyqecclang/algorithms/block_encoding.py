@@ -13,6 +13,14 @@ from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
 def reflect_zero(builder, register, *, positive=False):
+    """在给定寄存器的零态上追加符号翻转反射 ``I-2|0><0|``。
+
+    Args:
+        builder: 追加门的目标 Builder。
+        register: 参与反射的寄存器，可传入多个寄存器拼接后的视图。
+        positive: 为 True 时附加全局相位 pi，得到 ``2|0><0|-I``，零态分量取正号。
+
+    行走与振幅放大类算法共享该构件。"""
     if positive:
         builder.global_phase(math.pi)
     if register.width:
@@ -23,6 +31,18 @@ def reflect_zero(builder, register, *, positive=False):
 
 
 def pad_signal(a: BlockEncoding, width):
+    """把 BE 的信号寄存器扩张到指定位宽。
+
+    Args:
+        a: 输入 block encoding。
+        width: 新的信号位宽，不得小于原信号位宽。
+
+    Returns:
+        BlockEncoding: 角块语义与 alpha 不变，新增的高位信号恒为零，供同签名晚绑定。
+
+    Raises:
+        ValidationError: 试图缩小信号空间。
+    """
     if width < a.signal_qubits:
         raise ValidationError("不能缩小 BE 信号空间")
     b = Builder(
@@ -35,6 +55,15 @@ def pad_signal(a: BlockEncoding, width):
 
 
 def tensor(a: BlockEncoding, b: BlockEncoding):
+    """构造两个 BE 的张量积。
+
+    Args:
+        a: 作用于目标高位的 BE。
+        b: 作用于目标低位的 BE。
+
+    Returns:
+        BlockEncoding: 编码 A⊗B，alpha 为两者之积；signal 同样按 a 在低、b 在高拼接。
+    """
     out = Builder(
         _name("tensor", a.operation, b.operation),
         {"target": Bits(a.width + b.width), "signal": Bits(a.signal_qubits + b.signal_qubits)},
@@ -58,6 +87,14 @@ def tensor(a: BlockEncoding, b: BlockEncoding):
 
 
 def adjoint_be(a):
+    """返回编码伴随矩阵 A† 的 BE。
+
+    Args:
+        a: 输入 block encoding。
+
+    Returns:
+        BlockEncoding: 在伴随上下文中调用原操作，alpha 保持不变。
+    """
     out = Builder(
         _name("adjoint_be", a.operation),
         {"target": Bits(a.width), "signal": Bits(a.signal_qubits)},
@@ -69,6 +106,18 @@ def adjoint_be(a):
 
 
 def lcu(terms):
+    """以 PREPARE/SELECT 结构组装若干 BE 的线性组合。
+
+    Args:
+        terms: (系数, BE) 二元组序列；零系数项被剔除。
+
+    Returns:
+        BlockEncoding: 编码 Σ c_j A_j，alpha 为 ``Σ |c_j|*alpha_j``；仅一项时退化为 ``scale``。
+
+    Raises:
+        ValidationError: 没有非零项或各项目标宽度不一致。
+
+    复系数的相位经选择器控制下的全局相位实现；signal 为选择位与各分支信号位的拼接，末尾逆制备恢复选择器。"""
     from pyqecclang.algorithms.interfaces import as_block_encoding
 
     terms = tuple((complex(c), as_block_encoding(a)) for c, a in terms if c != 0)
@@ -105,11 +154,29 @@ def lcu(terms):
 
 
 def kronecker_sum(a, b=None):
+    """构造两个 BE 的 Kronecker 和 A⊗I+I⊗B。
+
+    Args:
+        a: 第一个 BE。
+        b: 第二个 BE；省略时取 a 自身。
+
+    Returns:
+        BlockEncoding: 两个张量项的 LCU，alpha 为两者 alpha 之和。
+    """
     b = a if b is None else b
     return lcu([(1, tensor(a, identity(b.width))), (1, tensor(identity(a.width), b))])
 
 
 def projector(width, accepted):
+    """构造到指定基态子空间的投影 BE。
+
+    Args:
+        width: target 位宽。
+        accepted: 被接受的基态整数值集合；重复值会合并并排序。
+
+    Returns:
+        BlockEncoding: 零信号角块为对角投影，集合外的基态被打入 signal 分支，alpha 为 1。
+    """
     accepted = tuple(sorted(set(accepted)))
     out = Builder(_name("projector", width, accepted), {"target": Bits(width), "signal": Bits(1)})
     for value in range(1 << width):
@@ -120,12 +187,36 @@ def projector(width, accepted):
 
 
 def direct_sum(a, b):
+    """构造同宽矩阵的直和。
+
+    Args:
+        a: 选择位为 0 时生效的 BE。
+        b: 选择位为 1 时生效的 BE，宽度必须与 a 相同。
+
+    Returns:
+        BlockEncoding: 目标最高位作为选择位的块对角组合，alpha 为两者之和。
+
+    Raises:
+        ValidationError: 两个 BE 宽度不同。
+    """
     if a.width != b.width:
         raise ValidationError("当前 direct_sum 需要同宽矩阵")
     return lcu([(1, tensor(projector(1, [0]), a)), (1, tensor(projector(1, [1]), b))])
 
 
 def truncated_shift(width, last):
+    """构造截断上移位 BE。
+
+    Args:
+        width: target 位宽。
+        last: 截断阈值，范围为 1..2**width-1。
+
+    Returns:
+        BlockEncoding: 零信号角块把基态 v 映射到 v+1（v 小于 last），其余基态被打入 signal 分支，alpha 为 1。
+
+    Raises:
+        ValidationError: last 不在允许范围内。
+    """
     if not 1 <= last < 1 << width:
         raise ValidationError("截断移位范围无效")
     out = Builder(_name("shift", width, last), {"target": Bits(width), "signal": Bits(1)})
@@ -137,6 +228,17 @@ def truncated_shift(width, last):
 
 
 def pauli_word(word):
+    """把 Pauli 字符串编码为无信号位的 BE。
+
+    Args:
+        word: I/X/Y/Z 字符串，第一个字符作用在最低位。
+
+    Returns:
+        BlockEncoding: 逐位显式单量子位门序列，alpha 为 1。
+
+    Raises:
+        ValidationError: 出现 I/X/Y/Z 之外的字符。
+    """
     b = Builder("pauli_" + word, {"target": Bits(len(word)), "signal": Bits(0)})
     for bit, letter in enumerate(word):
         if letter not in "IXYZ":

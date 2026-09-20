@@ -43,4 +43,8 @@ autodoc_default_options = {"members": True, "undoc-members": True, "show-inherit
 autosummary_generate = True
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
+napoleon_use_ivar = True
+# 注解中的内建 type（如 ``tuple[type, ...]``）会与多个 ``*.type`` 属性目标产生
+# 歧义引用提示；Sphinx 仅在多个目标间做展示选择，这里抑制该类别提示。
+suppress_warnings = ["ref.python"]
 doctest_global_setup = "from pyqecclang import *"

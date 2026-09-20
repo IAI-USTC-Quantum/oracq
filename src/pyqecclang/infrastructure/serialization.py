@@ -28,9 +28,24 @@ TYPES = {
         ir.Program,
     )
 }
+"""JSON ``tag`` 到 ``ir`` 数据类的映射，``decode`` 据此还原节点类型。"""
 
 
 def encode(value):
+    """把 RIR 值编码为 JSON 兼容结构。
+
+    数据类编码为携带 ``tag`` 字段的对象，元组编码为数组，标量与 ``None``
+    原样传递。
+
+    Args:
+        value: 待编码的数据类节点、元组或标量。
+
+    Returns:
+        由 dict、list 和标量构成的 JSON 兼容结构。
+
+    Raises:
+        ValidationError: 值属于不可序列化的类型。
+    """
     if is_dataclass(value):
         return {
             "tag": type(value).__name__,
@@ -44,6 +59,17 @@ def encode(value):
 
 
 def decode(value):
+    """把 JSON 兼容结构重建为 RIR 数据类树。
+
+    Args:
+        value: ``encode`` 产生的结构；JSON 数组恢复为元组。
+
+    Returns:
+        重建的数据类节点、元组或标量。
+
+    Raises:
+        ValidationError: 遇到未知 ``tag``，或节点字段缺失、多余。
+    """
     if isinstance(value, list):
         return tuple(decode(item) for item in value)
     if isinstance(value, dict):
@@ -59,6 +85,21 @@ def decode(value):
 
 
 def dumps(program: ir.Program) -> str:
+    """把程序序列化为规范 JSON 文本。
+
+    输出按键排序、两空格缩进、末尾一个换行；模块定义按模块名排序，签名
+    参数与指令顺序保留。版本 ``0.1`` 与 ``0.2`` 的模块节点省略 ``locals``
+    字段。
+
+    Args:
+        program: 待序列化的程序。
+
+    Returns:
+        str: 规范 JSON 文本。
+
+    Raises:
+        ValidationError: 程序未通过结构或语义验证，或含不可序列化的值。
+    """
     validate(program)
     canonical = replace(program, modules=tuple(sorted(program.modules, key=lambda m: m.name)))
     data = encode(canonical)
@@ -78,6 +119,21 @@ def _unique(pairs):
 
 
 def loads(text: str) -> ir.Program:
+    """解析 JSON 文本并重建通过验证的程序。
+
+    版本 ``0.1`` 与 ``0.2`` 的模块节点自动补全空 ``locals``。解析阶段拒绝
+    重复 JSON 键与非有限数值。
+
+    Args:
+        text: ``dumps`` 产生的 JSON 文本。
+
+    Returns:
+        Program: 重建并通过语义验证的程序。
+
+    Raises:
+        ValidationError: JSON 语法或节点结构非法、根节点不是 ``Program``，
+            或验证未通过。
+    """
     try:
         data = json.loads(
             text,

@@ -139,6 +139,7 @@ class SdpInstance:
 
     @property
     def num_constraints(self):
+        """约束条数 m，即 ``constraints`` 中 (A_i, b_i) 对的数量。"""
         return len(self.constraints)
 
 

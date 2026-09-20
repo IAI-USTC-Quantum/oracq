@@ -92,10 +92,14 @@ class FokkerPlanckProblem:
 
     @property
     def size(self):
+        """网格点数，也是离散生成元矩阵的维数。"""
         return len(self.points)
 
     @property
     def width(self):
+        """网格对应的量子寄存器位数，等于 ``log2(size)``。
+
+        网格点数不是二的幂时抛出 ``ValidationError``。"""
         return _power_of_two_width(self.size, "FokkerPlanckProblem")
 
     def generator_matrix(self):

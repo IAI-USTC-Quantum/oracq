@@ -19,6 +19,18 @@ from dataclasses import dataclass
 
 
 def tensor_get(x, shape, i, j, d):
+    """读取通道在后（H×W×D）行主序扁平张量在 (i, j, d) 处的元素。
+
+    Args:
+        x: 按行主序扁平存储的张量数据。
+        shape: 形如 ``(H, W, D)`` 的形状元组。
+        i: 行坐标。
+        j: 列坐标。
+        d: 通道坐标。
+
+    Returns:
+        对应元素值，即 ``x[(i*W+j)*D+d]``。
+    """
     h, w, _ = shape
     return x[(i * w + j) * shape[2] + d]
 
@@ -44,12 +56,18 @@ class ConvSpec:
 
     @property
     def output_shape(self):
+        """有效卷积的输出形状，即 ``(H-kh+1, W-kw+1, D')``。"""
         h, w = self.input_shape[:2]
         kh, kw = self.kernel_shape[:2]
         return (h - kh + 1, w - kw + 1, self.kernel_shape[3])
 
     @property
     def pooled_shape(self):
+        """池化后的输出形状；``pool`` 为 1 时与 ``output_shape`` 相同。
+
+        Raises:
+            ValueError: 输出空间维度不能被池化窗口整除。
+        """
         if self.pool == 1:
             return self.output_shape
         h, w, d = self.output_shape
@@ -174,9 +192,11 @@ class QCNNQRAM:
             node //= 2
 
     def row(self, p):
+        """返回第 ``p`` 行的取值列表（内部存储引用，非拷贝）。"""
         return self.leaves[p]
 
     def norm(self, p):
+        """第 ``p`` 行的欧几里得范数，取平方部分和树根节点的平方根。"""
         return math.sqrt(self.trees[p][1])
 
     def update_with_pooling(self, p, r, value, kind, state=None):

@@ -217,9 +217,17 @@ class VTAAConfig:
             object.__setattr__(self, "rounds", rounds)
 
     def band_order(self, step):
+        """返回第 step 频带的 Chebyshev 逆多项式阶数。
+
+        第 1 频带取 ``order``，其后每个频带翻倍（2 的几何增长），上限 128；
+        ``step`` 小于 1 时按第 1 频带处理。"""
         return min(128, self.order * (1 << max(0, step - 1)))
 
     def band_coefficients(self, step):
+        """返回第 step 频带的截断逆多项式系数（T_{2k+1} 基）。
+
+        以 ``band_order(step)`` 为阶数、``terms`` 为截断项数（None 表示取满阶），
+        经 ``CKSConfig.coefficients`` 计算得到。"""
         return CKSConfig(self.band_order(step), self.terms).coefficients()
 
 

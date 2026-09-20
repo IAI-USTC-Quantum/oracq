@@ -25,6 +25,26 @@ from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
 def trotter_hamsim(terms, final_time, *, steps=2):
+    """一阶 Trotter 乘积公式模拟 Pauli 分解的 Hamiltonian 演化。
+
+    对 H = sum_j c_j P_j 按 exp(-i*H*t) ≈ (prod_j exp(-i*c_j*P_j*t/steps))**steps
+    合成：每个 Pauli 词经基变换与 CNOT 链折叠为末活跃位上的相位旋转后逆序复原。
+    电路主体是单个 Repeat(steps) 块，生成与序列化阶段不按步数展开；
+    全 I 的项不消耗量子比特，退化为全局相位。
+
+    Args:
+        terms: ``(系数, Pauli 词)`` 序对序列；系数为实数（经 ``float`` 转换），
+            Pauli 词为等宽的 I/X/Y/Z 字符串。
+        final_time: 总演化时间 t。
+        steps: 重复步数，至少为 1；步数越大乘积公式误差越小。
+
+    Returns:
+        Operation: 裸酉操作而非块编码；寄存器为 target（词宽度）与零宽 signal，
+            整体近似 exp(-i*H*t)。
+
+    Raises:
+        ValidationError: 项序列为空、steps 小于 1 或各 Pauli 词宽度不一致。
+    """
     terms = tuple((float(c), word) for c, word in terms)
     if not terms or steps < 1:
         raise ValidationError("Trotter 需要非空项和正步数")
@@ -88,22 +108,48 @@ def taylor_hamiltonian(hamiltonian, time, *, degree=2):
 
 @runtime_checkable
 class HermitianProtocol(Protocol):
+    """宿主声明算符厄米性的访问协议。"""
+
     @property
-    def hermitian(self) -> bool: ...
+    def hermitian(self) -> bool:
+        """是否声明为 Hermitian 算符；hamiltonian_simulation 仅接受 True。"""
+        ...
 
 
 @runtime_checkable
 class EvolvableProtocol(Protocol):
-    def evolution(self, time: float): ...
+    """宿主声明算符可给出自身酉演化的访问协议。"""
+
+    def evolution(self, time: float):
+        """按演化时长返回该算符的酉 Operation。
+
+        Trotter 路径要求返回的演化无需后选择：除 target 外公开寄存器为零宽。
+        """
+        ...
 
 
 @runtime_checkable
 class TrotterizableProtocol(Protocol):
-    def trotter_list(self): ...
+    """宿主声明算符可分解为 Trotter 项列表的访问协议。"""
+
+    def trotter_list(self):
+        """返回构成 Hamiltonian 的 TrotterTerm 序列；hamiltonian_simulation 要求非空。"""
+        ...
 
 
 @dataclass(frozen=True)
 class TrotterTerm:
+    """乘积公式的单个 Hamiltonian 项：实系数与可演化算符的组合。
+
+    Attributes:
+        coefficient: 项的实系数；Trotter 路径以 ``coefficient * time / steps``
+            为时长调用 ``operator.evolution``。
+        operator: 满足 EvolvableProtocol 的算符。
+
+    Raises:
+        ValidationError: coefficient 非有限实数，或 operator 不满足 EvolvableProtocol。
+    """
+
     coefficient: float
     operator: object
 
@@ -114,6 +160,16 @@ class TrotterTerm:
 
 @dataclass(frozen=True)
 class PauliOperator:
+    """单个 Pauli 词算符；满足 HermitianProtocol 与 EvolvableProtocol。
+
+    Attributes:
+        word: 非空的 I/X/Y/Z 字符串，宽度不超过 64。
+        hermitian: 恒为 True；即 HermitianProtocol 声明。
+
+    Raises:
+        ValidationError: word 不是非空 I/X/Y/Z 字符串，或宽度超过 64。
+    """
+
     word: str
     hermitian = True
 
@@ -127,15 +183,27 @@ class PauliOperator:
         positive_integer(len(self.word), "PauliOperator.width", maximum=64)
 
     def block_encoding(self):
+        """返回该 Pauli 词的 alpha=1.0 块编码：逐位单量子比特门加零宽 signal。"""
         return pauli_word(self.word)
 
     def evolution(self, time):
+        """返回 ``exp(-1j*word*time)`` 的精确酉演化（单项单步，无乘积公式误差）。"""
         finite_real(time, "PauliOperator.time")
         return trotter_hamsim(((1.0, self.word),), time, steps=1)
 
 
 @dataclass(frozen=True)
 class PauliHamiltonian:
+    """等宽 Pauli 词的实系数线性组合；支持块编码与 Trotter 分解两种访问。
+
+    Attributes:
+        terms: ``(系数, Pauli 词)`` 序对的元组；系数为有限实数，所有词等宽。
+        hermitian: 恒为 True；即 HermitianProtocol 声明。
+
+    Raises:
+        ValidationError: 项列表为空、系数非有限实数、Pauli 词非法或宽度不一致。
+    """
+
     terms: tuple[tuple[float, str], ...]
     hermitian = True
 
@@ -150,12 +218,14 @@ class PauliHamiltonian:
             raise ValidationError("Pauli 项宽度不一致")
 
     def block_encoding(self):
+        """返回非零系数项的 LCU 块编码；无非零项时退化为零算子块编码。"""
         from pyqecclang.algorithms.operators import zero
 
         terms = [(c, pauli_word(w)) for c, w in self.terms if c]
         return lcu(terms) if terms else zero(len(self.terms[0][1]))
 
     def trotter_list(self):
+        """把每个 ``(系数, 词)`` 包装为 TrotterTerm 元组返回。"""
         return tuple(TrotterTerm(c, PauliOperator(w)) for c, w in self.terms)
 
 
@@ -172,6 +242,7 @@ class EncodedOperator:
             raise ValidationError("hermitian 需要 bool 声明")
 
     def block_encoding(self):
+        """返回构造时携带的块编码。"""
         return self.encoding
 
 

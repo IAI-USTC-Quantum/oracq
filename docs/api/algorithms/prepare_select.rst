@@ -1,5 +1,5 @@
 PREPARE-SELECT 分解
-======================
+==================================
 
 ``pyqecclang.algorithms.prepare_select``
 

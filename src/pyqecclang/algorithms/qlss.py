@@ -45,6 +45,14 @@ from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 @dataclass(frozen=True)
 class SpectralPromise:
+    """调用者声明的矩阵谱界；语言侧不核验声明的真伪。
+
+    Attributes:
+        norm_upper: 矩阵范数的上界声明。
+        sigma_min_lower: 最小奇异值的下界声明；须为正且不超过 norm_upper。
+        evidence: 声明来源标记；缺省表示未经核验的调用者声明。
+    """
+
     norm_upper: float
     sigma_min_lower: float
     evidence: str = "caller_declared_unverified"
@@ -56,6 +64,17 @@ class SpectralPromise:
             raise ValidationError("需要有限正的范数上界及最小奇异值下界")
 
     def inverse_bound(self, alpha):
+        """由声明的奇异值下界推导编码逆算子的谱界上界。
+
+        Args:
+            alpha: 实际消费的块编码归一化因子。
+
+        Returns:
+            float: ``max(1, alpha / sigma_min_lower)``。
+
+        Raises:
+            ValidationError: ``alpha`` 小于声明的奇异值下界。
+        """
         if alpha < self.sigma_min_lower:
             raise ValidationError("BE alpha 与奇异值下界声明冲突")
         return max(1.0, alpha / self.sigma_min_lower)
@@ -93,6 +112,14 @@ class SparseSystem:
 
 @dataclass(frozen=True)
 class BlockSystem:
+    """块编码输入模型下的线性问题。
+
+    Attributes:
+        encoding: 矩阵 A 的 ``BlockEncoding``。
+        rhs: 右端 b 的 ``StatePreparation``，宽度与 encoding 相同。
+        spectrum: 调用者声明的谱界。
+    """
+
     encoding: BlockEncoding
     rhs: StatePreparation
     spectrum: SpectralPromise
@@ -107,11 +134,23 @@ class BlockSystem:
 
     @property
     def inverse_norm_bound(self):
+        """编码矩阵 A/alpha 的逆谱界 ``max(1, alpha / sigma_min_lower)``。"""
         return self.spectrum.inverse_bound(self.encoding.alpha)
 
 
 @dataclass(frozen=True)
 class LinearSystem:
+    """问题层线性系统：二选一的源输入模型加读出与范数声明。
+
+    Attributes:
+        sparse: 稀疏源输入模型；与 block 恰好二选一。
+        block: 块编码源输入模型；与 sparse 恰好二选一。
+        physical_width: 物理解占用的 target 低位宽度；省略时视为全宽。
+        physical_high_value: 选取物理子空间时被丢弃高位必须等于的整数值。
+        rhs_norm: 经典右端范数；提供后才能恢复解的物理幅值。
+        data_assumptions: 随求解结果记录的数据假设。
+    """
+
     sparse: SparseSystem | None = None
     block: BlockSystem | None = None
     physical_width: int | None = None
@@ -141,6 +180,14 @@ class LinearSystem:
             raise ValidationError("右端范数声明无效")
 
     def block_input(self):
+        """把源输入归一为 ``BlockSystem`` 并给出适配轨迹。
+
+        Returns:
+            tuple[BlockSystem, tuple[str, ...]]: 块编码问题与逐步适配说明。
+
+        Raises:
+            ValidationError: 稀疏源缺少 Hermitian 声明，无法做 CKS 稀疏适配。
+        """
         if self.block is not None:
             return self.block, ("block input supplied",)
         from pyqecclang.algorithms.sparse import real_symmetric_sparse_encoding
@@ -161,6 +208,18 @@ class LinearSystem:
 
 @dataclass(frozen=True)
 class SolveResult:
+    """协议求解输出：物理子空间解态、独立范数探针与溯源信息。
+
+    Attributes:
+        state: 选取物理子空间后的解态 oracle。
+        norm_probe: 求解与矩阵探针联合成功分支上的范数探针 oracle。
+        input_alpha: 求解实际消费的块编码归一化因子。
+        encoded_inverse_bound: 编码逆算子的谱界上界。
+        rhs_norm: 经典右端范数；缺失时不能恢复解的物理幅值。
+        adapter_trace: 从源输入到内核的适配步骤记录。
+        kernel_status: 内核成熟度声明。
+    """
+
     state: StateOracle
     norm_probe: StateOracle
     input_alpha: float
@@ -170,13 +229,28 @@ class SolveResult:
     kernel_status: str = "prototype; solver accuracy pending"
 
     def state_oracle(self):
+        """返回物理子空间解态的 ``StateOracle``。"""
         return self.state
 
     @property
     def operation(self):
+        """解态对应的 RIR ``Operation``。"""
         return self.state.operation
 
     def recover_norm(self, solver_success, joint_matrix_success):
+        """由两次成功概率恢复解向量的范数。
+
+        Args:
+            solver_success: 求解探针单独的成功概率。
+            joint_matrix_success: 求解与矩阵探针联合的成功概率。
+
+        Returns:
+            float: 右端范数除以 ``input_alpha`` 与联合/单独成功概率之比的
+            平方根的乘积。
+
+        Raises:
+            ValidationError: 缺少经典右端范数，或概率取值与次序无效。
+        """
         if self.rhs_norm is None:
             raise ValidationError("缺少经典右端范数，不能恢复物理更新幅值")
         if not 0 < joint_matrix_success <= solver_success <= 1:
@@ -186,6 +260,15 @@ class SolveResult:
 
 @dataclass(frozen=True)
 class QLSSProtocol:
+    """量子线性系统协议：契约校验、内核分派与可组合结果的组装。
+
+    Attributes:
+        name: 协议名称。
+        input_model: 源输入模型，``sparse`` 或 ``block_encoding``。
+        kernel: 求解内核；接收源输入模型并返回 ``StateOracle``。
+        legacy: 可选的两参数旧式入口；省略时不支持该调用形状。
+    """
+
     provides = (StateOracleProtocol,)
     name: str
     input_model: str
@@ -200,6 +283,11 @@ class QLSSProtocol:
 
     @property
     def contract(self):
+        """按输入模型给出 A 与 b 的 ``ProtocolContract``。
+
+        稀疏模型只接受稀疏 oracle；块编码模型同时接受块编码与稀疏接口。
+        A 与 b 必须同宽，谱界与矩阵解释由调用者声明。
+        """
         types = (
             (CKSSparseProtocol,)
             if self.input_model == "sparse"
@@ -298,6 +386,20 @@ class QLSSProtocol:
         raise ValidationError("QLSS protocol 需要 LinearSystem；不能根据调用形状猜测输入模型")
 
     def solve(self, problem):
+        """求解 ``LinearSystem`` 并组装 ``SolveResult``。
+
+        先运行契约检查，再按 input_model 把源输入交给内核，随后选取物理
+        子空间、写入协议溯源属性并组装独立矩阵范数探针。
+
+        Args:
+            problem: 待求解的线性系统。
+
+        Returns:
+            SolveResult: 解态、范数探针与溯源信息。
+
+        Raises:
+            ValidationError: 契约不满足、右端为零、内核输出不合格或宽度不匹配。
+        """
         self.check(problem).require()
         if problem.rhs_norm == 0:
             raise ValidationError("零右端应在经典侧返回零更新，不存在归一化 RHS 态")
@@ -414,6 +516,15 @@ class CostaConfig:
 
 @dataclass(frozen=True)
 class FilterPlan:
+    """行走幂上 Laurent 多项式 filter 的 LCU 描述。
+
+    Attributes:
+        weights: 各行走幂的 LCU 权重。
+        stride: 相邻项的幂次间距，至少为 1。
+        offset: 起始幂次；为负时经 adjoint 实现逆幂。
+        method: 构造方法标记。
+    """
+
     weights: tuple[float, ...]
     stride: int = 1
     offset: int = 0
@@ -443,6 +554,19 @@ def dolph_chebyshev_plan(degree=2, attenuation=0.2):
 
 
 def schedule(s, kappa, power=1.5):
+    """计算 Costa 插值调度在调度点 s 处的取值。
+
+    Args:
+        s: 调度点，介于 0 与 1 之间。
+        kappa: 编码矩阵的逆谱界，至少为 1。
+        power: 调度幂指数，不能等于 1。
+
+    Returns:
+        float: 插值参数 f(s)；kappa 为 1 时退化为 s。
+
+    Raises:
+        ValidationError: kappa 小于 1、power 等于 1 或 s 越界。
+    """
     if kappa < 1 or power == 1 or not 0 <= s <= 1:
         raise ValidationError("Costa 调度参数无效")
     if kappa == 1:
@@ -451,6 +575,23 @@ def schedule(s, kappa, power=1.5):
 
 
 def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float):
+    """组装 Costa 参数化量子行走的单步算子。
+
+    依次搭建 RHS 零态反射、调度旋转与受控的正逆块编码调用，末尾对全部
+    信号位做正反射。
+
+    Args:
+        a: 矩阵 A 的块编码。
+        bprep: 右端 b 的态制备，宽度与 a 相同。
+        fs: 调度点上的插值参数，介于 0 与 1 之间。
+
+    Returns:
+        Operation: target/signal 接口的行走算子；signal 依次为 BE 信号位、
+        RHS 工作位与四位行走辅助位。
+
+    Raises:
+        ValidationError: 输入契约不满足、宽度不匹配或调度点越界。
+    """
     operator_state_contract("costa_walk", matrix="A", state="b").check(A=a, b=bprep).require()
     finite_real(fs, "costa_walk.fs", minimum=0)
     a, bprep = as_block_encoding(a), as_state_preparation(bprep)
@@ -531,6 +672,18 @@ def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float):
 
 
 def unary_weight_preparation(weights):
+    """按 unary 前缀链制备 LCU 权重叠加态。
+
+    Args:
+        weights: 权重序列；各项非负、总和为正且至少两项。
+
+    Returns:
+        Operation: target 寄存器上的零输入态制备；前 k 位为一、其余为零的
+        前缀态，其概率与 ``weights[k]`` 成正比。
+
+    Raises:
+        ValidationError: 权重为空、含负数或非有限值、总和为零或不足两项。
+    """
     weights = tuple(float(v) for v in weights)
     if not weights or any(not math.isfinite(v) or v < 0 for v in weights) or sum(weights) <= 0:
         raise ValidationError("unary PREP 需要非负、非零总和的权重")
@@ -551,6 +704,21 @@ def unary_weight_preparation(weights):
 
 
 def lcu_filter(walk, plan: FilterPlan):
+    """在行走幂上相干叠加出 Laurent 多项式 filter。
+
+    权重 ``plan.weights[k]`` 作用在行走幂 ``plan.offset + k * plan.stride``
+    上；负幂经行走算子的 adjoint 实现。
+
+    Args:
+        walk: 仅含 target/signal 接口的行走算子。
+        plan: 多项式的权重与幂次配置。
+
+    Returns:
+        Operation: target/signal 接口；signal 在 walk 信号位之外追加 clock 位。
+
+    Raises:
+        ValidationError: walk 寄存器接口不符或 filter 幂配置无效。
+    """
     widths = {r.name: r.type.width for r in walk.module.registers}
     if set(widths) != {"target", "signal"}:
         raise ValidationError("filtering 接收 target/signal walk 接口")
@@ -592,6 +760,20 @@ def lcu_filter(walk, plan: FilterPlan):
 
 
 def costa_qlss(a: BlockEncoding, bprep: StatePreparation, config=None, *, filtering=None):
+    """Costa 行走求解内核：制备 RHS、串联各调度点行走并施加 filter。
+
+    Args:
+        a: 矩阵 A 的块编码。
+        bprep: 右端 b 的态制备，宽度与 a 相同。
+        config: 行走调度与 filter 的配置；省略时取 ``CostaConfig`` 缺省值。
+        filtering: 显式 filter 方案；省略时按配置生成 Dolph–Chebyshev 方案。
+
+    Returns:
+        StateOracle: 求解电路；成功条件为 signal 全零，概率与精度未核验。
+
+    Raises:
+        ValidationError: steps 非正整数或底层构件校验失败。
+    """
     a, bprep = as_block_encoding(a), as_state_preparation(bprep)
     config = CostaConfig() if config is None else config
     if type(config.steps) is not int or config.steps < 1:
@@ -648,6 +830,13 @@ def make_costa_qlss(config=None):
 
 @dataclass(frozen=True)
 class CKSConfig:
+    """CKS 基础 Chebyshev 逆算子展开的截断配置。
+
+    Attributes:
+        order: Chebyshev 展开的阶数，范围为 1..128。
+        terms: 实际保留的截断项数；省略时取 order。
+    """
+
     order: int = 2
     terms: int | None = None
 
@@ -657,6 +846,15 @@ class CKSConfig:
             positive_integer(self.terms, "CKSConfig.terms", maximum=self.order)
 
     def coefficients(self):
+        """计算 1/x 截断 Chebyshev 展开的 LCU 权重。
+
+        Returns:
+            tuple[float, ...]: 截断后的系数序列；第 j 项配对奇次幂
+            ``T_(2j+1)``。
+
+        Raises:
+            ValidationError: order 超出 1..128 或截断项数无效。
+        """
         if type(self.order) is not int or not 1 <= self.order <= 128:
             raise ValidationError("CKS 基础原型的 order 范围为 1..128")
         terms = self.order if self.terms is None else self.terms
@@ -672,6 +870,21 @@ class CKSConfig:
 
 
 def cks_chebyshev(system, config=None):
+    """CKS 基础 Chebyshev 求解内核，接收稀疏 Hermitian 输入模型。
+
+    把 1/x 的截断 Chebyshev 展开作用到稀疏块编码上，再将逆算子 LCU
+    作用到 RHS 制备。
+
+    Args:
+        system: ``SparseSystem`` 描述的稀疏 Hermitian 线性系统。
+        config: 展开阶数与截断配置；省略时取 ``CKSConfig`` 缺省值。
+
+    Returns:
+        StateOracle: 求解电路；仅含基础 LCU、无 VTAA，精度为原型声明。
+
+    Raises:
+        ValidationError: 输入缺少 Hermitian 声明。
+    """
     config = config or CKSConfig()
     if not system.hermitian:
         raise ValidationError("CKS 稀疏输入需要 Hermitian 声明或显式 Hermitian dilation")
@@ -704,6 +917,14 @@ def cks_chebyshev(system, config=None):
 
 
 def make_cks_qlss(config=None):
+    """构造稀疏输入的 CKS 求解协议。
+
+    Args:
+        config: 传给内核的 ``CKSConfig``；省略时取缺省值。
+
+    Returns:
+        QLSSProtocol: input_model 为 ``sparse`` 的求解协议。
+    """
     config = CKSConfig() if config is None else config
     require_instance(config, CKSConfig, "make_cks_qlss.config")
     return QLSSProtocol(

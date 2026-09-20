@@ -101,6 +101,7 @@ class QVector:
 
     @property
     def norm(self):
+        """向量的欧几里得范数：平方范数树根节点开方（按定点解码值计算）。"""
         return math.sqrt(self.tree[1])
 
     def amplitudes(self):
@@ -111,6 +112,15 @@ class QVector:
         return [self._decoded(i) / norm for i in range(1 << self.width)]
 
     def snapshot(self, *, signed=False):
+        """导出 QRAM bank 内容快照，供 ``simulate`` 等按名绑定数据。
+
+        Args:
+            signed: 为 True 时附带符号 bank，只含负分量的条目。
+
+        Returns:
+            dict: 键为 ``{name}_angles``（地址为树节点编号减一），
+            以及可选的 ``{name}_sign``。
+        """
         banks = {f"{self.name}_angles": dict(self.angles)}
         if signed:
             banks[f"{self.name}_sign"] = self.signs()
@@ -212,9 +222,11 @@ class QMatrix:
 
     @property
     def frobenius(self):
+        """矩阵的 Frobenius 范数：根树根节点开方，即全部条目平方和的平方根。"""
         return math.sqrt(self.root_tree[1])
 
     def row_norm(self, index):
+        """返回第 ``index`` 行的欧几里得范数（行树根节点开方）。"""
         return math.sqrt(self.row_trees[index][1])
 
     def row_amplitudes(self, index):
@@ -227,6 +239,12 @@ class QMatrix:
         return [math.sqrt(self.row_trees[i][1] / total) for i in range(1 << self.rows)]
 
     def snapshot(self):
+        """导出条目 bank 与行/根角度 bank 的内容快照。
+
+        Returns:
+            dict: 键为 ``entries``（行主序扁平地址到定点字）、
+            ``row_angles`` 与 ``root_angles``。
+        """
         return {
             "entries": {
                 i * (1 << self.cols) + j: self.words[i][j]

@@ -21,33 +21,76 @@ from pyqecclang.infrastructure.ir import (
 )
 
 KINDS = {"bits", "uint", "sint", "rational"}
+"""寄存器类型允许的种类集合。"""
 UNARY = {"h", "x", "y", "z", "s", "t", "rx", "ry", "rz", "phase"}
+"""允许的一元量子基元操作名集合。"""
 ROTATIONS = {"rx", "ry", "rz", "phase"}
+"""带角度参数的旋转类基元名集合，是 ``UNARY`` 的子集。"""
 BINARY = {"xor", "swap"}
+"""允许的二元量子基元操作名集合。"""
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+"""合法标识符的正则模式：以字母或下划线开头，后随字母、数字或下划线。"""
 
 
 def require(condition, message):
+    """断言结构检查条件成立，否则抛出 ``ValidationError``。
+
+    Args:
+        condition: 按布尔语义解释的检查结果。
+        message: 失败时写入异常的错误说明。
+
+    Raises:
+        ValidationError: ``condition`` 为假。
+    """
     if not condition:
         raise ValidationError(message)
 
 
 def integer(value, lo, hi, message):
+    """断言 ``value`` 是位于闭区间 ``lo..hi`` 内的整数。
+
+    Args:
+        value: 待检查的数值。
+        lo: 允许的最小值（含端点）。
+        hi: 允许的最大值（含端点）。
+        message: 失败时写入异常的错误说明。
+
+    Raises:
+        ValidationError: ``value`` 不是 ``int`` 或越出区间。
+    """
     require(type(value) is int and lo <= value <= hi, message)
 
 
 def name(value):
+    """断言 ``value`` 是匹配 ``IDENTIFIER`` 模式的合法标识符字符串。
+
+    Raises:
+        ValidationError: ``value`` 不是字符串或包含非法字符。
+    """
     require(
         isinstance(value, str) and IDENTIFIER.fullmatch(value) is not None, f"非法标识符：{value!r}"
     )
 
 
 def reg_type(dtype: RegType):
+    """断言 ``dtype`` 是种类已知、宽度为 0..64 的寄存器类型。
+
+    Raises:
+        ValidationError: ``dtype`` 不是 ``RegType``、种类未知或宽度越界。
+    """
     require(isinstance(dtype, RegType) and dtype.kind in KINDS, "未知寄存器类型")
     integer(dtype.width, 0, 64, "每个寄存器或视图的宽度必须为 0..64")
 
 
 def locations(ref: Ref):
+    """展开视图引用覆盖的全部量子位坐标。
+
+    Args:
+        ref: 待展开的寄存器视图。
+
+    Returns:
+        tuple: ``(寄存器名, 位序号)`` 二元组按视图分段顺序组成的元组。
+    """
     return tuple((s.register, bit) for s in ref.parts for bit in range(s.start, s.start + s.width))
 
 
@@ -253,6 +296,24 @@ def _validate(program: Program) -> Program:
 
 
 def validate(program: Program, *, require_closed: bool = False) -> Program:
+    """对 RIR 程序执行完整结构验证并原样返回。
+
+    覆盖模块签名与属性、寄存器和视图规则、基元元数与别名约束、
+    控制寄存器保护、QRAM 资源匹配、无环调用图等跨节点规则，并检查
+    控制或伴随语境下调用的模块具备相应能力；规则与
+    docs/reference/rir.md 保持一致。
+
+    Args:
+        program: 待验证的 ``Program``。
+        require_closed: 为真时还要求程序不含未绑定的开放 oracle 声明。
+
+    Returns:
+        Program: 通过验证的同一 ``program`` 对象。
+
+    Raises:
+        ValidationError: 程序违反结构或语义约束；或捕获到表明输入不是
+            合法 RIR 对象的标准异常。
+    """
     try:
         result = _validate(program)
         if require_closed:

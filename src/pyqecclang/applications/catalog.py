@@ -64,6 +64,18 @@ from pyqecclang.infrastructure.readout import ReadoutAction
 
 @dataclass(frozen=True)
 class Case:
+    """一条范式参考案例：开放程序、实现绑定与宿主内存数据。
+
+    Attributes:
+        name: 案例名，为 ``CASES`` 中的条目之一。
+        program: 案例的 ``Program``，抽象槽位待 ``bindings`` 填充。
+        bindings: 槽位名到 ``Binding`` 或 ``Operation`` 的映射；未列出的槽位保持开放。
+        memory: QRAM 案例的宿主侧内存表，键为绑定资源映射所引用的名字。
+        source: 出处标识元组（语言规范、规格测试或参考负载条目）。
+        notes: 案例适用范围的限定说明元组。
+        readout: 导出后按序执行的末端 ``ReadoutAction`` 读出动作元组。
+    """
+
     name: str
     program: Program
     bindings: dict = field(default_factory=dict)
@@ -73,9 +85,16 @@ class Case:
     readout: tuple[ReadoutAction, ...] = ()
 
     def closed(self):
+        """按 ``bindings`` 绑定 ``program`` 的开放槽位，返回闭合后的 ``Program``。"""
         return bind(self.program, self.bindings)
 
     def artifact(self):
+        """导出闭合程序的 OriginIR 产物。
+
+        Returns:
+            OriginIRArtifact: ``closed()`` 结果的 OriginIR 导出产物。
+
+        OriginIR 导出器在本方法内延迟导入，核心代码不因此引入后端依赖。"""
         from pyqecclang.infrastructure.backends import export_originir
 
         return export_originir(self.closed())
@@ -116,6 +135,13 @@ CASES = (
     "register_views",
     "measure_reset",
 )
+"""``build_case`` 接受的全部案例名。
+
+命名约定：多数案例以应用家族为前缀（如 ``dj_``、``grover_``、``qham_``）；
+``_gate`` 后缀表示固定门级实现，``_qram`` 后缀表示绑定 QRAM 数据库并
+携带宿主内存表的实现，``_qode``/``_qpde`` 后缀区分求解器封装层级；
+其余无后缀的名字是原语或单一算法的演示案例。
+"""
 
 
 def _sparse_case(name):
@@ -234,6 +260,19 @@ def _qham_case(name):
 
 
 def build_case(name):
+    """按名称构建一条范式参考案例。
+
+    全部案例由固定常量生成，可重复构造；QRAM 案例同时给出宿主内存表。
+
+    Args:
+        name: 案例名，必须是 ``CASES`` 中的条目。
+
+    Returns:
+        Case: 对应的案例，含实现绑定、内存数据与读出动作（如适用）。
+
+    Raises:
+        KeyError: 案例名不在 ``CASES`` 中。
+    """
     if name not in CASES:
         raise KeyError(name)
     if name in {"bell", "ghz"}:

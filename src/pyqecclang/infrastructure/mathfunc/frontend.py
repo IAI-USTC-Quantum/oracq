@@ -41,28 +41,64 @@ ELEMENTARY = {
     "polar",
     "rect",
 }
+"""可编译为 intrinsic 节点的初等数学函数名集合；phase、polar、rect 仅限 cmath。"""
 REAL_EXTRA = {"atan2", "hypot"}
+"""仅实数域支持的补充二元数学函数名集合。"""
 BUILTINS = {"abs", "complex", "min", "max"}
+"""允许按名字直接调用的 Python 内建函数名集合。"""
 KINDS = {"float": "real", "complex": "complex", "bool": "bool", "int": "real"}
+"""Python 注解/类型名到 MIR 值类型的映射；未注解参数按 float 处理。"""
 
 
 class FunctionCompileError(ValidationError):
-    pass
+    """数学函数前端在解析或编译受限 Python 源码失败时抛出的异常。"""
 
 
 @dataclass(frozen=True)
 class Value:
+    """编译期 SSA 值：节点编号与其值类型的配对。
+
+    Attributes:
+        id: 该值对应节点在当前函数节点序列中的位置。
+        kind: 值类型，为 real、complex 或 bool。
+    """
+
     id: int
     kind: str
 
 
 @dataclass
 class Source:
+    """待编译函数的定位记录：AST 定义及其求值命名空间。
+
+    Attributes:
+        tree: 函数的 ``ast.FunctionDef`` 定义节点。
+        namespace: 解析名字引用时使用的全局与闭包变量映射。
+    """
+
     tree: object
     namespace: dict
 
 
 class Frontend:
+    """把受限 Python 纯函数源码编译为 MIR 数学函数图。
+
+    读取并解释普通 Python 函数的 AST，不执行待编译函数。源码字符串中除
+    入口外的其余 def 作为纯 helper 保留为独立 MIR 函数，调用以 call 节点
+    表示，不在编译期展开。
+
+    Args:
+        source: 普通 Python 函数对象，或含若干 def 与 math/cmath 导入的源码字符串。
+        inputs: 参数名到 real/complex/bool 或 ``Index(width)`` 的映射；省略时按注解推导。
+        constants: 参数名到有限数值的映射，作为生成期常量绑定。
+        helpers: 追加到入口命名空间的辅助函数。
+        max_unroll: 静态 range 循环允许展开的最大迭代数。
+        entry: 源码字符串形式下的入口函数名；省略时使用最后一个 def。
+
+    Raises:
+        FunctionCompileError: 源码有语法错误、包含不支持的语句或没有可用函数定义。
+    """
+
     def __init__(
         self, source, *, inputs=None, constants=None, helpers=None, max_unroll=128, entry=None
     ):
@@ -104,6 +140,20 @@ class Frontend:
         self.entry = self.compile(entry, inputs, constants or {})
 
     def source(self, function):
+        """把函数对象或 Source 归一化为定位记录。
+
+        读取 ``function`` 的源码并唯一定位同名 def，结合其全局变量与
+        闭包变量构成求值命名空间。
+
+        Args:
+            function: 普通 Python 函数对象，或已构造的 Source。
+
+        Returns:
+            Source: 可交给 compile 的定位记录。
+
+        Raises:
+            FunctionCompileError: 输入不是可读源码的普通函数、源码不可用或定义无法唯一定位。
+        """
         if isinstance(function, Source):
             return function
         if not inspect.isfunction(function):
@@ -124,6 +174,15 @@ class Frontend:
 
     @staticmethod
     def imports(stmt, namespace):
+        """处理一条 math/cmath 导入语句并写入命名空间。
+
+        Args:
+            stmt: ``ast.Import`` 或 ``ast.ImportFrom`` 节点。
+            namespace: 接收导入名字的映射。
+
+        Raises:
+            FunctionCompileError: 导入目标不是 math/cmath，或导入了不支持的数学名字。
+        """
         if isinstance(stmt, ast.Import):
             for alias in stmt.names:
                 if alias.name not in {"math", "cmath"}:
@@ -139,9 +198,34 @@ class Frontend:
                 namespace[alias.asname or alias.name] = getattr(module, alias.name)
 
     def fail(self, node, message):
+        """抛出带源码位置的错误。
+
+        Args:
+            node: 出错位置对应的 AST 节点；无位置信息时以问号代替行号。
+            message: 错误说明。
+
+        Raises:
+            FunctionCompileError: 总是抛出，消息带当前函数标签与行号前缀。
+        """
         raise FunctionCompileError(f"{self.label}:{getattr(node, 'lineno', '?')}：{message}")
 
     def compile(self, source, inputs=None, constants=None):
+        """编译一个函数定义为 MIR 并返回其符号名。
+
+        推导动态输入类型，把函数体解释为 SSA 节点序列，并按 AST、输入、
+        常量与捕获数值缓存重复编译；符号名由函数图内容的哈希得到。
+
+        Args:
+            source: Python 函数对象、Source 或源码字符串。
+            inputs: 参数名到类型的映射；为 None 时按注解推导，未注解默认 real。
+            constants: 参数名到有限数值的映射，绑定为生成期常量。
+
+        Returns:
+            str: 已登记到 ``self.functions`` 的函数符号名。
+
+        Raises:
+            FunctionCompileError: 参数声明、语句或表达式超出受限子集，或检测到递归 helper。
+        """
         source = self.source(source)
         constants = constants or {}
         tree = source.tree
@@ -237,6 +321,19 @@ class Frontend:
         return symbol
 
     def node(self, op, kind, args=(), data=()):
+        """构造（或复用）一个 SSA 节点并返回其值。
+
+        操作、类型、输入与 data 都相同的节点在当前函数内只保留一份。
+
+        Args:
+            op: 节点操作名，如 add、select 或 intrinsic。
+            kind: 结果值类型 real/complex/bool。
+            args: 操作数 Value 列表。
+            data: 附着于节点的额外数据，如常量数值或 intrinsic 名。
+
+        Returns:
+            Value: 指向该节点的编译期值。
+        """
         values = tuple(v.id for v in args)
         key = MathNode(op, kind, values, tuple(data))
         if key not in self.intern:
@@ -245,6 +342,18 @@ class Frontend:
         return Value(self.intern[key], kind)
 
     def constant(self, value, node):
+        """把一个有限数值固化为 const 节点。
+
+        Args:
+            value: bool、int、float 或 complex 常量。
+            node: 报错时定位用的 AST 节点。
+
+        Returns:
+            Value: 与常量类型一致的常量值。
+
+        Raises:
+            FunctionCompileError: 数值类型不受支持，或为 NaN/Inf 等非有限值。
+        """
         if type(value) not in (bool, int, float, complex):
             self.fail(node, "只允许有限数值常量")
         if not (math.isfinite(value.real) and math.isfinite(value.imag)):
@@ -255,12 +364,41 @@ class Frontend:
         )
 
     def literal(self, value, node):
+        """取出编译期常量节点承载的 Python 数值。
+
+        Args:
+            value: 应为 const 节点的 Value。
+            node: 报错时定位用的 AST 节点。
+
+        Returns:
+            该常量的原始 Python 数值；复数以 complex 表示。
+
+        Raises:
+            FunctionCompileError: 该值不是常量节点。
+        """
         if isinstance(value, Value) and self.nodes[value.id].op == "const":
             data = self.nodes[value.id].data
             return complex(*data) if value.kind == "complex" else data[0]
         self.fail(node, "这里需要生成期数值常量")
 
     def binary(self, op, a, b, node):
+        """构造二元运算节点并推导结果类型。
+
+        算术在 real/complex 间按提升规则定型，比较与布尔运算产出 bool；
+        两侧均为常量时在生成期直接求值并折叠为一个常量节点。
+
+        Args:
+            op: 运算名，如 add、sub、mul、div、pow、lt、eq、and、or。
+            a: 左操作数 Value。
+            b: 右操作数 Value。
+            node: 报错时定位用的 AST 节点。
+
+        Returns:
+            Value: 运算结果值。
+
+        Raises:
+            FunctionCompileError: 操作数不是标量、类型组合非法或常量折叠遇到无定义运算。
+        """
         if not isinstance(a, Value) or not isinstance(b, Value):
             self.fail(node, "算术只接收标量")
         if op in {"and", "or"}:
@@ -295,6 +433,22 @@ class Frontend:
         return self.node(op, kind, (a, b))
 
     def choose(self, test, yes, no, node):
+        """构造按布尔条件选择分支值的 select 节点。
+
+        分支为 tuple 时逐元素选择；real 与 complex 分支按提升规则统一类型。
+
+        Args:
+            test: bool 类型的条件值。
+            yes: 条件为真时的值或值的 tuple。
+            no: 条件为假时的值或值的 tuple。
+            node: 报错时定位用的 AST 节点。
+
+        Returns:
+            Value 或 tuple: 选择结果，形状与分支一致。
+
+        Raises:
+            FunctionCompileError: 条件不是布尔，或两分支结构与类型不一致。
+        """
         if not isinstance(test, Value) or test.kind != "bool":
             self.fail(node, "量子条件必须是布尔表达式")
         if isinstance(yes, tuple) and isinstance(no, tuple) and len(yes) == len(no):
@@ -310,6 +464,21 @@ class Frontend:
         return self.node("select", kind, (test, yes, no))
 
     def expr(self, node, env):
+        """把一个表达式 AST 解释为编译期值。
+
+        支持常量、名字、tuple/list、生成期 tuple 下标、math/cmath 常数
+        属性、算术、比较、布尔短路、条件表达式与函数调用。
+
+        Args:
+            node: 表达式 AST 节点。
+            env: 局部名字到 Value 或其 tuple 的映射。
+
+        Returns:
+            Value 或 tuple: 表达式的值；tuple/list 表达式产出 Value 的 tuple。
+
+        Raises:
+            FunctionCompileError: 表达式超出受限子集。
+        """
         if isinstance(node, ast.Constant):
             return self.constant(node.value, node)
         if isinstance(node, ast.Name):
@@ -413,6 +582,22 @@ class Frontend:
         self.fail(node, "未支持的表达式：" + type(node).__name__)
 
     def call(self, node, env):
+        """解释函数调用表达式。
+
+        处理 ``conjugate`` 方法、具名纯 helper 调用、白名单内建
+        complex/abs/min/max，以及 math/cmath 数学 intrinsic；helper 调用
+        保留为 call 节点，不在编译期展开。
+
+        Args:
+            node: ``ast.Call`` 节点。
+            env: 局部名字到值的映射。
+
+        Returns:
+            Value 或 tuple: 调用结果；多返回 helper 为 Value 的 tuple。
+
+        Raises:
+            FunctionCompileError: 调用目标、参数数目/类型或关键字用法不受支持。
+        """
         if (
             isinstance(node.func, ast.Attribute)
             and node.func.attr == "conjugate"
@@ -504,6 +689,18 @@ class Frontend:
         return self.node("intrinsic", kind, args, (symbol,))
 
     def assign(self, target, value, env):
+        """把一个值绑定到赋值目标。
+
+        支持单个局部名字与 tuple/list 解包，禁止属性等突变目标。
+
+        Args:
+            target: 赋值目标 AST 节点。
+            value: 待绑定的 Value 或其 tuple。
+            env: 待更新的局部名字映射。
+
+        Raises:
+            FunctionCompileError: 目标不是局部名字，或解包结构不匹配。
+        """
         if isinstance(target, ast.Name):
             env[target.id] = value
         elif (
@@ -517,6 +714,21 @@ class Frontend:
             self.fail(target, "只允许局部名字赋值或 tuple 解包，禁止对象突变")
 
     def statements(self, body, env):
+        """顺序解释一个语句块，返回执行后的环境与返回值。
+
+        支持 return、赋值/解包、增量赋值、导入、结构化 if（两分支的环境
+        与返回值经 select 合并）以及静态有界 range 循环的完全展开。
+
+        Args:
+            body: 语句 AST 节点列表。
+            env: 进入该块时的局部名字映射。
+
+        Returns:
+            tuple: ``(环境, 返回值)``；没有 return 时返回值为 None。
+
+        Raises:
+            FunctionCompileError: 语句超出受限子集、if 返回路径不完整或循环超出展开上限。
+        """
         env = dict(env)
         for i, node in enumerate(body):
             if (
@@ -576,6 +788,14 @@ class Frontend:
         return env, None
 
     def program(self):
+        """汇总编译结果并返回经校验的 MIR 程序。
+
+        Returns:
+            ``MathProgram``：入口指向编译得到的符号名，函数表按符号名排序。
+
+        Raises:
+            ValidationError: 生成的函数图未通过 MIR 结构校验。
+        """
         return MathProgram(
             self.entry, tuple(self.functions[k] for k in sorted(self.functions))
         ).validate()

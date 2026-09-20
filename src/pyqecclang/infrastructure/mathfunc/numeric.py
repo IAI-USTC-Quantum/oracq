@@ -29,10 +29,22 @@ BOUNDS = {
     "acosh": (1.0, 4.0),
     "atanh": (-0.75, 0.75),
 }
+"""各数学核的默认 Chebyshev 近似区间，函数名映射到 (下界, 上界)。"""
 
 
 @dataclass(frozen=True)
 class MathConfig:
+    """数学核生成配置：多项式阶数与可替换的近似区间。
+
+    Attributes:
+        degree: Chebyshev 多项式阶数，范围为 1..32。
+        intervals: 每项为 (函数名, 下界, 上界)，覆盖指定数学核的近似区间；
+            未列出的数学核使用 BOUNDS 中的默认区间。
+
+    Raises:
+        ValidationError: 阶数不在 1..32，或区间引用未知函数、重复、含非有限值或下界不小于上界。
+    """
+
     degree: int = 6
     intervals: tuple[tuple[str, float, float], ...] = ()
 
@@ -51,11 +63,30 @@ class MathConfig:
             seen.add(kind)
 
     def bounds(self, kind):
+        """查询指定数学核的近似区间。
+
+        Args:
+            kind: 数学函数名，如 sin 或 exp。
+
+        Returns:
+            tuple: ``(下界, 上界)``；优先取 ``intervals`` 中的覆盖项，否则取默认区间。
+
+        Raises:
+            KeyError: 名字既不在 ``intervals`` 也不在 BOUNDS 中。
+        """
         return next(((lo, hi) for name, lo, hi in self.intervals if name == kind), BOUNDS[kind])
 
 
 @dataclass(frozen=True)
 class Numeric:
+    """数学值在生成期的电路表示。
+
+    Attributes:
+        kind: 值类型 real、complex 或 bool。
+        parts: 承载该值的寄存器引用 tuple；复数为 (实部, 虚部)，其余为一元。
+        status: 2 位状态寄存器引用，第 0 位汇总定义域失效，第 1 位汇总值域/字长越界。
+    """
+
     kind: str
     parts: tuple
     status: object
@@ -63,6 +94,16 @@ class Numeric:
 
 @lru_cache(maxsize=128)
 def logic_operation(kind, width=1):
+    """构造逐位逻辑/选择运算的布尔网络。
+
+    Args:
+        kind: 运算名：not、flag、range_flag、and、or、xor 或 select。
+        width: 输入寄存器位宽。
+
+    Returns:
+        Operation: 接口为 a、（按需的）b 与 select，输出 out；
+        flag 与 range_flag 把条件位分别复制到输出的第 0 位与第 1 位。
+    """
     net = BooleanNetwork()
     a = net.input("a", width)
     if kind == "not":
@@ -84,6 +125,20 @@ def logic_operation(kind, width=1):
 
 
 class NumericEmitter:
+    """在 Builder 上把 MIR 数值操作展开为定点可逆电路。
+
+    以 Numeric 值为中介执行定点算术、逐位逻辑与数学核调用，逐值追踪
+    status 位，并在收尾时复制输出、反算全部临时寄存器。
+
+    Args:
+        builder: 目标电路 Builder。
+        fmt: 定点格式 FixedFormat，当前要求有符号。
+        config: 数学核生成配置 MathConfig。
+
+    Raises:
+        ValidationError: fmt 不是有符号定点格式。
+    """
+
     def __init__(self, builder, fmt, config):
         if not fmt.signed:
             raise ValidationError("数学函数编译目前使用有符号定点格式")
@@ -93,6 +148,14 @@ class NumericEmitter:
         self.zero_status = self.local(2)
 
     def local(self, width=None):
+        """分配一个数学临时寄存器。
+
+        Args:
+            width: 位宽；省略时使用定点格式全宽。
+
+        Returns:
+            Ref: 新分配的寄存器引用，名字按 ``math_tmp_`` 前缀递增编号。
+        """
         self.counter += 1
         return self.b.local(
             "math_tmp_" + str(self.counter), Bits(self.fmt.width if width is None else width)
@@ -119,6 +182,16 @@ class NumericEmitter:
             self.b.xor(ref, clone)
 
     def logic(self, kind, *refs, select=None):
+        """调用逐位逻辑/选择网络并返回结果寄存器。
+
+        Args:
+            kind: 运算名，见 logic_operation。
+            refs: 参与运算的寄存器引用；二元运算取前两个。
+            select: select 运算的条件位引用。
+
+        Returns:
+            Ref: 写入运算结果的新寄存器引用。
+        """
         operation = logic_operation(kind, refs[0].width)
         width = next(r.type.width for r in operation.module.registers if r.name == "out")
         out = self.local(width)
@@ -129,6 +202,16 @@ class NumericEmitter:
         return out
 
     def flags(self, *refs):
+        """合并若干 2 位状态寄存器。
+
+        全零的 zero_status 不参与合并；没有其他输入时直接返回 zero_status。
+
+        Args:
+            refs: 状态寄存器引用。
+
+        Returns:
+            Ref: 各输入按位或得到的状态寄存器引用。
+        """
         unique = []
         for ref in refs:
             if ref != self.zero_status and ref not in unique:
@@ -141,6 +224,18 @@ class NumericEmitter:
         return result
 
     def constant(self, value, kind=None):
+        """把生成期数值固化为电路常量并缓存。
+
+        复数拆为两个实常量并合并状态；实数超出格式的可表示幅值时置
+        值域越界位。相同 (kind, value) 只编码一次。
+
+        Args:
+            value: bool、int、float 或 complex 常量。
+            kind: 指定值类型；省略时按 Python 类型推导。
+
+        Returns:
+            Numeric: 常量的电路表示。
+        """
         kind = kind or (
             "bool" if type(value) is bool else "complex" if type(value) is complex else "real"
         )
@@ -169,6 +264,17 @@ class NumericEmitter:
         return result
 
     def as_complex(self, value):
+        """把实数值提升为复数表示。
+
+        Args:
+            value: real 类型的 Numeric。
+
+        Returns:
+            Numeric: 虚部绑定常量 0 的复数值，状态沿用原值。
+
+        Raises:
+            ValidationError: 输入为 bool，不允许隐式转换为复数。
+        """
         if value.kind == "complex":
             return value
         if value.kind != "real":
@@ -176,6 +282,15 @@ class NumericEmitter:
         return Numeric("complex", (value.parts[0], self.constant(0).parts[0]), value.status)
 
     def component(self, value, index):
+        """取出复数的实部或虚部分量。
+
+        Args:
+            value: real 或 complex 的 Numeric。
+            index: 0 取实部，1 取虚部。
+
+        Returns:
+            Numeric: 实数分量；real 输入取虚部时返回常量 0。
+        """
         return (
             Numeric("real", (value.parts[index],), value.status)
             if value.kind == "complex"
@@ -183,6 +298,15 @@ class NumericEmitter:
         )
 
     def arithmetic(self, kind, *values):
+        """调用定点算术网络执行一元或二元运算。
+
+        Args:
+            kind: 算术名，如 add、sub、mul、div、sqrt、lt、eq。
+            values: 参与运算的 Numeric 操作数。
+
+        Returns:
+            Numeric: 比较运算为 bool，其余为 real；状态合并操作数状态与新产生的标志位。
+        """
         operation = fixed_arithmetic(kind, self.fmt)
         out_width = next(r.type.width for r in operation.module.registers if r.name == "out")
         out, flag = self.local(out_width), self.local(2)
@@ -195,6 +319,18 @@ class NumericEmitter:
         )
 
     def unary(self, kind, value):
+        """展开一元数值操作。
+
+        real/imag 取复数分量，not 按位取反，conj 将虚部取负，复数 abs
+        分解为平方和开方；复数输入的其余算术逐分量分解后重装。
+
+        Args:
+            kind: 操作名：real、imag、not、conj、abs、neg 或定点一元算术名。
+            value: 操作数 Numeric。
+
+        Returns:
+            Numeric: 操作结果。
+        """
         if kind in {"real", "imag"}:
             return self.component(value, int(kind == "imag"))
         if kind == "not":
@@ -215,11 +351,39 @@ class NumericEmitter:
         return self.arithmetic(kind, value)
 
     def complex(self, re, im):
+        """由两个实数值组装复数。
+
+        Args:
+            re: 实部分量。
+            im: 虚部分量。
+
+        Returns:
+            Numeric: 状态为两分量状态合并的复数值。
+
+        Raises:
+            ValidationError: 任一分量不是 real。
+        """
         if re.kind != "real" or im.kind != "real":
             raise ValidationError("complex(real, imag) 要求两个实数")
         return Numeric("complex", (re.parts[0], im.parts[0]), self.flags(re.status, im.status))
 
     def binary(self, kind, a, b):
+        """展开二元运算的定点与复数分解。
+
+        布尔逻辑走逐位网络，实数走定点算术；复数按代数关系分解为实数
+        分量运算，除法以分母模方归一。
+
+        Args:
+            kind: 运算名：and、or、eq、add、sub、mul 或 div。
+            a: 左操作数 Numeric。
+            b: 右操作数 Numeric。
+
+        Returns:
+            Numeric: 运算结果。
+
+        Raises:
+            ValidationError: 复数分解遇到未知运算名。
+        """
         if kind in {"and", "or"}:
             return Numeric(
                 "bool", (self.logic(kind, a.parts[0], b.parts[0]),), self.flags(a.status, b.status)
@@ -258,6 +422,18 @@ class NumericEmitter:
         raise ValidationError("未知复数二元分解：" + kind)
 
     def choose(self, test, yes, no):
+        """按布尔条件逐位选择两分支的电路值。
+
+        real 与 complex 混合的分支先统一提升为复数；选择同时作用于状态位。
+
+        Args:
+            test: bool 类型的条件值。
+            yes: 条件为真的分支值。
+            no: 条件为假的分支值。
+
+        Returns:
+            Numeric: 条件状态与被选分支状态合并后的结果。
+        """
         if yes.kind != no.kind and {yes.kind, no.kind} <= {"real", "complex"}:
             yes, no = self.as_complex(yes), self.as_complex(no)
         values = tuple(
@@ -268,16 +444,48 @@ class NumericEmitter:
         return Numeric(yes.kind, values, self.flags(test.status, selected_status))
 
     def add_flag(self, value, test, *, domain=False):
+        """把一个条件位并入值的状态。
+
+        Args:
+            value: 待标记的值；部件不变，仅更新状态。
+            test: bool 条件值。
+            domain: 为 True 时条件进入 status 第 0 位（定义域失效），
+                否则进入第 1 位（值域越界）。
+
+        Returns:
+            Numeric: 状态并位后的新值。
+        """
         flag = self.logic("flag" if domain else "range_flag", test.parts[0])
         return Numeric(value.kind, value.parts, self.flags(value.status, test.status, flag))
 
     def kernel(self, name, value):
+        """调用初等数学核并合并其状态标志。
+
+        Args:
+            name: 数学函数名，如 sin、exp 或 log。
+            value: real 输入值。
+
+        Returns:
+            Numeric: 核输出的实数值，状态合并输入状态与核标志。
+        """
         op = elementary_kernel(name, self.fmt, self.config)
         out, flag = self.local(), self.local(2)
         self.invoke(op, {"a": value.parts[0], "out": out, "status": flag})
         return Numeric("real", (out,), self.flags(value.status, flag))
 
     def atan2(self, y, x):
+        """以幅值比与象限选择分解二元反正切。
+
+        用 ``|x|``、``|y|`` 中较小者作被除数调用 atan 核，再按大小交换、x 符号
+        与 y 符号依次修正象限；两输入均为零时返回零。
+
+        Args:
+            y: 纵坐标实数值。
+            x: 横坐标实数值。
+
+        Returns:
+            Numeric: 象限修正后的角度值。
+        """
         zero = self.constant(0)
         ax, ay = self.unary("abs", x), self.unary("abs", y)
         swap = self.binary("lt", ax, ay)
@@ -293,6 +501,18 @@ class NumericEmitter:
         return self.choose(iszero, zero, angle)
 
     def integer_power(self, value, exponent):
+        """用平方-乘算法计算整数常量幂。
+
+        Args:
+            value: 底数值。
+            exponent: 整数指数，绝对值不超过 128。
+
+        Returns:
+            Numeric: 幂结果；负指数按倒数计算。
+
+        Raises:
+            ValidationError: 指数绝对值超过 128。
+        """
         if abs(exponent) > 128:
             raise ValidationError("整数幂超过生成上限 128")
         result = self.constant(1, "complex" if value.kind == "complex" else "real")
@@ -307,6 +527,23 @@ class NumericEmitter:
         return self.binary("div", self.constant(1), result) if exponent < 0 else result
 
     def intrinsic(self, name, args, kind):
+        """展开数学 intrinsic 的实数与复数分解。
+
+        rect、phase、atan2、hypot 与双参 log 先行处理；实数路径走
+        sqrt 算术或数学核，复数路径以实数核和代数恒等式组合，log 类
+        核额外标记 log(0) 定义域失效。
+
+        Args:
+            name: intrinsic 函数名。
+            args: 实参 Numeric 列表。
+            kind: 期望的结果类型 real 或 complex。
+
+        Returns:
+            Numeric: 分解后的结果值。
+
+        Raises:
+            ValidationError: 缺少该函数的复数分解实现。
+        """
         if name == "rect":
             r, angle = args
             return self.complex(
@@ -404,6 +641,15 @@ class NumericEmitter:
         raise ValidationError("缺少复数数学分解：" + name)
 
     def finish(self, outputs, status):
+        """复制输出并反算全部临时寄存器后结束构建。
+
+        Args:
+            outputs: 每项为 (目标引用 tuple, 输出值 Numeric) 的序列。
+            status: 汇总状态写入的 2 位目标寄存器。
+
+        Returns:
+            Operation: 构建完成的完整可逆模块。
+        """
         flag = self.flags(*(value.status for _, value in outputs))
         forward = tuple(self.b._frames[0])
         for refs, value in outputs:
@@ -416,6 +662,23 @@ class NumericEmitter:
 
 @lru_cache(maxsize=128)
 def elementary_kernel(name, fmt, config):
+    """生成单个初等实函数的 Chebyshev 近似核模块。
+
+    在配置区间上取 degree+1 个采样点求 Chebyshev 系数，以 Clenshaw
+    递推组合成多项式电路，并对区间越界与定义域错误置相应状态位。
+
+    Args:
+        name: 数学函数名，须能取到 math 同名函数并配置近似区间。
+        fmt: 定点格式。
+        config: MathConfig 生成配置。
+
+    Returns:
+        Operation: 接口为 a、out、status 的可逆模块；采样系数配方
+        记录在属性 math_approximation 中。
+
+    Raises:
+        ValidationError: 近似区间越过函数定义域。
+    """
     lo, hi = config.bounds(name)
     degree = config.degree
     count = degree + 1

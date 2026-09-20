@@ -115,6 +115,7 @@ class QramPreparation:
     memory: dict
 
     def state_preparation(self):
+        """返回句柄内包装的 ``StatePreparation`` 操作。"""
         return self.preparation
 
 
@@ -192,6 +193,7 @@ class AliasPreparation:
     memory: dict
 
     def state_preparation(self):
+        """返回句柄内包装的 ``StatePreparation`` 操作。"""
         return self.preparation
 
 

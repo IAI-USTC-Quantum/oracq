@@ -39,6 +39,7 @@ class PhaseOracle(OracleView):
     operation: Operation
 
     def phase_oracle(self):
+        """返回相位 oracle 视图；本类自身即包装相位 oracle，直接返回自身。"""
         return self
 
     def __post_init__(self):
@@ -50,10 +51,12 @@ class PhaseOracle(OracleView):
 
     @property
     def width(self):
+        """target 寄存器的位宽，即相位 oracle 作用的网格寄存器总宽度。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
     def phase_scale(self):
+        """oracle 声明的相位缩放因子，即 ``O|x> = exp(2πi·phase_scale·f(x))|x>`` 中的缩放。"""
         return dict(self.operation.module.attributes)["phase_scale"]
 
 
