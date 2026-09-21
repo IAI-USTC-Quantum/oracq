@@ -2,8 +2,8 @@
 
 from functools import partial
 
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.ode import linear_qode
 from pyqecclang.applications.qham import (
     Discretization,
     Field,

@@ -10,7 +10,7 @@ import unittest
 from math import comb
 
 from pyqecclang import ValidationError, bind, simulate, unresolved
-from pyqecclang.algorithms.dqi import (
+from pyqecclang.algorithms.optimization.dqi import (
     XorSatInstance,
     abstract_decoder,
     bruteforce_decoder,

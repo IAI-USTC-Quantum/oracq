@@ -8,22 +8,22 @@ from functools import partial
 from pathlib import Path
 
 from pyqecclang import bind, dumps, identity, scale
-from pyqecclang.algorithms.arithmetic import FixedFormat, fixed_arithmetic
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding, pad_signal
-from pyqecclang.algorithms.carleman import PolynomialODE, carleman_qode
-from pyqecclang.algorithms.cbmd import ContourPlan
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.lchs import QuadraturePlan
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.arithmetic import FixedFormat, fixed_arithmetic
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding, pad_signal
+from pyqecclang.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
+from pyqecclang.algorithms.qode.cbmd import ContourPlan
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.lchs import QuadraturePlan
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.input_model.oracles import (
     abstract_block_encoding,
     abstract_state_prep,
     basis_state,
     gate_state_prep,
 )
-from pyqecclang.algorithms.pde import PDEInput, make_qpde, qpde_solver
-from pyqecclang.algorithms.qlss import CostaConfig, SpectralPromise, make_costa_qlss
-from pyqecclang.algorithms.schrodingerization import SchrodingerPlan
+from pyqecclang.algorithms.qpde.pde import PDEInput, make_qpde, qpde_solver
+from pyqecclang.algorithms.qlss.qlss import CostaConfig, SpectralPromise, make_costa_qlss
+from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
 from pyqecclang.applications.flow_data import RoeFlowData
 from pyqecclang.applications.legacy import qham_initial_vector, qham_m1
 from pyqecclang.applications.qfvm import (
@@ -170,7 +170,7 @@ def main():
         p = state.operation.program()
         reports.append(save_case(root, method + "_qode", p, bind(p, bindings)))
         # PDE 入口只负责空间离散化到开放算子；同一 oracle 图可来自非矩阵输入。
-        from pyqecclang.algorithms.pde import DiscretePDE
+        from pyqecclang.algorithms.qpde.pde import DiscretePDE
 
         state = make_qpde(qode)(DiscretePDE(a, initial, "heat_equation_open_space"), 0.1)
         p = state.operation.program()

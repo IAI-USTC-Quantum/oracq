@@ -1,6 +1,6 @@
 # 态制备 Oracle（State Preparation）
 
-> 类别 C5 · 模块 `pyqecclang.algorithms.oracles` · 阶段 V4
+> 类别 C5 · 模块 `pyqecclang.algorithms.input_model.oracles` · 阶段 V4
 
 ## 概述
 
@@ -63,7 +63,7 @@ QRAM 版：寄存器 `target(width)`、`work(address_width + angle_width)`（`ad
 
 - 源码：`src/pyqecclang/algorithms/oracles.py`
 - 同组页面：[PREPARE–SELECT 分解](prepare-select.md)、[Alias 采样制备](alias-preparation.md)、[XOR 数据库](xor-database.md)
-- API 参考：[Oracle 声明与实现](../../api/algorithms/oracles.rst)
+- API 参考：[Oracle 声明与实现](../../api/algorithms/input_model/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

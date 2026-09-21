@@ -1,6 +1,6 @@
 # 量子卷积神经网络（QCNN）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.qcnn` 与 `pyqecclang.algorithms.qcnn_layer` · 论文 arXiv:1911.01117（ICLR 2020）
+> 类别 C4 · 模块 `pyqecclang.algorithms.qml.qcnn` 与 `pyqecclang.algorithms.qml.qcnn_layer` · 论文 arXiv:1911.01117（ICLR 2020）
 
 ## 概述
 

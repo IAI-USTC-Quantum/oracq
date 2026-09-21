@@ -7,8 +7,8 @@ import math
 from dataclasses import dataclass
 from functools import lru_cache
 
-from pyqecclang.algorithms.arithmetic import BooleanNetwork, fixed_arithmetic
-from pyqecclang.algorithms.operators import _name
+from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, fixed_arithmetic
+from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Adjoint, Bits, ValidationError
 

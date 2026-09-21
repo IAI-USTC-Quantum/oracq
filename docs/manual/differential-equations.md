@@ -50,14 +50,14 @@ QPDE 比 QODE 多一个空间输入构造层。它负责网格编号、分量布
 | `make_qpde(qode, discretizer=...)` | `(problem, time) -> StateOracle` | discretizer 返回具有 `.generator/.initial` 的对象，如 `DiscretePDE` |
 | `qpde_solver(qode, spatial_discretizer=...)` | `(problem, time) -> StateOracle` | discretizer 返回单个 model，再调用 `qode(model,time)`；适合 `PolynomialODE` |
 
-两个 QPDE 工厂的调用约定不同。两个工厂都在 [pde.py](../api/algorithms/pde.rst)，通用线性求解入口在 [ode.py](../api/algorithms/ode.rst)，具体方法在对应算法文件中。不要直接把三参数 `linear_qode(...)` 传给默认的 `qpde_solver`。
+两个 QPDE 工厂的调用约定不同。两个工厂都在 [pde.py](../api/algorithms/qpde/pde.rst)，通用线性求解入口在 [ode.py](../api/algorithms/qode/ode.rst)，具体方法在对应算法文件中。不要直接把三参数 `linear_qode(...)` 传给默认的 `qpde_solver`。
 
 可用 Python 的 `typing.Protocol` 在自己的应用里声明静态类型，但它不是新 IR 节点，也不自动证明算法前提：
 
 ```python
 from typing import Protocol
 from pyqecclang import BlockEncoding
-from pyqecclang.algorithms.oracles import StateOracle, StatePreparation
+from pyqecclang.algorithms.input_model.oracles import StateOracle, StatePreparation
 
 class LinearSolver(Protocol):
     def __call__(self, generator: BlockEncoding,
@@ -97,9 +97,9 @@ $$
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.oracles import abstract_block_encoding, abstract_state_prep
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
 
 G = abstract_block_encoding("Generator", width=2, signal_width=3, alpha=4.0)
 initial = abstract_state_prep("Initial", width=2, work_width=0)
@@ -125,7 +125,7 @@ $$
 
 ```python
 from pyqecclang import Binding, bind
-from pyqecclang.algorithms.oracles import abstract_database, diagonal_block_encoding, qram_database
+from pyqecclang.algorithms.input_model.oracles import abstract_database, diagonal_block_encoding, qram_database
 
 angles = abstract_database("DiagonalAngles", 1, 2)
 A = diagonal_block_encoding(angles, alpha=1.0)
@@ -142,8 +142,8 @@ memory = {"diagonal_angles": [0, 1]}
 
 ```python
 from pyqecclang import FixedFormat
-from pyqecclang.algorithms.oracles import abstract_sparse_access
-from pyqecclang.algorithms.sparse import real_symmetric_sparse_encoding
+from pyqecclang.algorithms.input_model.oracles import abstract_sparse_access
+from pyqecclang.algorithms.input_model.sparse import real_symmetric_sparse_encoding
 
 fmt = FixedFormat(4, 1)
 access = abstract_sparse_access("SparseA", width=1, value_width=4, sparsity=2)
@@ -192,8 +192,8 @@ $$
 核心组装本身很短，下面是可供自定义 protocol 采用的已有 API 组合：
 
 ```python
-from pyqecclang.algorithms.block_encoding import lcu
-from pyqecclang.algorithms.state_preparation import apply_be_to_state
+from pyqecclang.algorithms.input_model.block_encoding import lcu
+from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
 
 def assemble_lchs(model, time, plan, hamiltonian_function):
     terms = []
@@ -220,9 +220,9 @@ $$
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.lchs import QuadraturePlan
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.lchs import QuadraturePlan
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 
 config = QuadraturePlan.cauchy(cutoff=1, spacing=1.0)
 solver1 = linear_qode("lchs", plan=config,
@@ -261,9 +261,9 @@ $$
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.schrodingerization import SchrodingerPlan
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 
 solver = linear_qode(
     "schrodingerization",
@@ -344,8 +344,8 @@ ports = structured_fd_bindings(space, initial_values)
 
 ```python
 from collections import defaultdict
-from pyqecclang.algorithms.block_encoding import lcu
-from pyqecclang.algorithms.carleman import PolynomialODE
+from pyqecclang.algorithms.input_model.block_encoding import lcu
+from pyqecclang.algorithms.qnlss.carleman import PolynomialODE
 
 def polynomial_from_bindings(bindings):
     grouped = defaultdict(list)
@@ -363,10 +363,10 @@ def polynomial_from_bindings(bindings):
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.pde import PDEInput, qpde_solver
-from pyqecclang.algorithms.carleman import carleman_qode
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qpde.pde import PDEInput, qpde_solver
+from pyqecclang.algorithms.qnlss.carleman import carleman_qode
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 
 problem = polynomial_from_bindings(ports)  # ports 来自前面的 Burgers 离散化
 linear_solver = linear_qode("schrodingerization",
@@ -406,10 +406,10 @@ $$
 
 ```python
 from pyqecclang import scale
-from pyqecclang.algorithms.oracles import gate_state_prep
+from pyqecclang.algorithms.input_model.oracles import gate_state_prep
 from pyqecclang.applications.qham import Grid
 from pyqecclang.applications.qham.stencils import derivative_encoding
-from pyqecclang.algorithms.pde import DiscretePDE, make_qpde
+from pyqecclang.algorithms.qpde.pde import DiscretePDE, make_qpde
 
 grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
 G = scale(0.1, derivative_encoding(grid, (("x", 2),)))

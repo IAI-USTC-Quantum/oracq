@@ -1,9 +1,9 @@
 """QMatrix sample-and-query 数据结构 + KP 量子推荐系统演示。"""
 
 from pyqecclang import estimate_resources, simulate
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.qdata import QMatrix
-from pyqecclang.algorithms.recommendation import KPRecommendationConfig, kp_recommendation
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.input_model.qdata import QMatrix
+from pyqecclang.algorithms.qml.recommendation import KPRecommendationConfig, kp_recommendation
 
 
 def preference_matrix():

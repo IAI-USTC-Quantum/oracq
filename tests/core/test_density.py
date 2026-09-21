@@ -4,8 +4,8 @@ import math
 import unittest
 
 from pyqecclang import ValidationError, bind, simulate, unresolved
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.density import (
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from pyqecclang.algorithms.input_model.density import (
     PurificationAccess,
     abstract_purification,
     gate_purification,
@@ -15,7 +15,7 @@ from pyqecclang.algorithms.density import (
     partial_trace,
     trace_distance,
 )
-from pyqecclang.algorithms.oracles import gate_state_prep
+from pyqecclang.algorithms.input_model.oracles import gate_state_prep
 
 
 def dense_state(state, width, *, signal_width=0):

@@ -45,8 +45,8 @@ alpha 参与组合，保存在 IR 属性 be_alpha 中，不是可随意修改的
 
 ```python
 from pyqecclang import Binding, bind, dumps, export_originir, unresolved
-from pyqecclang.algorithms.oracles import abstract_database, qram_database
-from pyqecclang.algorithms.oracle_algorithms import deutsch_jozsa
+from pyqecclang.algorithms.input_model.oracles import abstract_database, qram_database
+from pyqecclang.algorithms.basics.oracle_algorithms import deutsch_jozsa
 
 f = abstract_database("BooleanFunction", 2, 1)
 open_program = deutsch_jozsa(f).program()

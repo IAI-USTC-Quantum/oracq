@@ -1,6 +1,6 @@
 # VTAA-CKS 变时线性系统求解器（VTAA-CKS QLSS）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.vtaa_cks` · 阶段 V3
+> 类别 C2 · 模块 `pyqecclang.algorithms.qlss.vtaa_cks` · 阶段 V3
 
 ## 概述
 
@@ -56,5 +56,5 @@ tunable_rounds(stage_amplitudes, thresholds=None)  # Low–Su 式 (52)–(53) �
 - 源码：`src/pyqecclang/algorithms/vtaa_cks.py`
 - 论文：[CKS arXiv:1511.02306](https://arxiv.org/abs/1511.02306) §5、[Ambainis arXiv:1010.4458](https://arxiv.org/abs/1010.4458)、[Low–Su arXiv:2410.18178](https://arxiv.org/abs/2410.18178)
 - 同族页面：[CKS Chebyshev 求解器](cks.md)、[Costa 行走求解器](costa-walk.md)、[稀疏矩阵块编码](sparse-block-encoding.md)、[定点搜索](fixed-point-search.md)
-- API 参考：[VTAA-CKS 变时线性系统求解器](../../api/algorithms/vtaa_cks.rst)
+- API 参考：[VTAA-CKS 变时线性系统求解器](../../api/algorithms/qlss/vtaa_cks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

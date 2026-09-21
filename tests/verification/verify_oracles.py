@@ -33,15 +33,15 @@ from harness import (
 )
 
 from pyqecclang import Binding, Bits, Builder, bind
-from pyqecclang.algorithms.arithmetic import BooleanNetwork
-from pyqecclang.algorithms.oracle_algorithms import (
+from pyqecclang.algorithms.basics.oracle_algorithms import (
     affine_boolean_oracle,
     bernstein_vazirani,
     deutsch_jozsa,
     simon_nullspace,
     simon_sample,
 )
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.arithmetic import BooleanNetwork
+from pyqecclang.algorithms.input_model.oracles import (
     XorDatabase,
     abstract_database,
     annotate,

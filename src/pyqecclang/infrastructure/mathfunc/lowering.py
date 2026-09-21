@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, replace
 
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.operators import _name
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 from pyqecclang.infrastructure.mathfunc.numeric import Numeric, NumericEmitter

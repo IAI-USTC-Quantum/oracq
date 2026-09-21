@@ -154,8 +154,8 @@ print(len(operation.module.body))
 
 ```python
 from pyqecclang import bind, export_originir, unresolved, ValidationError
-from pyqecclang.algorithms.oracle_algorithms import deutsch_jozsa
-from pyqecclang.algorithms.oracles import abstract_database, gate_database
+from pyqecclang.algorithms.basics.oracle_algorithms import deutsch_jozsa
+from pyqecclang.algorithms.input_model.oracles import abstract_database, gate_database
 
 abstract_fn = abstract_database("Function", 2, 1)
 open_program = deutsch_jozsa(abstract_fn).program()
@@ -225,8 +225,8 @@ assert d.alpha == 6                # 2 * 3
 
 ```python
 from pyqecclang import simulate
-from pyqecclang.algorithms.search import grover
-from pyqecclang.algorithms.oracles import phase_marks
+from pyqecclang.algorithms.common.search import grover
+from pyqecclang.algorithms.input_model.oracles import phase_marks
 
 marked = phase_marks(2, [3])            # 给基矢 |3> 加相位
 program = grover(marked, 2).operation.program()
@@ -321,8 +321,8 @@ classic: 0.75
 ```python
 from pyqecclang import SpectralPromise
 from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem
-from pyqecclang.algorithms.qlss import CKSConfig, make_cks_qlss
-from pyqecclang.algorithms.qlss import CostaConfig, make_costa_qlss
+from pyqecclang.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
+from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
 
 inputs = roe_qfvm_inputs()
 problem = roe_qfvm_problem(
@@ -354,8 +354,8 @@ costa_state = make_costa_qlss(CostaConfig(steps=1)).solve(problem)  # 触发稀�
 ```python
 from functools import partial
 
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 from pyqecclang.applications.qham import Discretization, Field, Grid, Known, PolynomialPDE, QHAMPlan, qham_input_model, structured_fd_bindings
 
 u = Field("u")

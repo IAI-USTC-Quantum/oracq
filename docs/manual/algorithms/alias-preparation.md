@@ -1,6 +1,6 @@
 # Alias 采样制备（Alias Sampling Preparation）
 
-> 类别 C5/C1 · 模块 `pyqecclang.algorithms.prepare_select` · 阶段 V4
+> 类别 C5/C1 · 模块 `pyqecclang.algorithms.common.prepare_select` · 阶段 V4
 
 ## 概述
 
@@ -49,7 +49,7 @@ alias 三绑定一致性（gate / QRAM 当前缺独立场景）：统一的参�
 
 - 源码：`src/pyqecclang/algorithms/prepare_select.py`
 - 同组页面：[PREPARE–SELECT 分解](prepare-select.md)、[态制备 Oracle](state-preparation.md)、[XOR 数据库](xor-database.md)
-- API 参考：[PREPARE-SELECT 分解](../../api/algorithms/prepare_select.rst)
+- API 参考：[PREPARE-SELECT 分解](../../api/algorithms/common/prepare_select.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

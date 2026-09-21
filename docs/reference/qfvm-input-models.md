@@ -115,7 +115,7 @@ D^-1 b_D = [0, M^-1 r].
 
 ## 5. 稀疏到 BE 的适配不是类型转换
 
-实现见 [sparse_models.py](../api/algorithms/sparse.rst)。当前正式适配专门支持实 Hermitian、非负对角的输入；QFVM 的上述扩张满足这种结构。一般稀疏矩阵不能仅设置相同位宽就使用该适配器。
+实现见 [sparse_models.py](../api/algorithms/input_model/sparse.rst)。当前正式适配专门支持实 Hermitian、非负对角的输入；QFVM 的上述扩张满足这种结构。一般稀疏矩阵不能仅设置相同位宽就使用该适配器。
 
 适配器生成 CKS 类型的 T，再交换两侧坐标及两侧失败旗标，形成自伴酉扩张 T†ST。非零条目的成功幅度使用 sqrt(|entry|/amax)；负的非对角元素采用有向相位约定。两侧失败旗标的交换是必要部分，不能只交换索引。
 
@@ -171,8 +171,8 @@ QFVM 的输入不是一份未加工数组加上“有 QRAM”四个字。它需�
 ```python
 from pyqecclang import FixedFormat, SpectralPromise
 from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem, bind_qfvm
-from pyqecclang.algorithms.qlss import CKSConfig, make_cks_qlss
-from pyqecclang.algorithms.qlss import CostaConfig, make_costa_qlss
+from pyqecclang.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
+from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
 
 inputs = roe_qfvm_inputs(fmt=FixedFormat(6, 2), angle_width=6)
 problem = roe_qfvm_problem(

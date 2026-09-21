@@ -1,6 +1,6 @@
 # 振幅估计（Amplitude Estimation）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.estimation` · 阶段 V2
+> 类别 C3 · 模块 `pyqecclang.algorithms.common.estimation` · 阶段 V2
 
 ## 概述
 
@@ -58,7 +58,7 @@ amplitude_from_phase(value, precision)
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/estimation.py`
-- API 参考：[相位、振幅与重叠估计](../../api/algorithms/estimation.rst)
+- API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[量子相位估计](qpe.md)、[量子计数](quantum-counting.md)、[Grover 搜索](grover.md)、[振幅放大](amplitude-amplification.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

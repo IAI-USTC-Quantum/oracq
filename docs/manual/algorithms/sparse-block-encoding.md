@@ -1,6 +1,6 @@
 # 稀疏矩阵块编码（Sparse Matrix Block Encoding）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.sparse` · 阶段 V1
+> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.sparse` · 阶段 V1
 
 ## 概述
 
@@ -53,7 +53,7 @@ real_symmetric_sparse_encoding(access, fmt, amax, *, diagonal_nonnegative=False,
 
 - 源码：`src/pyqecclang/algorithms/sparse.py`
 - 同族页面：[块编码组合代数](block-encoding-algebra.md)、[CKS Chebyshev 求解器](cks.md)、[Costa 行走求解器](costa-walk.md)
-- API 参考：[稀疏访问适配](../../api/algorithms/sparse.rst)
+- API 参考：[稀疏访问适配](../../api/algorithms/input_model/sparse.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

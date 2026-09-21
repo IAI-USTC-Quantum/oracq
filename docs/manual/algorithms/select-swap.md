@@ -1,6 +1,6 @@
 # Select-Swap QROM（Select-Swap QROM）
 
-> 类别 C5 · 模块 `pyqecclang.algorithms.data_loading` · 阶段 V4
+> 类别 C5 · 模块 `pyqecclang.algorithms.input_model.data_loading` · 阶段 V4
 
 ## 概述
 
@@ -52,7 +52,7 @@ t_count 在 λ = 4 处取谷（测试 `test_cost_model_matches_formulas_and_trad
 
 - 源码：`src/pyqecclang/algorithms/data_loading.py`
 - 同组页面：[QROM 查找](qrom-lookup.md)、[XOR 数据库](xor-database.md)
-- API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/data_loading.rst)
+- API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/input_model/data_loading.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

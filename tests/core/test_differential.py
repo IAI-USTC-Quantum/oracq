@@ -4,12 +4,12 @@ import unittest
 from functools import partial
 
 from pyqecclang import dumps, loads
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.carleman import PolynomialODE, carleman_qode
-from pyqecclang.algorithms.cbmd import ContourPlan
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.oracles import abstract_block_encoding, abstract_state_prep
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
+from pyqecclang.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
+from pyqecclang.algorithms.qode.cbmd import ContourPlan
+from pyqecclang.algorithms.qode.ode import linear_qode
 from pyqecclang.applications.flow_data import RoeFlowData
 from pyqecclang.applications.qfvm import (
     bind_qfvm,

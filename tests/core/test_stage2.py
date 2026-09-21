@@ -4,7 +4,7 @@ import unittest
 from dataclasses import replace
 
 from pyqecclang import Bits, Builder, dumps, loads
-from pyqecclang.algorithms.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
+from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
 from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
 from pyqecclang.infrastructure.execution import simulate
 from pyqecclang.infrastructure.ir import ValidationError

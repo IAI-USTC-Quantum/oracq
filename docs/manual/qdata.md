@@ -8,7 +8,7 @@
 
 ```{doctest}
 >>> from pyqecclang import QVector, simulate
->>> from pyqecclang.algorithms.arithmetic import FixedFormat
+>>> from pyqecclang.algorithms.common.arithmetic import FixedFormat
 >>> vector = QVector((3.0, 4.0), fmt=FixedFormat(8, 4), angle_width=12)
 >>> state = simulate(vector.preparation().operation.program(), vector.snapshot())
 >>> [round(a.real, 3) for _, a in sorted(state.amplitudes.items())]
@@ -21,7 +21,7 @@
 
 ```{doctest}
 >>> from pyqecclang import QMatrix, simulate
->>> from pyqecclang.algorithms.arithmetic import FixedFormat
+>>> from pyqecclang.algorithms.common.arithmetic import FixedFormat
 >>> matrix = QMatrix([[0.5, 0.25], [0.5, 0.25]], fmt=FixedFormat(8, 4), angle_width=12)
 >>> state = simulate(matrix.query().operation.program(),
 ...                  {"entries": matrix.snapshot()["entries"]}, initial={"address": 0b10})
@@ -35,7 +35,7 @@
 
 ```{doctest}
 >>> from pyqecclang import KPRecommendationConfig, QMatrix, simulate, kp_recommendation
->>> from pyqecclang.algorithms.arithmetic import FixedFormat
+>>> from pyqecclang.algorithms.common.arithmetic import FixedFormat
 >>> matrix = QMatrix([[0.5, 0.25], [0.5, 0.25]], fmt=FixedFormat(8, 4), angle_width=12)
 >>> result = kp_recommendation(matrix, 0, KPRecommendationConfig(precision=4, sigma=0.5))
 >>> success, distribution = result.readout(simulate(result.operation.program(), result.memories()))

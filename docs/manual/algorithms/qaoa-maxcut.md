@@ -1,6 +1,6 @@
 # MaxCut QAOA（QAOA for MaxCut）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.variational` · 阶段 V3
+> 类别 C4 · 模块 `pyqecclang.algorithms.optimization.variational` · 阶段 V3
 
 ## 概述
 
@@ -54,7 +54,7 @@ qaoa_maxcut(width, edges, gammas, betas)
 
 - 源码：`src/pyqecclang/algorithms/variational.py`
 - 同模块页面：[硬件高效拟设](variational-ansatz.md)、[VQE 测量电路](vqe.md)
-- API 参考：[变分算法电路](../../api/algorithms/variational.rst)
+- API 参考：[变分算法电路](../../api/algorithms/optimization/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

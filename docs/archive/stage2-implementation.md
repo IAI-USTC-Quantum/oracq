@@ -30,7 +30,7 @@ RIR 0.3 增加 Module.locals：私有寄存器以零态进入，在模块返回�
 
 ## 算术实现
 
-[arithmetic.py](../api/algorithms/arithmetic.rst) 提供 14 类生成器：add、sub、neg、abs、mul、div、reciprocal、sqrt、lt、eq、select、and、or、xor。既有 add_const 保留寄存器模加；乘除和开方中的移位直接由位视图布线实现。
+[arithmetic.py](../api/algorithms/common/arithmetic.rst) 提供 14 类生成器：add、sub、neg、abs、mul、div、reciprocal、sqrt、lt、eq、select、and、or、xor。既有 add_const 保留寄存器模加；乘除和开方中的移位直接由位视图布线实现。
 
 生成器先建立具有公共子表达式复用的 Boolean DAG。加法用进位网络，乘法用移位累加，除法用恢复除法，平方根用逐双位恢复算法。每个中间布尔量被计算到私有工作位，结果 XOR 到输出，随后反算。复杂度随位宽多项式增长，没有用整个函数的真值表替代分解。目前工作空间较多，尚未做可逆 pebbling 或最优算术电路优化。
 
@@ -40,7 +40,7 @@ BooleanCppFactory 从同一 Boolean 图生成 C++ 布尔求值和输出 XOR，�
 
 ```python
 from pyqecclang import FixedFormat, fixed_arithmetic, export_toffoli_u3_cz
-from pyqecclang.algorithms.arithmetic import arithmetic_native_registry
+from pyqecclang.algorithms.common.arithmetic import arithmetic_native_registry
 from pyqecclang.infrastructure.backends.pysparq import run_pysparq
 
 operation = fixed_arithmetic("div", FixedFormat(width=12, fraction=6))

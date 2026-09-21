@@ -5,8 +5,8 @@ import math
 import unittest
 
 from pyqecclang import Builder, estimate_resources, simulate
-from pyqecclang.algorithms.oracles import gate_state_prep
-from pyqecclang.algorithms.spectral import (
+from pyqecclang.algorithms.input_model.oracles import gate_state_prep
+from pyqecclang.algorithms.input_model.spectral import (
     fourier_phase,
     fourier_phase_encoding,
     frequency_amplitudes,

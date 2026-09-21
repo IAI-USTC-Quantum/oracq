@@ -5,8 +5,8 @@
 ## 先声明输入
 
 ```{testcode}
-from pyqecclang.algorithms.oracles import abstract_database
-from pyqecclang.algorithms.oracle_algorithms import bernstein_vazirani
+from pyqecclang.algorithms.input_model.oracles import abstract_database
+from pyqecclang.algorithms.basics.oracle_algorithms import bernstein_vazirani
 from pyqecclang import unresolved
 
 given = abstract_database("BooleanFunction", 3, 1)
@@ -19,7 +19,7 @@ assert [item.name for item in unresolved(opened)] == ["BooleanFunction"]
 ## 绑定门实现
 
 ```{testcode}
-from pyqecclang.algorithms.oracle_algorithms import affine_boolean_oracle
+from pyqecclang.algorithms.basics.oracle_algorithms import affine_boolean_oracle
 from pyqecclang import bind, simulate
 
 implementation = affine_boolean_oracle(3, secret=5, bias=1)

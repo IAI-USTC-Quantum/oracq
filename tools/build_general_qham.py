@@ -7,10 +7,10 @@ from functools import partial
 from pathlib import Path
 
 from pyqecclang import bind, dumps, export_originir, export_toffoli_u3_cz, unresolved
-from pyqecclang.algorithms.cbmd import ContourPlan
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.schrodingerization import SchrodingerPlan
+from pyqecclang.algorithms.qode.cbmd import ContourPlan
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
 from pyqecclang.applications.qham import (
     Discretization,
     Grid,

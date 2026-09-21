@@ -6,7 +6,7 @@
 |---|---|---|---|
 | S0 | 审阅 PySparQ 自定义算子、QFVM/Roe 和 CBMD 输入模型 | done / correctness pending | [stage2-implementation.md](stage2-implementation.md)、[backend-review.md](../reference/backend-compatibility.md) |
 | S1 | RIR 局部工作区、PySparQ 模块级 native registry 与动态 C++ 适配 | done / correctness pending | [native.py](../api/infrastructure/native.rst)、[layout.py](../api/infrastructure/layout.rst)、[test_stage2_native.py](../../tests/integration/test_stage2_native.py) |
-| S2 | Boolean 算术合成与 Toffoli/U3/CZ 目标门集降低 | done / correctness pending | [arithmetic.py](../api/algorithms/arithmetic.rst)、[basis.py](../api/infrastructure/backends/basis.rst)、[toffoli_u3_cz.originir](../../out/stage2/arithmetic_div/toffoli_u3_cz.originir) |
+| S2 | Boolean 算术合成与 Toffoli/U3/CZ 目标门集降低 | done / correctness pending | [arithmetic.py](../api/algorithms/common/arithmetic.rst)、[basis.py](../api/infrastructure/backends/basis.rst)、[toffoli_u3_cz.originir](../../out/stage2/arithmetic_div/toffoli_u3_cz.originir) |
 | S3 | 定点 Roe 物理量、特征结构和接口 Jacobian 的算术生成 | done / correctness pending | [roe.py](../api/applications/roe.rst)、[open.rir.json](../../out/stage2/roe_face/open.rir.json) |
 | S4 | QRAM 数据结构、经典 Riemann 残差和局部增量更新 | done / correctness pending | [flow_data.py](../api/applications/flow_data.rst)、[qfvm_patch.json](../../out/stage2/qfvm_patch.json)、[test_differential.py](../../tests/core/test_differential.py) |
 | S5 | 几何查询、量子矩阵元、P_Theta 与 T_L† S T_R/QFVM 组装 | done / correctness pending | [qfvm.py](../api/applications/qfvm.rst)、[toffoli_u3_cz.originir](../../out/stage2/qfvm_costa_filter/toffoli_u3_cz.originir)、[qfvm-native-result.json](../../out/stage2/qfvm-native-result.json) |

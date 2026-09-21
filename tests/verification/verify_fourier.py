@@ -50,16 +50,16 @@ from harness import (
 )
 
 from pyqecclang import Bits, Builder
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding, pauli_word
-from pyqecclang.algorithms.fourier import fourier_add, inverse_qft, qft, qft_with_work
-from pyqecclang.algorithms.operators import BlockEncoding
-from pyqecclang.algorithms.oracles import annotate
-from pyqecclang.algorithms.qsvt import qsp_phases
-from pyqecclang.algorithms.transforms import (
+from pyqecclang.algorithms.common.fourier import fourier_add, inverse_qft, qft, qft_with_work
+from pyqecclang.algorithms.common.qsvt import qsp_phases
+from pyqecclang.algorithms.common.transforms import (
     oblivious_amplification,
     qsvt_sequence,
     qubitization_walk,
 )
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding, pauli_word
+from pyqecclang.algorithms.input_model.operators import BlockEncoding
+from pyqecclang.algorithms.input_model.oracles import annotate
 
 # ---------------------------------------------------------------------------
 # 独立经典参考

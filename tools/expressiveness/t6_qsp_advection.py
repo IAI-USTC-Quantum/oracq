@@ -24,9 +24,9 @@ import sys
 import numpy as np
 
 from pyqecclang import simulate
-from pyqecclang.algorithms.fourier import inverse_qft
-from pyqecclang.algorithms.fourier import qft_with_work as qft
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.fourier import inverse_qft
+from pyqecclang.algorithms.common.fourier import qft_with_work as qft
+from pyqecclang.algorithms.input_model.oracles import (
     StatePreparation,
     annotate,
     diagonal_block_encoding,
@@ -35,8 +35,8 @@ from pyqecclang.algorithms.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.algorithms.qsvt import qsvt_hamiltonian_simulation
-from pyqecclang.algorithms.state_preparation import apply_be_to_state
+from pyqecclang.algorithms.common.qsvt import qsvt_hamiltonian_simulation
+from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
 from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Bits
 

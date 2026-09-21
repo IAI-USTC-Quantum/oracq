@@ -16,11 +16,11 @@ import scipy.linalg
 
 import pyqecclang
 from pyqecclang import simulate
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.lchs import QuadraturePlan
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.oracles import gate_state_prep
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.lchs import QuadraturePlan
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.input_model.oracles import gate_state_prep
 
 G = [[-1.0, 0.5], [-0.5, -1.0]]
 TIME = 0.05

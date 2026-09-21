@@ -1,6 +1,6 @@
 # 模乘置换（Modular Multiplication）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.number_theory` · 阶段 —
+> 类别 C1 · 模块 `pyqecclang.algorithms.basics.number_theory` · 阶段 —
 
 ## 概述
 
@@ -57,7 +57,7 @@ modular_multiply(multiplier, modulus, *, width=None, max_width=8)
 
 - 同模块：[量子求阶与因子后处理](order-finding.md)
 - 源码：`src/pyqecclang/algorithms/number_theory.py`
-- API 参考：[模乘与求阶](../../api/algorithms/number_theory.rst)
+- API 参考：[模乘与求阶](../../api/algorithms/basics/number_theory.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

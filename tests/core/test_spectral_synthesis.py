@@ -8,15 +8,15 @@ alpha*corner，子归一化 alpha 本身按合并代数收紧。
 import unittest
 
 from pyqecclang import Builder, estimate_resources, simulate
-from pyqecclang.algorithms.block_encoding import lcu
-from pyqecclang.algorithms.operators import identity
-from pyqecclang.algorithms.oracles import gate_state_prep
-from pyqecclang.algorithms.spectral import spectral_diagonal
-from pyqecclang.algorithms.spectral_synthesis import (
+from pyqecclang.algorithms.common.spectral_synthesis import (
     fanout_spectral_diagonal,
     merge_similar,
     uniformly_controlled_prep,
 )
+from pyqecclang.algorithms.input_model.block_encoding import lcu
+from pyqecclang.algorithms.input_model.operators import identity
+from pyqecclang.algorithms.input_model.oracles import gate_state_prep
+from pyqecclang.algorithms.input_model.spectral import spectral_diagonal
 
 
 def applied(operation, initial):

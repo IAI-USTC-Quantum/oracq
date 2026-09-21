@@ -1,6 +1,6 @@
 # PREPARE–SELECT 分解（PREPARE–SELECT Decomposition）
 
-> 类别 C5/C1 · 模块 `pyqecclang.algorithms.prepare_select` · 阶段 V4
+> 类别 C5/C1 · 模块 `pyqecclang.algorithms.common.prepare_select` · 阶段 V4
 
 ## 概述
 
@@ -58,7 +58,7 @@ SELECT 的控制条件按 selector 二进制值用 RIR Control 原语表达；�
 
 - 源码：`src/pyqecclang/algorithms/prepare_select.py`
 - 同组页面：[Alias 采样制备](alias-preparation.md)、[态制备 Oracle](state-preparation.md)、[XOR 数据库](xor-database.md)
-- API 参考：[PREPARE-SELECT 分解](../../api/algorithms/prepare_select.rst)
+- API 参考：[PREPARE-SELECT 分解](../../api/algorithms/common/prepare_select.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

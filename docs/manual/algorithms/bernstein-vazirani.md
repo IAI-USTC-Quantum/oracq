@@ -1,6 +1,6 @@
 # Bernstein–Vazirani 秘密串读出（Bernstein–Vazirani）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.oracle_algorithms` · 阶段 V1
+> 类别 C1 · 模块 `pyqecclang.algorithms.basics.oracle_algorithms` · 阶段 V1
 
 ## 概述
 
@@ -45,7 +45,7 @@ affine_boolean_oracle(width, secret, *, bias=0)
 
 - 同模块：[Deutsch–Jozsa 查询](deutsch-jozsa.md)、[Simon 采样](simon.md)
 - 源码：`src/pyqecclang/algorithms/oracle_algorithms.py`
-- API 参考：[Oracle 查询算法](../../api/algorithms/oracle_algorithms.rst)
+- API 参考：[Oracle 查询算法](../../api/algorithms/basics/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

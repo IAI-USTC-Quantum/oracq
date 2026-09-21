@@ -1,6 +1,6 @@
 # 解码量子干涉（Decoded Quantum Interferometry）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.dqi` · 阶段 V1
+> 类别 C4 · 模块 `pyqecclang.algorithms.optimization.dqi` · 阶段 V1
 
 ## 概述
 
@@ -56,7 +56,7 @@ dicke_state(m, weight)
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/dqi.py`
-- API 参考：[DQI 解码量子干涉优化](../../api/algorithms/dqi.rst)
+- API 参考：[DQI 解码量子干涉优化](../../api/algorithms/optimization/dqi.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

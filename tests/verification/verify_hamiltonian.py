@@ -46,27 +46,27 @@ from harness import (
 from scipy.linalg import expm as scipy_expm
 from scipy.special import jv as bessel_j
 
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding, reflect_zero
-from pyqecclang.algorithms.density import gibbs_purification
-from pyqecclang.algorithms.hamiltonian import (
+from pyqecclang.algorithms.common.hamiltonian import (
     EncodedOperator,
     PauliHamiltonian,
     hamiltonian_simulation,
     trotter_hamsim,
 )
-from pyqecclang.algorithms.operators import block_encoding, linear_combination, zero
-from pyqecclang.algorithms.oracles import invoke, resources_for
-from pyqecclang.algorithms.qsvt import (
+from pyqecclang.algorithms.common.qsvt import (
     eigenstate_filter,
     qsp_phases,
     qsvt_hamiltonian_simulation,
     qsvt_matrix_inversion,
 )
-from pyqecclang.algorithms.transforms import (
+from pyqecclang.algorithms.common.transforms import (
     oblivious_amplification,
     qsvt_sequence,
     qubitization_walk,
 )
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding, reflect_zero
+from pyqecclang.algorithms.input_model.density import gibbs_purification
+from pyqecclang.algorithms.input_model.operators import block_encoding, linear_combination, zero
+from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
 from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Bits
 from pyqecclang.infrastructure.layout import workspace_table

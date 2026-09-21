@@ -1,6 +1,6 @@
 # Fokker–Planck 输入模型（Fokker–Planck Input Model）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.sde` · 阶段 V3
+> 类别 C2 · 模块 `pyqecclang.algorithms.qode.sde` · 阶段 V3
 
 ## 概述
 
@@ -55,7 +55,7 @@ SDE 与 LCHS 的端到端 catalog 案例缺失（离散化 → QODEProblem → �
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/sde.py`
-- API 参考：[SDE/Fokker–Planck 输入模型](../../api/algorithms/sde.rst)
+- API 参考：[SDE/Fokker–Planck 输入模型](../../api/algorithms/qode/sde.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md)（本输入模型的消费协议）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

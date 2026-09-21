@@ -1,6 +1,6 @@
 # Carleman 线性化（Carleman Linearization）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.carleman` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.qnlss.carleman` · 阶段 V2
 
 ## 概述
 
@@ -93,6 +93,6 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/carleman.py`
-- API 参考：[Carleman 线性化](../../api/algorithms/carleman.rst)
+- API 参考：[Carleman 线性化](../../api/algorithms/qnlss/carleman.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md) · [Schrödingerization](schrodingerization.md)（典型组合 Carleman → 线性求解器）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

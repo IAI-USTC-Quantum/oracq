@@ -1,6 +1,6 @@
 # LCHS 线性组合哈密顿模拟（Linear Combination of Hamiltonian Simulations）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.lchs` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.qode.lchs` · 阶段 V2
 
 ## 概述
 
@@ -85,6 +85,6 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/lchs.py`
-- API 参考：[LCHS](../../api/algorithms/lchs.rst)
+- API 参考：[LCHS](../../api/algorithms/qode/lchs.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [Carleman 线性化](carleman.md)（提升后接 LCHS）· [Fokker–Planck 输入模型](fokker-planck.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

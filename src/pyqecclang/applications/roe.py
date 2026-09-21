@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pyqecclang.algorithms.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
+from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
 from pyqecclang.infrastructure.ir import Adjoint, Bits
 
 

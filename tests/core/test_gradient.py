@@ -4,7 +4,7 @@ import math
 import unittest
 
 from pyqecclang import ValidationError, bind, simulate, unresolved
-from pyqecclang.algorithms.gradient import (
+from pyqecclang.algorithms.optimization.gradient import (
     abstract_phase_oracle,
     function_phase_oracle,
     gate_phase_oracle,

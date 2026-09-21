@@ -6,8 +6,7 @@ import random
 import unittest
 
 from pyqecclang import ValidationError, simulate
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.qsvt import (
+from pyqecclang.algorithms.common.qsvt import (
     eigenstate_filter,
     fixed_point_search,
     fixed_point_search_phases,
@@ -16,7 +15,8 @@ from pyqecclang.algorithms.qsvt import (
     qsvt_hamiltonian_simulation,
     qsvt_matrix_inversion,
 )
-from pyqecclang.algorithms.transforms import qsvt_sequence
+from pyqecclang.algorithms.common.transforms import qsvt_sequence
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
 
 
 def chebyshev_t(n):

@@ -1,6 +1,6 @@
 # Costa 行走线性系统求解器（Costa Walk QLSS）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.qlss` · 阶段 V3
+> 类别 C2 · 模块 `pyqecclang.algorithms.qlss.qlss` · 阶段 V3
 
 ## 概述
 
@@ -50,7 +50,7 @@ make_costa_qlss(config=None)                       # → QLSSProtocol（input_mo
 
 - 源码：`src/pyqecclang/algorithms/qlss.py`
 - 同族页面：[CKS Chebyshev 求解器](cks.md)、[稀疏矩阵块编码](sparse-block-encoding.md)
-- API 参考：[量子线性系统](../../api/algorithms/qlss.rst)
+- API 参考：[量子线性系统](../../api/algorithms/qlss/qlss.rst)
 - 输入模型审查：[QFVM 输入模型审查](../../reference/qfvm-input-models.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

@@ -1,6 +1,6 @@
 # Heinrich 量子求和（Heinrich Quantum Summation）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.integration` · 阶段 V1
+> 类别 C3 · 模块 `pyqecclang.algorithms.common.integration` · 阶段 V1
 
 ## 概述
 
@@ -49,7 +49,7 @@ quantum_sum(database, *, precision=4, name=None)
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/integration.py`
-- API 参考：[量子求和与积分](../../api/algorithms/integration.rst)
+- API 参考：[量子求和与积分](../../api/algorithms/common/integration.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

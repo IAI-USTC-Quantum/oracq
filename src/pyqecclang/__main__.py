@@ -55,7 +55,7 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == "compile-function":
-            from pyqecclang.algorithms.arithmetic import FixedFormat
+            from pyqecclang.algorithms.common.arithmetic import FixedFormat
             from pyqecclang.infrastructure.mathfunc import Index, MathConfig, compile_function
 
             inputs = json.loads(args.inputs) if args.inputs else None
@@ -155,7 +155,7 @@ def main():
                 if args.native_arithmetic:
                     if args.backend != "pysparq":
                         raise ValueError("--native-arithmetic 需要 --backend pysparq")
-                    from pyqecclang.algorithms.arithmetic import arithmetic_native_registry
+                    from pyqecclang.algorithms.common.arithmetic import arithmetic_native_registry
 
                     options = {
                         "native_registry": arithmetic_native_registry(

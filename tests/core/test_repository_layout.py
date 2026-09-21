@@ -13,13 +13,35 @@ class RepositoryLayoutTests(unittest.TestCase):
         files = {p.name for p in (ROOT / "src/pyqecclang").glob("*.py")}
         self.assertEqual(files, {"__init__.py", "__main__.py", "_compat.py"})
 
+    SUBPACKAGES = {
+        "input_model",
+        "common",
+        "qlss",
+        "qnlss",
+        "qode",
+        "qpde",
+        "qml",
+        "optimization",
+        "basics",
+        "qec",
+    }
+
+    def test_algorithms_flat_level_only_has_categories(self):
+        base = ROOT / "src/pyqecclang/algorithms"
+        files = {p.name for p in base.glob("*.py")}
+        self.assertEqual(files, {"__init__.py"})
+        dirs = {p.name for p in base.iterdir() if p.is_dir() and p.name != "__pycache__"}
+        self.assertEqual(dirs, self.SUBPACKAGES)
+
     def test_public_algorithm_modules_have_api_pages(self):
-        for path in (ROOT / "src/pyqecclang/algorithms").glob("*.py"):
-            if path.stem.startswith("_") or path.stem == "legacy":
+        base = ROOT / "src/pyqecclang/algorithms"
+        for path in sorted(base.rglob("*.py")):
+            if path.name == "__init__.py" or path.stem.startswith("_") or path.stem == "legacy":
                 continue
-            page = ROOT / "docs/api/algorithms" / (path.stem + ".rst")
+            module = "pyqecclang.algorithms." + ".".join(path.relative_to(base).with_suffix("").parts)
+            page = ROOT / "docs/api/algorithms" / path.relative_to(base).with_suffix("").parent / (path.stem + ".rst")
             self.assertTrue(page.exists(), str(page))
-            self.assertIn("automodule:: pyqecclang.algorithms." + path.stem, page.read_text())
+            self.assertIn("automodule:: " + module, page.read_text())
 
     def test_internal_imports_do_not_use_compatibility_paths(self):
         from pyqecclang._compat import ALIASES, SPLIT_EXPORTS
@@ -36,4 +58,4 @@ class RepositoryLayoutTests(unittest.TestCase):
         package = importlib.import_module("pyqecclang")
         self.assertIs(package.ir, importlib.import_module("pyqecclang.infrastructure.ir"))
         qham = importlib.import_module("pyqecclang.qham")
-        self.assertIs(qham.quantum, importlib.import_module("pyqecclang.algorithms.qham"))
+        self.assertIs(qham.quantum, importlib.import_module("pyqecclang.algorithms.input_model.qham"))

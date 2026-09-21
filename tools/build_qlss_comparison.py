@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from pyqecclang import FixedFormat, dumps, export_originir, export_toffoli_u3_cz, unresolved
-from pyqecclang.algorithms.qlss import (
+from pyqecclang.algorithms.qlss.qlss import (
     CKSConfig,
     CostaConfig,
     SpectralPromise,

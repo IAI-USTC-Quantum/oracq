@@ -1,6 +1,6 @@
 # Fourier 加法（Fourier Addition）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.fourier` · 阶段 V1
+> 类别 C1 · 模块 `pyqecclang.algorithms.common.fourier` · 阶段 V1
 
 ## 概述
 
@@ -38,7 +38,7 @@ fourier_add(width)
 
 - 同模块：[量子 Fourier 变换](qft.md)
 - 源码：`src/pyqecclang/algorithms/fourier.py`
-- API 参考：[Fourier 变换与算术](../../api/algorithms/fourier.rst)
+- API 参考：[Fourier 变换与算术](../../api/algorithms/common/fourier.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

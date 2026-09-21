@@ -1,6 +1,6 @@
 # 三位重复码（Repetition Codes）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.error_correction` · 阶段 V1
+> 类别 C1 · 模块 `pyqecclang.algorithms.qec.error_correction` · 阶段 V1
 
 ## 概述
 
@@ -46,7 +46,7 @@ repetition_recover(*, error="bit")
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/error_correction.py`
-- API 参考：[重复码与错误恢复](../../api/algorithms/error_correction.rst)
+- API 参考：[重复码与错误恢复](../../api/algorithms/qec/error_correction.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

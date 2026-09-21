@@ -1,6 +1,6 @@
 # QROM 查找（QROM Lookup）
 
-> 类别 C5 · 模块 `pyqecclang.algorithms.data_loading` · 阶段 V4
+> 类别 C5 · 模块 `pyqecclang.algorithms.input_model.data_loading` · 阶段 V4
 
 ## 概述
 
@@ -54,7 +54,7 @@ qrom_cost(n_addresses, data_bits, partitions=1)
 
 - 源码：`src/pyqecclang/algorithms/data_loading.py`
 - 同组页面：[Select-Swap QROM](select-swap.md)、[XOR 数据库](xor-database.md)
-- API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/data_loading.rst)
+- API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/input_model/data_loading.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

@@ -1,6 +1,6 @@
 # 定点搜索（Fixed-Point Search）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.qsvt` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.common.qsvt` · 阶段 V2
 
 ## 概述
 
@@ -52,7 +52,7 @@ $Q$ 由 Chebyshev 奇次系数加 $(1 - x^2)$ 幂解析展开；$P$ 的谱分解
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/qsvt.py`
-- API 参考：[QSVT 标准变换](../../api/algorithms/qsvt.rst)
+- API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 相位序列](qsvt-sequence.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

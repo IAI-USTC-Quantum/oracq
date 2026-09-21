@@ -15,8 +15,7 @@ from pyqecclang import (
     requires,
     simulate,
 )
-from pyqecclang.algorithms.block_encoding import lcu
-from pyqecclang.algorithms.hamiltonian import (
+from pyqecclang.algorithms.common.hamiltonian import (
     EncodedOperator,
     PauliHamiltonian,
     PauliOperator,
@@ -24,13 +23,14 @@ from pyqecclang.algorithms.hamiltonian import (
     TrotterTerm,
     hamiltonian_simulation,
 )
-from pyqecclang.algorithms.interfaces import (
+from pyqecclang.algorithms.input_model.block_encoding import lcu
+from pyqecclang.algorithms.input_model.interfaces import (
     BlockEncodingProtocol,
     StatePreparationProtocol,
     UnitaryProtocol,
 )
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.oracles import basis_state
+from pyqecclang.algorithms.input_model.oracles import basis_state
+from pyqecclang.algorithms.qode.ode import linear_qode
 
 
 class AlgorithmProtocolTests(unittest.TestCase):

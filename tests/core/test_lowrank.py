@@ -6,15 +6,15 @@ import unittest
 from witness import assert_block_equals, block_column
 
 from pyqecclang import ValidationError, simulate, unresolved
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.lowrank import (
+from pyqecclang.algorithms.common.transforms import qubitization_walk
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from pyqecclang.algorithms.input_model.lowrank import (
     DoubleFactorization,
     THCDecomposition,
     diagonalize_symmetric,
     double_factorized_encoding,
     thc_encoding,
 )
-from pyqecclang.algorithms.transforms import qubitization_walk
 
 IDENTITY2 = ((1.0, 0.0), (0.0, 1.0))
 HADAMARD = ((1 / math.sqrt(2), 1 / math.sqrt(2)), (1 / math.sqrt(2), -1 / math.sqrt(2)))

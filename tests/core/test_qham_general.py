@@ -6,8 +6,8 @@ import unittest
 from functools import partial
 
 from pyqecclang import ValidationError, bind, dumps, loads, simulate, unresolved
-from pyqecclang.algorithms.oracles import gate_database
-from pyqecclang.algorithms.qham import embed_rectangular, place_port
+from pyqecclang.algorithms.input_model.oracles import gate_database
+from pyqecclang.algorithms.input_model.qham import embed_rectangular, place_port
 from pyqecclang.applications.qham import (
     Block,
     Discretization,
@@ -242,8 +242,8 @@ class QhamGeneralTests(unittest.TestCase):
     def test_zero_initial_forcing_and_reused_work(self):
         from dataclasses import replace
 
-        from pyqecclang.algorithms.oracles import gate_state_prep
-        from pyqecclang.algorithms.qham import lifted_initial
+        from pyqecclang.algorithms.input_model.oracles import gate_state_prep
+        from pyqecclang.algorithms.input_model.qham import lifted_initial
         from pyqecclang.applications.qham import structured_fd_bindings
 
         u = Field("u")

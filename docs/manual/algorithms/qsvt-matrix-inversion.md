@@ -1,6 +1,6 @@
 # QSVT 矩阵求逆（QSVT Matrix Inversion）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.qsvt` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.common.qsvt` · 阶段 V2
 
 ## 概述
 
@@ -57,7 +57,7 @@ qsvt_matrix_inversion(a, kappa, *, error=0.05)
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/qsvt.py`
-- API 参考：[QSVT 标准变换](../../api/algorithms/qsvt.rst)
+- API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

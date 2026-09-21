@@ -4,12 +4,12 @@ import math
 import unittest
 
 from pyqecclang import Bits, Builder, ValidationError, export_originir, run_pysparq, simulate
-from pyqecclang.algorithms.arithmetic import (
+from pyqecclang.algorithms.common.arithmetic import (
     FixedFormat,
     arithmetic_native_registry,
     fixed_arithmetic,
 )
-from pyqecclang.algorithms.oracles import declare
+from pyqecclang.algorithms.input_model.oracles import declare
 from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
 from pyqecclang.infrastructure.native import DynamicCppFactory, NativeRegistry
 

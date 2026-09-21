@@ -1,6 +1,6 @@
 # XOR 数据库（XOR Database）
 
-> 类别 C5 · 模块 `pyqecclang.algorithms.oracles` · 阶段 V4
+> 类别 C5 · 模块 `pyqecclang.algorithms.input_model.oracles` · 阶段 V4
 
 ## 概述
 
@@ -58,7 +58,7 @@ gate 版对每个非零表字在地址控制下逐位施加 X，门数随表规�
 
 - 源码：`src/pyqecclang/algorithms/oracles.py`
 - 同组页面：[QROM 查找](qrom-lookup.md)、[Select-Swap QROM](select-swap.md)、[稀疏访问](sparse-access.md)、[态制备 Oracle](state-preparation.md)
-- API 参考：[Oracle 声明与实现](../../api/algorithms/oracles.rst)
+- API 参考：[Oracle 声明与实现](../../api/algorithms/input_model/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

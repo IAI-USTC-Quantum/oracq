@@ -1,6 +1,6 @@
 # 可逆定点算术（Fixed-Point Arithmetic）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.arithmetic` · 阶段 V1
+> 类别 C1 · 模块 `pyqecclang.algorithms.common.arithmetic` · 阶段 V1
 
 ## 概述
 
@@ -60,5 +60,5 @@ fixed_arithmetic(kind, fmt=DEFAULT_FIXED_FORMAT)
 
 - 同模块：[布尔网络](boolean-networks.md)
 - 源码：`src/pyqecclang/algorithms/arithmetic.py`
-- API 参考：[可逆算术](../../api/algorithms/arithmetic.rst)
+- API 参考：[可逆算术](../../api/algorithms/common/arithmetic.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

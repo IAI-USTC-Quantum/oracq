@@ -1,6 +1,6 @@
 "纯 Python 数学函数编译入口。"
 
-from pyqecclang.algorithms.arithmetic import FixedFormat
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
 from pyqecclang.infrastructure.mathfunc.frontend import Frontend, FunctionCompileError
 from pyqecclang.infrastructure.mathfunc.graph import Index, MathProgram
 from pyqecclang.infrastructure.mathfunc.lowering import CompiledFunction, Lowerer

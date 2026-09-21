@@ -1,6 +1,6 @@
 # 布尔网络（Boolean Networks）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.arithmetic` · 阶段 V1
+> 类别 C1 · 模块 `pyqecclang.algorithms.common.arithmetic` · 阶段 V1
 
 ## 概述
 
@@ -50,7 +50,7 @@ arithmetic_native_registry(program, *, cache_dir="out/native-cache")
 
 - 同模块：[可逆定点算术](fixed-point-arithmetic.md)
 - 源码：`src/pyqecclang/algorithms/arithmetic.py`
-- API 参考：[可逆算术](../../api/algorithms/arithmetic.rst)
+- API 参考：[可逆算术](../../api/algorithms/common/arithmetic.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

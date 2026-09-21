@@ -1,6 +1,6 @@
 # 密度矩阵指数化（Density Matrix Exponentiation）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.qpca` · 阶段 V1
+> 类别 C3 · 模块 `pyqecclang.algorithms.qml.qpca` · 阶段 V1
 
 ## 概述
 
@@ -53,7 +53,7 @@ density_matrix_exponentiation(preparation, *, time, copies, swap_width=None, nam
 
 - 源码：`src/pyqecclang/algorithms/qpca.py`
 - 同模块页面：[QPCA 主成分分析](qpca.md)
-- API 参考：[QPCA 量子主成分分析](../../api/algorithms/qpca.rst)
+- API 参考：[QPCA 量子主成分分析](../../api/algorithms/qml/qpca.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

@@ -1,24 +1,57 @@
 # 算法目录
 
-算法库按用途组织。下表给出入口文件、已实现的内容以及使用时需要留意的边界。API 参考列出了完整签名。
+算法库按用途组织为十个子包：`input_model`（输入模型与数据访问）、`common`（通用原语）、`qlss`（线性系统）、`qnlss`（非线性系统）、`qode`（常微分方程）、`qpde`（偏微分方程）、`qml`（量子机器学习）、`optimization`（量子优化与变分方法）、`basics`（基础示例算法）与 `qec`（量子纠错）。下表给出入口文件、已实现的内容以及使用时需要留意的边界。API 参考列出了完整签名。
 
-| 类别 | 文件 | 实现与范围 |
+| 子包 | 文件 | 实现与范围 |
 |---|---|---|
-| Oracle 查询 | `oracle_algorithms.py` | D-J、Bernstein–Vazirani、Simon 采样；Simon 的 GF(2) 消元在经典侧进行 |
-| Fourier 变换与算术 | `fourier.py` | 正/逆 QFT、零宽 work 适配、模 2^n 的 Fourier 加法 |
-| 搜索与放大 | `search.py` | Grover、Grover iterate、成功子空间振幅放大 |
-| 估计与重叠 | `estimation.py` | QPE、标准振幅估计、Hadamard test、Swap test |
-| 变分算法 | `variational.py` | 参数化 ansatz、MaxCut QAOA、Pauli 测量和 VQE 测量电路集合 |
-| 量子行走 | `walks.py` | 周期格点上的 Hadamard coined walk |
-| 数论 | `number_theory.py` | 有限规模模乘置换、QPE 求阶、连分数因子候选后处理 |
-| 简单纠错 | `error_correction.py` | 三位 bit/phase flip 重复码的编码与相干恢复 |
-| Hamiltonian 演化 | `hamiltonian.py` | Pauli 项演化、Trotter 组合、Taylor BE、可注入的 QSP 接口 |
-| 矩阵变换 | `transforms.py` | qubitization、显式相位序列 QSVT、oblivious amplification 的组装 |
-| 线性系统 | `qlss.py` | 问题契约、Costa walk/filter、CKS 基础 Chebyshev/LCU 路线 |
-| 线性系统（VTAA） | `vtaa_cks.py` | CKS §5 变时幅度放大：QSP 判决时钟、分频带逆 LCU、Ambainis 嵌套放大与 A' 反计算 |
-| 线性演化 | `ode.py` | QODE 协议和 Euler history 组装；具体方法在独立文件中 |
-| 微分方程方法 | `lchs.py`、`schrodingerization.py`、`cbmd.py`、`carleman.py` | 各自维护输入模型、配置和生成步骤 |
-| QHAM | `qham.py` | 从有限 HAM 闭包构造 QODE 输入及物理输出通道 |
+| input_model | `contracts.py` | 可检查输入契约：Oracle 能力/规格、协议契约与验收报告 |
+| input_model | `operators.py` | BlockEncoding 类与 identity/product/scale/LCU 等基本组合 |
+| input_model | `oracles.py` | XorDatabase、StatePreparation、StateOracle、SparseAccess 四大 Oracle 范式与 abstract/gate/qram 工厂 |
+| input_model | `interfaces.py` | StatePreparation/Unitary/BlockEncoding 等共享协议与适配函数 |
+| input_model | `block_encoding.py` | 块编码代数组合：tensor、direct_sum、projector、lcu、pauli_word 等 |
+| input_model | `sparse.py` | 稀疏访问到块编码的适配，含 Chebyshev 块与可逆查表 |
+| input_model | `spectral.py` | 谱对角块编码、稀疏谱块编码与谱态制备 |
+| input_model | `lowrank.py` | 量子化学低秩分解（DF/THC）哈密顿量 LCU/块编码 |
+| input_model | `data_loading.py` | Select-Swap QROM 数据加载与代价模型 |
+| input_model | `qdata.py` | QVector/QMatrix 量子数据结构（平方范数树与 sample-and-query） |
+| input_model | `density.py` | 密度矩阵纯化访问、Gibbs 态制备与迹距离等经典工具 |
+| input_model | `qham.py` | 从有限 HAM 闭包构造 QODE 输入及物理输出通道 |
+| input_model | `graph_walks.py` | 图 oracle 输入模型与 Szegedy/MNRS 行走搜索框架 |
+| common | `prepare_select.py` | LCU 的 PREPARE–SELECT 标准分解与 alias 采样 |
+| common | `qsvt.py` | QSVT 标准变换：QSP 相位、矩阵求逆、特征滤波、定点搜索 |
+| common | `transforms.py` | qubitization、显式相位序列 QSVT、oblivious amplification 的组装 |
+| common | `state_preparation.py` | 初态组合：扩展初态、物理子空间选择、BE 作用到态 |
+| common | `hamiltonian.py` | Pauli 项演化、Trotter 组合、Taylor BE、可注入的 QSP 接口 |
+| common | `fourier.py` | 正/逆 QFT、零宽 work 适配、模 2^n 的 Fourier 加法 |
+| common | `arithmetic.py` | 可逆定点算术：Boolean SSA 网络、compute/uncompute、原生注册 |
+| common | `estimation.py` | QPE、标准振幅估计、Hadamard test、Swap test |
+| common | `search.py` | Grover、Grover iterate、成功子空间振幅放大 |
+| common | `walks.py` | 周期格点上的 Hadamard coined walk |
+| common | `spectral_synthesis.py` | 谱线路的算子级合成优化（均匀受控制备、扇出合并） |
+| common | `integration.py` | Heinrich 量子求和与数值积分 |
+| qlss | `qlss.py` | 问题契约、Costa walk/filter、CKS 基础 Chebyshev/LCU 路线 |
+| qlss | `vtaa_cks.py` | CKS §5 变时幅度放大：QSP 判决时钟、分频带逆 LCU、Ambainis 嵌套放大与 A' 反计算 |
+| qnlss | `newton.py` | 量子牛顿法：M_F 数据结构、差分 Jacobian oracle |
+| qnlss | `carleman.py` | 多项式 ODE 的 Carleman 有限阶张量提升 |
+| qode | `ode.py` | QODE 协议和 Euler history 组装；具体方法在独立文件中 |
+| qode | `ode_models.py` | Hermitian 反厄米分解与 LinearODE 共享输入模型 |
+| qode | `cbmd.py` | 轮廓分解矩阵函数与演化组装 |
+| qode | `lchs.py` | 耗散线性演化的 Hermitian 分支有限加权和 |
+| qode | `schrodingerization.py` | 辅助坐标 + Fourier 变换的非酉演化量子表示 |
+| qode | `sde.py` | Fokker–Planck/SDE 到线性 ODE 的输入模型与经典见证 |
+| qode | `legacy.py` | 早期演化工厂兼容层（make_lchs_qode 等） |
+| qpde | `pde.py` | QODE 协议之上的 QPDE 输入与求解薄封装 |
+| qml | `recommendation.py` | Kerenidis–Prakash 量子推荐系统 |
+| qml | `qpca.py` | 密度矩阵指数化 + 相位估计的量子主成分分析 |
+| qml | `qsdp.py` | Gibbs 采样 + 迹估计 + 矩阵乘权的量子半定规划框架 |
+| qml | `qcnn.py` | 量子卷积神经网络的经典侧张量/卷积/池化逻辑 |
+| qml | `qcnn_layer.py` | 量子卷积神经网络的量子构件 |
+| optimization | `dqi.py` | DQI 解码量子干涉：GF(2) max-XORSAT |
+| optimization | `variational.py` | 参数化 ansatz、MaxCut QAOA、Pauli 测量和 VQE 测量电路集合 |
+| optimization | `gradient.py` | Jordan 量子梯度估计 |
+| basics | `oracle_algorithms.py` | D-J、Bernstein–Vazirani、Simon 采样；Simon 的 GF(2) 消元在经典侧进行 |
+| basics | `number_theory.py` | 有限规模模乘置换、QPE 求阶、连分数因子候选后处理 |
+| qec | `error_correction.py` | 三位 bit/phase flip 重复码的编码与相干恢复 |
 
 ## 如何选择起点
 

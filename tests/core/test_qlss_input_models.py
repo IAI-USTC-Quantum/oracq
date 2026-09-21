@@ -4,7 +4,7 @@ import math
 import unittest
 
 from pyqecclang import FixedFormat, ValidationError, simulate, unresolved
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.input_model.oracles import (
     SparseAccess,
     basis_state,
     gate_database,
@@ -13,7 +13,8 @@ from pyqecclang.algorithms.oracles import (
     sparse_entry,
     sparse_location_gate,
 )
-from pyqecclang.algorithms.qlss import (
+from pyqecclang.algorithms.input_model.sparse import chebyshev_block
+from pyqecclang.algorithms.qlss.qlss import (
     BlockSystem,
     CKSConfig,
     CostaConfig,
@@ -23,7 +24,6 @@ from pyqecclang.algorithms.qlss import (
     make_cks_qlss,
     make_costa_qlss,
 )
-from pyqecclang.algorithms.sparse import chebyshev_block
 from pyqecclang.applications.flow_data import RoeFlowData
 from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem, roe_qfvm_step
 from pyqecclang.infrastructure.execution import events
@@ -102,8 +102,8 @@ class QLSSInputTests(unittest.TestCase):
 
     def test_costa_rhs_reflection_is_independent_of_unitary_extension(self):
         from pyqecclang import Bits, Builder, identity
-        from pyqecclang.algorithms.oracles import StatePreparation, annotate
-        from pyqecclang.algorithms.qlss import costa_walk
+        from pyqecclang.algorithms.input_model.oracles import StatePreparation, annotate
+        from pyqecclang.algorithms.qlss.qlss import costa_walk
 
         first = basis_state(1, work_width=1)
         builder = Builder("alternate_rhs_extension", {"target": Bits(1), "work": Bits(1)})

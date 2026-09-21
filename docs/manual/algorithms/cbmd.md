@@ -1,6 +1,6 @@
 # CBMD 轮廓分解（CBMD）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.cbmd` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.qode.cbmd` · 阶段 V2
 
 ## 概述
 
@@ -88,6 +88,6 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/cbmd.py`
-- API 参考：[CBMD](../../api/algorithms/cbmd.rst)
+- API 参考：[CBMD](../../api/algorithms/qode/cbmd.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md)（同一输入面与组装骨架）· [Carleman 线性化](carleman.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

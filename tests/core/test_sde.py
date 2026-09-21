@@ -5,12 +5,12 @@ import unittest
 from functools import partial
 
 from pyqecclang import dumps, loads, simulate
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.lchs import QuadraturePlan
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.ode_models import LinearODE
-from pyqecclang.algorithms.oracles import StatePreparation
-from pyqecclang.algorithms.sde import (
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.input_model.oracles import StatePreparation
+from pyqecclang.algorithms.qode.lchs import QuadraturePlan
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.qode.ode_models import LinearODE
+from pyqecclang.algorithms.qode.sde import (
     FokkerPlanckProblem,
     boltzmann_distribution,
     distribution_moments,

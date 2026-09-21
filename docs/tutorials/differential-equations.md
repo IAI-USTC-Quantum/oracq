@@ -4,8 +4,8 @@
 
 ```{testcode}
 from pyqecclang import Bits, Builder, QODEProblem, identity, scale
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 from functools import partial
 
 b = Builder("initial_one", {"q": Bits(1)})

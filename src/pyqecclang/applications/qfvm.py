@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.operators import _name
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.input_model.operators import _name
+from pyqecclang.algorithms.input_model.oracles import (
     SparseAccess,
     StatePreparation,
     abstract_database,
@@ -18,7 +18,7 @@ from pyqecclang.algorithms.oracles import (
     qram_state_prep,
     resources_for,
 )
-from pyqecclang.algorithms.sparse import compare_words, value_transposition
+from pyqecclang.algorithms.input_model.sparse import compare_words, value_transposition
 from pyqecclang.applications.roe import ArithmeticBuilder, roe_face
 from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Adjoint, Bits, ValidationError, fuse
@@ -243,7 +243,7 @@ def roe_entry(inputs, *, gamma=1.4, entropy_delta=0.125, mass=1.0, dx=1.0):
         faces.append((g.word(left), g.word(right)))
     # 质量项只作用于中心块的分量对角。
     equal = b.local("component_equal", Bits(1))
-    from pyqecclang.algorithms.arithmetic import BooleanNetwork
+    from pyqecclang.algorithms.common.arithmetic import BooleanNetwork
 
     net = BooleanNetwork()
     r, c = net.input("r", 2), net.input("c", 2)
@@ -267,7 +267,7 @@ def _geometry_refs(ref, inputs):
 
 def roe_qfvm_block_encoding(inputs, *, amax=8.0, padding_value=1.0, **entry_options):
     """显式从稀疏输入转换到 BE；QFVM 本身不再强制只暴露 BE。"""
-    from pyqecclang.algorithms.sparse import real_symmetric_sparse_encoding
+    from pyqecclang.algorithms.input_model.sparse import real_symmetric_sparse_encoding
 
     if not 0 < padding_value <= amax:
         raise ValidationError("补齐对角值必须为正且不超过元素上界")
@@ -379,7 +379,7 @@ def roe_qfvm_problem(
     inputs, *, spectrum, rhs_norm=None, amax=8.0, padding_value=1.0, **entry_options
 ):
     """D=([[0,M],[M.T,0]] on physical coordinates) + padding_value*I_pad。"""
-    from pyqecclang.algorithms.qlss import LinearSystem, SparseSystem, SpectralPromise
+    from pyqecclang.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
 
     if not 0 < padding_value <= amax:
         raise ValidationError("补齐对角值必须为正且不超过元素上界")
@@ -434,7 +434,7 @@ def roe_qfvm_step(inputs, qlss, *, spectrum=None, rhs_norm=None, **options):
         ValidationError: qlss 不是声明 ``input_model`` 的 ``QLSSProtocol``，
             或未提供 spectrum。
     """
-    from pyqecclang.algorithms.qlss import QLSSProtocol
+    from pyqecclang.algorithms.qlss.qlss import QLSSProtocol
 
     if not isinstance(qlss, QLSSProtocol):
         raise ValidationError(

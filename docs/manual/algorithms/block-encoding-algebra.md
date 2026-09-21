@@ -1,6 +1,6 @@
 # 块编码组合代数（Block Encoding Algebra）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.block_encoding` · 阶段 V1
+> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.block_encoding` · 阶段 V1
 
 ## 概述
 
@@ -59,7 +59,7 @@ reflect_zero(builder, register, *, positive=False)
 
 - 源码：`src/pyqecclang/algorithms/block_encoding.py`（组合子）与 `src/pyqecclang/algorithms/operators.py`（`BlockEncoding` 类型与二元基元）
 - 同族页面：[稀疏矩阵块编码](sparse-block-encoding.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
-- API 参考：[Block encoding 组合](../../api/algorithms/block_encoding.rst)
+- API 参考：[Block encoding 组合](../../api/algorithms/input_model/block_encoding.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

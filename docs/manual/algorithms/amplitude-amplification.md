@@ -1,6 +1,6 @@
 # 振幅放大（Amplitude Amplification）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.search` · 阶段 V1
+> 类别 C3 · 模块 `pyqecclang.algorithms.common.search` · 阶段 V1
 
 ## 概述
 
@@ -49,7 +49,7 @@ amplify_success(state, *, iterations=1)
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/search.py`
-- API 参考：[搜索与振幅放大](../../api/algorithms/search.rst)
+- API 参考：[搜索与振幅放大](../../api/algorithms/common/search.rst)
 - 同组页面：[Grover 搜索](grover.md)（均匀初态 + 相位 oracle 的特例）、[振幅估计](qae.md)（同一迭代算子的对偶读出）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

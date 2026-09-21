@@ -1,6 +1,6 @@
 # VQE 测量电路（VQE Pauli Measurements）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.variational` · 阶段 V3
+> 类别 C4 · 模块 `pyqecclang.algorithms.optimization.variational` · 阶段 V3
 
 ## 概述
 
@@ -49,7 +49,7 @@ pauli_measurement(preparation, word)
 
 - 源码：`src/pyqecclang/algorithms/variational.py`
 - 同模块页面：[MaxCut QAOA](qaoa-maxcut.md)、[硬件高效拟设](variational-ansatz.md)
-- API 参考：[变分算法电路](../../api/algorithms/variational.rst)
+- API 参考：[变分算法电路](../../api/algorithms/optimization/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

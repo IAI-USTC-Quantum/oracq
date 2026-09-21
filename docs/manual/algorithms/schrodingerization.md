@@ -1,6 +1,6 @@
 # Schrödingerization 非酉演化模拟（Schrödingerization）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.schrodingerization` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.qode.schrodingerization` · 阶段 V2
 
 ## 概述
 
@@ -88,6 +88,6 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/schrodingerization.py`
-- API 参考：[Schrödingerization](../../api/algorithms/schrodingerization.rst)
+- API 参考：[Schrödingerization](../../api/algorithms/qode/schrodingerization.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md)（另一条线性路线）· [Carleman 线性化](carleman.md)（提升后接本方法）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

@@ -43,20 +43,11 @@ from harness import (
     rir_pysparq,
 )
 
-from pyqecclang.algorithms.block_encoding import lcu, matrix_pauli_encoding, tensor
-from pyqecclang.algorithms.carleman import (
-    PolynomialODE,
-    carleman_initial,
-    carleman_lift,
-    carleman_qode,
-)
-from pyqecclang.algorithms.cbmd import ContourPlan, cbmd_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.lchs import QuadraturePlan, lchs_qode
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.ode_models import HermitianParts, LinearODE
-from pyqecclang.algorithms.operators import identity, product, scale, zero
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
+from pyqecclang.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding, tensor
+from pyqecclang.algorithms.input_model.operators import identity, product, scale, zero
+from pyqecclang.algorithms.input_model.oracles import (
     StateOracle,
     abstract_database,
     abstract_state_prep,
@@ -68,8 +59,17 @@ from pyqecclang.algorithms.oracles import (
     qram_state_angles,
     qram_state_prep,
 )
-from pyqecclang.algorithms.schrodingerization import SchrodingerPlan, fourier_momentum
-from pyqecclang.algorithms.state_preparation import apply_be_to_state
+from pyqecclang.algorithms.qnlss.carleman import (
+    PolynomialODE,
+    carleman_initial,
+    carleman_lift,
+    carleman_qode,
+)
+from pyqecclang.algorithms.qode.cbmd import ContourPlan, cbmd_qode
+from pyqecclang.algorithms.qode.lchs import QuadraturePlan, lchs_qode
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.qode.ode_models import HermitianParts, LinearODE
+from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan, fourier_momentum
 
 SQRT2 = math.sqrt(2)
 RUN_KWARGS = {"max_steps": 1 << 30, "max_states": 1 << 22}
@@ -357,11 +357,11 @@ def schrodinger_sign_flipped_qode(g_be, initial, time, plan, *, degree):
     K'。此处用公开组合子独立重组装同一构造，作为符号约定的回归钉：与库
     程序逐振幅一致即符号未被回退。
     """
-    from pyqecclang.algorithms.fourier import qft_with_work as qft
-    from pyqecclang.algorithms.ode_models import HermitianParts
-    from pyqecclang.algorithms.operators import _name
-    from pyqecclang.algorithms.oracles import StatePreparation, invoke, resources_for
-    from pyqecclang.algorithms.state_preparation import select_subspace
+    from pyqecclang.algorithms.common.fourier import qft_with_work as qft
+    from pyqecclang.algorithms.common.state_preparation import select_subspace
+    from pyqecclang.algorithms.input_model.operators import _name
+    from pyqecclang.algorithms.input_model.oracles import StatePreparation, invoke, resources_for
+    from pyqecclang.algorithms.qode.ode_models import HermitianParts
     from pyqecclang.infrastructure.builder import Builder
     from pyqecclang.infrastructure.ir import Bits
 
@@ -785,7 +785,7 @@ def verify_lchs_diagonal_gate_vs_qram(report):
 
 def verify_lchs_fokker_planck(report):
     """输入模型 4：Fokker–Planck OU 离散生成元（Pauli 展开 BE）+ QODEProblem.solve。"""
-    from pyqecclang.algorithms.sde import (
+    from pyqecclang.algorithms.qode.sde import (
         FokkerPlanckProblem,
         boltzmann_distribution,
         matrix_exponential,

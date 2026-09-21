@@ -1,6 +1,6 @@
 # Trotter 乘积公式模拟（Trotter Product-Formula Simulation）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.hamiltonian` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.common.hamiltonian` · 阶段 V2
 
 ## 概述
 
@@ -53,7 +53,7 @@ Trotter 阶数误差率扫描缺失：误差随 `steps` / $\Delta t$ 变化的�
 
 - 源码：`src/pyqecclang/algorithms/hamiltonian.py`
 - 同族页面：[哈密顿量模拟协议](hamiltonian-simulation.md)、[截断 Taylor 块编码](taylor-block-encoding.md)
-- API 参考：[Hamiltonian 演化](../../api/algorithms/hamiltonian.rst)
+- API 参考：[Hamiltonian 演化](../../api/algorithms/common/hamiltonian.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

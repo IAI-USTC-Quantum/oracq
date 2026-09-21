@@ -20,17 +20,17 @@ from pyqecclang import (
     UInt,
     estimate_resources,
 )
-from pyqecclang.algorithms.arithmetic import fixed_arithmetic
-from pyqecclang.algorithms.data_loading import qrom_lookup
-from pyqecclang.algorithms.estimation import phase_estimation
-from pyqecclang.algorithms.fourier import qft
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.arithmetic import fixed_arithmetic
+from pyqecclang.algorithms.input_model.data_loading import qrom_lookup
+from pyqecclang.algorithms.common.estimation import phase_estimation
+from pyqecclang.algorithms.common.fourier import qft
+from pyqecclang.algorithms.input_model.oracles import (
     diagonal_block_encoding,
     gate_database,
     gate_state_prep,
     qram_database,
 )
-from pyqecclang.algorithms.search import grover
+from pyqecclang.algorithms.common.search import grover
 from pyqecclang.applications.roe_formulas import frozen_roe_face
 from pyqecclang.infrastructure.mathfunc import Index, MathConfig, compile_function
 

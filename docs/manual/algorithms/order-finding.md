@@ -1,6 +1,6 @@
 # 量子求阶与因子后处理（Order Finding）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.number_theory` · 阶段 —
+> 类别 C1 · 模块 `pyqecclang.algorithms.basics.number_theory` · 阶段 —
 
 ## 概述
 
@@ -47,7 +47,7 @@ factors_from_phase(value, precision, multiplier, modulus)
 
 - 同模块：[模乘置换](modular-multiplication.md)
 - 源码：`src/pyqecclang/algorithms/number_theory.py`
-- API 参考：[模乘与求阶](../../api/algorithms/number_theory.rst)
+- API 参考：[模乘与求阶](../../api/algorithms/basics/number_theory.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

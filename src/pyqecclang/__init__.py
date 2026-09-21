@@ -1,11 +1,11 @@
 "pyqecclang：Python 生成器与模块化寄存器级 IR。"
 
-from pyqecclang.algorithms.arithmetic import (
+from pyqecclang.algorithms.common.arithmetic import (
     FixedFormat,
     arithmetic_native_registry,
     fixed_arithmetic,
 )
-from pyqecclang.algorithms.contracts import (
+from pyqecclang.algorithms.input_model.contracts import (
     ContractError,
     ContractIssue,
     ContractReport,
@@ -16,8 +16,7 @@ from pyqecclang.algorithms.contracts import (
     describe_oracle,
     requires,
 )
-from pyqecclang.algorithms.ode import QODEProblem, QODEProtocol
-from pyqecclang.algorithms.operators import (
+from pyqecclang.algorithms.input_model.operators import (
     BlockEncoding,
     Generator,
     block_encoding,
@@ -28,9 +27,9 @@ from pyqecclang.algorithms.operators import (
     scale,
     zero,
 )
-from pyqecclang.algorithms.oracles import declare
-from pyqecclang.algorithms.qdata import QMatrix, QVector
-from pyqecclang.algorithms.qlss import (
+from pyqecclang.algorithms.input_model.oracles import declare
+from pyqecclang.algorithms.input_model.qdata import QMatrix, QVector
+from pyqecclang.algorithms.qlss.qlss import (
     BlockSystem,
     LinearSystem,
     QLSSProtocol,
@@ -38,12 +37,13 @@ from pyqecclang.algorithms.qlss import (
     SparseSystem,
     SpectralPromise,
 )
-from pyqecclang.algorithms.recommendation import (
+from pyqecclang.algorithms.qml.recommendation import (
     KPRecommendationConfig,
     RecommendationResult,
     kp_recommendation,
     sigma_from_phase,
 )
+from pyqecclang.algorithms.qode.ode import QODEProblem, QODEProtocol
 from pyqecclang.infrastructure.backends import (
     OriginIRArtifact,
     StrictArtifact,

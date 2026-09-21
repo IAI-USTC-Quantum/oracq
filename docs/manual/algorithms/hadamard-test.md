@@ -1,6 +1,6 @@
 # Hadamard 检验（Hadamard Test）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.estimation` · 阶段 V2
+> 类别 C3 · 模块 `pyqecclang.algorithms.common.estimation` · 阶段 V2
 
 ## 概述
 
@@ -47,7 +47,7 @@ hadamard_test(unitary, preparation=None, *, component="real")
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/estimation.py`
-- API 参考：[相位、振幅与重叠估计](../../api/algorithms/estimation.rst)
+- API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[SWAP 检验](swap-test.md)（两态重叠的对应读出）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

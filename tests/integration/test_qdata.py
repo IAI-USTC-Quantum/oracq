@@ -9,8 +9,8 @@ from pyqecclang import (
     run_pysparq_rir,
     simulate,
 )
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.qdata import QMatrix, QVector
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.input_model.qdata import QMatrix, QVector
 
 FMT = FixedFormat(8, 4)
 AW = 10

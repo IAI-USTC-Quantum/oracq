@@ -4,9 +4,9 @@ import math
 import unittest
 
 from pyqecclang import ValidationError, simulate, unresolved
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.density import gate_purification
-from pyqecclang.algorithms.qsdp import (
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from pyqecclang.algorithms.input_model.density import gate_purification
+from pyqecclang.algorithms.qml.qsdp import (
     SdpInstance,
     classical_estimator,
     iteration_circuits,

@@ -1,6 +1,6 @@
 # 量子化行走（Qubitization Walk）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.transforms` · 阶段 V1
+> 类别 C2 · 模块 `pyqecclang.algorithms.common.transforms` · 阶段 V1
 
 ## 概述
 
@@ -49,7 +49,7 @@ qubitization_walk(a)
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/transforms.py`
-- API 参考：[矩阵变换序列](../../api/algorithms/transforms.rst)
+- API 参考：[矩阵变换序列](../../api/algorithms/common/transforms.rst)
 - 同族页面：[QSVT 相位序列](qsvt-sequence.md)、[Oblivious 振幅放大](oblivious-amplification.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

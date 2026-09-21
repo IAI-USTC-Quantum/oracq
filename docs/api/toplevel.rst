@@ -67,26 +67,26 @@ pyqecclang 包总览
 算法 API
 ------------
 
-:doc:`可逆算术 <algorithms/arithmetic>`
-    ``pyqecclang.algorithms.arithmetic`` —— :obj:`FixedFormat <pyqecclang.algorithms.arithmetic.FixedFormat>`、:obj:`arithmetic_native_registry <pyqecclang.algorithms.arithmetic.arithmetic_native_registry>`、:obj:`fixed_arithmetic <pyqecclang.algorithms.arithmetic.fixed_arithmetic>`
+:doc:`可逆算术 <algorithms/common/arithmetic>`
+    ``pyqecclang.algorithms.common.arithmetic`` —— :obj:`FixedFormat <pyqecclang.algorithms.common.arithmetic.FixedFormat>`、:obj:`arithmetic_native_registry <pyqecclang.algorithms.common.arithmetic.arithmetic_native_registry>`、:obj:`fixed_arithmetic <pyqecclang.algorithms.common.arithmetic.fixed_arithmetic>`
 
-:doc:`算法契约与报告 <algorithms/contracts>`
-    ``pyqecclang.algorithms.contracts`` —— :obj:`ContractError <pyqecclang.algorithms.contracts.ContractError>`、:obj:`ContractIssue <pyqecclang.algorithms.contracts.ContractIssue>`、:obj:`ContractReport <pyqecclang.algorithms.contracts.ContractReport>`、:obj:`InputRequirement <pyqecclang.algorithms.contracts.InputRequirement>`、:obj:`OracleCapabilities <pyqecclang.algorithms.contracts.OracleCapabilities>`、:obj:`OracleSpec <pyqecclang.algorithms.contracts.OracleSpec>`、:obj:`ProtocolContract <pyqecclang.algorithms.contracts.ProtocolContract>`、:obj:`describe_oracle <pyqecclang.algorithms.contracts.describe_oracle>`、:obj:`requires <pyqecclang.algorithms.contracts.requires>`
+:doc:`算法契约与报告 <algorithms/input_model/contracts>`
+    ``pyqecclang.algorithms.input_model.contracts`` —— :obj:`ContractError <pyqecclang.algorithms.input_model.contracts.ContractError>`、:obj:`ContractIssue <pyqecclang.algorithms.input_model.contracts.ContractIssue>`、:obj:`ContractReport <pyqecclang.algorithms.input_model.contracts.ContractReport>`、:obj:`InputRequirement <pyqecclang.algorithms.input_model.contracts.InputRequirement>`、:obj:`OracleCapabilities <pyqecclang.algorithms.input_model.contracts.OracleCapabilities>`、:obj:`OracleSpec <pyqecclang.algorithms.input_model.contracts.OracleSpec>`、:obj:`ProtocolContract <pyqecclang.algorithms.input_model.contracts.ProtocolContract>`、:obj:`describe_oracle <pyqecclang.algorithms.input_model.contracts.describe_oracle>`、:obj:`requires <pyqecclang.algorithms.input_model.contracts.requires>`
 
-:doc:`QODE 组装接口 <algorithms/ode>`
-    ``pyqecclang.algorithms.ode`` —— :obj:`QODEProblem <pyqecclang.algorithms.ode.QODEProblem>`、:obj:`QODEProtocol <pyqecclang.algorithms.ode.QODEProtocol>`
+:doc:`算子包装与基本组合 <algorithms/input_model/operators>`
+    ``pyqecclang.algorithms.input_model.operators`` —— :obj:`BlockEncoding <pyqecclang.algorithms.input_model.operators.BlockEncoding>`、:obj:`Generator <pyqecclang.algorithms.input_model.operators.Generator>`、:obj:`block_encoding <pyqecclang.algorithms.input_model.operators.block_encoding>`、:obj:`identity <pyqecclang.algorithms.input_model.operators.identity>`、:obj:`linear_combination <pyqecclang.algorithms.input_model.operators.linear_combination>`、:obj:`pauli_x <pyqecclang.algorithms.input_model.operators.pauli_x>`、:obj:`product <pyqecclang.algorithms.input_model.operators.product>`、:obj:`scale <pyqecclang.algorithms.input_model.operators.scale>`、:obj:`zero <pyqecclang.algorithms.input_model.operators.zero>`
 
-:doc:`算子包装与基本组合 <algorithms/operators>`
-    ``pyqecclang.algorithms.operators`` —— :obj:`BlockEncoding <pyqecclang.algorithms.operators.BlockEncoding>`、:obj:`Generator <pyqecclang.algorithms.operators.Generator>`、:obj:`block_encoding <pyqecclang.algorithms.operators.block_encoding>`、:obj:`identity <pyqecclang.algorithms.operators.identity>`、:obj:`linear_combination <pyqecclang.algorithms.operators.linear_combination>`、:obj:`pauli_x <pyqecclang.algorithms.operators.pauli_x>`、:obj:`product <pyqecclang.algorithms.operators.product>`、:obj:`scale <pyqecclang.algorithms.operators.scale>`、:obj:`zero <pyqecclang.algorithms.operators.zero>`
+:doc:`Oracle 声明与实现 <algorithms/input_model/oracles>`
+    ``pyqecclang.algorithms.input_model.oracles`` —— :obj:`declare <pyqecclang.algorithms.input_model.oracles.declare>`
 
-:doc:`Oracle 声明与实现 <algorithms/oracles>`
-    ``pyqecclang.algorithms.oracles`` —— :obj:`declare <pyqecclang.algorithms.oracles.declare>`
+:doc:`量子数据结构（qsample 与 sample-and-query） <algorithms/input_model/qdata>`
+    ``pyqecclang.algorithms.input_model.qdata`` —— :obj:`QMatrix <pyqecclang.algorithms.input_model.qdata.QMatrix>`、:obj:`QVector <pyqecclang.algorithms.input_model.qdata.QVector>`
 
-:doc:`量子数据结构（qsample 与 sample-and-query） <algorithms/qdata>`
-    ``pyqecclang.algorithms.qdata`` —— :obj:`QMatrix <pyqecclang.algorithms.qdata.QMatrix>`、:obj:`QVector <pyqecclang.algorithms.qdata.QVector>`
+:doc:`量子线性系统 <algorithms/qlss/qlss>`
+    ``pyqecclang.algorithms.qlss.qlss`` —— :obj:`BlockSystem <pyqecclang.algorithms.qlss.qlss.BlockSystem>`、:obj:`LinearSystem <pyqecclang.algorithms.qlss.qlss.LinearSystem>`、:obj:`QLSSProtocol <pyqecclang.algorithms.qlss.qlss.QLSSProtocol>`、:obj:`SolveResult <pyqecclang.algorithms.qlss.qlss.SolveResult>`、:obj:`SparseSystem <pyqecclang.algorithms.qlss.qlss.SparseSystem>`、:obj:`SpectralPromise <pyqecclang.algorithms.qlss.qlss.SpectralPromise>`
 
-:doc:`量子线性系统 <algorithms/qlss>`
-    ``pyqecclang.algorithms.qlss`` —— :obj:`BlockSystem <pyqecclang.algorithms.qlss.BlockSystem>`、:obj:`LinearSystem <pyqecclang.algorithms.qlss.LinearSystem>`、:obj:`QLSSProtocol <pyqecclang.algorithms.qlss.QLSSProtocol>`、:obj:`SolveResult <pyqecclang.algorithms.qlss.SolveResult>`、:obj:`SparseSystem <pyqecclang.algorithms.qlss.SparseSystem>`、:obj:`SpectralPromise <pyqecclang.algorithms.qlss.SpectralPromise>`
+:doc:`KP 量子推荐系统 <algorithms/qml/recommendation>`
+    ``pyqecclang.algorithms.qml.recommendation`` —— :obj:`KPRecommendationConfig <pyqecclang.algorithms.qml.recommendation.KPRecommendationConfig>`、:obj:`RecommendationResult <pyqecclang.algorithms.qml.recommendation.RecommendationResult>`、:obj:`kp_recommendation <pyqecclang.algorithms.qml.recommendation.kp_recommendation>`、:obj:`sigma_from_phase <pyqecclang.algorithms.qml.recommendation.sigma_from_phase>`
 
-:doc:`KP 量子推荐系统 <algorithms/recommendation>`
-    ``pyqecclang.algorithms.recommendation`` —— :obj:`KPRecommendationConfig <pyqecclang.algorithms.recommendation.KPRecommendationConfig>`、:obj:`RecommendationResult <pyqecclang.algorithms.recommendation.RecommendationResult>`、:obj:`kp_recommendation <pyqecclang.algorithms.recommendation.kp_recommendation>`、:obj:`sigma_from_phase <pyqecclang.algorithms.recommendation.sigma_from_phase>`
+:doc:`QODE 组装接口 <algorithms/qode/ode>`
+    ``pyqecclang.algorithms.qode.ode`` —— :obj:`QODEProblem <pyqecclang.algorithms.qode.ode.QODEProblem>`、:obj:`QODEProtocol <pyqecclang.algorithms.qode.ode.QODEProtocol>`

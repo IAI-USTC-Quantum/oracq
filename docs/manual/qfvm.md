@@ -15,7 +15,7 @@ QFVM 应用从流场数据构造线性系统，并把它交给可替换的 QLSS�
 ```python
 from pyqecclang import SpectralPromise
 from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem
-from pyqecclang.algorithms.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
+from pyqecclang.algorithms.qlss.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
 
 inputs = roe_qfvm_inputs()
 problem = roe_qfvm_problem(
@@ -248,7 +248,7 @@ from pyqecclang.applications.flow_data import RoeFlowData
 from pyqecclang.applications.qfvm import (
     bind_qfvm, qfvm_memories, roe_qfvm_inputs, roe_qfvm_problem,
 )
-from pyqecclang.algorithms.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
+from pyqecclang.algorithms.qlss.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
 
 # 定点格式：数值验证表明 (5,2) 是 roe_face 常数全部可精确表示的最小格式。
 fmt = FixedFormat(5, 2)

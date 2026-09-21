@@ -5,7 +5,7 @@
 ```{testcode}
 import cmath
 import math
-from pyqecclang.algorithms.hamiltonian import PauliOperator, TrotterTerm, hamiltonian_simulation
+from pyqecclang.algorithms.common.hamiltonian import PauliOperator, TrotterTerm, hamiltonian_simulation
 from pyqecclang import simulate
 
 class MyHamiltonian:

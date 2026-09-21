@@ -1,10 +1,10 @@
 """块编码组的论文级数值验证。
 
 覆盖模块：
-- ``pyqecclang.algorithms.block_encoding``（BE 组合代数）
-- ``pyqecclang.algorithms.prepare_select``（PREPARE–SELECT 分解）
-- ``pyqecclang.algorithms.sparse``（稀疏访问辅助与 CKS 稀疏 BE）
-- ``pyqecclang.algorithms.lowrank``（DF/THC 低秩块编码）
+- ``pyqecclang.algorithms.input_model.block_encoding``（BE 组合代数）
+- ``pyqecclang.algorithms.common.prepare_select``（PREPARE–SELECT 分解）
+- ``pyqecclang.algorithms.input_model.sparse``（稀疏访问辅助与 CKS 稀疏 BE）
+- ``pyqecclang.algorithms.input_model.lowrank``（DF/THC 低秩块编码）
 
 正确性 oracle：块编码的零信号角块 == A/α。小规模用 OriginIR-ext 经 UniQC
 ``Circuit.to_matrix`` 取全幺正，再用 ``harness.effective_block`` 提取有效块并
@@ -41,8 +41,16 @@ from harness import (
 )
 
 from pyqecclang import Builder, bind, simulate, unresolved
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.block_encoding import (
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.common.prepare_select import (
+    abstract_prepare,
+    alias_prepare,
+    gate_prepare,
+    lcu_prepare_select,
+    qram_prepare,
+    select_pauli,
+)
+from pyqecclang.algorithms.input_model.block_encoding import (
     adjoint_be,
     direct_sum,
     kronecker_sum,
@@ -54,8 +62,8 @@ from pyqecclang.algorithms.block_encoding import (
     tensor,
     truncated_shift,
 )
-from pyqecclang.algorithms.data_loading import select_swap_qrom
-from pyqecclang.algorithms.lowrank import (
+from pyqecclang.algorithms.input_model.data_loading import select_swap_qrom
+from pyqecclang.algorithms.input_model.lowrank import (
     DoubleFactorization,
     THCDecomposition,
     _diagonal_encoding,
@@ -63,8 +71,8 @@ from pyqecclang.algorithms.lowrank import (
     double_factorized_encoding,
     thc_encoding,
 )
-from pyqecclang.algorithms.operators import product
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.input_model.operators import product
+from pyqecclang.algorithms.input_model.oracles import (
     SparseAccess,
     gate_database,
     qram_database,
@@ -72,15 +80,7 @@ from pyqecclang.algorithms.oracles import (
     sparse_location_gate,
     sparse_location_qram,
 )
-from pyqecclang.algorithms.prepare_select import (
-    abstract_prepare,
-    alias_prepare,
-    gate_prepare,
-    lcu_prepare_select,
-    qram_prepare,
-    select_pauli,
-)
-from pyqecclang.algorithms.sparse import (
+from pyqecclang.algorithms.input_model.sparse import (
     batch_lookup,
     chebyshev_block,
     compare_words,
@@ -1264,7 +1264,7 @@ def verify_thc(report):
 
 def verify_taylor_block_encoding(report):
     """taylor_hamiltonian：块 == 截断级数/α（实现误差）与 e^{-iHt}/α（方法误差）分离报告。"""
-    from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian  # 页面归属本组
+    from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian  # 页面归属本组
 
     hamiltonian = np.array([[1.0, 0.4], [0.4, -0.6]], dtype=complex)
     source = matrix_pauli_encoding(hamiltonian)

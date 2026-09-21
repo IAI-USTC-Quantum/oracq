@@ -6,8 +6,8 @@
 
 ```python
 import random
-from pyqecclang.algorithms.qcnn import ConvSpec, convolution_forward
-from pyqecclang.algorithms.qcnn_layer import qcnn_sampled_layer
+from pyqecclang.algorithms.qml.qcnn import ConvSpec, convolution_forward
+from pyqecclang.algorithms.qml.qcnn_layer import qcnn_sampled_layer
 
 # 5×5 单通道输入，2×2 核 ×2 个输出通道，capReLU 上限 3.0，2×2 max 池化。
 spec = ConvSpec(input_shape=(5, 5, 1), kernel_shape=(2, 2, 1, 2), cap=3.0, pool=2)

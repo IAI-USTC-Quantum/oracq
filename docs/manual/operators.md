@@ -28,4 +28,4 @@ XOR database 返回位模式，不直接提供幅度访问。`diagonal_block_enc
 
 使用 `abstract_block_encoding`、`abstract_state_prep`、`abstract_database` 或 `abstract_sparse_access` 可以先写算法，再提供实现。开放状态只影响是否能执行或导出，结构检查仍然有效。
 
-完整的绑定例子见[教程：替换 oracle](../tutorials/oracle-binding.md)，API 见[oracle 目录](../api/algorithms/oracles.rst)。
+完整的绑定例子见[教程：替换 oracle](../tutorials/oracle-binding.md)，API 见[oracle 目录](../api/algorithms/input_model/oracles.rst)。

@@ -1,6 +1,6 @@
 # Grover 搜索（Grover Search）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.search` · 阶段 V1
+> 类别 C3 · 模块 `pyqecclang.algorithms.common.search` · 阶段 V1
 
 ## 概述
 
@@ -51,7 +51,7 @@ grover(phase_oracle, width, *, iterations=1, preparation=None)
 ## 相关链接
 
 - 源码：`src/pyqecclang/algorithms/search.py`
-- API 参考：[搜索与振幅放大](../../api/algorithms/search.rst)
+- API 参考：[搜索与振幅放大](../../api/algorithms/common/search.rst)
 - 同组页面：[振幅放大](amplitude-amplification.md)、[振幅估计](qae.md)、[量子计数](quantum-counting.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

@@ -6,29 +6,38 @@ import math
 import unittest
 
 from pyqecclang import Bits, Builder, ValidationError, simulate
-from pyqecclang.algorithms.error_correction import repetition_encode, repetition_recover
-from pyqecclang.algorithms.estimation import (
-    amplitude_estimation,
-    amplitude_from_phase,
-    hadamard_test,
-    swap_test,
+from pyqecclang.algorithms.basics.number_theory import (
+    factors_from_phase,
+    modular_multiply,
+    order_finding,
 )
-from pyqecclang.algorithms.fourier import fourier_add, qft
-from pyqecclang.algorithms.number_theory import factors_from_phase, modular_multiply, order_finding
-from pyqecclang.algorithms.oracle_algorithms import (
+from pyqecclang.algorithms.basics.oracle_algorithms import (
     affine_boolean_oracle,
     bernstein_vazirani,
     simon_nullspace,
     simon_sample,
 )
-from pyqecclang.algorithms.oracles import StateOracle, basis_state, gate_database, uniform_state
-from pyqecclang.algorithms.search import amplify_success
-from pyqecclang.algorithms.variational import (
+from pyqecclang.algorithms.common.estimation import (
+    amplitude_estimation,
+    amplitude_from_phase,
+    hadamard_test,
+    swap_test,
+)
+from pyqecclang.algorithms.common.fourier import fourier_add, qft
+from pyqecclang.algorithms.common.search import amplify_success
+from pyqecclang.algorithms.common.walks import cycle_walk
+from pyqecclang.algorithms.input_model.oracles import (
+    StateOracle,
+    basis_state,
+    gate_database,
+    uniform_state,
+)
+from pyqecclang.algorithms.optimization.variational import (
     hardware_efficient_ansatz,
     qaoa_maxcut,
     vqe_measurements,
 )
-from pyqecclang.algorithms.walks import cycle_walk
+from pyqecclang.algorithms.qec.error_correction import repetition_encode, repetition_recover
 from pyqecclang.infrastructure.ir import fuse
 
 
@@ -41,7 +50,7 @@ def distribution(state, index):
 
 class AlgorithmExpansionTests(unittest.TestCase):
     def test_legacy_imports_reference_canonical_objects(self):
-        from pyqecclang.algorithms.qlss import make_costa_qlss
+        from pyqecclang.algorithms.qlss.qlss import make_costa_qlss
 
         self.assertIs(
             importlib.import_module("pyqecclang.algorithms.costa").make_costa_qlss, make_costa_qlss
@@ -184,7 +193,7 @@ class AlgorithmExpansionTests(unittest.TestCase):
                 case()
 
     def test_measurement_algorithms_require_clean_preparation(self):
-        from pyqecclang.algorithms.oracles import StatePreparation, annotate
+        from pyqecclang.algorithms.input_model.oracles import StatePreparation, annotate
 
         dirty = StatePreparation(annotate(basis_state(1, work_width=1).operation,
                                          "state_prep_isometry", clean_work=False))

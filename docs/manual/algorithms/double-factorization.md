@@ -1,6 +1,6 @@
 # 双因子分解块编码（Double Factorization）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.lowrank` · 阶段 V1
+> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.lowrank` · 阶段 V1
 
 ## 概述
 
@@ -61,7 +61,7 @@ $U_r$ 由两能级分解合成：逐列消元为对角相位后按逆序回放�
 
 - 源码：`src/pyqecclang/algorithms/lowrank.py`
 - 同模块算法：[THC 块编码](thc.md)
-- API 参考：[化学低秩分解块编码](../../api/algorithms/lowrank.rst)
+- API 参考：[化学低秩分解块编码](../../api/algorithms/input_model/lowrank.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

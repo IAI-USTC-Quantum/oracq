@@ -3,8 +3,8 @@
 import unittest
 
 from pyqecclang import Bits, Builder, identity, run_originir, run_pysparq, simulate
-from pyqecclang.algorithms.block_encoding import lcu
-from pyqecclang.algorithms.hamiltonian import PauliHamiltonian, hamiltonian_simulation
+from pyqecclang.algorithms.common.hamiltonian import PauliHamiltonian, hamiltonian_simulation
+from pyqecclang.algorithms.input_model.block_encoding import lcu
 
 
 class AlgorithmContractsNativeTests(unittest.TestCase):

@@ -1,1 +1,1 @@
-"算法生成器：本阶段面向范式、开放实现与后端描述。"
+"算法生成器：按 input_model、common、qlss、qnlss、qode、qpde、qml、optimization、basics、qec 十类组织。"

@@ -1,6 +1,6 @@
 # 纯化访问（Purification Access）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.density` · 阶段 V1
+> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.density` · 阶段 V1
 
 ## 概述
 
@@ -59,7 +59,7 @@ gate 见证先对 $\rho$ 做循环 Jacobi 特征分解 $\rho = \sum_j p_j |v_j\r
 
 - 源码：`src/pyqecclang/algorithms/density.py`
 - 同模块算法：[Gibbs 态制备](gibbs-state.md)
-- API 参考：[密度矩阵输入模型与 Gibbs 态](../../api/algorithms/density.rst)
+- API 参考：[密度矩阵输入模型与 Gibbs 态](../../api/algorithms/input_model/density.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

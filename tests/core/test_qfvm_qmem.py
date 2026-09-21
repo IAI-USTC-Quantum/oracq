@@ -8,8 +8,8 @@
 import unittest
 
 from pyqecclang import QRAM, Builder, simulate
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.oracles import invoke
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.input_model.oracles import invoke
 from pyqecclang.applications.flow_data import RoeFlowData
 from pyqecclang.applications.qfvm import (
     bind_qfvm,

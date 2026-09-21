@@ -1,6 +1,6 @@
 # 稀疏矩阵访问（Sparse Access）
 
-> 类别 C5 · 模块 `pyqecclang.algorithms.oracles` · 阶段 V4
+> 类别 C5 · 模块 `pyqecclang.algorithms.input_model.oracles` · 阶段 V4
 
 ## 概述
 
@@ -57,7 +57,7 @@ QRAM 位置实现三步完成原地置换：`work ^= forward[column, index]`、`
 
 - 源码：`src/pyqecclang/algorithms/oracles.py`
 - 同组页面：[XOR 数据库](xor-database.md)
-- API 参考：[Oracle 声明与实现](../../api/algorithms/oracles.rst)
+- API 参考：[Oracle 声明与实现](../../api/algorithms/input_model/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

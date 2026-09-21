@@ -431,7 +431,7 @@ QHAM 子命令 `python -m pyqecclang.applications.qham [input.json] [--example {
 | 数学函数编译 | `CompiledFunction, FunctionCompileError, Index, MathConfig, MathProgram, compile_function, lower_math_ir` |
 | QLSS 契约 | `SpectralPromise, SparseSystem, BlockSystem, LinearSystem, SolveResult, QLSSProtocol` |
 
-主要子模块入口：`pyqecclang.algorithms.oracles`（范式工厂与包装类型）、`pyqecclang.algorithms.block_encoding`（算法层组合子）、`pyqecclang.algorithms.sparse`（适配层）、`pyqecclang.algorithms.elementary/cks/costa/differential/solvers`（算法原型）、`pyqecclang.applications.legacy`（QFVM 玩具负载与 m=1 QHAM，阶段历史）、`pyqecclang.applications.catalog`（目录案例）、`pyqecclang.applications.qfvm/qfvm_sparse/roe/flow_data/sparse_models`（QFVM 路径）、`pyqecclang.applications.qham`（一般 QHAM：`Field, Known, PolynomialPDE, QHAMPlan, Grid, Discretization, structured_fd_bindings, qham_input_model, open_qham_input` 等）、`pyqecclang.infrastructure.readout`（ReadoutAction）。
+主要子模块入口：`pyqecclang.algorithms.input_model.oracles`（范式工厂与包装类型）、`pyqecclang.algorithms.input_model.block_encoding`（算法层组合子）、`pyqecclang.algorithms.input_model.sparse`（适配层）、`pyqecclang.algorithms.elementary/cks/costa/differential/solvers`（算法原型）、`pyqecclang.applications.legacy`（QFVM 玩具负载与 m=1 QHAM，阶段历史）、`pyqecclang.applications.catalog`（目录案例）、`pyqecclang.applications.qfvm/qfvm_sparse/roe/flow_data/sparse_models`（QFVM 路径）、`pyqecclang.applications.qham`（一般 QHAM：`Field, Known, PolynomialPDE, QHAMPlan, Grid, Discretization, structured_fd_bindings, qham_input_model, open_qham_input` 等）、`pyqecclang.infrastructure.readout`（ReadoutAction）。
 
 ## 附录 B：硬限制总表
 

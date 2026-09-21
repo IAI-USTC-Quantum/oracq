@@ -3,9 +3,16 @@
 import cmath
 import math
 
-from pyqecclang.algorithms.block_encoding import lcu
-from pyqecclang.algorithms.operators import BlockEncoding, _name, identity, product, scale, zero
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.input_model.block_encoding import lcu
+from pyqecclang.algorithms.input_model.operators import (
+    BlockEncoding,
+    _name,
+    identity,
+    product,
+    scale,
+    zero,
+)
+from pyqecclang.algorithms.input_model.oracles import (
     abstract_database,
     annotate,
     diagonal_block_encoding,
@@ -13,7 +20,7 @@ from pyqecclang.algorithms.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.algorithms.qham import PortBinding, QHAMBindings
+from pyqecclang.algorithms.input_model.qham import PortBinding, QHAMBindings
 from pyqecclang.applications.qham.reference import centered_weights
 from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse

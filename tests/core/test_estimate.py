@@ -112,7 +112,7 @@ class HandCountTests(unittest.TestCase):
 
     def test_open_module_rejected(self):
         from pyqecclang import ValidationError
-        from pyqecclang.algorithms.oracles import abstract_database
+        from pyqecclang.algorithms.input_model.oracles import abstract_database
 
         oracle = abstract_database("open_db", 2, 2)
         open_main = Builder("main", {"q": Bits(4)})

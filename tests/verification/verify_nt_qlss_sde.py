@@ -44,7 +44,12 @@ from harness import (
 )
 
 from pyqecclang import Bits, Builder, FixedFormat
-from pyqecclang.algorithms.integration import (
+from pyqecclang.algorithms.basics.number_theory import (
+    factors_from_phase,
+    modular_multiply,
+    order_finding,
+)
+from pyqecclang.algorithms.common.integration import (
     heinrich_rate,
     integral_from_phase,
     mean_from_phase,
@@ -53,12 +58,7 @@ from pyqecclang.algorithms.integration import (
     sum_preparation,
     table_loader,
 )
-from pyqecclang.algorithms.number_theory import (
-    factors_from_phase,
-    modular_multiply,
-    order_finding,
-)
-from pyqecclang.algorithms.sde import (
+from pyqecclang.algorithms.qode.sde import (
     FokkerPlanckProblem,
     boltzmann_distribution,
     distribution_moments,
@@ -957,14 +957,14 @@ def verify_sde_generator_encoding(report):
 
 def _sparse_problem():
     """κ=3 的 2×2 有符号稀疏系统（特征值 0.5 与 1.0，alpha = 1.5）。"""
-    from pyqecclang.algorithms.oracles import (
+    from pyqecclang.algorithms.input_model.oracles import (
         SparseAccess,
         basis_state,
         gate_database,
         sparse_entry,
         sparse_location_gate,
     )
-    from pyqecclang.algorithms.qlss import LinearSystem, SparseSystem, SpectralPromise
+    from pyqecclang.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
 
     fmt = FixedFormat(4, 2)
     matrix = [[0.75, -0.25], [-0.25, 0.75]]
@@ -1023,7 +1023,7 @@ def verify_cks_kernel(report):
     """条件解态与成功概率对照独立 Chebyshev 矩阵多项式；方法误差随阶数收敛。"""
     import numpy as np
 
-    from pyqecclang.algorithms.qlss import CKSConfig, cks_chebyshev
+    from pyqecclang.algorithms.qlss.qlss import CKSConfig, cks_chebyshev
 
     problem, matrix = _sparse_problem()
     a = np.array(matrix)
@@ -1100,7 +1100,7 @@ def verify_cks_protocol(report):
     """协议级：recover_norm(p_solver, p_joint) 恢复 ‖A^{-1}b‖；探针概率与多项式一致。"""
     import numpy as np
 
-    from pyqecclang.algorithms.qlss import CKSConfig, make_cks_qlss
+    from pyqecclang.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
 
     problem, matrix = _sparse_problem()
     a = np.array(matrix)
@@ -1169,9 +1169,9 @@ def verify_costa(report):
     import numpy as np
     from numpy.polynomial.chebyshev import chebval
 
-    from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-    from pyqecclang.algorithms.oracles import basis_state
-    from pyqecclang.algorithms.qlss import (
+    from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+    from pyqecclang.algorithms.input_model.oracles import basis_state
+    from pyqecclang.algorithms.qlss.qlss import (
         CostaConfig,
         costa_qlss,
         dolph_chebyshev_plan,

@@ -41,23 +41,28 @@ from harness import (
 )
 
 from pyqecclang import Bits, Builder, bind
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.density import gate_purification, gibbs_purification
-from pyqecclang.algorithms.dqi import (
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from pyqecclang.algorithms.input_model.density import gate_purification, gibbs_purification
+from pyqecclang.algorithms.input_model.oracles import StatePreparation, gate_state_prep
+from pyqecclang.algorithms.optimization.dqi import (
     XorSatInstance,
     abstract_decoder,
     bruteforce_decoder,
     dicke_state,
     dqi,
 )
-from pyqecclang.algorithms.error_correction import repetition_encode, repetition_recover
-from pyqecclang.algorithms.oracles import StatePreparation, gate_state_prep
-from pyqecclang.algorithms.qpca import (
+from pyqecclang.algorithms.optimization.variational import (
+    hardware_efficient_ansatz,
+    qaoa_maxcut,
+    vqe_measurements,
+)
+from pyqecclang.algorithms.qec.error_correction import repetition_encode, repetition_recover
+from pyqecclang.algorithms.qml.qpca import (
     density_matrix_exponentiation,
     eigenvalue_from_phase,
     qpca,
 )
-from pyqecclang.algorithms.qsdp import (
+from pyqecclang.algorithms.qml.qsdp import (
     SdpInstance,
     classical_estimator,
     iteration_circuits,
@@ -66,11 +71,6 @@ from pyqecclang.algorithms.qsdp import (
     trace_estimate_circuit,
     trace_from_joint,
     trace_from_probe,
-)
-from pyqecclang.algorithms.variational import (
-    hardware_efficient_ansatz,
-    qaoa_maxcut,
-    vqe_measurements,
 )
 from pyqecclang.infrastructure.layout import workspace_table
 

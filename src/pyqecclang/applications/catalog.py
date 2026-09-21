@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pyqecclang.algorithms.block_encoding import (
+from pyqecclang.algorithms.basics.oracle_algorithms import deutsch_jozsa
+from pyqecclang.algorithms.common.estimation import phase_estimation
+from pyqecclang.algorithms.common.search import grover
+from pyqecclang.algorithms.common.transforms import (
+    oblivious_amplification,
+    qsvt_sequence,
+    qubitization_walk,
+)
+from pyqecclang.algorithms.input_model.block_encoding import (
     direct_sum,
     kronecker_sum,
     lcu,
@@ -12,12 +20,8 @@ from pyqecclang.algorithms.block_encoding import (
     pad_signal,
     tensor,
 )
-from pyqecclang.algorithms.estimation import phase_estimation
-from pyqecclang.algorithms.legacy import make_lchs_qode
-from pyqecclang.algorithms.ode import make_euler_history_qode
-from pyqecclang.algorithms.operators import identity, pauli_x
-from pyqecclang.algorithms.oracle_algorithms import deutsch_jozsa
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.input_model.operators import identity, pauli_x
+from pyqecclang.algorithms.input_model.oracles import (
     abstract_block_encoding,
     abstract_database,
     abstract_sparse_access,
@@ -35,20 +39,16 @@ from pyqecclang.algorithms.oracles import (
     sparse_location_qram,
     uniform_state,
 )
-from pyqecclang.algorithms.pde import make_qpde
-from pyqecclang.algorithms.qlss import CostaConfig, costa_qlss, make_costa_qlss
-from pyqecclang.algorithms.search import grover
-from pyqecclang.algorithms.sparse import (
+from pyqecclang.algorithms.input_model.sparse import (
     batch_lookup,
     reversible_lookup,
     sparse_block_encoding,
     word_rotation,
 )
-from pyqecclang.algorithms.transforms import (
-    oblivious_amplification,
-    qsvt_sequence,
-    qubitization_walk,
-)
+from pyqecclang.algorithms.qlss.qlss import CostaConfig, costa_qlss, make_costa_qlss
+from pyqecclang.algorithms.qode.legacy import make_lchs_qode
+from pyqecclang.algorithms.qode.ode import make_euler_history_qode
+from pyqecclang.algorithms.qpde.pde import make_qpde
 from pyqecclang.applications.legacy import (
     qfvm_inputs,
     qfvm_step,
@@ -301,7 +301,7 @@ def build_case(name):
 
         return Case(name, generate(2).program(), source=("spec-tests 02-generics-const",))
     if name == "trotter_hamsim":
-        from pyqecclang.algorithms.hamiltonian import trotter_hamsim
+        from pyqecclang.algorithms.common.hamiltonian import trotter_hamsim
 
         return Case(
             name,
@@ -329,7 +329,7 @@ def build_case(name):
             ("二次标量模型的三阶截断提升；只验收组装，不认证截断误差。",),
         )
     if name == "schrodingerisation":
-        from pyqecclang.algorithms.legacy import make_schrodingerisation_qode
+        from pyqecclang.algorithms.qode.legacy import make_schrodingerisation_qode
 
         hamiltonian = abstract_block_encoding("LiftedHamiltonian", 2, 1, 1.0)
         initial = abstract_state_prep("SchrodingerInitial", 1)
@@ -349,7 +349,7 @@ def build_case(name):
             ("Hamiltonian lift 是显式 oracle 边界；演示绑定只检查范式，不声称复现特定 PDE。",),
         )
     if name == "banked_qram":
-        from pyqecclang.algorithms.oracles import banked_database
+        from pyqecclang.algorithms.input_model.oracles import banked_database
 
         slot = banked_database(2, 96, abstract=True)
         impl = banked_database(2, 96)
@@ -401,7 +401,7 @@ def build_case(name):
             ("Deutsch–Jozsa 用户新增负载",),
         )
     if name.startswith("grover_"):
-        from pyqecclang.algorithms.search import phase_from_database
+        from pyqecclang.algorithms.common.search import phase_from_database
 
         work = 1 if name.endswith("qram") else 0
         slot = declare(
@@ -543,6 +543,6 @@ def build_case(name):
 
 
 def _one_signal_identity(alpha):
-    from pyqecclang.algorithms.operators import scale
+    from pyqecclang.algorithms.input_model.operators import scale
 
     return pad_signal(scale(alpha, identity(1)), 1).operation

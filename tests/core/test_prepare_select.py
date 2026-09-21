@@ -7,9 +7,8 @@ import unittest
 from witness import assert_block_equals
 
 from pyqecclang import ValidationError, bind, simulate, unresolved
-from pyqecclang.algorithms.hamiltonian import PauliHamiltonian
-from pyqecclang.algorithms.oracles import gate_database
-from pyqecclang.algorithms.prepare_select import (
+from pyqecclang.algorithms.common.hamiltonian import PauliHamiltonian
+from pyqecclang.algorithms.common.prepare_select import (
     abstract_prepare,
     alias_prepare,
     alias_table,
@@ -18,7 +17,8 @@ from pyqecclang.algorithms.prepare_select import (
     qram_prepare,
     select_pauli,
 )
-from pyqecclang.algorithms.transforms import qubitization_walk
+from pyqecclang.algorithms.common.transforms import qubitization_walk
+from pyqecclang.algorithms.input_model.oracles import gate_database
 from pyqecclang.infrastructure.linking import Binding
 
 TERMS = ((0.6, "XZ"), (-0.8, "ZI"), (0.3j, "YY"), (-0.5, "IX"))

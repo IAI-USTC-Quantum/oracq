@@ -44,14 +44,14 @@ class Operation:
 
     def state_preparation(self):
         """把完整公开寄存器空间作为目标，制备 U|0>。"""
-        from pyqecclang.algorithms.oracles import StatePreparation
+        from pyqecclang.algorithms.input_model.oracles import StatePreparation
 
         return StatePreparation.from_unitary(self)
 
     def block_encoding(self):
         """完整酉矩阵自身的 alpha=1、零信号 BE；保留原模块调用。"""
-        from pyqecclang.algorithms.operators import _name, block_encoding
-        from pyqecclang.algorithms.oracles import invoke, resources_for
+        from pyqecclang.algorithms.input_model.operators import _name, block_encoding
+        from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
         from pyqecclang.infrastructure.ir import Bits
 
         prep = self.state_preparation()

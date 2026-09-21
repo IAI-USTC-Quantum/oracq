@@ -4,8 +4,8 @@ import math
 import unittest
 
 from pyqecclang import QRAM, Bits, Builder, UInt, bind, quantikz
-from pyqecclang.algorithms.oracle_algorithms import affine_boolean_oracle, bernstein_vazirani
-from pyqecclang.algorithms.oracles import abstract_database
+from pyqecclang.algorithms.basics.oracle_algorithms import affine_boolean_oracle, bernstein_vazirani
+from pyqecclang.algorithms.input_model.oracles import abstract_database
 
 
 class QuantikzTests(unittest.TestCase):

@@ -23,8 +23,8 @@ Python 的 `typing.Protocol` 表示“一个对象满足什么接口”；库中
 
 ```python
 from pyqecclang import Bits, Builder, identity, requires
-from pyqecclang.algorithms.interfaces import UnitaryProtocol, StatePreparationProtocol, BlockEncodingProtocol
-from pyqecclang.algorithms.block_encoding import lcu
+from pyqecclang.algorithms.input_model.interfaces import UnitaryProtocol, StatePreparationProtocol, BlockEncodingProtocol
+from pyqecclang.algorithms.input_model.block_encoding import lcu
 
 b = Builder("XGate", {"q": Bits(1)})
 b.x(b["q"])
@@ -46,7 +46,7 @@ sum_encoding = lcu([(1, gate), (1, identity(1))])  # 编码 U+I，alpha=2
 如果你知道 work 在零输入制备后复净，可以显式缩小态的目标解释：
 
 ```python
-from pyqecclang.algorithms.oracles import StatePreparation
+from pyqecclang.algorithms.input_model.oracles import StatePreparation
 
 # operation 的接口必须恰好是 q / tmp。
 # prep = StatePreparation.from_unitary(operation, target="q", work="tmp", clean_work=True)
@@ -60,7 +60,7 @@ from pyqecclang.algorithms.oracles import StatePreparation
 
 ```python
 from pyqecclang import BlockSystem, LinearSystem, SpectralPromise, identity
-from pyqecclang.algorithms.qlss import CostaConfig, make_costa_qlss
+from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
 
 problem = LinearSystem(
     block=BlockSystem(identity(1), gate, SpectralPromise(1.0, 1.0)),
@@ -107,7 +107,7 @@ CKS 输入是位置操作和元素操作的集合：`SparseAccess.sparse_access(
 
 ```python
 from pyqecclang import identity, requires
-from pyqecclang.algorithms.interfaces import BlockEncodingProtocol
+from pyqecclang.algorithms.input_model.interfaces import BlockEncodingProtocol
 
 class MyMatrix:
     def block_encoding(self):
@@ -144,7 +144,7 @@ def my_diagonal_algorithm(operator):
 
 数学算符与实现它的物理 unitary 必须分清：非 Hermitian 的 A 也可以有 unitary 的 block encoding `U_A`，但不能据此把 A 当作 Hermitian Hamiltonian。
 
-当前 [hamiltonian.py](../api/algorithms/hamiltonian.rst) 定义了这一类算法自己的接口：
+当前 [hamiltonian.py](../api/algorithms/common/hamiltonian.rst) 定义了这一类算法自己的接口：
 
 | 协议 | 提供的内容 | 由谁判断 |
 |---|---|---|
@@ -156,7 +156,7 @@ def my_diagonal_algorithm(operator):
 一个对象可以同时满足其中几个协议。下面的对象只有 Trotter 访问，没有 BE：
 
 ```python
-from pyqecclang.algorithms.hamiltonian import PauliOperator, TrotterTerm, hamiltonian_simulation
+from pyqecclang.algorithms.common.hamiltonian import PauliOperator, TrotterTerm, hamiltonian_simulation
 
 class MyHamiltonian:
     hermitian = True
@@ -182,7 +182,7 @@ evolution = hamiltonian_simulation(MyHamiltonian(), 0.4, steps=3)
 
 ```python
 from pyqecclang import QODEProblem, identity, scale
-from pyqecclang.algorithms.ode import linear_qode
+from pyqecclang.algorithms.qode.ode import linear_qode
 
 problem = QODEProblem(
     generator=scale(-1, identity(1)),

@@ -47,11 +47,11 @@ from harness import (
 )
 
 from pyqecclang import Binding, Bits, Builder, FixedFormat, bind, unresolved
-from pyqecclang.algorithms.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.operators import scale
-from pyqecclang.algorithms.oracles import gate_state_prep, invoke, qram_database
-from pyqecclang.algorithms.pde import DiscretePDE, PDEInput, make_qpde, qpde_solver
-from pyqecclang.algorithms.qham import gate_bindings, qham_input_model, taylor_qode
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from pyqecclang.algorithms.input_model.operators import scale
+from pyqecclang.algorithms.input_model.oracles import gate_state_prep, invoke, qram_database
+from pyqecclang.algorithms.input_model.qham import gate_bindings, qham_input_model, taylor_qode
+from pyqecclang.algorithms.qpde.pde import DiscretePDE, PDEInput, make_qpde, qpde_solver
 from pyqecclang.applications.flow_data import RoeFlowData
 from pyqecclang.applications.qfvm import (
     bind_qfvm,

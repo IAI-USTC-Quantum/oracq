@@ -85,14 +85,14 @@ class QfvmInputNativeTests(unittest.TestCase):
         from uniqc.compile.originir.originir_base_parser import OriginIR_BaseParser
 
         from pyqecclang import export_toffoli_u3_cz
-        from pyqecclang.algorithms.oracles import (
+        from pyqecclang.algorithms.input_model.oracles import (
             SparseAccess,
             basis_state,
             gate_database,
             sparse_entry,
             sparse_location_gate,
         )
-        from pyqecclang.algorithms.qlss import (
+        from pyqecclang.algorithms.qlss.qlss import (
             CostaConfig,
             LinearSystem,
             SparseSystem,

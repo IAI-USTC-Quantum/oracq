@@ -1,6 +1,6 @@
 # 哈密顿量模拟协议（Hamiltonian Simulation Protocol）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.hamiltonian` · 阶段 V2
+> 类别 C2 · 模块 `pyqecclang.algorithms.common.hamiltonian` · 阶段 V2
 
 ## 概述
 
@@ -50,7 +50,7 @@ Trotter 阶数误差率扫描缺失（阶段 V2 收敛性扫描框架，validati
 
 - 源码：`src/pyqecclang/algorithms/hamiltonian.py`
 - 同族页面：[Trotter 乘积公式模拟](trotter.md)、[截断 Taylor 块编码](taylor-block-encoding.md)
-- API 参考：[Hamiltonian 演化](../../api/algorithms/hamiltonian.rst)
+- API 参考：[Hamiltonian 演化](../../api/algorithms/common/hamiltonian.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

@@ -3,8 +3,8 @@
 Grover 搜索使用相位 oracle 标记好状态。下面在四个基态中标记 `3`，一次迭代后读取该状态。
 
 ```{testcode}
-from pyqecclang.algorithms.oracles import phase_marks
-from pyqecclang.algorithms.search import grover
+from pyqecclang.algorithms.input_model.oracles import phase_marks
+from pyqecclang.algorithms.common.search import grover
 from pyqecclang import simulate
 
 result = grover(phase_marks(2, [3]), 2, iterations=1)
@@ -19,8 +19,8 @@ assert abs(state.amplitudes[(3, 0)] - 1) < 1e-12
 标准振幅估计对 Grover iterate 做相位估计。它接收初态制备和好状态集合，输出 phase 寄存器。下面的初态在 `0` 和 `1` 上均匀分布，故好状态 `1` 的概率为 `1/2`。
 
 ```{testcode}
-from pyqecclang.algorithms.oracles import uniform_state
-from pyqecclang.algorithms.estimation import amplitude_estimation, amplitude_from_phase
+from pyqecclang.algorithms.input_model.oracles import uniform_state
+from pyqecclang.algorithms.common.estimation import amplitude_estimation, amplitude_from_phase
 
 operation = amplitude_estimation(uniform_state(1), [1], precision=3)
 state = simulate(operation.program())

@@ -3,23 +3,24 @@
 import math
 from dataclasses import dataclass
 
-from pyqecclang.algorithms.error_correction import repetition_encode, repetition_recover
-from pyqecclang.algorithms.estimation import (
-    amplitude_estimation,
-    hadamard_test,
-    phase_estimation,
-    swap_test,
-)
-from pyqecclang.algorithms.fourier import fourier_add, qft
-from pyqecclang.algorithms.hamiltonian import PauliHamiltonian, hamiltonian_simulation
-from pyqecclang.algorithms.number_theory import modular_multiply, order_finding
-from pyqecclang.algorithms.oracle_algorithms import (
+from pyqecclang.algorithms.basics.number_theory import modular_multiply, order_finding
+from pyqecclang.algorithms.basics.oracle_algorithms import (
     affine_boolean_oracle,
     bernstein_vazirani,
     deutsch_jozsa,
     simon_sample,
 )
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.estimation import (
+    amplitude_estimation,
+    hadamard_test,
+    phase_estimation,
+    swap_test,
+)
+from pyqecclang.algorithms.common.fourier import fourier_add, qft
+from pyqecclang.algorithms.common.hamiltonian import PauliHamiltonian, hamiltonian_simulation
+from pyqecclang.algorithms.common.search import amplify_success, grover
+from pyqecclang.algorithms.common.walks import cycle_walk
+from pyqecclang.algorithms.input_model.oracles import (
     StateOracle,
     abstract_database,
     basis_state,
@@ -27,13 +28,12 @@ from pyqecclang.algorithms.oracles import (
     phase_marks,
     uniform_state,
 )
-from pyqecclang.algorithms.search import amplify_success, grover
-from pyqecclang.algorithms.variational import (
+from pyqecclang.algorithms.optimization.variational import (
     hardware_efficient_ansatz,
     pauli_measurement,
     qaoa_maxcut,
 )
-from pyqecclang.algorithms.walks import cycle_walk
+from pyqecclang.algorithms.qec.error_correction import repetition_encode, repetition_recover
 from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, fuse
 from pyqecclang.infrastructure.linking import bind

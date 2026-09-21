@@ -14,14 +14,14 @@ import numpy as np
 
 import pyqecclang
 from pyqecclang import FixedFormat, simulate
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.input_model.oracles import (
     SparseAccess,
     basis_state,
     gate_database,
     sparse_entry,
     sparse_location_gate,
 )
-from pyqecclang.algorithms.qlss import CKSConfig, SparseSystem, SpectralPromise, cks_chebyshev
+from pyqecclang.algorithms.qlss.qlss import CKSConfig, SparseSystem, SpectralPromise, cks_chebyshev
 
 ORDER = 40
 FRACTION = 8

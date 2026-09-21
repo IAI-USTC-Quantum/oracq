@@ -94,7 +94,7 @@ flowchart LR
 
 ## 4. 如何降低到 register-level 量子模块
 
-实现见 [quantum.py](../api/algorithms/qham.rst) 和 [stencils.py](../api/applications/qham/stencils.rst)。
+实现见 [quantum.py](../api/algorithms/input_model/qham.rst) 和 [stencils.py](../api/applications/qham/stencils.rst)。
 
 每个端口都用矩形线性映射解释：
 
@@ -171,8 +171,8 @@ Y' = G Y,   Y(0) = Y_in,
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.hamiltonian import taylor_hamiltonian
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 
 # 按名字选择求解器族（schrodingerization），并把 Hermitian 分支模拟核
 # 作为普通参数注入：partial 固定 degree=1 的截断 Taylor 核。

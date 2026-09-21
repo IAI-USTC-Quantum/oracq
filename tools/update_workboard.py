@@ -15,10 +15,10 @@ def main():
         "P1": ["src/pyqecclang/linking.py", "docs/reference/open-ir.md", "tests/core/test_open_ir.py"],
         "P2": ["src/pyqecclang/oracles.py", "docs/archive/oracle-paradigms.md"],
         "P3": ["src/pyqecclang/access.py", "src/pyqecclang/combinators.py"],
-        "P4": ["src/pyqecclang/algorithms/elementary.py"],
-        "P5": ["src/pyqecclang/algorithms/costa.py"],
+        "P4": ["src/pyqecclang/algorithms/basics/oracle_algorithms.py"],
+        "P5": ["src/pyqecclang/algorithms/qlss/qlss.py"],
         "P6": ["src/pyqecclang/applications.py", "out/catalog/qfvm_qram/program.originir"],
-        "P7": ["src/pyqecclang/algorithms/solvers.py", "out/catalog/qham_qode/program.originir"],
+        "P7": ["src/pyqecclang/algorithms/qode/legacy.py", "out/catalog/qham_qode/program.originir"],
         "P8": [
             "tools/build_catalog.py",
             "tests/core/test_workloads.py",

@@ -45,26 +45,26 @@ from harness import (
 )
 
 from pyqecclang import Bits, Builder
-from pyqecclang.algorithms.block_encoding import pauli_word
-from pyqecclang.algorithms.data_loading import qrom_cost, qrom_lookup, select_swap_qrom
-from pyqecclang.algorithms.density import (
+from pyqecclang.algorithms.common.prepare_select import alias_prepare, alias_table
+from pyqecclang.algorithms.common.state_preparation import (
+    apply_be_to_state,
+    extend_initial,
+    select_subspace,
+)
+from pyqecclang.algorithms.input_model.block_encoding import pauli_word
+from pyqecclang.algorithms.input_model.data_loading import qrom_cost, qrom_lookup, select_swap_qrom
+from pyqecclang.algorithms.input_model.density import (
     PurificationAccess,
     gate_purification,
     maximally_mixed_purification,
 )
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.input_model.oracles import (
     diagonal_block_encoding,
     gate_database,
     gate_state_prep,
     qram_database,
     qram_state_angles,
     qram_state_prep,
-)
-from pyqecclang.algorithms.prepare_select import alias_prepare, alias_table
-from pyqecclang.algorithms.state_preparation import (
-    apply_be_to_state,
-    extend_initial,
-    select_subspace,
 )
 from pyqecclang.infrastructure.layout import workspace_table
 

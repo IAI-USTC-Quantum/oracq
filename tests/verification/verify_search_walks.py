@@ -31,7 +31,7 @@ from harness import (
 )
 
 from pyqecclang import Bits, Builder
-from pyqecclang.algorithms.oracles import invoke, resources_for
+from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
 
 ALL_PATHS = ("reference", "rir-pysparq", "adapter-pysparq", "originir-ext")
 
@@ -77,7 +77,7 @@ def _marginal(state, index, value):
 
 def _grover_case(report, name, phase_oracle, width, marked, iterations, note):
     """多个迭代数上的成功率对照 sin²((2k+1)θ)，并逐基态核对两级分布。"""
-    from pyqecclang.algorithms.search import grover
+    from pyqecclang.algorithms.common.search import grover
 
     size, t = 1 << width, len(marked)
     theta = math.asin(math.sqrt(t / size))
@@ -114,7 +114,7 @@ def _marked_prob(state, marked):
 
 
 def verify_grover_phase_marks(report):
-    from pyqecclang.algorithms.oracles import phase_marks
+    from pyqecclang.algorithms.input_model.oracles import phase_marks
 
     _grover_case(
         report,
@@ -128,8 +128,8 @@ def verify_grover_phase_marks(report):
 
 
 def verify_grover_xor_database(report):
-    from pyqecclang.algorithms.oracles import gate_database
-    from pyqecclang.algorithms.search import phase_from_database
+    from pyqecclang.algorithms.common.search import phase_from_database
+    from pyqecclang.algorithms.input_model.oracles import gate_database
 
     # t=2/8 时 θ=π/6：k=1 精确放大到 1，k=2 回落 1/4，检验过冲段
     database = gate_database(3, 1, {5: 1, 6: 1})
@@ -145,8 +145,8 @@ def verify_grover_xor_database(report):
 
 
 def verify_amplify_success(report):
-    from pyqecclang.algorithms.oracles import StateOracle, annotate
-    from pyqecclang.algorithms.search import amplify_success
+    from pyqecclang.algorithms.common.search import amplify_success
+    from pyqecclang.algorithms.input_model.oracles import StateOracle, annotate
 
     # 成功子空间 signal==0 的初态概率 cos²θ = sin²(π/8)，θ_a = π/8
     theta = 3 * math.pi / 8
@@ -214,7 +214,7 @@ def _ring_distance(position, size):
 
 
 def _cycle_walk_case(report, width, steps_range):
-    from pyqecclang.algorithms.walks import cycle_walk
+    from pyqecclang.algorithms.common.walks import cycle_walk
 
     size = 1 << width
     amp_error = tv_distance = 0.0
@@ -341,7 +341,7 @@ def _embed_walk_dict(ref, amplitudes):
 
 def verify_adjacency_superposition(report):
     """邻接 oracle 端到端：vertex/index 全叠加一次穷举全部 32 个查询。"""
-    from pyqecclang.algorithms.graph_walks import gate_adjacency
+    from pyqecclang.algorithms.input_model.graph_walks import gate_adjacency
 
     oracle = gate_adjacency(HYPERCUBE_Q3)
     program = superposition_program(oracle.operation, ["vertex", "index"])
@@ -369,7 +369,11 @@ def verify_szegedy_walk(report):
     """Szegedy 行走步：幺正矩阵与初态上演化均对照独立反射算子组装。"""
     import numpy as np
 
-    from pyqecclang.algorithms.graph_walks import gate_adjacency, szegedy_setup, szegedy_walk
+    from pyqecclang.algorithms.input_model.graph_walks import (
+        gate_adjacency,
+        szegedy_setup,
+        szegedy_walk,
+    )
 
     neighbors = _cycle_table(8)
     ref = _szegedy_reference(neighbors)
@@ -440,7 +444,7 @@ def _transition_reference(neighbors):
 
 
 def _mnrs_case(report, name, neighbors, marked, paths, memory=None):
-    from pyqecclang.algorithms.graph_walks import (
+    from pyqecclang.algorithms.input_model.graph_walks import (
         gate_adjacency,
         quantum_walk_search,
         szegedy_setup,
@@ -449,7 +453,7 @@ def _mnrs_case(report, name, neighbors, marked, paths, memory=None):
 
     n = len(neighbors)
     v = max(1, (n - 1).bit_length())
-    from pyqecclang.algorithms.oracles import phase_marks
+    from pyqecclang.algorithms.input_model.oracles import phase_marks
 
     # 独立经典参考：首达时间决定 MNRS 步数 ceil(pi/4 * sqrt(H_avg))
     transition = _transition_reference(neighbors)
@@ -515,13 +519,17 @@ def verify_mnrs_search(report):
 
 def verify_mnrs_search_qram(report):
     """QRAM 邻接的端到端搜索；OriginIR-ext 不含 QRAM 资源，仅走参考与 PySparQ。"""
-    from pyqecclang.algorithms.graph_walks import qram_adjacency
+    from pyqecclang.algorithms.input_model.graph_walks import qram_adjacency
 
     neighbors = _complete_table(4)
     table = {v | (j << 2): neighbors[v][j] for v in range(4) for j in range(4)}
     memory = {"setup__adj__table": table, "walk__adj__table": table}
-    from pyqecclang.algorithms.graph_walks import quantum_walk_search, szegedy_setup, szegedy_walk
-    from pyqecclang.algorithms.oracles import phase_marks
+    from pyqecclang.algorithms.input_model.graph_walks import (
+        quantum_walk_search,
+        szegedy_setup,
+        szegedy_walk,
+    )
+    from pyqecclang.algorithms.input_model.oracles import phase_marks
 
     transition = _transition_reference(neighbors)
     average_h = sum(_hitting_reference(transition, (0,))) / 3
@@ -561,7 +569,11 @@ def verify_mnrs_search_qram(report):
 
 def verify_markov_helpers(report):
     """transition_matrix / hitting_times / suggest_steps 对照独立 Markov 链参考。"""
-    from pyqecclang.algorithms.graph_walks import hitting_times, suggest_steps, transition_matrix
+    from pyqecclang.algorithms.input_model.graph_walks import (
+        hitting_times,
+        suggest_steps,
+        transition_matrix,
+    )
 
     tables = {
         "complete_k4": _complete_table(4),
@@ -629,8 +641,8 @@ def verify_markov_helpers(report):
 
 def _householder_be(theta):
     """零信号块为 cos θ 的厄米（Householder 型）块编码：U = Ry(2θ)·Z ⊗ I_target。"""
-    from pyqecclang.algorithms.operators import BlockEncoding
-    from pyqecclang.algorithms.oracles import annotate
+    from pyqecclang.algorithms.input_model.operators import BlockEncoding
+    from pyqecclang.algorithms.input_model.oracles import annotate
 
     b = Builder("householder_be", {"target": Bits(1), "signal": Bits(1)})
     b.z(b["signal"][0])
@@ -642,7 +654,7 @@ def verify_qubitization_walk(report):
     """厄米 BE 上行走 k 次的零信号概率对照 Chebyshev T_k(x)²，并核对幺正分解与谱。"""
     import numpy as np
 
-    from pyqecclang.algorithms.transforms import qubitization_walk
+    from pyqecclang.algorithms.common.transforms import qubitization_walk
 
     x = math.cos(math.pi / 6)
     walk = qubitization_walk(_householder_be(math.pi / 6))
@@ -691,8 +703,8 @@ def verify_qubitization_walk(report):
 
 
 def _fixed_point_case(report, name, x, delta, degree):
-    from pyqecclang.algorithms.oracles import diagonal_block_encoding, gate_database
-    from pyqecclang.algorithms.qsvt import fixed_point_search
+    from pyqecclang.algorithms.common.qsvt import fixed_point_search
+    from pyqecclang.algorithms.input_model.oracles import diagonal_block_encoding, gate_database
 
     # 标量 BE：对角块 cos(angle/2) ≡ x（两基态相同）
     database = gate_database(1, 1, {0: 1, 1: 1})
@@ -747,8 +759,8 @@ def _qae_reference_distribution(a, precision):
 
 def verify_quantum_counting(report):
     """n=3、3/8 标记的量子计数：相位分布对照 Dirichlet 核，读出 t̂。"""
-    from pyqecclang.algorithms.estimation import amplitude_estimation
-    from pyqecclang.algorithms.oracles import uniform_state
+    from pyqecclang.algorithms.common.estimation import amplitude_estimation
+    from pyqecclang.algorithms.input_model.oracles import uniform_state
 
     n, marked, precision = 3, (1, 5, 7), 4
     size, t, grid = 1 << n, len(marked), 1 << precision
@@ -790,8 +802,12 @@ def verify_costa_walk_unitarity(report):
     """costa_walk 组装算子的幺正性与后端一致性（kernel 物理通道上游标注为未验证原型）。"""
     import numpy as np
 
-    from pyqecclang.algorithms.oracles import basis_state, diagonal_block_encoding, gate_database
-    from pyqecclang.algorithms.qlss import costa_walk
+    from pyqecclang.algorithms.input_model.oracles import (
+        basis_state,
+        diagonal_block_encoding,
+        gate_database,
+    )
+    from pyqecclang.algorithms.qlss.qlss import costa_walk
 
     database = gate_database(1, 1, {0: 1, 1: 1})
     be = diagonal_block_encoding(database, angle_scale=math.pi / 3)

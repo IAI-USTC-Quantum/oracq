@@ -15,7 +15,7 @@ import math
 from importlib.metadata import version
 
 import pyqecclang
-from pyqecclang.algorithms.qsvt import qsp_phases, qsp_response
+from pyqecclang.algorithms.common.qsvt import qsp_phases, qsp_response
 from pyqecclang.infrastructure.ir import ValidationError
 
 KAPPA, EPS, MAX_DEGREE, THRESHOLD = 8, 1e-2, 40, 1e-2

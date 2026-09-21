@@ -10,11 +10,11 @@ QRAM 形式资源，三守恒量合并为一张 (场, 单元) 状态表，邻居
 
 from __future__ import annotations
 
-from pyqecclang.algorithms.arithmetic import BooleanNetwork, FixedFormat
-from pyqecclang.algorithms.operators import _name
-from pyqecclang.algorithms.oracles import annotate
-from pyqecclang.algorithms.qdata import QVector
-from pyqecclang.algorithms.sparse import compare_words, value_transposition
+from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, FixedFormat
+from pyqecclang.algorithms.input_model.operators import _name
+from pyqecclang.algorithms.input_model.oracles import annotate
+from pyqecclang.algorithms.input_model.qdata import QVector
+from pyqecclang.algorithms.input_model.sparse import compare_words, value_transposition
 from pyqecclang.applications.flow_data import RoeFlowData
 from pyqecclang.applications.qfvm import geometry_cells
 from pyqecclang.applications.roe import ArithmeticBuilder, roe_face

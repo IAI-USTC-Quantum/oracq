@@ -1,6 +1,6 @@
 # 张量超收缩块编码（Tensor Hypercontraction）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.lowrank` · 阶段 V1
+> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.lowrank` · 阶段 V1
 
 ## 概述
 
@@ -55,7 +55,7 @@ thc_encoding(thc)
 
 - 源码：`src/pyqecclang/algorithms/lowrank.py`
 - 同模块算法：[双因子分解块编码](double-factorization.md)
-- API 参考：[化学低秩分解块编码](../../api/algorithms/lowrank.rst)
+- API 参考：[化学低秩分解块编码](../../api/algorithms/input_model/lowrank.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

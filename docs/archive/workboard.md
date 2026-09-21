@@ -14,10 +14,10 @@ QFVM / QLSS 输入模型修正见 [审查计划与结果](qfvm-qlss-plan.md)。
 |---|---|---|---|
 | P0 | 盘点 QECC.Lang 文档与用例，建立覆盖矩阵 | done | [coverage.json](coverage.json)、[coverage.md](coverage.md) |
 | P1 | RIR 0.2：开放 oracle 声明、部分绑定、缺口报告和闭合导出 | done | [linking.py](../api/infrastructure/linking.rst)、[open-ir.md](../reference/open-ir.md)、[test_open_ir.py](../../tests/core/test_open_ir.py) |
-| P2 | BE、XOR database、state-prep isometry、CKS sparse 等范式 | done | [oracles.py](../api/algorithms/oracles.rst)、[oracle-paradigms.md](oracle-paradigms.md) |
-| P3 | Gate/QRAM 基础实现与组合适配器 | done | [access.py](../api/algorithms/sparse.rst)、[combinators.py](../api/algorithms/block_encoding.rst) |
+| P2 | BE、XOR database、state-prep isometry、CKS sparse 等范式 | done | [oracles.py](../api/algorithms/input_model/oracles.rst)、[oracle-paradigms.md](oracle-paradigms.md) |
+| P3 | Gate/QRAM 基础实现与组合适配器 | done | [access.py](../api/algorithms/input_model/sparse.rst)、[combinators.py](../api/algorithms/input_model/block_encoding.rst) |
 | P4 | Deutsch–Jozsa、Grover 抽象与具体组装 | done | [elementary.py](../api/index.rst) |
-| P5 | Costa QLSS walk、调度、filtering 及实例绑定 | done | [costa.py](../api/algorithms/qlss.rst) |
+| P5 | Costa QLSS walk、调度、filtering 及实例绑定 | done | [costa.py](../api/algorithms/qlss/qlss.rst) |
 | P6 | QFVM 输入访问与 QLSS 组装 | done | [applications.py](../api/applications/legacy.rst)、[program.originir](../../out/catalog/qfvm_qram/program.originir) |
 | P7 | QODE/QPDE 与 QHAM 提升系统组装 | done | [solvers.py](../api/index.rst)、[program.originir](../../out/catalog/qham_qode/program.originir) |
 | P8 | 覆盖面板、开放/闭合 IR 和 OriginIR-ext 示例产物、结构验收 | done | [build_catalog.py](../../tools/build_catalog.py)、[test_workloads.py](../../tests/core/test_workloads.py)、[test_catalog.py](../../tests/integration/test_catalog.py)、[phase-validation.json](phase-validation.json) |

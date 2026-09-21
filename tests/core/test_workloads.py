@@ -3,10 +3,10 @@
 import unittest
 
 from pyqecclang import ValidationError, bind, dumps, export_originir, loads, unresolved, validate
-from pyqecclang.algorithms.block_encoding import pad_signal
-from pyqecclang.algorithms.operators import identity, scale
-from pyqecclang.algorithms.oracles import abstract_block_encoding, banked_database
-from pyqecclang.algorithms.qlss import dolph_chebyshev_plan
+from pyqecclang.algorithms.input_model.block_encoding import pad_signal
+from pyqecclang.algorithms.input_model.operators import identity, scale
+from pyqecclang.algorithms.input_model.oracles import abstract_block_encoding, banked_database
+from pyqecclang.algorithms.qlss.qlss import dolph_chebyshev_plan
 from pyqecclang.applications.catalog import CASES, build_case
 from pyqecclang.infrastructure.linking import calls
 

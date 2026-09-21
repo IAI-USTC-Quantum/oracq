@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pyqecclang.algorithms.block_encoding import lcu, tensor
-from pyqecclang.algorithms.operators import BlockEncoding, _name, identity
-from pyqecclang.algorithms.oracles import (
+from pyqecclang.algorithms.common.state_preparation import select_subspace
+from pyqecclang.algorithms.input_model.block_encoding import lcu, tensor
+from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name, identity
+from pyqecclang.algorithms.input_model.oracles import (
     StatePreparation,
     XorDatabase,
     abstract_database,
@@ -16,8 +17,7 @@ from pyqecclang.algorithms.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.algorithms.pde import DiscretePDE
-from pyqecclang.algorithms.state_preparation import select_subspace
+from pyqecclang.algorithms.qpde.pde import DiscretePDE
 from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 

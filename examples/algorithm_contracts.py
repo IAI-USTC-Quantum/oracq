@@ -19,23 +19,23 @@ from pyqecclang import (
     requires,
     scale,
 )
-from pyqecclang.algorithms.block_encoding import lcu
-from pyqecclang.algorithms.hamiltonian import (
+from pyqecclang.algorithms.common.hamiltonian import (
     PauliOperator,
     TrotterizableProtocol,
     TrotterTerm,
     hamiltonian_simulation,
 )
-from pyqecclang.algorithms.interfaces import (
+from pyqecclang.algorithms.input_model.block_encoding import lcu
+from pyqecclang.algorithms.input_model.interfaces import (
     BlockEncodingProtocol,
     StateOracleProtocol,
     StatePreparationProtocol,
     UnitaryProtocol,
 )
-from pyqecclang.algorithms.lchs import QuadraturePlan
-from pyqecclang.algorithms.ode import linear_qode
-from pyqecclang.algorithms.oracles import abstract_block_encoding, abstract_state_prep
-from pyqecclang.algorithms.qlss import CostaConfig, make_costa_qlss
+from pyqecclang.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
+from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
+from pyqecclang.algorithms.qode.lchs import QuadraturePlan
+from pyqecclang.algorithms.qode.ode import linear_qode
 
 
 @runtime_checkable

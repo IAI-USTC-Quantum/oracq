@@ -4,9 +4,9 @@ import math
 import unittest
 
 from pyqecclang import ValidationError, dumps, estimate_resources, loads, simulate
-from pyqecclang.algorithms.arithmetic import FixedFormat
-from pyqecclang.algorithms.qdata import QMatrix
-from pyqecclang.algorithms.recommendation import (
+from pyqecclang.algorithms.common.arithmetic import FixedFormat
+from pyqecclang.algorithms.input_model.qdata import QMatrix
+from pyqecclang.algorithms.qml.recommendation import (
     KPRecommendationConfig,
     kp_recommendation,
     sigma_from_phase,

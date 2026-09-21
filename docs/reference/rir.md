@@ -997,7 +997,7 @@ print(dumps(b.finish().program()))
 
 ```python
 from pyqecclang import Bits, dumps
-from pyqecclang.algorithms.oracles import declare
+from pyqecclang.algorithms.input_model.oracles import declare
 
 # 开放声明：body 为 null 的 oracle 槽位；范式 database_xor，
 # 默认声明伴随与受控能力，实现状态 unresolved。
