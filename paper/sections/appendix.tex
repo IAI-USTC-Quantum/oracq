@@ -52,7 +52,7 @@ export listings are verbatim outputs of the repository toolchain.
 versioned table of modules with one designated entry; a module is a typed
 interface (ordered quantum registers, ordered QRAM resources, optional
 private \texttt{locals}) plus an ordered instruction body, or no body at
-all (open declaration).  Instructions are the six closed node kinds of
+all (open declaration).  Instructions are the seven closed node kinds of
 Table~\ref{tab:rir-nodes}; views (\texttt{Ref}) are lists of spans and
 never mention physical qubits.
 
@@ -71,12 +71,13 @@ attribute   = (name, (string | integer | float | boolean)) .
 span        = Span{register: name; start: integer; width: integer} .
 ref         = Ref{parts: span*; type: regtype} .
 
-instruction = primitive | load | call | repeat | control | adjoint .
+instruction = primitive | load | store | call | repeat | control | adjoint .
 primitive   = Primitive{op: gate-op; operands: ref*;
                     angle: float | null; value: integer | null} .
 gate-op     = "h" | "x" | "y" | "z" | "s" | "t" | "rx" | "ry" | "rz"
             | "phase" | "gphase" | "xor" | "swap" | "add_const" .
 load        = Load{resource: name; address: ref; data: ref} .
+store       = Store{resource: name; address: ref; data: ref} .
 call        = Call{module: name; arguments: ref*; resources: name*} .
 repeat      = Repeat{count: integer; body: instruction*} .
 control     = Control{register: ref; value: integer; body: instruction*} .
@@ -169,10 +170,11 @@ creg        = "CREG" int .
 def         = "DEF" symbol "(" formal ("," formal)* ")"
               stmt* "ENDDEF" .
 formal      = id "[" int "]" .
-stmt        = gate | load | call | dagger .
+stmt        = gate | load | store | call | dagger .
 gate        = op bit ("," bit)? ("," "(" num ")")? ctrl? .
 ctrl        = "controlled_by" "(" bit ("," bit)* ")" .
 load        = ram bit ("," bit)* .
+store       = "QRAMWRITE" ram bit ("," bit)* .
 call        = symbol "(" bit ("," bit)* ")" .
 dagger      = "DAGGER" stmt* "ENDDAGGER" .
 bit         = id "[" int "]" .
@@ -185,7 +187,7 @@ op          = "H" | "X" | "Y" | "Z" | "S" | "T" | "RX" | "RY" | "RZ"
 The header declares the entry program's QRAM resources
 (\texttt{QRAMDECL ram\_\ s a,d}), allocates the total qubit count including
 workspace (\texttt{QINIT n}), and fixes the classical register width
-(\texttt{CREG 0}: RIR is pure, so there is nothing to read out in-text).
+(\texttt{CREG 0}: measurement and classical readout remain host-side).
 The lowering rules for the RIR surface are:
 
 \begin{itemize}
@@ -203,6 +205,11 @@ The lowering rules for the RIR surface are:
   formals and the control bits are passed as ordinary call arguments.
 \item \textbf{Adjoint.}  \texttt{DAGGER}~\dots~\texttt{ENDDAGGER} wraps the
   lowered body; the adjoint of a call is the daggered call line.
+\item \textbf{Classical memory writes.}  \texttt{Store} lowers to
+  \texttt{QRAMWRITE} with address and data bits. Its definite-value
+  precondition and prohibition inside controlled or adjoint contexts
+  follow the RIR semantics. The current native text-execution paths
+  reject runtime writes; text export does not imply backend support.
 \item \textbf{Repeat.}  There is no textual repetition construct: a count
   of $n$ compiles to a chain of shared definitions in which the definition
   for $n$ calls the definition for $\lfloor n/2 \rfloor$ twice (plus the
@@ -492,9 +499,9 @@ actually constructs.
   recorded norm, carrying $\log\lVert u_0\rVert$ as provenance.  What
   returns is a \texttt{QHAMInputModel}: generator, initial state, and the
   two adapters \texttt{solve} and \texttt{dissipative\_shift}.
-\item \texttt{solver = linear\_qode("schrodingerization",
-  hamiltonian\_function=partial(taylor\_hamiltonian, degree=1))} --- picks
-  the solver family by name and injects the branch-simulation kernel by
+\item A call to \texttt{linear\_qode} selects Schr\"odingerization and
+  supplies a degree-one Taylor kernel through its Hamiltonian-function
+  argument. This picks the solver family and injects the branch-simulation kernel by
   argument; nothing in the assembled problem knows which kernel will
   simulate the Hermitian branches.  Swapping this line for another family
   or kernel changes nothing above it.
@@ -947,7 +954,7 @@ framework that provides a documented path for it, and compared code
 volume.  The protocol was fixed before any measurement: each task has a
 written numeric specification; frameworks may use their documented
 highest-level APIs; a framework with no native path is recorded as
-\emph{infeasible} (never as zero); lines of code count non-blank,
+\emph{not evaluated through a native path} (never as zero); lines of code count non-blank,
 non-comment lines uniformly; and every implementation must pass its
 correctness witness against an independent classical reference or be
 recorded as failed.  The \pqlang-side scripts are in
@@ -960,7 +967,7 @@ with the project artifact.
   \caption{Reimplementation study.  LOC counts non-blank, non-comment
   lines; correctness is the task's witness metric (direction or relative
   $\ell_2$ error against an independent reference).  \ok~= passes its
-  threshold; \noent~= infeasible (no native path); F~= failed its
+  threshold; \noent~= no evaluated native path; F~= failed its
   threshold; ``f-s''~= a from-scratch implementation, recorded because no
   native path exists.  Anchors: T1--T2 Martyn et al.~\cite{martyn2021grand};
   T3 the historical Qiskit-textbook HHL; T4 An et
@@ -984,8 +991,8 @@ with the project artifact.
      & pyqecclang & 107 & $4.7{\times}10^{-3}$ & \ok; CKS order 40, agrees with its Chebyshev oracle to $1.5{\times}10^{-8}$ \\
     \addlinespace[2pt]
     T4 LCHS assembly $u'{=}Gu$ & pyqecclang & 87 & $5.2{\times}10^{-6}$ & \ok; native \texttt{linear\_qode("lchs")} \\
-     & Qiskit 2.5.2 & \noent{} / 84 & $4.2{\times}10^{-4}$ & infeasible natively; f-s minimal variant \\
-     & Qualtran 0.7.0 & \noent & --- & infeasible (no quadrature/LCU assembly path) \\
+     & Qiskit 2.5.2 & \noent{} / 84 & $4.2{\times}10^{-4}$ & no native path evaluated; f-s variant \\
+     & Qualtran 0.7.0 & \noent & --- & no solver-level path evaluated \\
     \addlinespace[2pt]
     T5 Schr\"odingerization, 1D heat & UnitaryLab algos & 59 & $6.8{\times}10^{-4}$ & \ok; documented solver (classical path) \\
      & Qiskit 2.5.2 & 59 & $5.1{\times}10^{-2}$ & f-s; error equals the grid's method floor \\
@@ -1039,7 +1046,7 @@ recorded per task in the bundle.
 The structure-preserving design pays a second dividend beyond
 verification: compositional resource estimation.  Because RIR keeps module
 calls and static repetition symbolic, resources can be counted per
-(module, control-count) pair and multiplied through \texttt{Repeat} nodes
+(module, control-count, adjoint-context) tuple and multiplied through \texttt{Repeat} nodes
 without expansion, so estimates follow the module graph rather than any
 flattened circuit.  \pqlang{} ships two linked artifacts:
 \texttt{export\_strict}, a compiler pass that lowers a program to a

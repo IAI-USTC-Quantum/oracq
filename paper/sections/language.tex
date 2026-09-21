@@ -24,7 +24,7 @@ b.h(b["pair"][0])
 b.xor(b["pair"][0], b["pair"][1])
 program = b.finish().program()
 
-print(simulate(program).amplitudes)      # {(0, 0): 1, (3, 3): 1} / sqrt 2
+print(simulate(program).amplitudes)      # {(0,): 1, (3,): 1} / sqrt 2
 print(export_originir(program).text)
 \end{lstlisting}
 
@@ -55,7 +55,8 @@ The closed instruction set is deliberately small: broadcast unary gates
 \texttt{rx}, \texttt{ry}, \texttt{rz}, \texttt{phase},
 \texttt{global\_phase}), reversible bit operations (\texttt{xor}, i.e., a
 CNOT per bit, and \texttt{swap}), constant modular addition
-(\texttt{add\_const}), and QRAM \texttt{Load}.  All richer
+(\texttt{add\_const}), QRAM \texttt{Load}, and a restricted classical-memory
+\texttt{Store}. All richer
 structure---arithmetic, oracles, entire solver kernels---is expressed as
 \emph{module calls}, so that the IR's semantics remain auditable at a fixed
 size.
@@ -103,6 +104,7 @@ Table~\ref{tab:rir-nodes} summarizes the node kinds.
     \midrule
     \texttt{Primitive} & instruction & broadcast unary gate, \texttt{xor}, \texttt{swap}, \texttt{add\_const}, \texttt{global\_phase} \\
     \texttt{Load} & instruction & QRAM access $|a\rangle|d\rangle \mapsto |a\rangle|d \oplus M[a]\rangle$; self-inverse \\
+    \texttt{Store} & instruction & classical memory update at definite address/data values; forbidden in controlled or adjoint contexts \\
     \texttt{Call} & instruction & module invocation; kind-and-width-exact, alias-free argument matching; modules are shared, never copied \\
     \texttt{Repeat} & instruction & static count; body preserved, never replicated \\
     \texttt{Control} & instruction & coherent conditioning on protected registers with compile-time values \\
@@ -120,18 +122,19 @@ Four invariants define the IR's contract with the rest of the system:
   register operations to physical gates, but module definitions and calls
   must be preserved, and any expansion happens in the backend without
   feeding back into the RIR.
-\item \textbf{Purity.}  RIR represents quantum operations after compile-time
+\item \textbf{Explicit operational boundary.} RIR represents operations after compile-time
   parameter evaluation---all widths, integers, and angles are concrete.  It
   contains no measurement, reset, runtime classical feedback, or opaque host
   callbacks (R7); readout is planned host-side
-  (\secref{sec:readout}).
+  (\secref{sec:readout}). The restricted Store effect updates classical
+  memory and excludes its containing modules from adjoint and control.
 \item \textbf{Canonical, hardened serialization.}  Programs serialize to
   canonical JSON (sorted keys, deterministic output) under a versioned
   JSON~Schema (currently RIR~0.3, Draft~2020-12).  Decoding is strict:
   unknown tags or fields, duplicate keys, non-finite floats, and unknown
   versions are rejected.  Round-trips are byte-identical, and open modules
   round-trip unchanged.  Readers accept prior format versions, so stored
-  programs are forward-compatible artifacts of record.
+  programs remain readable by newer versions of the framework.
 \item \textbf{Attributes never change instruction semantics.}  Domain
   metadata---block-encoding factors, paradigm tags, implementation-status and
   provenance strings (R6)---ride along as attributes without affecting the

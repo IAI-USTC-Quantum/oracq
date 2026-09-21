@@ -1,11 +1,11 @@
-\section{Quantum scientific computing as a language-design problem}
+\section{Requirements of an algorithm implementation workflow}
 \label{sec:requirements}
 
-The design of \pqlang{} did not start from a general-purpose quantum language
-and move toward applications; it started from the structure of quantum
-scientific-computing algorithms and asked what a language must provide for
-that structure to be expressed directly.  This section makes that derivation
-explicit.  We first describe the canonical shape of a quantum
+The design of \pqlang{} starts from a researcher implementing an
+oracle-based scientific-computing algorithm. The researcher may begin at
+the access-model, transform, or solver layer, retaining abstract
+dependencies until their realizations are selected. This section derives
+the implementation requirements of that workflow.  We first describe the canonical shape of a quantum
 scientific-computing program (\secref{sec:qsc-structure}) and then extract
 eight requirements (\secref{sec:qsc-requirements}), each of which will
 reappear as a concrete language mechanism in \secref{sec:language} through
@@ -127,11 +127,9 @@ chosen later, and the choice is a deployment decision (gate synthesis
 vs.\ hardware QRAM vs.\ native operator), not an algorithmic one.  A language
 must therefore let a program be \emph{complete as an algorithm} while its
 oracle slots are empty---validatable in that state, shareable in that state,
-and closable without rewriting.  Circuit-construction APIs that require a
-concrete gate-level oracle object invert this order and make
-algorithm-first development impossible; systems in which abstraction means
-``call an opaque host function'' lose serializability and reviewability of
-the open program.
+and closable without rewriting.  Python operation factories already defer construction in many SDKs.
+The additional requirement here is that a partially implemented program
+survives storage and restoration without the original factory.
 
 \paragraph{R2: Realization independence.}
 For a given oracle slot, several concrete realizations with different
@@ -181,9 +179,8 @@ language's job is to keep its provenance auditable.
 
 \paragraph{R7: Readout separation.}
 The unitary algorithm and the measurement plan are different objects with
-different lifetimes.  Embedding measurement in the IR forces every
-composition boundary to become a host round-trip and prevents coherent reuse
-of solver outputs.  Measurement, reset, post-selection, and statistics belong
+different lifetimes.  In this framework, separating measurement plans from coherent operations
+makes solver outputs reusable by later quantum subroutines.  Measurement, reset, post-selection, and statistics belong
 to a host-side plan that references, but does not contaminate, the IR.
 
 \paragraph{R8: Library extensibility without core changes.}
@@ -203,16 +200,16 @@ protocols, new input models, new generator functions---over a fixed core.
   \small
   \setlength{\tabcolsep}{4pt}\begin{tabular}{@{}p{0.45cm}p{3.0cm}p{3.4cm}p{6.2cm}@{}}
     \toprule
-    \tabhead{ } & \tabhead{Requirement} & \tabhead{Deficiency in common practice} & \tabhead{\pqlang{} mechanism (section)} \\
+    \tabhead{ } & \tabhead{Requirement} & \tabhead{Implementation concern} & \tabhead{\pqlang{} mechanism (section)} \\
     \midrule
-    R1 & Deferred oracle realization & Oracle must be a concrete circuit before the algorithm can be written & Open modules: abstract oracles with named paradigms carried as body-less \texttt{Module}s; validation and serialization work while open (\secref{sec:oracles}) \\
+    R1 & Deferred oracle realization & Preserving an incomplete algorithm beyond its Python generator & Open modules: declared access roles with absent bodies; validation and serialization work while open (\secref{sec:oracles}) \\
     R2 & Realization independence & Realization choice hard-wired into algorithm code & One oracle slot, many bindings: gate networks, QRAM-typed resources, alias sampling; partial and repeated binding via the \texttt{bind} linking pass (\secref{sec:oracles}) \\
     R3 & Structure preservation & Frontends flatten to gate lists; exports lose call structure & Module-preserving RIR: \texttt{Call}/\texttt{Repeat}/\texttt{Control}/\texttt{Adjoint} stay symbolic in IR, JSON, and export (\secref{sec:rir}) \\
     R4 & Tracked adjoint/control & Adjoint/control availability discovered (or not) at backend & Compositional capability inference checked against contextual usage at validation time (\secref{sec:capabilities}) \\
     R5 & Symbolic structure & Counts materialized eagerly; programs explode with system size & \texttt{Repeat} nodes preserved with static counts; logarithmic export; cost-model guards; unrolling forbidden in generation and serialization (\secref{sec:rir}) \\
     R6 & Promise provenance & $\alpha$, norm bounds, dissipativity, approximation caveats live in papers, not code & First-class attributes ($\alpha$, \texttt{SpectralPromise} with evidence strings, dissipativity flags, per-method pending items) attached to modules and contracts (\secref{sec:oracles}, \secref{sec:ode}) \\
-    R7 & Readout separation & Measurement embedded in circuits blocks coherent composition & Purely unitary IR; readout as host-side actions planned after export (\secref{sec:readout}) \\
-    R8 & Extensibility & New solvers require core language changes & Library-level \texttt{Protocol} contracts and generator protocols; new algorithms define new protocols in their own files (\secref{sec:protocols}) \\
+    R7 & Readout separation & Maintaining coherent solver outputs for later subroutines & Readout plans separate from quantum operations; restricted memory effects remain explicit (\secref{sec:readout}) \\
+    R8 & Extensibility & Adding algorithms and input roles over existing primitives & Library-level structural interfaces and algorithm contracts; new roles do not require a global registry (\secref{sec:protocols}) \\
     \bottomrule
   \end{tabular}
 \end{table}

@@ -109,17 +109,21 @@ first-class, repeatable, partial operation on stored programs.
 
 \paragraph{Fault-tolerant algorithm-analysis libraries.}
 In the open-source world, the systems closest to our primitive layer are
-libraries that express fault-tolerant algorithms as composable units for
-\emph{analysis} rather than for storage, linking, and execution.
+libraries for compositional implementation, simulation, and resource
+analysis of fault-tolerant algorithms.
 Qualtran~\cite{harrigan2024qualtran} is the most direct structural
-precedent for our IR: algorithms are trees of named \emph{bloqs} with
+precedent for our IR: algorithms compose named \emph{bloqs} with
 declared signatures, and the call structure survives down to resource
 analysis and surface-code cost modeling.  Its standard library includes
 block-encoding constructors, generalized QSP (which subsumes the QSVT
-machinery), qubitization, and GQSP-based Hamiltonian simulation; it does
-not carry open modules (every bloq is concrete), paradigm contracts,
-promise provenance, or packaged solver families---there is no assembled
-QLSS bloq and no ODE/PDE generators.
+machinery), qubitization, and Hamiltonian-simulation components.
+Bloqs can provide symbolic call counts without a complete decomposition,
+and Qualtran provides serialization and testing utilities
+\cite{qualtran2026interfaces}.
+Consequently, neither incomplete decomposition nor serializability alone
+distinguishes our design. Our comparison concerns the complete workflow
+of restoring an open RIR program, checking replacement interfaces,
+capturing resources, and tracking costs before and after partial binding.
 pyLIQTR~\cite{obenland2026pyliqtr} generates QSP/QSVT and block-encoding
 circuits over Cirq and Qualtran with Clifford+T resource analysis; its
 \texttt{clam} layer integrates differential equations \emph{classically},
@@ -144,9 +148,11 @@ and bundled-numerics capability separate (our own degree-limited phase
 synthesis is an implementation matter behind a protocol seam, recorded
 there as such).
 These libraries confirm that fault-tolerant scientific computing demands
-structure-preserving composition; none of them, however, treats the
-\emph{program} as an open, re-linkable artifact, and none couples the
-primitives to a solver-family protocol architecture.
+structure-preserving composition. The case studies below evaluate our
+specific combination of persisted open modules, compatible
+realizations, scientific arithmetic, and solver interfaces; these
+comparisons do not establish that other frameworks cannot be extended
+to express the same computations.
 
 \paragraph{Commercial and industrial platforms.}
 A second class of counterparts is commercial.
@@ -183,22 +189,19 @@ Phasecraft~\cite{phasecraft2026} deliver domains and results rather than
 languages, and execution infrastructure such as NVIDIA's
 CUDA-Q~\cite{nvidia2026cudaq} and Amazon
 Braket~\cite{amazonbraket2026sdk} targets hybrid workloads at the circuit
-level.  Across this landscape one pattern repeats: strong synthesis,
-estimation, or domain workflows, but no system in which the scientific
-algorithm is a stored, partially linked program whose promises travel
-with it.
+level. These systems motivate comparison by research task and artifact
+boundary, with physical resource estimation and backend performance
+treated as separate capabilities.
 
 \paragraph{Research codebases for scientific algorithms.}
 Individual algorithm implementations---LCHS, Schr\"odingerization, Carleman
 pipelines, QLSS prototypes---exist as research code accompanying
 publications~\cite{an2026lchs,jin2024schrodingerization,liu2021pnas,
 liu2023carleman,an2026lchs}.  Each typically fixes one method, one input model, and one
-small simulator; none offers shared input-model objects, interchangeable
-kernels, or a common IR.  The absence of a unifying language layer is
-precisely the gap this paper documents: the algorithms compose
-mathematically (all consume block-encodings; all produce state oracles) but
-not computationally, absent exactly the contracts of
-\secref{sec:oracles}.
+simulation regime. Our framework provides shared access-model interfaces
+and explicit adapters for connecting such constructions. Applicability
+still depends on each algorithm's mathematical assumptions and output
+conventions; a common interface does not make every pair composable.
 
 \begin{table}[t]
   \centering
@@ -223,15 +226,16 @@ not computationally, absent exactly the contracts of
     \midrule
     Scientific primitives$^{d}$ & \noent & \noent & \half & \noent & \half & \ok \\
     ODE/PDE solver families & \noent & \noent & \noent & \noent & \noent & \ok \\
-    Resource estimation & \half$^{e}$ & \ok & \ok & \ok & \half & \noent$^{f}$ \\
+    Resource estimation & \half$^{e}$ & \ok & \ok & \ok & \half & \half$^{f}$ \\
     \bottomrule
     \multicolumn{7}{@{}p{14.3cm}@{}}{\scriptsize $^a$Boxes abstract over generated subcircuits, but there is no open-program state.  $^b$Operations are passed as parameters and remain abstract to the algorithm, but bodies are concrete and no link-time openness or paradigm contracts exist.  $^c$The extensible engine chain can emulate oracles at execution time, but not in a serializable program artifact.  $^d$Block-encoding algebra,
     QSVT/QSP engine, sparse-access and QRAM input models, reversible
     fixed-point arithmetic with a math-function compiler.
     $^e$Resource analyses exist as external studies over generated
     circuits~\cite{scherer2017resource}; no integrated estimator.
-    $^f$Scoped and reserved (\secref{sec:reserved}); the IR preserves the
-    structure an estimator needs.}
+    $^f$Logical gate and QRAM-access estimation is implemented
+    (\secref{sec:resources-summary}); physical resource estimation remains
+    outside scope (\secref{sec:reserved}).}
   \end{tabular}
 \end{table}
 
@@ -298,7 +302,7 @@ not computationally, absent exactly the contracts of
     Fault-tolerant resource estimation & \ok & \ok & \noent & \half & \noent & \half$^{h}$ \\
     Open-source core & \ok & \ok & \ok & \noent$^{i}$ & \half$^{j}$ & \ok \\
     \bottomrule
-    \multicolumn{7}{@{}p{14.3cm}@{}}{\scriptsize $^a$Bloq signatures abstract subcircuits, but every bloq has a concrete body; no late or partial linking.  $^b$Qmod functions are abstract until synthesis, which concretizes them; no serializable open program.  $^c$Subroutine templates (\texttt{QSVT}, \texttt{GQSP}, \texttt{FABLE}) rather than packaged algorithms; phase angles are supplied externally.  $^d$Block encodings underlie the QSVT linear solver, while the Schr\"odingerization path documents its block-encoding backend as pending.  $^e$Self-verifying: computed phases are checked against the polynomial identity during validation.  $^f$Block-encoding and QSP bloqs exist; no assembled solver.  $^g$The \texttt{clam} layer integrates ODEs classically.  $^h$Logical-level estimator; the physical layer is reserved (\secref{sec:reserved}).  $^i$Closed synthesis engine; the example library is open.  $^j$Proprietary simulator SDK; the algorithm library is MIT-licensed.}
+    \multicolumn{7}{@{}p{14.3cm}@{}}{\scriptsize $^a$Bloqs may specify symbolic call counts without complete decompositions; serialization is supported. The comparison concerns the checked partial-linking workflow, not incompleteness alone (\cite{qualtran2026interfaces}).  $^b$Qmod functions are abstract until synthesis, which concretizes them; no serializable open program.  $^c$Subroutine templates (\texttt{QSVT}, \texttt{GQSP}, \texttt{FABLE}) rather than packaged algorithms; phase angles are supplied externally.  $^d$Block encodings underlie the QSVT linear solver, while the Schr\"odingerization path documents its block-encoding backend as pending.  $^e$Self-verifying: computed phases are checked against the polynomial identity during validation.  $^f$Block-encoding and QSP bloqs exist; no assembled solver.  $^g$The \texttt{clam} layer integrates ODEs classically.  $^h$Logical-level estimator; the physical layer is reserved (\secref{sec:reserved}).  $^i$Closed synthesis engine; the example library is open.  $^j$Proprietary simulator SDK; the algorithm library is MIT-licensed.}
   \end{tabular}
 \end{table}
 
@@ -315,18 +319,11 @@ scientific-computing workload, where the unit of progress is a
 sharing is a \emph{program artifact with open slots and recorded promises},
 and the unit of validation is \emph{graduated evidence} rather than a single
 simulator's output.  The commercial and analysis-library landscape of
-Table~\ref{tab:platform-comparison} sharpens the same boundary: Qualtran
-and pyLIQTR pair serious primitive and resource machinery with concrete
-program trees; Classiq resolves abstraction at synthesis time;
-UnitaryLab ships solver products on a closed stack; Azure's estimator
-prices any program's logical counts without asking how the program was
-written.  None of them makes the \emph{open program}---partially bound,
-contract-checked, promise-carrying---the unit of sharing.  To our
-knowledge, no previously published system, open-source framework, or
-commercial platform we surveyed combines these three units;
-Tables~\ref{tab:qpl-comparison} and~\ref{tab:ode-coverage}
-and~\ref{tab:platform-comparison} make the comparison concrete, and the honest
-counterpoint is equally explicit: resource estimation---strong in Scaffold,
-Q\# tooling, ProjectQ, Qualtran, pyLIQTR, and Azure's estimator---is the
-deliberately reserved axis of
-\secref{sec:reserved}.
+Tables~\ref{tab:qpl-comparison}, \ref{tab:ode-coverage}, and
+\ref{tab:platform-comparison} are inventories of documented interfaces in
+the surveyed versions, not impossibility results. Missing bundled
+components must be distinguished from missing expressiveness.
+Our implementation study therefore reports the selected path and any
+additional construction required. Qualtran and pyLIQTR remain the closest
+comparators for compositional algorithms and logical resource analysis;
+physical-cost estimates remain outside our present implementation scope.

@@ -12,9 +12,11 @@ lifecycle; \lstref{lst:bv} shows it end-to-end on a small example.
 
 \paragraph{Declare.}
 An abstract oracle is declared by naming it, giving it a typed register
-signature, and choosing a \emph{paradigm}: one of nine named contracts
-(Table~\ref{tab:paradigms}) that fix the mathematical interface the
-implementation must honor.  The declaration optionally carries resources
+signature, and choosing an interface role. Table~\ref{tab:paradigms}
+lists nine built-in conventions; applications can use additional role
+identifiers without changing a global registry or the RIR grammar.
+These labels describe the intended interface, not a proof of its
+mathematical interpretation.  The declaration optionally carries resources
 (typed QRAM slots), capability flags (\texttt{supports\_adjoint},
 \texttt{supports\_controlled}), and attributes.  Internally the declaration
 is a \texttt{Module} whose body is absent---an \emph{open module}.  Openness
@@ -22,7 +24,7 @@ is a first-class IR state, not an error state.
 
 \begin{table}[t]
   \centering
-  \caption{The nine oracle paradigms.  Each paradigm fixes the mathematical
+  \caption{The nine built-in oracle role conventions.  Each paradigm fixes the mathematical
   contract of the slot; concrete implementations are interchangeable as long
   as they honor the contract, the register-type tuple, the scale factor
   $\alpha$, and the declared capabilities.}
@@ -185,6 +187,14 @@ explicit partition cost model, alias-sampling PREPAREs, banked multi-word
 QRAM, and gate tables---all interchangeable realizations of the same oracle
 slots (R2).
 
+RIR also supports a restricted \texttt{Store}: address and data must each
+have a definite computational-basis value at execution, and the
+corresponding classical memory cell is updated without changing the
+quantum registers. Superposed writes are rejected. A module containing
+this effect, directly or through a call, cannot be controlled or inverted.
+Writes are counted separately from quantum gates; this accounting
+convention does not claim that physical memory updates are free.
+
 One subtlety deserves emphasis because it is a recurring correctness trap in
 hand-written code: an XOR database of \emph{angles} is not an amplitude
 oracle.  The library's diagonal block-encoding adapter, for instance,
@@ -225,6 +235,26 @@ distinction explicit in the slot's semantics rather than in a comment.
 \subsection{Algorithm protocols and contracts}
 \label{sec:protocols}
 
+Python structural interfaces, algorithm contracts, and RIR declarations
+serve distinct boundaries. The canonical API names
+\texttt{AlgorithmContract}, \texttt{QLSSSolver}, and \texttt{QODESolver}
+identify checks and executable generators; the older names remain aliases.
+An input provider may return a view backed by an open RIR module.
+Contract resolution retains that actual view, and generation uses the
+same resolved object. Calling a separate preflight check and then a solver
+is two operations; no global provider cache is implied.
+Unavailable methods, non-callable attributes, incompatible inspectable
+signatures, and wrong return types receive structured diagnostics.
+Exceptions inside a provider retain their original cause.
+
+The \texttt{bind\_with\_report} entry point similarly returns both the
+linked program and its report from one operation. The report includes
+source and result program digests, resource mappings, unresolved slots,
+and failures with their call paths. Captured-resource provenance survives
+serialization, allowing later binding to reuse a memory and to maintain
+a canonical order for newly captured arguments. These reports are
+separate data artifacts, not Python callbacks embedded in the RIR.
+
 R8---new algorithms without core changes---is met by pushing all
 \emph{algorithmic} typing out of the language core and into the library,
 using Python's structural protocols.  The mechanism has three layers:
@@ -255,7 +285,7 @@ machine-readable documentation, not a second executable IR.
 
 \paragraph{Generator protocols.}
 Solver families are exposed as small callables---for the ODE stack, the
-three-argument \texttt{QODEProtocol} mapping (generator, initial state,
+three-argument \texttt{QODESolver} mapping (generator, initial state,
 time) to a state oracle---so that \emph{solvers are plug-compatible
 positions} in larger programs: a QLSS instance, an ODE solver family, or a
 Hamiltonian-simulation kernel can be injected where a linear solver is
@@ -311,8 +341,10 @@ matrix.
 \subsection{Readout as a host-side plan}
 \label{sec:readout}
 
-Because RIR is purely unitary (R7), measurement never blocks composition:
-solver outputs are state oracles that further algorithms consume coherently.
+RIR keeps measurement outside the program (R7), so solver outputs can be
+state oracles that further algorithms consume coherently. These solver
+modules use the unitary fragment; the restricted classical-memory
+\texttt{Store} effect does not admit controlled or adjoint composition.
 When a deployment does need classical data, the host attaches
 \emph{readout actions}---measure, reset, post-selection, and the statistics
 to compute---as a plan appended after export, referencing registers by name.

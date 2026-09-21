@@ -1,10 +1,20 @@
 \section{Implementation and verification status}
 \label{sec:implementation}
 
-This section states precisely what is implemented, what is verified, and
-what is not.  We hold this to be part of the language's design: because R6
-requires promises and caveats to travel with programs, the same discipline
-applies to the paper.
+This section distinguishes implementation status, instance-level
+numerical evidence, and broader mathematical claims. Results are scoped
+by program configuration, reference semantics, and backend environment.
+The previously recorded numerical campaign is a snapshot of its tested
+revision, not automatic validation of later changes.
+
+For the workflow revision described here, the core/schema suite passes
+391 tests and 278 subtests, and the real-backend integration suite passes
+41 tests. The oracle, block-encoding, arithmetic, numerical-function,
+QHAM/QFVM, and ODE verification groups were rerun, comprising 193 cases.
+The nine realization-study configurations of
+Section~\ref{sec:oracle-study} were additionally checked on all four
+execution paths. The earlier thirteen-group campaign below is retained
+as a separately scoped record.
 
 \subsection{Implementation}
 \label{sec:implementation-status}
@@ -24,11 +34,13 @@ a reviewed revision ledger rather than installed dependencies; generation
 and serialization work without them, and integration tests run in whichever
 interpreter provides them, without mocks or substitutes.
 
-\subsection{A graded evidence ladder}
+\subsection{Complementary verification evidence}
 \label{sec:evidence-ladder}
 
-Verification claims are organized as levels, defined in the project's
-validation plan and enforced by its test suite:
+Verification records use the following categories from the project's
+test plan. Their historical L0--L5 labels are retained for traceability;
+they are complementary checks, not a total ordering of mathematical
+confidence:
 
 \begin{itemize}
 \item \textbf{L0 -- static}: schema validation of every serialized format;
@@ -51,7 +63,7 @@ validation plan and enforced by its test suite:
 \item \textbf{L5 -- documentation}: doctest builders over the manual.
 \end{itemize}
 
-What the ladder does \emph{not} by itself include is numerical certification
+What the ladder does \emph{not} by itself include is numerical validation
 of the scientific solver stack: solution accuracy against continuum
 references, success-channel probabilities, and convergence in method
 parameters.  Those are properties of algorithms, not of circuits.  We
@@ -66,7 +78,7 @@ generated modules (R6).
   \caption{Verification status by component.  ``Structure'' = L1 validity,
   serialization, contract checks; ``witness'' = L2/L3 classical witnesses
   and catalog reproducibility; ``native circuits'' = L4 real-backend
-  amplitude agreement of assembled circuits; ``numerical certification'' =
+  amplitude agreement of assembled circuits; ``numerical validation'' =
   solution-accuracy and success-channel checks against mathematical
   references in the campaign of \secref{sec:numverify} (register-exact
   scale; scaling studies remain open).  A dash means \emph{not yet
@@ -91,14 +103,14 @@ generated modules (R6).
     Scientific suite (Gibbs, QPCA, SDP, DQI, \dots) & \ok & \ok & \ok & \ok \\
     Resource estimator (strict gate set) & \ok & \ok$^{f}$ & --- & --- \\
     \bottomrule
-    \multicolumn{5}{@{}p{14.3cm}@{}}{\scriptsize $^a$QSP synthesis self-verifies polynomial round-trips; transforms are certified end-to-end in \secref{sec:numverify}.  $^b$assembled-circuit agreement on real backends.  $^c$all six families certified against truncated-oracle references at small scale; the Schr\"odingerization momentum-sign defect found by an earlier campaign round is repaired and pinned by regression cases (\secref{sec:numverify}); success channels and large-scale accuracy remain pending.  $^d$classical flux and flow-state witnesses.  $^e$fixed-point physics certified against an independent fixed-point semantics at \texttt{FixedFormat(5,2)}; generation-time constant quantization dominates the method error in coarser formats.  $^f$hand-computed counts and atom-by-atom cross-checks against the strict netlist; scaling expectations validated in Appendix~\ref{sec:resources}.}
+    \multicolumn{5}{@{}p{14.3cm}@{}}{\scriptsize $^a$QSP synthesis self-verifies polynomial round-trips; transforms are checked end-to-end in \secref{sec:numverify}.  $^b$assembled-circuit agreement on real backends.  $^c$all six families checked against truncated-oracle references at small scale; the Schr\"odingerization momentum-sign defect found by an earlier campaign round is repaired and pinned by regression cases (\secref{sec:numverify}); success channels and large-scale accuracy remain pending.  $^d$classical flux and flow-state witnesses.  $^e$fixed-point physics checked against an independent fixed-point semantics at \texttt{FixedFormat(5,2)}; generation-time constant quantization dominates the method error in coarser formats.  $^f$hand-computed counts and atom-by-atom cross-checks against the strict netlist; scaling expectations validated in Appendix~\ref{sec:resources}.}
   \end{tabular}
 \end{table}
 
 \subsection{Numerical verification on real backends}
 \label{sec:numverify}
 
-We close the certification column at the scale where exact classical
+We close the validation column at the scale where exact classical
 references exist, using a dedicated numerical campaign rather than unit
 tests.  Two pieces of backend infrastructure were built for it and now ship
 with the respective simulators.  First, PySparQ executes RIR natively:
@@ -124,9 +136,10 @@ thirteen groups, driven by \texttt{tools/run\_verification.py} and archived
 as machine-readable JSON (\texttt{out/verification/}).  Every experiment
 compares against a correctness oracle that is independent of the
 implementation---closed forms, \texttt{numpy}/\texttt{scipy} references, or
-an independently written fixed-point semantics---and most sweeps evaluate
-the entire input domain in a single superposed execution instead of
-sampling basis states.  Where an algorithm combines an exact construction
+an independently written fixed-point semantics. Cases use basis-input
+sweeps and selected superposition tests, with coverage determined by each
+case's construction; a uniform input alone does not characterize an
+arbitrary oracle. Where an algorithm combines an exact construction
 with a mathematical truncation (Chebyshev degrees, quadrature cutoffs,
 Carleman tails), \emph{implementation error} (against the truncated oracle)
 and \emph{method error} (of the truncation itself) are reported separately;
@@ -195,23 +208,45 @@ branches below $\sim 10^{-7}$, while the reference executor and the
 OriginIR-ext path agree with the polynomial oracles at $10^{-15}$; all
 physical post-selected blocks remain consistent across paths.
 
-The scope of this certification is deliberately register-exact: instances
+The scope of this validation is deliberately register-exact: instances
 are small enough that amplitudes, blocks, and success probabilities can be
 compared essentially to machine precision, and the reported method errors
 characterize the mathematical truncations, not estimates of large-scale
 behaviour.  Scaling the campaign is the subject of the next subsection.
 
-\subsection{Resource estimation in brief}
+\subsection{Resource analysis before and after binding}
 \label{sec:resources-summary}
+
+Resource analysis is part of the algorithm-development workflow.
+When closure checking is disabled, the estimator returns the known
+logical costs and a ledger of unresolved oracle calls, distinguished by
+slot, control count, adjoint context, and resource arguments.
+Conceptually, additive resources have the form
+\[
+ C(P)=C_{\mathrm{known}}(P)+\sum_{s,v} N_{s,v}\,C_{s,v},
+\]
+where $v$ specifies the call variant. The unknown terms are reported,
+not replaced by zero. Qubit workspace is a peak-live quantity and is
+handled separately: an open report gives a known lower bound and lists
+the unresolved workspace contributions rather than a complete qubit count.
+
+After binding, the same estimator follows the concrete implementations.
+Resource parameters are substituted on every call edge, so two calls of
+one lookup module against different memories remain separate in the
+entry-level ledger. Rotations are stored by angle and multiplicity;
+even a rotation inside a \texttt{Repeat} of $2^{40}$ is counted without
+materializing its occurrences. The JSON report exposes the remaining
+oracle terms, completeness status, resource-specific reads and writes,
+and the per-rotation synthesis-error setting.
 
 Beyond correctness, the same structure preservation supports compositional
 resource estimation: \texttt{export\_strict} lowers a program to a
 module-preserving Toffoli+Clifford+T+QRAM netlist and
 \texttt{estimate\_resources} counts qubits, Toffoli, synthesis-adjusted
-$T$, and QRAM queries per (module, control-count) pair, multiplying
-through \texttt{Repeat} nodes without expansion.  We treat this as a
-secondary capability of the architecture rather than a core contribution:
-the strict-gate-set compiler, the scaling study against theoretical
+$T$, and QRAM queries per (module, control-count, adjoint) variant,
+multiplying through \texttt{Repeat} nodes without expansion. This logical
+analysis supports the realization comparisons rather than introducing
+a new physical resource model. The strict-gate-set compiler, the scaling study against theoretical
 expectations, the query-count view of QRAM, and the solver-stack tables
 are reported in Appendix~\ref{sec:resources}.
 
@@ -230,12 +265,12 @@ work and summarized here only as a statement of scope:
   and lazy expansion of \secref{sec:rir} are the enabling machinery, but the
   campaigns themselves are future work.
 \item \textbf{Simulation campaigns for the solver stack at scale.}  The
-  campaign of \secref{sec:numverify} certifies implementations against
+  campaign of \secref{sec:numverify} checks implementations against
   truncated-oracle references at register-exact scale.  What remains is the
   parameter-scaling axis---quadrature cutoffs for LCHS, recovery windows
   for Schr\"odingerization, contour plans for CBMD, Carleman cutoffs,
   Taylor degrees, and success channels as functions of problem size---and
-  the repair of the two recorded defects.  The promise-provenance
+  systematic verification after further implementation changes.  The promise-provenance
   attributes are designed to be the bookkeeping substrate for exactly these
   studies.
 \item \textbf{Resource estimation, physical layer.}  The logical level
@@ -254,5 +289,5 @@ work and summarized here only as a statement of scope:
 
 \noindent The physical layer and the scaling axis are deliberately scoped
 as future work rather than reported prematurely: attaching physical-cost
-numbers to an uncertified-at-scale solver stack would violate the very
+numbers to an unchecked-at-scale solver stack would violate the very
 provenance discipline this paper argues for.

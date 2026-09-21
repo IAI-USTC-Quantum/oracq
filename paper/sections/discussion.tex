@@ -1,101 +1,81 @@
 \section{Discussion and limitations}
 \label{sec:discussion}
 
-\subsection{What the design buys, and what it costs}
+\subsection{Design tradeoffs}
 \label{sec:tradeoffs}
 
-The three mechanisms are separable in principle but reinforce each other in
-practice.  Open oracles without structure preservation would be a typing
-game on top of circuits that still explode with scale; structure
-preservation without protocols would preserve modules no library can
-assemble; protocols without provenance would check shapes while losing the
-mathematics.  The costs are equally real.  Embedding in Python adopts the
-host's dynamic typing, so contract checks run at generation time rather
-than at a static pass; the IR's concreteness (all widths and angles
-resolved) rules out symbolic parameters inside RIR, pushing parameter
-studies to the generation layer; and the unitary-only IR, while it keeps
-solver outputs composable, means hybrid quantum--classical algorithms
-orchestrate from the host rather than from the IR---a deliberate division
-that favors the fault-tolerant algorithm regime over the variational one.
+The framework is organized for researchers who implement and compare
+oracle-based algorithms. Python interfaces describe available access
+models, checked views connect them to generators, and open RIR modules
+preserve the remaining implementation choices. These mechanisms have
+separate responsibilities. Structural typing is a standard Python tool;
+its value here is an extensible algorithm-library interface. The runtime
+boundary resolves each provider once per generation and passes the
+checked view to the kernel.
 
-\subsection{Limitations of the current implementation}
+RIR retains concrete signatures and assembly constants. This makes
+compatibility checks and stored artifacts straightforward, while placing
+width, precision, and scale sweeps in the Python generation layer.
+Binding can change an implementation's private workspace and resource
+requirements, but cannot silently change a public signal layout or an
+alpha value already used to construct the algorithm. New implementations
+can introduce new open dependencies, so successful partial linking does
+not imply executable closure.
+
+\subsection{Limits of the evidence}
 \label{sec:limitations}
 
-We enumerate the limitations most relevant to prospective users and to the
-future-validation program of \secref{sec:reserved}:
+The reference executor, independently computed mathematical quantities,
+and native backend paths answer different questions. Agreement between
+backends supports a shared circuit interpretation; agreement with a
+finite-precision reference supports the tested numerical implementation.
+Neither observation alone establishes the accuracy of a continuum
+solver or convergence over all algorithm parameters. The verification
+campaign in Section~\ref{sec:numverify} records its tested instances and
+revision. Current workflow reports additionally associate their results
+with program and data fingerprints.
 
-\begin{itemize}
-\item \textbf{Solver certification is small-scale.}  All six ODE families,
-  both QLSS kernels, QHAM, and QFVM are certified against truncated-oracle
-  references at register-exact scale (\secref{sec:numverify}), and each
-  still carries recorded pending items (finite quadrature, omitted contour
-  poles, Carleman tails, recovery windows, success channels); the
-  Schr\"odingerization momentum-sign and oblivious-amplification iteration
-  defects found by the campaign are repaired and pinned by regression
-  tests.  None is
-  a certified production solver yet (Table~\ref{tab:status-matrix}).
-\item \textbf{Hamiltonian-simulation kernels are partial.}  First-order
-  Trotter and truncated Taylor are built in; a general QSP-based
-  Hamiltonian-simulation kernel must currently be \emph{injected} by the
-  caller (the QSVT-based block-encoding route exists separately).
-  Higher-order product formulas are not yet provided.
-\item \textbf{Amplitude-estimation variants are canonical only.}  No
-  maximum-likelihood or robust amplitude estimation; no VTAA variants for
-  the QLSS kernels.
-\item \textbf{Width regime.}  Single registers span at most 64 bits (a
-  backend storage constraint); wider objects are fused multi-register
-  views.  Explicit QHAM tensor lifts are capped by this width.
-\item \textbf{Number theory is illustrative.}  The modular-multiplication
-  path is a bounded permutation synthesis for small registers, not scalable
-  Shor arithmetic---and is labeled as such.
-\item \textbf{No physical-layer resource accounting}---the logical
-  Toffoli+Clifford+T+QRAM estimator of Appendix~\ref{sec:resources} does not yet
-  model synthesis passes, depth, distillation factories, or surface-code
-  cycles; scoped in \secref{sec:reserved}.
-\end{itemize}
+QRAM is an explicit access resource. Query and write counts do not price
+memory construction, loading, latency, or fault tolerance. Logical gate
+counts follow the current compiler's recipes, including its documented
+QROM and constant-addition inefficiencies. Native arithmetic acceleration
+changes simulation cost, not the gate-level cost assigned to the
+corresponding reversible circuit. Unknown oracle implementations remain
+visible in open-program reports, and their unknown workspace is not
+reported as zero.
 
-\subsection{Future work}
+The number of algorithms in the library demonstrates breadth of
+implementation, but is not by itself evidence of superior accuracy or
+efficiency. Solver comparisons require matching mathematical assumptions,
+target error, and success criteria. Our illustrative QFVM resource
+profiles hold the problem fixed while exposing different constructions;
+their low-order configurations are not an accuracy-matched ranking.
+Single registers remain limited to 64 bits; general measurement and
+feedback are orchestrated by host-side readout plans.
+
+\subsection{Further development}
 \label{sec:future}
 
-Beyond the reserved validation axis (backend campaigns at scale, solver
-certification studies, and a first-class resource estimator), the natural
-extensions are: a general QSP Hamiltonian-simulation kernel closing the
-injection point; vendoring a proven high-degree phase-synthesis backend
-(e.g.\ Laurent exact decomposition) behind the existing phase-value
-interface---an implementation upgrade that, by design, requires no change
-to the language, the IR, or the verification pass; robust and
-maximum-likelihood amplitude estimation; a
-wider nonlinear-PDE repertoire on the QHAM path (systems, higher
-dimensions); classical-optimization protocol objects for variational
-workloads; and, on the formal side, a denotational semantics for RIR
-modules (the validation suite currently pins behavior operationally).
+The next research steps are controlled precision and parameter sweeps,
+more efficient reversible arithmetic and data-loading realizations, and
+additional tested approximation kernels. The open-program workflow
+provides a place to compare these alternatives without discarding the
+algorithm structure. Interoperability with existing fault-tolerant
+algorithm libraries is also valuable: another framework's component can
+be a source of an implementation when its interface and numerical
+conventions are made explicit. Physical resource modeling and general
+mathematical guarantees require additional methods beyond the present
+logical-cost and numerical-witness facilities.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-Quantum scientific computing has an algorithm literature that is mature,
-growing, and structurally consistent: problems accessed through declared
-mathematical input models; solutions assembled from block-encoding algebra
-and signal-processing transforms; precision and promises carried as
-first-class mathematical objects.  \pqlang{} is a programming language built
-to that shape: oracles are declared, carried open, and linked late; solver
-families are protocol positions into which interchangeable kernels are
-injected; programs remain module-level, symbolic in scale, serializable,
-and honest about what they assume and what they omit.  Its coverage---six
-ODE solver families, several PDE paths, a reversible-arithmetic and
-math-function compiler feeding physics kernels, and a QSVT/QSP engine that
-verifies its own synthesis---is, to our knowledge, not matched as an
-integrated whole by existing quantum programming systems: several
-ecosystems provide parts of the primitive layer (\secref{sec:related}),
-but none combines them with open, re-linkable oracle programs and six
-ODE solver families.  Its verification discipline is deliberately
-graduated, and the campaign of \secref{sec:numverify} shows what that
-discipline buys: register-exact certification against independent oracles
-for the whole library, two real defects exposed and recorded rather than
-silently absorbed, and a clean boundary to what remains open---validation
-at scale, the defect repairs and lowering gaps, and the physical layer of
-resource estimation, reserved rather than overclaimed.  We offer
-the requirements analysis of \secref{sec:requirements} as a reusable lens:
-languages for the fault-tolerant scientific-computing era will be judged by
-how directly they let the mathematics be written---and by how honestly they
-track what remains unproven.
+\pqlang{} provides a modular implementation framework for quantum
+scientific-computing research. Its access interfaces, stored open
+programs, partial linking, QRAM resources, and reversible numerical
+computations connect paper-level oracle assumptions to concrete
+implementations. Numerical witnesses and resource reports make the
+consequences of those choices inspectable. The framework's contribution
+is this executable and extensible research workflow, evaluated through
+controlled implementation variants and deeper scientific compositions,
+with the remaining numerical and physical assumptions stated explicitly.

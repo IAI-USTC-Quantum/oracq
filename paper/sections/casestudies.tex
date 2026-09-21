@@ -1,12 +1,67 @@
 \section{Case studies}
 \label{sec:casestudies}
 
-Three case studies show the mechanisms compounding on real workloads: a
+The studies progress from controlled implementation choice to deeper
+scientific compositions. They include a
 fluid-dynamics pipeline assembled almost entirely from open oracles and
 compiled classical code (\secref{sec:qfvm}), a symbolic-PDE linearization
 whose intermediate artifacts are plans rather than circuits
 (\secref{sec:qham-case}), and the reproducible gallery/catalog that pins
 behavior across backends (\secref{sec:gallery}).
+
+\subsection{One open algorithm, three oracle realizations}
+\label{sec:oracle-study}
+
+We isolate realization choice with a fixed access contract
+$|a,d\rangle\mapsto|a,d\oplus k(a)\rangle$, where
+$k(a)=(a+1)\bmod 2^w$. The algorithm uniformly prepares the address,
+queries an open angle-word module, rotates a signal qubit by
+$2\pi k(a)/2^w$, and uncomputes the word. This module is repeated three
+times in the stored RIR. One JSON artifact is restored and bound to a
+gate-table implementation, a runtime QRAM table, or a reversible modular
+increment with a private clean workspace.
+
+The independent reference gives success and failure amplitudes
+$2^{-w/2}\cos(3\pi k(a)/2^w)$ and
+$2^{-w/2}\sin(3\pi k(a)/2^w)$, respectively.
+The reference executor agrees to below $2\times10^{-16}$ for
+$w=2,3,4$ and all three realizations. This test covers the full output
+of the specified uniform input; it is not an equivalence proof for
+arbitrary circuits. The script
+\texttt{examples/research\_workflow.py} records program and memory
+fingerprints, binding reports, success probabilities, and open and
+closed resource estimates. Its explicit \texttt{--native} mode repeats
+the comparison through the real backend paths. For all nine configurations,
+the PySparQ adapter, the native RIR interpreter, and the OriginIR backend
+agree with the analytic reference to at most $2.5\times10^{-16}$.
+This run used PySparQ commit \texttt{4e4c9f16} and the
+\texttt{unified-quantum} 0.1.1 distribution; the full identifiers and
+environment are retained in the verification artifacts.
+
+\begin{table}[t]
+\centering
+\caption{Logical costs for three repetitions of the same open algorithm.
+Each cell is (Toffoli count, QRAM queries); Clifford gates and rotations
+are also recorded in the artifact but omitted here. A QRAM query is an
+unpriced access operation, not a zero-cost physical memory implementation.}
+\label{tab:oracle-study}
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+Width & Gate table & QRAM table & Arithmetic \\
+\midrule
+2 & (24, 0) & (0, 6) & (0, 0) \\
+3 & (216, 0) & (0, 6) & (12, 0) \\
+4 & (960, 0) & (0, 6) & (48, 0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Before binding, the same program reports three forward and three adjoint
+calls of the angle-word slot, with unresolved implementation workspace.
+After binding, Table~\ref{tab:oracle-study} exposes the resource
+consequences of each realization. The mathematical function was selected
+to admit all three implementations; an arbitrary database need not have
+an efficient arithmetic realization.
 
 \subsection{QFVM: compressible Euler equations via reversible flux arithmetic}
 \label{sec:qfvm}
@@ -80,13 +135,23 @@ mechanism in action:
   \label{fig:qfvm}
 \end{figure}
 
-The pipeline demonstrates the claim that motivated this work: nothing in it
-is a monolithic circuit.  Each stage can be bound independently (gate
-tables vs.\ QRAM; either QLSS kernel; different fixed-point formats), and
-the whole is a module graph of reviewable size.  Its physics is certified
-at the fixed-point level against an independently written fixed-point
-semantics (\secref{sec:numverify}), with generation-time constant
-quantization recorded as the dominant method error.
+The pipeline connects raw-data queries, compiled numerical formulas, and
+solver construction through explicit modules. Compatible oracle
+realizations can be bound to one program; changing the fixed-point format
+or solver construction requires regeneration. The numerical witnesses of
+Section~\ref{sec:numverify} compare selected finite-precision computations
+with independently written references.
+
+The updated \texttt{tools/build\_qlss\_comparison.py} also records open
+and closed costs for the same four-cell input in
+\texttt{FixedFormat(6,2)}. Its illustrative CKS order-2 configuration
+has 1,961 logical data/work qubits, 58,537,555 Toffoli operations and
+1,306 QRAM queries; the Costa one-step configuration has 1,966 such
+qubits, 649,402,637 Toffoli operations and 4,826 queries.
+Both require a separately reported six-qubit MCX pool under the current
+lowering recipe. These are construction profiles, not an accuracy-matched
+comparison of solvers. The report retains the input assumptions,
+program/data digests and unresolved numerical obligations.
 
 \subsection{QHAM: from symbolic PDEs to solver-ready input models}
 \label{sec:qham-case}
