@@ -11,9 +11,10 @@ from pyqecclang import (
     Binding,
     Operation,
     RegisterState,
-    bind,
+    bind_with_report,
     describe_oracle,
     dumps,
+    estimate_resources,
     export_originir,
     loads,
     run_originir,
@@ -41,12 +42,15 @@ def main() -> None:
             "requirements",
             "bind",
             "compile-function",
+            "estimate",
         ],
     )
     parser.add_argument("input", type=Path)
     parser.add_argument("-o", "--output", type=Path)
     parser.add_argument("--memory", type=Path)
     parser.add_argument("--bindings", type=Path)
+    parser.add_argument("--report", type=Path, help="绑定诊断报告的 JSON 路径")
+    parser.add_argument("--allow-open", action="store_true", help="资源分析保留未实现 oracle 的调用台账")
     parser.add_argument(
         "--backend", choices=["reference", "originir", "pysparq"], default="reference"
     )
@@ -130,7 +134,15 @@ def main() -> None:
                     tuple(m for m in implementation.modules if m.name != implementation.entry),
                 )
                 bindings[name] = Binding(op, item.get("resources", {}))
-            result = dumps(bind(program, bindings))
+            linked = bind_with_report(program, bindings)
+            if args.report:
+                args.report.write_text(json.dumps(linked.report.to_dict(), ensure_ascii=False, indent=2) + "\n")
+            result = dumps(linked.require())
+        elif args.command == "estimate":
+            result = json.dumps(
+                estimate_resources(program, require_closed=not args.allow_open).to_dict(),
+                ensure_ascii=False, indent=2,
+            ) + "\n"
         elif args.command == "canonicalize":
             result = dumps(program)
         elif args.command == "emit":

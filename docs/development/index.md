@@ -8,6 +8,7 @@
 contributing
 writing-docs
 roadmap
+research-workflow-plan
 validation
 validation-plan
 validation-coverage

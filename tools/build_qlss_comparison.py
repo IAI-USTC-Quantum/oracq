@@ -1,9 +1,17 @@
 """同一 QFVM 稀疏问题切换 CKS / Costa 的可审阅产物。"""
 
+import hashlib
 import json
 from pathlib import Path
 
-from pyqecclang import FixedFormat, dumps, export_originir, export_toffoli_u3_cz, unresolved
+from pyqecclang import (
+    FixedFormat,
+    dumps,
+    estimate_resources,
+    export_originir,
+    export_toffoli_u3_cz,
+    unresolved,
+)
 from pyqecclang.algorithms.qlss.qlss import (
     CKSConfig,
     CostaConfig,
@@ -47,6 +55,11 @@ def main():
         reports.append(
             {
                 "solver": protocol.name,
+                "open_cost": estimate_resources(opened, require_closed=False).to_dict(),
+                "closed_cost": estimate_resources(closed).to_dict(),
+                "program_sha256": hashlib.sha256(dumps(closed).encode()).hexdigest(),
+                "memory_sha256": hashlib.sha256(json.dumps(memory, sort_keys=True).encode()).hexdigest(),
+                "scope": "输入适配、绑定和资源分析；本脚本不认证求解精度与成功概率",
                 "input_model": protocol.input_model,
                 "adapter_trace": result.adapter_trace,
                 "alpha": result.input_alpha,
@@ -60,7 +73,8 @@ def main():
                 "norm_recovery": "rhs_norm / (alpha * sqrt(p_joint / p_solver))",
             }
         )
-        print(protocol.name, reports[-1], flush=True)
+        cost = estimate_resources(closed)
+        print(protocol.name, "qubits", cost.qubits, "Toffoli", cost.toffoli, "QRAM", cost.qram_total, flush=True)
     (root / "comparison.json").write_text(json.dumps(reports, ensure_ascii=False, indent=2) + "\n")
 
 

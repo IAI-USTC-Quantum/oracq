@@ -15,7 +15,7 @@ pyqecclang emit program.rir.json --basis toffoli-u3-cz -o basis.originir
 ## 绑定实现
 
 ```bash
-pyqecclang bind open.rir.json --bindings bindings.json -o closed.rir.json
+pyqecclang bind open.rir.json --bindings bindings.json --report binding-report.json -o closed.rir.json
 ```
 
 绑定清单将槽名映射到实现的 RIR 文件与资源名称：
@@ -30,6 +30,16 @@ pyqecclang bind open.rir.json --bindings bindings.json -o closed.rir.json
 ```
 
 `program` 相对于绑定清单所在目录解析。实现的布局和 alpha 必须与槽位一致。
+
+## 开放与闭合资源分析
+
+```bash
+pyqecclang estimate open.rir.json --allow-open -o open-cost.json
+pyqecclang estimate closed.rir.json -o closed-cost.json
+```
+
+开放报告保留 oracle 调用数与未知工作区；已知成本不能当作最终总成本。
+绑定失败时仍会写出 `--report` 指定的诊断，并以非零状态退出。
 
 ## 执行
 

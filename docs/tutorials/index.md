@@ -7,6 +7,7 @@
 
 first-program
 oracle-binding
+algorithm-research
 search-and-estimation
 hamiltonian
 differential-equations

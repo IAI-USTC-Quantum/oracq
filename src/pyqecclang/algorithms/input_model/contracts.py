@@ -337,7 +337,7 @@ class InputRequirement:
     把原始值转换成具体视图后再检查布局、能力与承诺。
 
     Attributes:
-        name: 输入名，在所属 ``ProtocolContract`` 内唯一。
+        name: 输入名，在所属 ``AlgorithmContract`` 内唯一。
         protocols: 可接受的协议类元组。
         adapter: 可选适配函数，如 ``as_block_encoding``；省略时直接检查原值。
         main_qubit: 期望的主寄存器位数；``None`` 表示不检查。
@@ -427,13 +427,19 @@ class InputRequirement:
             ``issues``，不阻断后续检查。
 
         Raises:
-            ContractError: 仅当 adapter 抛出 ``ValidationError`` 以外的
-                异常时透传。
+            Exception: 提供方内部的非 ValidationError 异常原样透传，保留调用原因。
         """
+        _, spec, issues = self.resolve(value, prefix=prefix)
+        return spec, issues
+
+    def resolve(
+        self, value: object, *, prefix: str = ""
+    ) -> tuple[object, OracleSpec | None, tuple[ContractIssue, ...]]:
+        """适配并检查一次，同时保留实际视图供算法内核使用。"""
         path = f"{prefix}.{self.name}" if prefix else self.name
         expected_names = tuple(p.__name__ for p in self.protocols)
         if not any(isinstance(value, p) for p in self.protocols):
-            return None, (
+            return value, None, (
                 ContractIssue(
                     "INPUT_PROTOCOL",
                     path,
@@ -445,8 +451,15 @@ class InputRequirement:
         try:
             value = self.adapter(value) if self.adapter is not None else value
             spec = describe_oracle(value)
+        except ContractError as exc:
+            return value, None, tuple(
+                ContractIssue(
+                    "INPUT_ADAPTER" if issue.code == "INPUT_TYPE" else issue.code,
+                    path + "." + issue.path, issue.expected, issue.actual, issue.message,
+                ) for issue in exc.issues
+            )
         except ValidationError as exc:
-            return None, (
+            return value, None, (
                 ContractIssue(
                     "INPUT_ADAPTER", path, expected_names, type(value).__name__, str(exc)
                 ),
@@ -474,7 +487,7 @@ class InputRequirement:
         for field in ("zero_input", "clean_work"):
             if getattr(self, field) and attrs.get(field) is not True:
                 issue("INPUT_PROMISE", field, True, attrs.get(field), f"需要显式的 {field} 契约")
-        return spec, tuple(issues)
+        return value, spec, tuple(issues)
 
 
 @dataclass(frozen=True)
@@ -523,7 +536,7 @@ class ContractReport:
 
 
 @dataclass(frozen=True)
-class ProtocolContract:
+class AlgorithmContract:
     """算法对全部输入的契约声明，可整体检查并生成聚合报告。
 
     Attributes:
@@ -547,7 +560,7 @@ class ProtocolContract:
         if type(self.inputs) is not tuple or any(
             not isinstance(r, InputRequirement) for r in self.inputs
         ):
-            raise ValidationError("ProtocolContract.inputs 需要不可变的 InputRequirement 元组")
+            raise ValidationError("AlgorithmContract.inputs 需要不可变的 InputRequirement 元组")
         names = [r.name for r in self.inputs]
         if not self.name or len(names) != len(set(names)):
             raise ValidationError("protocol 名称无效或输入名重复")
@@ -565,6 +578,11 @@ class ProtocolContract:
         Returns:
             ContractReport: 聚合所有输入的检查结果。
         """
+        return self.resolve(**values).report
+
+    def resolve(self, **values: object) -> ResolvedInputs:
+        """取得一次具体输入并检查；报告可保存，视图仅在宿主生成阶段使用。"""
+        resolved: dict[str, object] = {}
         specs: dict[str, OracleSpec] = {}
         issues: list[ContractIssue] = []
         expected = {r.name for r in self.inputs}
@@ -584,8 +602,9 @@ class ProtocolContract:
                     )
                 )
                 continue
-            spec, found = req.inspect(values[req.name], prefix=self.name)
+            value, spec, found = req.resolve(values[req.name], prefix=self.name)
             if spec is not None:
+                resolved[req.name] = value
                 specs[req.name] = spec
             issues.extend(found)
         for left, right in self.same_width:
@@ -603,7 +622,8 @@ class ProtocolContract:
                         f"需要与 {left} 的目标宽度一致",
                     )
                 )
-        return ContractReport(self.name, tuple(specs.items()), tuple(issues), self.assumptions)
+        report = ContractReport(self.name, tuple(specs.items()), tuple(issues), self.assumptions)
+        return ResolvedInputs(tuple(resolved.items()), report)
 
     def to_dict(self) -> dict[str, object]:
         """转成可存 JSON 的字典；各输入递归使用自身 ``to_dict``。
@@ -617,3 +637,20 @@ class ProtocolContract:
             "same_width": self.same_width,
             "assumptions": self.assumptions,
         }
+
+
+@dataclass(frozen=True)
+class ResolvedInputs:
+    """一次边界适配的视图与检查报告；不缓存宿主对象，不作为可执行 IR 序列化。"""
+
+    values: tuple[tuple[str, object], ...]
+    report: ContractReport
+
+    def get(self, name: str, cls: type[_T]) -> _T:
+        """契约通过后，按名字取得已检查的具体视图。"""
+        self.report.require()
+        return require_instance(dict(self.values)[name], cls, self.report.protocol + "." + name)
+
+
+# 兼容旧导入；新算法使用准确表达职责的名称。
+ProtocolContract = AlgorithmContract

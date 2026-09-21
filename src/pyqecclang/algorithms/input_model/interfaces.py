@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from inspect import signature
+from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
 
 from pyqecclang.algorithms.input_model.contracts import (
+    AlgorithmContract,
     ContractError,
     InputRequirement,
-    ProtocolContract,
+    fail,
     require_instance,
-    requires,
 )
 
 if TYPE_CHECKING:
@@ -101,6 +102,36 @@ class StateOracleProtocol(Protocol):
         ...
 
 
+_View = TypeVar("_View")
+
+
+def _view(value: object, method_name: str, cls: type[_View]) -> _View:
+    """只取得一次访问视图；调用边界错误与提供方内部异常分别处理。"""
+    if isinstance(value, cls):
+        return value
+    method = getattr(value, method_name, None)
+    if method is None:
+        fail("INPUT_PROTOCOL", method_name, "provider method", type(value).__name__, "缺少访问方法")
+    if not callable(method):
+        fail("INPUT_CALLABLE", method_name, "callable", type(method).__name__, "访问属性不可调用")
+    try:
+        parameters = signature(method)
+    except (TypeError, ValueError):
+        # 原生可调用对象可能不暴露签名；实际调用的异常保留原始 traceback。
+        parameters = None
+    if parameters is not None:
+        try:
+            parameters.bind()
+        except TypeError as exc:
+            from pyqecclang.algorithms.input_model.contracts import ContractIssue
+
+            raise ContractError((ContractIssue(
+                "INPUT_SIGNATURE", method_name, "zero-argument call", str(parameters),
+                "访问方法必须支持无参数调用",
+            ),)) from exc
+    return require_instance(method(), cls, method_name + ".output")
+
+
 def as_state_preparation(value: StatePreparationProtocol) -> StatePreparation:
     """把满足协议的输入转换成 ``StatePreparation``。
 
@@ -116,9 +147,7 @@ def as_state_preparation(value: StatePreparationProtocol) -> StatePreparation:
     """
     from pyqecclang.algorithms.input_model.oracles import StatePreparation
 
-    result = requires(value, StatePreparationProtocol).state_preparation()
-    require_instance(result, StatePreparation, "state_preparation.output")
-    return result
+    return _view(value, "state_preparation", StatePreparation)
 
 
 def checked_state_preparation(
@@ -169,9 +198,7 @@ def as_block_encoding(value: BlockEncodingProtocol) -> BlockEncoding:
     """
     from pyqecclang.algorithms.input_model.operators import BlockEncoding
 
-    result = requires(value, BlockEncodingProtocol).block_encoding()
-    require_instance(result, BlockEncoding, "block_encoding.output")
-    return result
+    return _view(value, "block_encoding", BlockEncoding)
 
 
 def as_sparse_access(value: CKSSparseProtocol) -> SparseAccess:
@@ -189,9 +216,7 @@ def as_sparse_access(value: CKSSparseProtocol) -> SparseAccess:
     """
     from pyqecclang.algorithms.input_model.oracles import SparseAccess
 
-    result = requires(value, CKSSparseProtocol).sparse_access()
-    require_instance(result, SparseAccess, "sparse_access.output")
-    return result
+    return _view(value, "sparse_access", SparseAccess)
 
 
 def as_qlss_matrix(
@@ -224,7 +249,7 @@ def operator_state_contract(
     matrix: str = "generator",
     state: str = "initial",
     composable: bool = True,
-) -> ProtocolContract:
+) -> AlgorithmContract:
     """当前 BE 型演化算法的需求；其他算法可定义完全不同的契约。
 
     Args:
@@ -234,10 +259,10 @@ def operator_state_contract(
         composable: 初态是否要求厄米共轭与受控能力，供组合式算法使用。
 
     Returns:
-        ProtocolContract: 要求矩阵为可逆可控的块编码、初态为零输入且
+        AlgorithmContract: 要求矩阵为可逆可控的块编码、初态为零输入且
         干净工作区的制备，并约束两者寄存器等宽的契约。
     """
-    return ProtocolContract(
+    return AlgorithmContract(
         name,
         (
             InputRequirement(

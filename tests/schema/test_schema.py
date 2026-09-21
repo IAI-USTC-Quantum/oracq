@@ -63,3 +63,13 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(
             self.schema["$defs"]["Repeat"]["properties"]["count"]["maximum"], (1 << 63) - 1
         )
+
+    def test_binding_capture_metadata_survives_schema_roundtrip(self):
+        from pyqecclang import bind, loads
+        from pyqecclang.applications.oracle_study import oracle_study
+
+        opened, variants = oracle_study(2)
+        closed = bind(opened, {"AngleWord": variants["qram_table"][0]})
+        self.validator.validate(json.loads(dumps(closed)))
+        self.assertEqual(loads(dumps(closed)), closed)
+        self.assertIn("binding_captures", dict(closed.main.attributes))

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections import deque
 from collections.abc import Iterator
-from dataclasses import dataclass, replace
-from typing import cast
+from dataclasses import asdict, dataclass, replace
+from typing import NoReturn, cast
 
 from pyqecclang.infrastructure.builder import Operation
 from pyqecclang.infrastructure.ir import (
@@ -24,7 +25,7 @@ from pyqecclang.infrastructure.ir import (
     Store,
     ValidationError,
 )
-from pyqecclang.infrastructure.validation import validate
+from pyqecclang.infrastructure.validation import capture_map, validate
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,109 @@ class Binding:
     """
     operation: Operation
     resources: dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class BindingIssue:
+    """绑定失败的结构化原因；不声称证明 oracle 的数学语义。"""
+
+    code: str
+    path: tuple[str, ...]
+    expected: object
+    actual: object
+    message: str
+
+
+class BindingError(ValidationError):
+    """仍兼容 ValidationError 的绑定诊断。"""
+
+    def __init__(self, issues: tuple[BindingIssue, ...]) -> None:
+        self.issues = issues
+        super().__init__("; ".join(f"{i.code} {' -> '.join(i.path)}: {i.message}" for i in issues))
+
+
+@dataclass(frozen=True)
+class BindingReport:
+    """绑定清单、程序指纹与剩余依赖；只保存可交换的数据。"""
+
+    source_digest: str
+    result_digest: str | None
+    bindings: tuple[tuple[str, str], ...]
+    resource_mappings: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+    remaining: tuple[OracleRequirement, ...]
+    resources: tuple[Resource, ...]
+    issues: tuple[BindingIssue, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        """本次绑定是否通过结构检查；不要求所有槽位均已闭合。"""
+        return not self.issues
+
+    def to_dict(self) -> dict[str, object]:
+        """输出 JSON 友好的报告，独立于可执行 RIR 保存。"""
+        return {"ok": self.ok, **asdict(self)}
+
+
+@dataclass(frozen=True)
+class BindingResult:
+    """一次绑定的程序与报告，避免先检查后再次链接。"""
+
+    program: Program | None
+    report: BindingReport
+
+    def require(self) -> Program:
+        """绑定成功时取得程序，否则抛出结构化问题。"""
+        if self.report.issues:
+            raise BindingError(self.report.issues)
+        if self.program is None:
+            raise ValidationError("绑定结果缺少程序")
+        return self.program
+
+
+def bind_with_report(
+    program: Program | Operation, bindings: dict[str, Binding | Operation]
+) -> BindingResult:
+    """执行一次纯函数绑定，返回可直接使用的程序及可追溯报告。
+
+    无效输入程序仍由 validate 拒绝；候选实现的绑定错误记录在报告中。
+    数据内容不属于 RIR 指纹，运行记录须另行标识 QRAM 数据快照。
+    """
+    from pyqecclang.infrastructure.serialization import dumps
+
+    source = program.program() if isinstance(program, Operation) else validate(program)
+    digest = hashlib.sha256(dumps(source).encode()).hexdigest()
+    entries = tuple(sorted(
+        (slot, (item.operation if isinstance(item, Binding) else item).module.name)
+        for slot, item in bindings.items()
+    ))
+    mappings = tuple(sorted(
+        (slot, tuple(sorted((item.resources or {}).items())) if isinstance(item, Binding) else ())
+        for slot, item in bindings.items()
+    ))
+    try:
+        linked = bind(source, bindings)
+    except ValidationError as exc:
+        issues = exc.issues if isinstance(exc, BindingError) else (
+            BindingIssue("BIND_STRUCTURE", (source.entry,), "valid linked program", None, str(exc)),
+        )
+        return BindingResult(None, BindingReport(
+            digest, None, entries, mappings, unresolved(source), source.main.resources, issues,
+        ))
+    connections = []
+    for slot, _ in entries:
+        wrapper = linked.module_map[slot]
+        if wrapper.body is None or not wrapper.body or not isinstance(wrapper.body[0], Call):
+            continue
+        call = wrapper.body[0]
+        logical_names = {local: logical for logical, local in capture_map(wrapper).items()}
+        connections.append((slot, tuple(
+            (formal.name, logical_names.get(actual, actual))
+            for formal, actual in zip(linked.module_map[call.module].resources, call.resources, strict=True)
+        )))
+    return BindingResult(linked, BindingReport(
+        digest, hashlib.sha256(dumps(linked).encode()).hexdigest(), entries, tuple(connections),
+        unresolved(linked), linked.main.resources,
+    ))
 
 
 def calls(nodes: tuple[Instruction, ...] | None) -> Iterator[Call]:
@@ -219,6 +323,11 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
     global_types = {r.name: r.type for r in program.main.resources}
     captures = {}
 
+    def reject(code: str, slot: str, expected: object, actual: object, message: str) -> NoReturn:
+        """诊断记录从入口到槽位的调用路径。"""
+        paths = {item.name: item.path for item in unresolved(program)}
+        raise BindingError((BindingIssue(code, paths.get(slot, (program.entry, slot)), expected, actual, message),))
+
     def add(module: Module) -> None:
         """把实现模块并入模块表，同名且不同定义时抛错。"""
         existing = modules.get(module.name)
@@ -228,30 +337,35 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
 
     for slot, item in bindings.items():
         if slot not in modules or modules[slot].body is not None:
-            raise ValidationError(f"绑定目标不是开放声明：{slot}")
+            reject("BIND_TARGET", slot, "open declaration", slot, f"绑定目标不是开放声明：{slot}")
         declaration = modules[slot]
         binding = item if isinstance(item, Binding) else Binding(item)
         implementation = binding.operation
         implementation.program()
         target = implementation.module
         if target.name == slot:
-            raise ValidationError("实现必须使用不同于声明槽的模块名")
+            reject("BIND_NAME", slot, "distinct implementation name", target.name, "实现必须使用不同于声明槽的模块名")
         if tuple(r.type for r in target.registers) != tuple(r.type for r in declaration.registers):
-            raise ValidationError(f"{slot} 的寄存器类型/宽度不匹配；形状变化请重新生成算法")
+            reject("BIND_SIGNATURE", slot, [asdict(r) for r in declaration.registers], [asdict(r) for r in target.registers], f"{slot} 的寄存器类型/宽度不匹配；形状变化请重新生成算法")
         expected, offered = dict(declaration.attributes), dict(target.attributes)
-        if "be_alpha" in expected and offered.get("be_alpha") != expected["be_alpha"]:
-            raise ValidationError(f"{slot} 的 be_alpha 不匹配；请按新的常量重新生成算法")
+        for key in ("be_alpha", "fixed_width", "fixed_fraction", "fixed_signed", "rounding"):
+            if key in expected and offered.get(key) != expected[key]:
+                reject("BIND_ATTRIBUTE", slot, {key: expected[key]}, {key: offered.get(key)}, f"{slot} 的 {key} 不匹配；请按新的常量重新生成算法")
+        for key in ("zero_input", "clean_work"):
+            # 缺省的历史注解仍可绑定；明确矛盾的声明不能由包装模块覆盖。
+            if expected.get(key) is True and offered.get(key) is False:
+                reject("BIND_PROMISE", slot, {key: True}, {key: False}, f"{slot} 的 {key} 声明冲突")
         role = offered.get("oracle_paradigm")
         if (
             role
             and role != expected["oracle_paradigm"]
             and expected["oracle_paradigm"] != "unitary"
         ):
-            raise ValidationError(f"{slot} 的 oracle paradigm 不匹配")
+            reject("BIND_ROLE", slot, expected["oracle_paradigm"], role, f"{slot} 的 oracle paradigm 不匹配")
         provided_caps = capabilities(implementation.program())
         for capability in ("supports_adjoint", "supports_controlled"):
             if expected.get(capability, True) and not provided_caps[capability]:
-                raise ValidationError(f"{slot} 缺少要求的能力 {capability}")
+                reject("BIND_CAPABILITY", slot, capability, False, f"{slot} 缺少要求的能力 {capability}")
         for module in (*implementation.dependencies, target):
             add(module)
         explicit = binding.resources or {}
@@ -312,14 +426,21 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
 
     for key in modules:
         need(key)
-    local_names, additions = {}, {}
+    local_names, additions, capture_maps = {}, {}, {}
     for key, module in modules.items():
         occupied = {r.name for r in module.registers + module.locals} | {
             r.name for r in module.resources
         }
         existing = {r.name: r.type for r in module.resources}
+        previous_captures = capture_map(module)
         names, extra = {}, []
         for resource in requirements[key]:
+            if resource in previous_captures:
+                local = previous_captures[resource]
+                if existing[local] != captures[resource]:
+                    raise ValidationError("已捕获资源类型冲突")
+                names[resource] = local
+                continue
             if key == program.entry:
                 local = resource
                 if local in existing:
@@ -339,6 +460,20 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
             extra.append((resource, Resource(local, captures[resource])))
         local_names[key] = names
         additions[key] = tuple(extra)
+        capture_maps[key] = previous_captures | {logical: r.name for logical, r in extra}
+
+    ordered_resources: dict[str, tuple[Resource, ...]] = {}
+    permutations: dict[str, tuple[int, ...]] = {}
+    for key, module in modules.items():
+        unsorted_resources = module.resources + tuple(r for _, r in additions[key])
+        captured_names = set(capture_maps[key].values())
+        by_name = {r.name: r for r in unsorted_resources}
+        ordered_resources[key] = (
+            tuple(r for r in unsorted_resources if r.name not in captured_names)
+            + tuple(by_name[local] for _, local in sorted(capture_maps[key].items()))
+        )
+        positions = {r.name: i for i, r in enumerate(unsorted_resources)}
+        permutations[key] = tuple(positions[r.name] for r in ordered_resources[key])
 
     def rewrite(
         nodes: tuple[Instruction, ...] | None, owner: str
@@ -353,6 +488,7 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
                     local_names[owner][r[1:]] if r.startswith("@") else r for r in node.resources
                 )
                 values += tuple(local_names[owner][key] for key, _ in additions[node.module])
+                values = tuple(values[i] for i in permutations[node.module])
                 result.append(replace(node, resources=values))
             elif isinstance(node, (Repeat, Control, Adjoint)):
                 # 传入的 node.body 为具体元组时 rewrite 必返回元组（None 仅来自 None 入参）。
@@ -366,8 +502,12 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
     linked = tuple(
         replace(
             module,
-            resources=module.resources + tuple(r for _, r in additions[key]),
+            resources=ordered_resources[key],
             body=rewrite(module.body, key),
+            attributes=tuple(sorted({
+                **dict(module.attributes),
+                **({"binding_captures": json.dumps(capture_maps[key], sort_keys=True)} if capture_maps[key] else {}),
+            }.items())),
         )
         for key, module in sorted(modules.items())
     )

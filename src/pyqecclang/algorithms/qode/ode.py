@@ -10,15 +10,18 @@ from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 from pyqecclang.algorithms.common.state_preparation import extend_initial, select_subspace
 from pyqecclang.algorithms.input_model.block_encoding import lcu, projector, tensor, truncated_shift
 from pyqecclang.algorithms.input_model.contracts import (
+    AlgorithmContract,
     ContractIssue,
     ContractReport,
     InputRequirement,
-    ProtocolContract,
+    ResolvedInputs,
     finite_real,
     require_instance,
 )
 from pyqecclang.algorithms.input_model.interfaces import (
+    BlockEncodingProtocol,
     StateOracleProtocol,
+    StatePreparationProtocol,
     as_block_encoding,
     as_state_preparation,
     operator_state_contract,
@@ -42,6 +45,19 @@ class QODEProblem:
     initial_norm: float | None = None
     evidence: str = "caller_declared_unverified"
 
+    def __init__(
+        self, generator: BlockEncodingProtocol, initial: StatePreparationProtocol,
+        dissipative: bool | None = None, initial_norm: float | None = None,
+        evidence: str = "caller_declared_unverified",
+    ) -> None:
+        """提供方在问题构造边界归一，后续算法读取具体视图。"""
+        for key, value in (
+            ("generator", generator), ("initial", initial), ("dissipative", dissipative),
+            ("initial_norm", initial_norm), ("evidence", evidence),
+        ):
+            object.__setattr__(self, key, value)
+        self.__post_init__()
+
     def __post_init__(self) -> None:
         """把生成元与初态规范化为对应视图，并校验耗散声明、初值范数与说明字段。"""
         object.__setattr__(self, "generator", as_block_encoding(self.generator))
@@ -56,7 +72,7 @@ class QODEProblem:
 
 
 @dataclass(frozen=True)
-class QODEProtocol:
+class QODESolver:
     """带契约检查的线性 QODE 求解协议包装。
 
     Attributes:
@@ -78,16 +94,16 @@ class QODEProtocol:
             or not callable(self.kernel)
             or type(self.requires_dissipative) is not bool
         ):
-            raise ValidationError("QODEProtocol 需要名称、可调用内核与 bool 前提字段")
+            raise ValidationError("QODESolver 需要名称、可调用内核与 bool 前提字段")
 
     @property
-    def contract(self) -> ProtocolContract:
+    def contract(self) -> AlgorithmContract:
         """返回该协议的算子-态契约。
 
         前提包含自治齐次 ``u'=Gu``；``requires_dissipative`` 为 True 时追加 ``Hermitian(G)<=0`` 的要求，Schrödingerization 协议还追加辅助窗口与恢复区域的验证责任。
 
         Returns:
-            ProtocolContract: 协议契约，``assumptions`` 为按协议定制的前提元组。
+            AlgorithmContract: 协议契约，``assumptions`` 为按协议定制的前提元组。
         """
         assumptions = ["自治齐次 u'=Gu；矩阵契约与数值近似待算法层核验"]
         if self.requires_dissipative:
@@ -98,8 +114,8 @@ class QODEProtocol:
 
     def check(
         self,
-        generator: BlockEncoding | QODEProblem,
-        initial: StatePreparation | None = None,
+        generator: BlockEncodingProtocol | QODEProblem,
+        initial: StatePreparationProtocol | None = None,
         time: float | None = None,
     ) -> ContractReport:
         """检查输入是否满足该协议的契约，并把未满足项汇集成报告。
@@ -112,10 +128,18 @@ class QODEProtocol:
         Returns:
             ContractReport: 检查报告，``issues`` 汇集布局、调用能力与前提声明方面的全部未满足项。
         """
+        return self._resolve(generator, initial, time).report
+
+    def _resolve(
+        self, generator: BlockEncodingProtocol | QODEProblem,
+        initial: StatePreparationProtocol | None = None, time: float | None = None,
+    ) -> ResolvedInputs:
+        """保留本次取得的视图，并把问题级前提检查合并到同一报告。"""
         problem = generator if isinstance(generator, QODEProblem) else None
         if problem is not None:
             generator, initial = problem.generator, problem.initial
-        report = self.contract.check(generator=generator, initial=initial)
+        resolved = self.contract.resolve(generator=generator, initial=initial)
+        report = resolved.report
         issues = list(report.issues)
         if time is not None:
             try:
@@ -140,13 +164,12 @@ class QODEProtocol:
                     "需要显式声明生成元耗散，或先做可追踪的整体移位",
                 )
             )
-        return replace(report, issues=tuple(issues))
+        return replace(resolved, report=replace(report, issues=tuple(issues)))
 
     def _generate(
         self, generator: BlockEncoding, initial: StatePreparation, time: float
     ) -> StateOracle:
         """运行内核生成输出，并核验输出宽度与伴随、受控能力契约。"""
-        generator, initial = as_block_encoding(generator), as_state_preparation(initial)
         result = self.kernel(generator, initial, time)
         require_instance(result, StateOracle, self.name + ".output")
         if result.width != generator.width:
@@ -169,12 +192,15 @@ class QODEProtocol:
         return result
 
     def __call__(
-        self, generator: BlockEncoding, initial: StatePreparation, time: float
+        self, generator: BlockEncodingProtocol, initial: StatePreparationProtocol, time: float
     ) -> StateOracle:
         """兼容入口：数学前提仍由调用者承担；推荐问题级 solve。"""
-        self.check(generator, initial, time).require()
+        resolved = self._resolve(generator, initial, time)
+        resolved.report.require()
         finite_real(time, self.name + ".time", minimum=0)
-        return self._generate(generator, initial, time)
+        return self._generate(
+            resolved.get("generator", BlockEncoding), resolved.get("initial", StatePreparation), time
+        )
 
     def solve(self, problem: QODEProblem, time: float) -> StateOracle:
         """问题级求解入口：检查契约后演化，并把声明来源写入输出属性。
@@ -191,9 +217,12 @@ class QODEProtocol:
             ValidationError: ``problem`` 不是 ``QODEProblem``，或 ``time`` 不是有限非负实数。
         """
         require_instance(problem, QODEProblem, self.name + ".problem")
-        self.check(problem, time=time).require()
+        resolved = self._resolve(problem, time=time)
+        resolved.report.require()
         finite_real(time, self.name + ".time", minimum=0)
-        result = self._generate(problem.generator, problem.initial, time)
+        result = self._generate(
+            resolved.get("generator", BlockEncoding), resolved.get("initial", StatePreparation), time
+        )
         # 保存声明来源；不添加虚构的物理范数恢复能力。
         attrs = dict(result.operation.module.attributes)
         attrs["qode_input_evidence"] = problem.evidence
@@ -207,6 +236,10 @@ class QODEProtocol:
                 module=replace(result.operation.module, attributes=tuple(sorted(attrs.items()))),
             )
         )
+
+
+# 旧名称保留为同一类型的别名。
+QODEProtocol = QODESolver
 
 
 def make_euler_history_qode(
@@ -260,7 +293,7 @@ def linear_qode(
     *,
     hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
     **options: object,
-) -> QODEProtocol:
+) -> QODESolver:
     """通用 u'=Gu 接口，可直接注入既有 QHAM / make_qpde。
 
     Args:
@@ -270,7 +303,7 @@ def linear_qode(
         **options: 方法配置；仅接受 ``plan``，类型须与所选方法匹配。
 
     Returns:
-        QODEProtocol: 包装所选方法内核的求解协议，lchs/cbmd 路径要求耗散声明。
+        QODESolver: 包装所选方法内核的求解协议，lchs/cbmd 路径要求耗散声明。
     """
 
     if not callable(hamiltonian_function):
@@ -280,7 +313,7 @@ def linear_qode(
     if method == "schrodingerization":
         if options.get("plan") is not None:
             require_instance(options["plan"], SchrodingerPlan, "schrodingerization.plan")
-        return QODEProtocol(
+        return QODESolver(
             method,
             partial(
                 schrodinger_qode,
@@ -306,4 +339,4 @@ def linear_qode(
             **options,  # type: ignore[arg-type]
         )
 
-    return QODEProtocol(method, generate, requires_dissipative=True)
+    return QODESolver(method, generate, requires_dissipative=True)

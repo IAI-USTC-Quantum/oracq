@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:pyqecclang:rir:0.3",
-  "title": "pyqecclang register-level IR 0.2",
+  "title": "pyqecclang register-level IR 0.3",
   "$ref": "#/$defs/Program",
   "$defs": {
     "RegType": {
@@ -416,6 +416,7 @@
           ]
         },
         "attributes": {
+          "$comment": "oracle_paradigm 是可扩展角色标识；binding_captures 保存逻辑资源名到局部资源名的 JSON 字符串，引用有效性由 validate 检查。开放绑定约束及分析报告不新增 RIR 节点。",
           "type": "array",
           "items": {
             "type": "array",

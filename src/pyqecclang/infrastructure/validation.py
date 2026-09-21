@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from typing import cast
@@ -104,6 +105,24 @@ def locations(ref: Ref) -> tuple[tuple[str, int], ...]:
     return tuple((s.register, bit) for s in ref.parts for bit in range(s.start, s.start + s.width))
 
 
+def capture_map(module: Module) -> dict[str, str]:
+    """解析链接器的资源来源属性；保证映射引用存在且一一对应。"""
+    raw = dict(module.attributes).get("binding_captures", "{}")
+    require(isinstance(raw, str), "binding_captures 必须是 JSON 字符串")
+    try:
+        result = json.loads(cast(str, raw))
+    except ValueError as exc:
+        raise ValidationError("binding_captures 不是有效 JSON") from exc
+    require(isinstance(result, dict), "binding_captures 必须是对象")
+    existing = {r.name for r in module.resources}
+    for logical, local in result.items():
+        name(logical)
+        name(local)
+        require(local in existing, "binding_captures 引用了不存在的资源")
+    require(len(set(result.values())) == len(result), "binding_captures 局部资源名重复")
+    return cast(dict[str, str], result)
+
+
 def _validate(program: Program) -> Program:
     """对程序执行全部跨节点结构检查，通过后原样返回。"""
     require(isinstance(program, Program) and type(program.modules) is tuple, "需要不可变 Program")
@@ -153,6 +172,8 @@ def _validate(program: Program) -> Program:
             name(resource.name)
             integer(resource.type.address_width, 1, 64, "QRAM 地址宽度必须为 1..64")
             integer(resource.type.data_width, 1, 64, "QRAM 数据宽度必须为 1..64")
+        if "binding_captures" in attributes:
+            capture_map(module)
 
         def check_ref(ref: Ref, regs: dict[str, RegType] = regs) -> set[tuple[str, int]]:
             """校验单个视图的合法性与无重叠，返回其覆盖的量子位集合。"""

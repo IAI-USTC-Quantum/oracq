@@ -21,8 +21,9 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from dataclasses import dataclass, field
-from typing import cast
+from collections.abc import Iterable, Iterator, Sequence
+from dataclasses import asdict, dataclass, field, replace
+from typing import cast, overload
 
 from pyqecclang.infrastructure.ir import (
     Adjoint,
@@ -37,6 +38,7 @@ from pyqecclang.infrastructure.ir import (
     ValidationError,
 )
 from pyqecclang.infrastructure.layout import workspace_table
+from pyqecclang.infrastructure.linking import unresolved
 from pyqecclang.infrastructure.validation import validate
 
 _PI = math.pi
@@ -235,16 +237,80 @@ def _gate_counts(
     raise ValidationError(f"资源估计不支持的原始门：{op}")
 
 
+class RotationCounts(Sequence[tuple[str, float]]):
+    """按轴和角度保存旋转重数；兼容只读长度、索引和惰性迭代。"""
+
+    def __init__(self, values: Iterable[tuple[str, float]] = ()) -> None:
+        self.counts: Counter[tuple[str, float]] = values.counts.copy() if isinstance(values, RotationCounts) else Counter(values)
+
+    @property
+    def total(self) -> int:
+        """旋转总数；不受 Python 序列长度的机器整数限制。"""
+        return sum(self.counts.values())
+
+    def __len__(self) -> int:
+        return self.total
+
+    def __iter__(self) -> Iterator[tuple[str, float]]:
+        for value, count in self.counts.items():
+            for _ in range(count):
+                yield value
+
+    @overload
+    def __getitem__(self, index: int) -> tuple[str, float]: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[tuple[str, float]]: ...
+
+    def __getitem__(self, index: int | slice) -> tuple[str, float] | list[tuple[str, float]]:
+        if isinstance(index, slice):
+            indices = range(*index.indices(self.total))
+            if len(indices) > 100_000:
+                raise ValidationError("旋转切片过大；请读取 counts 中的紧凑重数")
+            return [self[i] for i in indices]
+        if index < 0:
+            index += self.total
+        if index >= 0:
+            for value, count in self.counts.items():
+                if index < count:
+                    return value
+                index -= count
+        raise IndexError("旋转索引越界")
+
+    def add_scaled(self, other: RotationCounts, factor: int = 1) -> None:
+        """组合重数而不复制旋转列表。"""
+        for value, count in other.counts.items():
+            self.counts[value] += count * factor
+
+
+@dataclass(frozen=True, order=True)
+class OracleCall:
+    """开放 oracle 的调用形式；资源名相对于当前模块，入口报告中已完成实参替换。"""
+
+    module: str
+    controls: int = 0
+    adjoint: bool = False
+    resources: tuple[str, ...] = ()
+
+
 @dataclass
 class ResourceEstimate:
     "Toffoli+Clifford+T+QRAM 级别的资源台账。"
 
-    qubits: int
+    qubits: int | None
     atoms: Counter = field(default_factory=Counter)
-    rotations: list = field(default_factory=list)
+    rotations: RotationCounts = field(default_factory=RotationCounts)
     qram_queries: Counter = field(default_factory=Counter)
     qram_writes: Counter = field(default_factory=Counter)
     mcx_ancilla: int = 0
+    oracle_calls: Counter[OracleCall] = field(default_factory=Counter)
+    unknown_workspace: tuple[str, ...] = ()
+    qubits_lower_bound: int = 0
+
+    @property
+    def complete(self) -> bool:
+        """已知实现是否覆盖全部入口可达槽位。"""
+        return not self.unknown_workspace
 
     @property
     def toffoli(self) -> int:
@@ -296,7 +362,7 @@ class ResourceEstimate:
         Returns:
             int: 全部待合成旋转的 T 门开销估计。
         """
-        return len(self.rotations) * self.synthesis_t_per_rotation(epsilon)
+        return self.rotations.total * self.synthesis_t_per_rotation(epsilon)
 
     def t_total(self, epsilon: float = 1e-10) -> int:
         """精确 T 数与待合成旋转的 T 开销之和（``t_exact + t_synthesis``）。
@@ -320,14 +386,28 @@ class ResourceEstimate:
             计数、待合成旋转总数及按轴统计、T 开销估计、逐原子 ``atoms``
             明细、逐资源 QRAM 查询/写入计数与总和，以及 ``gate_total``。
         """
+        axes: Counter[str] = Counter()
+        for (axis, _), count in self.rotations.counts.items():
+            axes[axis] += count
         return {
+            "complete": self.complete,
             "qubits": self.qubits,
+            "qubits_lower_bound": self.qubits_lower_bound,
+            "unknown_workspace": self.unknown_workspace,
+            "oracle_calls": [
+                {**asdict(call), "count": count}
+                for call, count in sorted(self.oracle_calls.items()) if count
+            ],
             "mcx_ancilla": self.mcx_ancilla,
             "toffoli": self.toffoli,
             "clifford": self.clifford,
             "t_exact": self.t_exact,
-            "rotations": len(self.rotations),
-            "rotation_axes": dict(Counter(axis for axis, _ in self.rotations)),
+            "rotations": self.rotations.total,
+            "rotation_axes": dict(axes),
+            "rotation_counts": [
+                {"axis": axis, "angle": angle, "count": count}
+                for (axis, angle), count in sorted(self.rotations.counts.items()) if count
+            ],
             "t_synthesis": self.t_synthesis(epsilon),
             "t_total": self.t_total(epsilon),
             "atoms": dict(sorted(self.atoms.items())),
@@ -338,6 +418,29 @@ class ResourceEstimate:
             "gate_total": self.gate_total,
             "epsilon": epsilon,
         }
+
+
+@dataclass
+class _Cost:
+    """模块相对成本；资源实参在每条调用边上替换。"""
+
+    atoms: Counter[str] = field(default_factory=Counter)
+    rotations: RotationCounts = field(default_factory=RotationCounts)
+    queries: Counter[str] = field(default_factory=Counter)
+    writes: Counter[str] = field(default_factory=Counter)
+    calls: Counter[OracleCall] = field(default_factory=Counter)
+
+    def add(self, other: _Cost, factor: int = 1, resources: dict[str, str] | None = None) -> None:
+        mapping = resources or {}
+        for atom, count in other.atoms.items():
+            self.atoms[atom] += count * factor
+        self.rotations.add_scaled(other.rotations, factor)
+        for target, source in ((self.queries, other.queries), (self.writes, other.writes)):
+            for resource, count in source.items():
+                target[mapping.get(resource, resource)] += count * factor
+        for call, count in other.calls.items():
+            actual = replace(call, resources=tuple(mapping.get(r, r) for r in call.resources))
+            self.calls[actual] += count * factor
 
 
 def estimate_resources(program: Program, *, require_closed: bool = True) -> ResourceEstimate:
@@ -354,30 +457,12 @@ def estimate_resources(program: Program, *, require_closed: bool = True) -> Reso
     program = validate(program, require_closed=require_closed)
     modules = program.module_map
     workspace = workspace_table(program)
-    memo: dict[
-        tuple[str, int],
-        tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]],
-    ] = {}
+    memo: dict[tuple[str, int, bool], _Cost] = {}
     max_controls = 0
-
-    def merge(
-        total: tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]],
-        part: tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]],
-        factor: int = 1,
-    ) -> None:
-        """按重复倍数把分段成本累加进总成本台账。"""
-        counts, rotations, queries, writes = part
-        for atom, n in counts.items():
-            total[0][atom] += n * factor
-        total[1].extend(rotations * factor)
-        for resource, n in queries.items():
-            total[2][resource] += n * factor
-        for resource, n in writes.items():
-            total[3][resource] += n * factor
 
     def primitive_cost(
         node: Primitive, n_controls: int
-    ) -> tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]]:
+    ) -> _Cost:
         """计算单条基元指令在给定控制数下的门级成本。"""
         nonlocal max_controls
         counts: Counter[str]
@@ -420,74 +505,76 @@ def estimate_resources(program: Program, *, require_closed: bool = True) -> Reso
                 counts += part
                 rotations += rot
             max_controls = max(max_controls, n_controls)
-        return counts, rotations, queries, writes
+        return _Cost(counts, RotationCounts(rotations), queries, writes)
 
     def body_cost(
-        nodes: tuple[Instruction, ...], n_controls: int, n_zeros: int
-    ) -> tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]]:
+        nodes: tuple[Instruction, ...], n_controls: int, n_zeros: int, inverse: bool
+    ) -> _Cost:
         """聚合指令体成本，处理零值控制位翻转、重复与模块调用。"""
-        counts: Counter[str]
-        rotations: list[tuple[str, float]]
-        queries: Counter[str]
-        writes: Counter[str]
-        counts, rotations, queries, writes = Counter(), [], Counter(), Counter()
+        total = _Cost()
         for node in nodes:
             if isinstance(node, Primitive):
                 if n_zeros and not (
                     node.op == "add_const"
                     and not cast(int, node.value) % (1 << node.operands[0].width)
                 ):
-                    counts["x"] += 2 * n_zeros
-                merge((counts, rotations, queries, writes), primitive_cost(node, n_controls))
+                    total.atoms["x"] += 2 * n_zeros
+                total.add(primitive_cost(node, n_controls))
             elif isinstance(node, Load):
-                queries[node.resource] += 1
+                total.queries[node.resource] += 1
             elif isinstance(node, Store):
-                writes[node.resource] += 1
+                total.writes[node.resource] += 1
             elif isinstance(node, Call):
                 if n_zeros:
-                    counts["x"] += 2 * n_zeros
-                merge((counts, rotations, queries, writes), module_cost(node.module, n_controls))
+                    total.atoms["x"] += 2 * n_zeros
+                resource_map = dict(zip(
+                    (r.name for r in modules[node.module].resources), node.resources, strict=True,
+                ))
+                total.add(module_cost(node.module, n_controls, inverse), resources=resource_map)
             elif isinstance(node, Repeat):
                 if node.count and node.body:
                     if n_zeros:
-                        counts["x"] += 2 * n_zeros
-                    merge(
-                        (counts, rotations, queries, writes),
-                        body_cost(node.body, n_controls, 0),
-                        node.count,
-                    )
+                        total.atoms["x"] += 2 * n_zeros
+                    total.add(body_cost(node.body, n_controls, 0, inverse), node.count)
             elif isinstance(node, Control):
-                merge(
-                    (counts, rotations, queries, writes),
+                total.add(
                     body_cost(
                         node.body,
                         n_controls + node.register.width,
                         n_zeros + node.register.width - bin(node.value).count("1"),
+                        inverse,
                     ),
                 )
             elif isinstance(node, Adjoint):
-                merge((counts, rotations, queries, writes), body_cost(node.body, n_controls, n_zeros))
-        return counts, rotations, queries, writes
+                total.add(body_cost(node.body, n_controls, n_zeros, not inverse))
+        return total
 
     def module_cost(
-        name: str, n_controls: int
-    ) -> tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]]:
-        """按 (模块名, 控制数) 记忆化地计算模块体成本。"""
-        key = (name, n_controls)
+        name: str, n_controls: int, inverse: bool
+    ) -> _Cost:
+        """按模块、控制数和伴随语境记忆化，不展开重复。"""
+        key = (name, n_controls, inverse)
         if key in memo:
             return memo[key]
         module = modules[name]
         if module.body is None:
-            raise ValidationError(f"资源估计需要封闭程序：模块 {name} 无实现")
-        memo[key] = body_cost(module.body, n_controls, 0)
+            call = OracleCall(name, n_controls, inverse, tuple(r.name for r in module.resources))
+            memo[key] = _Cost(calls=Counter({call: 1}))
+        else:
+            memo[key] = body_cost(module.body, n_controls, 0, inverse)
         return memo[key]
 
-    counts, rotations, queries, writes = module_cost(program.entry, 0)
+    total = module_cost(program.entry, 0, False)
+    missing = tuple(item.name for item in unresolved(program))
+    known_qubits = sum(r.type.width for r in program.main.registers) + workspace[program.entry]
     return ResourceEstimate(
-        qubits=sum(r.type.width for r in program.main.registers) + workspace[program.entry],
-        atoms=counts,
-        rotations=rotations,
-        qram_queries=queries,
-        qram_writes=writes,
+        qubits=None if missing else known_qubits,
+        atoms=total.atoms,
+        rotations=total.rotations,
+        qram_queries=total.queries,
+        qram_writes=total.writes,
         mcx_ancilla=max(0, max_controls - 1),
+        oracle_calls=total.calls,
+        unknown_workspace=missing,
+        qubits_lower_bound=known_qubits,
     )

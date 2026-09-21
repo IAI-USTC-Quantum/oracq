@@ -41,7 +41,7 @@ PARADIGMS = {
     "reversible_function": "输入保留、输出可逆更新的领域计算接口",
     "algorithm_stage": "具有明确寄存器接口的未完成算法阶段",
 }
-"""``declare`` 可用的 oracle 范式表；键为范式名，值为该范式的接口约定说明。"""
+"""内置 oracle 角色约定；应用可使用自定义标识符，无需修改此目录。"""
 
 
 def declare(
@@ -62,7 +62,7 @@ def declare(
     Args:
         name: 模块名。
         registers: 寄存器名到 ``Bits`` 等类型的有序映射。
-        paradigm: ``PARADIGMS`` 中登记的范式名。
+        paradigm: 内置或应用定义的角色标识符；角色名本身不证明数学性质。
         resources: 资源名到 ``QRAM`` 等资源类型的映射。
         attributes: 并入模块的额外属性。
         supports_adjoint: 是否声明支持逆操作。
@@ -72,10 +72,11 @@ def declare(
         Operation: 未解析的开放声明。
 
     Raises:
-        ValidationError: 范式名未登记，或生成的模块未通过结构校验。
+        ValidationError: 角色名非法，或生成的模块未通过结构校验。
     """
-    if paradigm not in PARADIGMS:
-        raise ValidationError(f"未知 oracle paradigm：{paradigm}")
+    from pyqecclang.infrastructure.validation import name as validate_name
+
+    validate_name(paradigm)
     attrs = dict(attributes or {})
     attrs.update(
         oracle_paradigm=paradigm,
@@ -109,7 +110,7 @@ def annotate(
 
     Args:
         operation: 已生成的 ``Operation``。
-        paradigm: ``PARADIGMS`` 中登记的范式名。
+        paradigm: 内置或应用定义的角色标识符。
         **attributes: 并入模块属性的其他键值对。
 
     Returns:
@@ -119,8 +120,9 @@ def annotate(
         ValidationError: 输入类型或范式名无效，或试图恢复已被限制的能力。
     """
     require_instance(operation, Operation, "annotate.operation")
-    if paradigm not in PARADIGMS:
-        raise ValidationError(f"未知 oracle paradigm：{paradigm}")
+    from pyqecclang.infrastructure.validation import name as validate_name
+
+    validate_name(paradigm)
     attrs = dict(operation.module.attributes)
     for cap in ("supports_adjoint", "supports_controlled"):
         if attrs.get(cap) is False and attributes.get(cap) is True:

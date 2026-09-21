@@ -7,6 +7,7 @@
    catalog
    flow_data
    gallery
+   oracle_study
    qfvm
    qfvm_qmem
    qham/examples

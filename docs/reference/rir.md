@@ -34,6 +34,12 @@ Module 具有 name、registers、resources、body、attributes 和 locals。regi
 
 属性不改变指令语义。库可以基于属性约定数学解释。例如 be_alpha 与库规定的零投影布局共同定义块编码的尺度，但执行器不根据属性额外缩放量子态。
 
+链接器保留属性 `binding_captures`，其值是逻辑资源名到本模块局部资源名的
+JSON 对象字符串。映射必须引用已声明资源，且局部名不重复；validate 检查
+这些约束。它使分批绑定可以复用已捕获资源，并按逻辑名规范化新增资源的
+参数顺序及全部调用实参。原有显式资源参数顺序保持；该属性不改变执行语义。
+没有此属性的历史程序仍可读取。绑定报告和开放成本台账分别保存，不新增 RIR 节点。
+
 ### 2.2 存储类型与位序
 
 Register 由 name 和 RegType 构成。RegType 由 kind 和 width 构成。width 必须是严格的 Python/JSON 整数，布尔值不能冒充宽度。

@@ -8,5 +8,25 @@
     "commit": "111630a1ee0db63789eaf994c896db36fab49ccc",
     "interface": "pysparq System, Rot_Bool, QRAMLoad; dynamic_operator.compile_operator, split_systems/combine_systems; CPU System.registers"
   },
-  "note": "记录实际审阅与原生测试基准，不通过包索引自动安装或更换这两个后端。"
+  "note": "保留原审阅基准。另列的工作流验证环境经用户授权用 uv 安装，源码构建只在本仓 out 中进行。",
+  "research_workflow_validation": {
+    "reviewed_on": "2026-09-21",
+    "python": "3.11.15",
+    "pysparq": {
+      "version": "0.0.0+g4e4c9f16",
+      "commit": "4e4c9f16fe3e912a828915231ecb4a6663048bd2",
+      "source": "committed QRAM-Simulator archive; local changes excluded",
+      "cmake_options": {
+        "BUILD_EXAMPLES": "OFF",
+        "INSTALL_GTEST": "OFF",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "OFF"
+      }
+    },
+    "unified_quantum": {
+      "distribution": "unified-quantum",
+      "version": "0.1.1",
+      "cppsimulator_version": "1.0.1"
+    },
+    "witness": "examples/research_workflow.py --native --widths 2 3 4; nine configurations; maximum amplitude error 2.5e-16"
+  }
 }

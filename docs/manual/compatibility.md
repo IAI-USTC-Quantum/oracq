@@ -59,4 +59,16 @@
 
 ## 文件格式
 
-RIR 版本仍为 0.3，Schema 与指令语义没有改变。Python 类的模块位置与生成器组合发生变化后，模块哈希名可能改变；不要将哈希名字用作应用协议。
+RIR 版本仍为 0.3，指令集合与执行语义不变；链接器新增的 `binding_captures`
+是原有标量属性格式中的来源信息，Schema 与语义检查已同步说明其约束。
+Python 类的模块位置与生成器组合发生变化后，模块哈希名可能改变；不要将哈希名字用作应用协议。
+
+## 算法接口命名与资源台账
+
+`AlgorithmContract`、`QLSSSolver`、`QODESolver` 是新的规范名称；
+`ProtocolContract`、`QLSSProtocol`、`QODEProtocol` 保留为同类型别名。
+问题构造器接受提供方协议，构造后的字段仍保存具体角色视图。
+
+资源估计的 `rotations` 从列表改为紧凑只读序列。原来的长度、索引与迭代
+读法继续可用；直接修改列表的代码应改为读取 `counts` 或使用报告。
+开放分析中 `qubits` 为 None，已知下界放在 `qubits_lower_bound`。

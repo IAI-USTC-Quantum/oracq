@@ -6,6 +6,11 @@
 
 ## 1. 协议与算法生成器
 
+新代码使用 `AlgorithmContract`、`QLSSSolver` 和 `QODESolver`。旧名称
+`ProtocolContract`、`QLSSProtocol`、`QODEProtocol` 是相同类型的兼容别名。
+Python Protocol 描述访问接口；求解器负责生成，契约负责检查，RIR 开放模块
+负责保存尚未提供的实现。这些机制分别作用于生成与链接边界。
+
 Python 的 `typing.Protocol` 表示“一个对象满足什么接口”；库中的 QLSS/QODE protocol 表示“可替换的算法生成器”。二者相关但不同：
 
 ```text
@@ -85,6 +90,12 @@ print([p.__name__ for p in solver.provides])  # ['StateOracleProtocol']
 `result.state_oracle()` 得到输出态 oracle。输出 state oracle 包含成功信号，不会自动变成“没有后选择的干净初态制备”；若下一步只需要它的完整物理 unitary，可显式取 `result.operation`，此时其全部信号寄存器也属于完整空间。
 
 `check` 不运行 QLSS 内核或量子模拟。它可以调用输入对象的方法取得/生成具体访问视图，因此自定义适配方法应当确定、无外部副作用；构造昂贵时可由对象自己缓存结果。
+
+`contract.resolve(**inputs)` 返回本次取得的视图与报告。算法应使用
+`resolved.get(name, ViewType)` 取得这些已检查视图，避免检查后再次调用提供方。
+一次求解入口复用本次视图；独立调用 `check()` 后再调用求解器属于两次操作，
+不会共享隐藏缓存。适配入口检查可调用性及可获取的无参签名，提供方方法体内
+发生的异常保留原始 traceback。
 
 ## 4. A 的参数从哪里读
 
@@ -197,7 +208,7 @@ state = lchs.solve(problem, 0.1)
 other = schrodinger.solve(problem, 0.1)
 ```
 
-`QODEProblem` 与 `QODEProtocol` 是普通算法库对象。LCHS/CBMD 的问题级 `solve` 要求显式 `dissipative=True`；Schrödingerization 不要求这个声明，但仍需应用保证辅助网格与恢复区有效。`check().ok` 的含义是结构与声明满足需求，绝不是已经证明 PDE 的性质。
+`QODEProblem` 与 `QODESolver` 是普通算法库对象。LCHS/CBMD 的问题级 `solve` 要求显式 `dissipative=True`；Schrödingerization 不要求这个声明，但仍需应用保证辅助网格与恢复区有效。`check().ok` 的含义是结构与声明满足需求，绝不是已经证明 PDE 的性质。
 
 旧 `(G, initial, time)` 调用仍兼容，照旧由调用者承担数学前提；新应用推荐 `.solve(QODEProblem(...),time)`，这样未声明耗散和明确非耗散不会被无声地接受。没有给 RIR 增加一个“耗散矩阵”类型。
 
@@ -205,7 +216,7 @@ Carleman 自己要求多线性系数端口 `F_p` 的布局与初态范数，再�
 
 ## 8. requires、报告、绑定各做一件事
 
-`requires(value, Interface)` 是最小工具，用来写算法自己的检查。需要聚合错误和展示契约时，可用 `InputRequirement` 与 `ProtocolContract`，把本算法接受的 Python 协议类及适配函数传进去。它们不依赖闭合的字符串类型集合。
+`requires(value, Interface)` 是最小工具，用来写算法自己的检查。需要聚合错误和展示契约时，可用 `InputRequirement` 与 `AlgorithmContract`，把本算法接受的 Python 协议类及适配函数传进去。它们不依赖闭合的字符串类型集合。
 
 报告中的错误含 `code/path/expected/actual/message`。常见错误有 `INPUT_PROTOCOL`（缺接口）、`INPUT_ADAPTER`（取得视图失败）、`INPUT_WIDTH`、`INPUT_CAPABILITY`、`INPUT_PROMISE`、`OUTPUT_LAYOUT`。`report.require()` 会一次抛出全部已发现的问题，异常仍是 `ValidationError` 的子类，方便旧代码兼容。
 

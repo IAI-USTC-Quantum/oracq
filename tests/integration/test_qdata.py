@@ -17,7 +17,8 @@ AW = 10
 
 
 class QDataBackendTests(unittest.TestCase):
-    def compare(self, program, memory):
+    def compare_sparse(self, program, memory):
+        """高工作区案例保留参考执行器与两个真实 PySparQ 路径的对拍。"""
         expected = simulate(program, memory).amplitudes
         for native in (
             run_pysparq(program, memory).amplitudes,
@@ -26,6 +27,10 @@ class QDataBackendTests(unittest.TestCase):
             self.assertEqual(set(expected), set(native))
             for key in expected:
                 self.assertAlmostEqual(expected[key], native[key], places=9)
+
+    def compare(self, program, memory):
+        """预算内案例额外覆盖真实 OriginIR 稠密后端。"""
+        self.compare_sparse(program, memory)
         vector = simulate(program, memory).statevector()
         origin = list(run_originir(program, memory))
         for index, (a, b) in enumerate(zip(vector, origin, strict=True)):
@@ -64,6 +69,14 @@ class QDataBackendTests(unittest.TestCase):
         self.compare(b.finish().program(), {"entries": matrix.snapshot()["entries"]})
 
     def test_row_and_amplitude_preparation(self):
+        # 地址计算私有工作区固定占 16 位；4 位角字的行制备共 24 位。
+        self.check_row_and_amplitude_preparation(4, self.compare)
+
+    def test_wide_row_and_amplitude_preparation_sparse_backends(self):
+        # 保留原 10 位角字及全部输入；行制备共 30 位，采用真实稀疏后端。
+        self.check_row_and_amplitude_preparation(AW, self.compare_sparse)
+
+    def check_row_and_amplitude_preparation(self, angle_width, compare):
         matrix = QMatrix(
             [
                 [0.5, 0.5, 0.25, 0.0],
@@ -72,7 +85,7 @@ class QDataBackendTests(unittest.TestCase):
                 [0.0, 0.0, 0.5, 0.5],
             ],
             fmt=FMT,
-            angle_width=AW,
+            angle_width=angle_width,
         )
         snapshot = matrix.snapshot()
         row = matrix.row_preparation()
@@ -83,7 +96,7 @@ class QDataBackendTests(unittest.TestCase):
         )
         b.h(b["row"])
         b.call(row, row=b["row"], item=b["item"], work=b["work"], resources={"row_angles": "row_angles"})
-        self.compare(b.finish().program(), {"row_angles": snapshot["row_angles"]})
+        compare(b.finish().program(), {"row_angles": snapshot["row_angles"]})
 
         amp = matrix.amplitude_preparation()
         c = Builder(
@@ -93,7 +106,7 @@ class QDataBackendTests(unittest.TestCase):
         )
         c.h(c["item"])
         c.call(amp, row=c["row"], item=c["item"], work=c["work"], resources={"root_angles": "root_angles"})
-        self.compare(c.finish().program(), {"root_angles": snapshot["root_angles"]})
+        compare(c.finish().program(), {"root_angles": snapshot["root_angles"]})
 
 
 if __name__ == "__main__":

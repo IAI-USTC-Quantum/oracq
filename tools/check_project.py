@@ -48,6 +48,7 @@ def main():
             "resource_estimates",
             [sys.executable, "tools/build_resource_estimates.py"],
         ),
+        ("research_workflow", [sys.executable, "examples/research_workflow.py", "-o", str(output / "research-workflow")]),
         (
             "qram_queries",
             [
@@ -96,6 +97,10 @@ def main():
             ]
         )
     if args.backend_python is not None:
+        commands.append(("research_workflow_native", [
+            backend_interpreter(args.backend_python), "-B", "examples/research_workflow.py",
+            "--native", "--widths", "2", "3", "-o", str(output / "research-workflow-native"),
+        ]))
         commands.append(
             (
                 "native",

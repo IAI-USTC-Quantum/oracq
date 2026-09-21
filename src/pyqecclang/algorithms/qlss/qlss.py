@@ -12,10 +12,10 @@ from pyqecclang.algorithms.common.arithmetic import FixedFormat
 from pyqecclang.algorithms.common.state_preparation import apply_be_to_state, select_subspace
 from pyqecclang.algorithms.input_model.block_encoding import lcu, reflect_zero
 from pyqecclang.algorithms.input_model.contracts import (
+    AlgorithmContract,
     ContractIssue,
     ContractReport,
     InputRequirement,
-    ProtocolContract,
     finite_real,
     positive_integer,
     require_instance,
@@ -95,6 +95,20 @@ class SparseSystem:
     diagonal_nonnegative: bool = False
     hermitian: bool = False
 
+    def __init__(
+        self, access: CKSSparseProtocol, value_format: FixedFormat, entry_bound: float,
+        rhs: StatePreparationProtocol, spectrum: SpectralPromise,
+        diagonal_nonnegative: bool = False, hermitian: bool = False,
+    ) -> None:
+        """接受提供方，构造后字段始终为已经取得的具体视图。"""
+        for key, value in (
+            ("access", access), ("value_format", value_format), ("entry_bound", entry_bound),
+            ("rhs", rhs), ("spectrum", spectrum),
+            ("diagonal_nonnegative", diagonal_nonnegative), ("hermitian", hermitian),
+        ):
+            object.__setattr__(self, key, value)
+        self.__post_init__()
+
     def __post_init__(self) -> None:
         """归一稀疏访问与 RHS 视图，并校验布局声明与元素幅值上界。"""
         object.__setattr__(self, "access", as_sparse_access(self.access))
@@ -127,6 +141,16 @@ class BlockSystem:
     encoding: BlockEncoding
     rhs: StatePreparation
     spectrum: SpectralPromise
+
+    def __init__(
+        self, encoding: BlockEncodingProtocol, rhs: StatePreparationProtocol,
+        spectrum: SpectralPromise,
+    ) -> None:
+        """输入接受结构协议，公开字段保存归一后的视图。"""
+        object.__setattr__(self, "encoding", encoding)
+        object.__setattr__(self, "rhs", rhs)
+        object.__setattr__(self, "spectrum", spectrum)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         """归一块编码与 RHS 视图，并校验两者目标宽度一致。"""
@@ -276,7 +300,7 @@ class SolveResult:
 
 
 @dataclass(frozen=True)
-class QLSSProtocol:
+class QLSSSolver:
     """量子线性系统协议：契约校验、内核分派与可组合结果的组装。
 
     Attributes:
@@ -295,13 +319,13 @@ class QLSSProtocol:
     def __post_init__(self) -> None:
         """校验协议名称、输入模型枚举与内核入口的可调用性。"""
         if not self.name or self.input_model not in {"sparse", "block_encoding"}:
-            raise ValidationError("QLSSProtocol 的名称或 input_model 无效")
+            raise ValidationError("QLSSSolver 的名称或 input_model 无效")
         if not callable(self.kernel) or (self.legacy is not None and not callable(self.legacy)):
-            raise ValidationError("QLSSProtocol 内核必须可调用")
+            raise ValidationError("QLSSSolver 内核必须可调用")
 
     @property
-    def contract(self) -> ProtocolContract:
-        """按输入模型给出 A 与 b 的 ``ProtocolContract``。
+    def contract(self) -> AlgorithmContract:
+        """按输入模型给出 A 与 b 的 ``AlgorithmContract``。
 
         稀疏模型只接受稀疏 oracle；块编码模型同时接受块编码与稀疏接口。
         A 与 b 必须同宽，谱界与矩阵解释由调用者声明。
@@ -311,10 +335,14 @@ class QLSSProtocol:
             if self.input_model == "sparse"
             else (BlockEncodingProtocol, CKSSparseProtocol)
         )
-        return ProtocolContract(
+        return AlgorithmContract(
             self.name,
             (
-                InputRequirement("A", types, adapter=as_qlss_matrix, adjoint=True, controlled=True),
+                InputRequirement(
+                    "A", types,
+                    adapter=as_sparse_access if self.input_model == "sparse" else as_qlss_matrix,
+                    adjoint=True, controlled=True,
+                ),
                 InputRequirement(
                     "b",
                     (StatePreparationProtocol,),
@@ -432,12 +460,12 @@ class QLSSProtocol:
         if len(args) == 1 and isinstance(args[0], LinearSystem):
             return self.solve(args[0])
         if len(args) == 2 and self.legacy is not None:
-            operator_state_contract(self.name, matrix="A", state="b").check(
+            resolved = operator_state_contract(self.name, matrix="A", state="b").resolve(
                 A=args[0], b=args[1]
-            ).require()
+            )
+            resolved.report.require()
             return self.legacy(
-                as_block_encoding(cast("BlockEncodingProtocol", args[0])),
-                as_state_preparation(cast("StatePreparationProtocol", args[1])),
+                resolved.get("A", BlockEncoding), resolved.get("b", StatePreparation),
             )
         raise ValidationError("QLSS protocol 需要 LinearSystem；不能根据调用形状猜测输入模型")
 
@@ -542,6 +570,10 @@ class QLSSProtocol:
         return SolveResult(
             selected, norm_probe, a.alpha, block.inverse_norm_bound, problem.rhs_norm, trace
         )
+
+
+# 旧名称保留为同一类型的别名。
+QLSSProtocol = QLSSSolver
 
 
 @dataclass(frozen=True)
@@ -900,14 +932,14 @@ def costa_qlss(
     return StateOracle(b.finish())
 
 
-def make_costa_qlss(config: CostaConfig | None = None) -> QLSSProtocol:
+def make_costa_qlss(config: CostaConfig | None = None) -> QLSSSolver:
     """声明 BE 输入；问题层自动按 alpha/sigma_min 推导实际调度参数。
 
     Args:
         config: Costa 行走求解配置；缺省为默认配置。
 
     Returns:
-        QLSSProtocol: 块编码输入模型下的 Costa 求解协议，含两参 legacy 入口。
+        QLSSSolver: 块编码输入模型下的 Costa 求解协议，含两参 legacy 入口。
     """
     from dataclasses import replace
 
@@ -919,7 +951,7 @@ def make_costa_qlss(config: CostaConfig | None = None) -> QLSSProtocol:
         effective = replace(config, kappa=system.inverse_norm_bound)
         return costa_qlss(system.encoding, system.rhs, effective)
 
-    return QLSSProtocol(
+    return QLSSSolver(
         "costa_general_walk", "block_encoding", kernel, legacy=lambda a, b: costa_qlss(a, b, config)
     )
 
@@ -1013,17 +1045,17 @@ def cks_chebyshev(system: SparseSystem, config: CKSConfig | None = None) -> Stat
     )
 
 
-def make_cks_qlss(config: CKSConfig | None = None) -> QLSSProtocol:
+def make_cks_qlss(config: CKSConfig | None = None) -> QLSSSolver:
     """构造稀疏输入的 CKS 求解协议。
 
     Args:
         config: 传给内核的 ``CKSConfig``；省略时取缺省值。
 
     Returns:
-        QLSSProtocol: input_model 为 ``sparse`` 的求解协议。
+        QLSSSolver: input_model 为 ``sparse`` 的求解协议。
     """
     config = CKSConfig() if config is None else config
     require_instance(config, CKSConfig, "make_cks_qlss.config")
-    return QLSSProtocol(
+    return QLSSSolver(
         "cks_chebyshev_basic", "sparse", lambda system: cks_chebyshev(system, config)
     )

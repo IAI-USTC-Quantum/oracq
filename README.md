@@ -1,6 +1,8 @@
 # pyqecclang
 
-pyqecclang 用 Python 编写可组合的量子算法，生成模块化、register-level 的中间表示（RIR）。算法可以保留尚未实现的 oracle；提供具体实现后，可以导出 OriginIR-ext，或交给 PySparQ 执行。
+pyqecclang 是面向量子算法研究者的科学计算算法实现框架。用 Python 按访问模型编写可组合算法，生成保留模块结构的寄存器级中间表示（RIR）；保存尚未实现的 oracle，比较门网络、QRAM 和可逆算术等实现，完成绑定后进行数值验证和资源分析。
+
+[算法研究教程](docs/tutorials/algorithm-research.md) 展示同一开放程序的三种实现及成本比较。
 
 当前包版本为 **0.8.0**，RIR 格式为 **0.3**。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
 

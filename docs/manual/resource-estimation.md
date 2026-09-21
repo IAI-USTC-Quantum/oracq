@@ -18,6 +18,24 @@ OriginIR-ext → basis 的真实降低链路计数到 **Toffoli + Clifford + T +
 
 ## 接口
 
+开放程序使用 `estimate_resources(program, require_closed=False)`。报告把已知
+线路成本和 `oracle_calls` 分开列出；每项记录槽名、控制数、伴随标记、资源实参
+及调用次数。绑定后重新估计即可得到具体实现成本。`complete=False` 表示仍有
+未实现依赖，已知门数不等于全程序总成本。
+
+开放程序的 `qubits=None`；`qubits_lower_bound` 是已知寄存器和私有工作区
+下界，`unknown_workspace` 列出未实现模块。MCX 辅助位也只覆盖已知实现。
+完整程序保持原有整数位数结果。QRAM 读写按入口逻辑资源分账，沿调用边替换
+形参，不把不同 bank 合并到内部同名参数。
+
+`rotations` 现在是紧凑的 `RotationCounts`：`rotations.total` 给出任意大小的
+总数，`rotations.counts` 按 `(轴, 角度)` 保存重数。保留只读的 `len`、索引和
+惰性迭代，小型程序可继续按序列读取；它不是可修改列表，也不是执行顺序。
+巨大 Repeat 的计数和 JSON 报告不会展开旋转列表。
+
+`epsilon` 表示每个旋转的合成配置，不是整个科学计算算法的总误差保证。
+资源报告不为 QRAM 硬件、数据装载或物理纠错成本补上默认零值。
+
 ```python
 from pyqecclang import estimate_resources, export_strict
 

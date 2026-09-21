@@ -6,6 +6,7 @@ from pyqecclang.algorithms.common.arithmetic import (
     fixed_arithmetic,
 )
 from pyqecclang.algorithms.input_model.contracts import (
+    AlgorithmContract,
     ContractError,
     ContractIssue,
     ContractReport,
@@ -13,6 +14,7 @@ from pyqecclang.algorithms.input_model.contracts import (
     OracleCapabilities,
     OracleSpec,
     ProtocolContract,
+    ResolvedInputs,
     describe_oracle,
     requires,
 )
@@ -33,6 +35,7 @@ from pyqecclang.algorithms.qlss.qlss import (
     BlockSystem,
     LinearSystem,
     QLSSProtocol,
+    QLSSSolver,
     SolveResult,
     SparseSystem,
     SpectralPromise,
@@ -43,7 +46,7 @@ from pyqecclang.algorithms.qml.recommendation import (
     kp_recommendation,
     sigma_from_phase,
 )
-from pyqecclang.algorithms.qode.ode import QODEProblem, QODEProtocol
+from pyqecclang.algorithms.qode.ode import QODEProblem, QODEProtocol, QODESolver
 from pyqecclang.infrastructure.backends import (
     OriginIRArtifact,
     StrictArtifact,
@@ -55,7 +58,12 @@ from pyqecclang.infrastructure.backends import (
 from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
 from pyqecclang.infrastructure.backends.pysparq import run_pysparq, run_pysparq_rir
 from pyqecclang.infrastructure.builder import Builder, Operation
-from pyqecclang.infrastructure.estimate import ResourceEstimate, estimate_resources
+from pyqecclang.infrastructure.estimate import (
+    OracleCall,
+    ResourceEstimate,
+    RotationCounts,
+    estimate_resources,
+)
 from pyqecclang.infrastructure.execution import RegisterState, simulate
 from pyqecclang.infrastructure.ir import (
     QRAM,
@@ -83,8 +91,12 @@ from pyqecclang.infrastructure.ir import (
 )
 from pyqecclang.infrastructure.linking import (
     Binding,
+    BindingError,
+    BindingReport,
+    BindingResult,
     OracleRequirement,
     bind,
+    bind_with_report,
     capabilities,
     unresolved,
 )
@@ -159,6 +171,7 @@ __all__ = [
 
 
 __all__ += ["Binding", "OracleRequirement", "bind", "capabilities", "declare", "unresolved"]
+__all__ += ["BindingError", "BindingReport", "BindingResult", "bind_with_report", "OracleCall", "RotationCounts"]
 
 
 __all__ += [
@@ -190,6 +203,10 @@ __all__ += [
 ]
 
 __all__ += [
+    "AlgorithmContract",
+    "ResolvedInputs",
+    "QLSSSolver",
+    "QODESolver",
     "ContractError",
     "ContractIssue",
     "ContractReport",

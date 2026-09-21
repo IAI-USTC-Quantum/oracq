@@ -8,8 +8,11 @@ verify_*.py 脚本使用这里封装的后端路径与比较器，产出 out/ver
 
 from __future__ import annotations
 
+import hashlib
+import importlib.metadata
 import json
 import math
+import platform
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -205,6 +208,20 @@ class Report:
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
         path = ARTIFACTS / f"{self.group}.json"
         payload = {
+            "python": platform.python_version(),
+            "source_sha256": hashlib.sha256(b"".join(
+                str(p.relative_to(ROOT)).encode() + b"\0" + p.read_bytes()
+                for p in sorted((ROOT / "src").rglob("*.py"))
+            )).hexdigest(),
+            "verification_sha256": hashlib.sha256(b"".join(
+                p.name.encode() + b"\0" + p.read_bytes()
+                for p in sorted((ROOT / "tests/verification").glob("*.py"))
+            )).hexdigest(),
+            "backend_versions": {
+                dist.metadata["Name"]: dist.version
+                for dist in importlib.metadata.distributions()
+                if dist.metadata["Name"].lower() in {"pysparq", "unified-quantum", "uniqc-cppsimulator", "numpy", "scipy"}
+            },
             "group": self.group,
             "summary": self.summary,
             "elapsed_seconds": round(time.time() - self.started, 3),
