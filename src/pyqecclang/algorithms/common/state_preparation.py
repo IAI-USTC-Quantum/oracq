@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pyqecclang.algorithms.input_model.operators import _name
+from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name
 from pyqecclang.algorithms.input_model.oracles import (
     StateOracle,
     StatePreparation,
@@ -14,7 +14,7 @@ from pyqecclang.infrastructure.builder import Builder
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 
-def extend_initial(prep, extra_width):
+def extend_initial(prep: StatePreparation, extra_width: int) -> StatePreparation:
     """把态制备 ``prep`` 的目标空间扩展 ``extra_width`` 个高位。
 
     原制备作用于扩展后 target 的低位，新增高位保持零；零输入承诺保留。
@@ -35,7 +35,13 @@ def extend_initial(prep, extra_width):
     return StatePreparation(annotate(b.finish(), "state_prep_isometry", zero_input=True))
 
 
-def select_subspace(state: StateOracle, output_width, high_value=0, *, label="selection"):
+def select_subspace(
+    state: StateOracle,
+    output_width: int,
+    high_value: int = 0,
+    *,
+    label: str = "selection",
+) -> StateOracle:
     """从态 oracle 的目标空间中选出物理子空间。
 
     低 ``output_width`` 位作为输出，其余高位并入 signal 并要求等于
@@ -77,7 +83,7 @@ def select_subspace(state: StateOracle, output_width, high_value=0, *, label="se
     return StateOracle(b.finish())
 
 
-def apply_be_to_state(a, prep):
+def apply_be_to_state(a: BlockEncoding, prep: StatePreparation) -> StateOracle:
     """把块编码 ``a`` 作用到已制备的初态上，得到态 oracle。
 
     ``a`` 的信号位占 signal 低位，``prep`` 的工作区并入其高位；成功条件

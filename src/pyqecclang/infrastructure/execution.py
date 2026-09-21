@@ -4,24 +4,36 @@ from __future__ import annotations
 
 import cmath
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 
 from pyqecclang.infrastructure.ir import (
     Adjoint,
     Call,
     Control,
+    Instruction,
     Load,
+    Module,
     Primitive,
+    Program,
     Ref,
+    RegType,
     Repeat,
+    Span,
     Store,
     ValidationError,
 )
 from pyqecclang.infrastructure.validation import locations, validate
 
+if TYPE_CHECKING:
+    from pyqecclang.infrastructure.native import NativeSite
 
-def check_memory(program, memory):
+
+def check_memory(
+    program: Program,
+    memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None,
+) -> dict[str, dict[int, int]]:
     """校验并规整入口的 QRAM 绑定数据。
 
     Args:
@@ -59,10 +71,14 @@ def check_memory(program, memory):
     return result
 
 
-def _counter(program, limit, native_modules=frozenset()):
+def _counter(
+    program: Program, limit: int, native_modules: Collection[str] = frozenset()
+) -> Callable[[tuple[Instruction, ...]], int]:
+    """构造按模块记忆化的递归计步函数，供 ``events`` 与预算检查复用。"""
     modules, cached = program.module_map, {}
 
-    def count(nodes):
+    def count(nodes: tuple[Instruction, ...]) -> int:
+        """逐节点按加权规则累计步数，总数达到 ``limit + 1`` 后钳制。"""
         total = 0
         for node in nodes:
             if isinstance(node, Primitive):
@@ -75,7 +91,9 @@ def _counter(program, limit, native_modules=frozenset()):
                     total = min(limit + 1, total + cost)
                     continue
                 if node.module not in cached:
-                    cached[node.module] = count(modules[node.module].body)
+                    cached[node.module] = count(
+                        cast("tuple[Instruction, ...]", modules[node.module].body)
+                    )
                 cost = 1 + cached[node.module]
             elif isinstance(node, Repeat):
                 cost = node.count * (1 + count(node.body)) if node.body else 0
@@ -89,7 +107,11 @@ def _counter(program, limit, native_modules=frozenset()):
     return count
 
 
-def expanded_steps(program, limit=1_000_000, native_modules=frozenset()):
+def expanded_steps(
+    program: Program,
+    limit: int = 1_000_000,
+    native_modules: Collection[str] = frozenset(),
+) -> int:
     """估计程序完全展开后的执行步数，用于执行前的预算检查。
 
     原语按操作数总位宽加权，Load/Store 计 1 步；模块调用递归计入被调体，Repeat 按次数相乘。
@@ -105,7 +127,9 @@ def expanded_steps(program, limit=1_000_000, native_modules=frozenset()):
     """
     if program.entry in native_modules:
         return 1
-    return _counter(program, limit, native_modules)(program.main.body)
+    return _counter(program, limit, native_modules)(
+        cast("tuple[Instruction, ...]", program.main.body)
+    )
 
 
 @dataclass(frozen=True)
@@ -118,7 +142,7 @@ class LocalEnter:
     """
 
     name: str
-    type: object
+    type: RegType
 
 
 @dataclass(frozen=True)
@@ -134,7 +158,7 @@ class LocalExit:
     width: int
 
 
-def remap(ref, mapping):
+def remap(ref: Ref, mapping: Mapping[str, Ref]) -> Ref:
     """按寄存器名替换表重写引用，用于模块调用时把形参绑定到实参视图。
 
     Args:
@@ -144,14 +168,36 @@ def remap(ref, mapping):
     Returns:
         Ref: 重写后的新引用，类型与原引用一致。
     """
-    parts = []
+    parts: list[Span] = []
     for span in ref.parts:
         parts.extend(mapping[span.register][span.start : span.start + span.width].parts)
     return Ref(tuple(parts), ref.type)
 
 
-def events(program, *, max_steps=1_000_000, native_modules=frozenset()):
-    """调用逐层展开为迭代器，原始 RIR 保持不变。"""
+def events(
+    program: Program,
+    *,
+    max_steps: int = 1_000_000,
+    native_modules: Collection[str] = frozenset(),
+) -> Iterator[
+    tuple[
+        Primitive | Load | Store | LocalEnter | LocalExit | NativeSite,
+        tuple[tuple[Ref, int], ...],
+        bool,
+    ]
+]:
+    """调用逐层展开为迭代器，原始 RIR 保持不变。
+
+    Args:
+        program: 待展开执行的 RIR 程序；无原生模块时须闭合。
+        max_steps: 展开后的指令步数预算上限。
+        native_modules: 视为原生执行、不再内联展开的模块名集合。
+
+    Returns:
+        Iterator: 惰性产出 ``(事件, 控制链, 逆序标志)`` 三元组；事件为
+        基元、QRAM 读写、局部寄存器进出或原生调用点，控制链为
+        ``(Ref, int)`` 元组，逆序标志表示处于 ``Adjoint`` 语境。
+    """
     from pyqecclang.infrastructure.ir import Span
 
     program = validate(program, require_closed=not bool(native_modules))
@@ -160,7 +206,20 @@ def events(program, *, max_steps=1_000_000, native_modules=frozenset()):
         raise ValidationError("执行超过展开预算")
     modules = program.module_map
 
-    def walk(nodes, mapping, resources, controls=(), inverse=False):
+    def walk(
+        nodes: tuple[Instruction, ...],
+        mapping: Mapping[str, Ref],
+        resources: Mapping[str, str],
+        controls: tuple[tuple[Ref, int], ...] = (),
+        inverse: bool = False,
+    ) -> Iterator[
+        tuple[
+            Primitive | Load | Store | LocalEnter | LocalExit | NativeSite,
+            tuple[tuple[Ref, int], ...],
+            bool,
+        ]
+    ]:
+        """按序重写指令节点并惰性产出事件三元组，控制链与逆序标志沿递归传递。"""
         for node in reversed(nodes) if inverse else nodes:
             if isinstance(node, Call):
                 target = modules[node.module]
@@ -221,7 +280,20 @@ def events(program, *, max_steps=1_000_000, native_modules=frozenset()):
 
     local_counter = 0
 
-    def enter_module(module, mapping, resources, controls=(), inverse=False):
+    def enter_module(
+        module: Module,
+        mapping: Mapping[str, Ref],
+        resources: Mapping[str, str],
+        controls: tuple[tuple[Ref, int], ...] = (),
+        inverse: bool = False,
+    ) -> Iterator[
+        tuple[
+            Primitive | Load | Store | LocalEnter | LocalExit | NativeSite,
+            tuple[tuple[Ref, int], ...],
+            bool,
+        ]
+    ]:
+        """进入单个模块：绑定形参映射、按需合成局部寄存器名并转发体事件流。"""
         nonlocal local_counter
         if module.name in native_modules:
             from pyqecclang.infrastructure.native import NativeSite
@@ -256,7 +328,9 @@ def events(program, *, max_steps=1_000_000, native_modules=frozenset()):
     yield from enter_module(program.main, roots, resources)
 
 
-def gate_matrix(op, angle=None, inverse=False):
+def gate_matrix(
+    op: str, angle: float | None = None, inverse: bool = False
+) -> tuple[tuple[complex, complex], tuple[complex, complex]]:
     """返回单比特门的标准 2x2 西矩阵。
 
     Args:
@@ -272,7 +346,7 @@ def gate_matrix(op, angle=None, inverse=False):
     """
     if op == "h":
         a = 1 / math.sqrt(2)
-        matrix = ((a, a), (a, -a))
+        matrix: tuple[tuple[complex, complex], tuple[complex, complex]] = ((a, a), (a, -a))
     elif op == "x":
         matrix = ((0, 1), (1, 0))
     elif op == "y":
@@ -281,16 +355,22 @@ def gate_matrix(op, angle=None, inverse=False):
         matrix = ((1, 0), (0, -1))
     elif op in {"s", "t", "phase"}:
         theta = {"s": math.pi / 2, "t": math.pi / 4}.get(op, angle)
-        matrix = ((1, 0), (0, cmath.exp(1j * theta)))
+        matrix = ((1, 0), (0, cmath.exp(1j * cast(float, theta))))
     elif op == "rz":
-        matrix = ((cmath.exp(-0.5j * angle), 0), (0, cmath.exp(0.5j * angle)))
+        matrix = (
+            (cmath.exp(-0.5j * cast(float, angle)), 0),
+            (0, cmath.exp(0.5j * cast(float, angle))),
+        )
     elif op in {"rx", "ry"}:
-        c, s = math.cos(angle / 2), math.sin(angle / 2)
+        c, s = math.cos(cast(float, angle) / 2), math.sin(cast(float, angle) / 2)
         matrix = ((c, -1j * s), (-1j * s, c)) if op == "rx" else ((c, -s), (s, c))
     else:
         raise ValidationError(f"未知单比特矩阵：{op}")
     if inverse:
-        return tuple(tuple(complex(matrix[j][i]).conjugate() for j in range(2)) for i in range(2))
+        return cast(
+            "tuple[tuple[complex, complex], tuple[complex, complex]]",
+            tuple(tuple(complex(matrix[j][i]).conjugate() for j in range(2)) for i in range(2)),
+        )
     return matrix
 
 
@@ -306,7 +386,7 @@ class RegisterState:
     registers: tuple
     amplitudes: dict[tuple[int, ...], complex]
 
-    def statevector(self, max_qubits=20):
+    def statevector(self, max_qubits: int = 20) -> list[complex]:
         """把稀疏态打包为密集态向量，各寄存器按声明顺序 LSB-first 占据下标位段。
 
         Args:
@@ -331,7 +411,14 @@ class RegisterState:
         return vector
 
 
-def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_states=65536):
+def simulate(
+    program: Program,
+    memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None = None,
+    *,
+    initial: Mapping[str, int] | None = None,
+    max_steps: int = 1_000_000,
+    max_states: int = 65536,
+) -> RegisterState:
     """在稀疏寄存器态上参考执行封闭程序，只依赖标准库。
 
     初态是各寄存器取给定整数值的单基矢（缺省全零），态保存为寄存器整数值元组到复振幅的稀疏
@@ -362,15 +449,16 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
     initial = initial or {}
     if set(initial) - set(index):
         raise ValidationError("初态包含未知寄存器")
-    values = []
+    values: list[int] | tuple[int, ...] = []
     for reg in registers:
         value = initial.get(reg.name, 0)
         if type(value) is not int or not 0 <= value < (1 << reg.type.width):
             raise ValidationError("初态寄存器值越界")
-        values.append(value)
+        cast("list[int]", values).append(value)
     state = {tuple(values): 1 + 0j}
 
-    def read(ref, values):
+    def read(ref: Ref, values: tuple[int, ...]) -> int:
+        """按视图分段低位到高位拼接，从取值元组读出无符号整数。"""
         result, offset = 0, 0
         for span in ref.parts:
             result |= (
@@ -379,7 +467,8 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
             offset += span.width
         return result
 
-    def write(ref, values, value):
+    def write(ref: Ref, values: tuple[int, ...], value: int) -> tuple[int, ...]:
+        """把整数值按分段掩码写入取值元组，返回新的取值元组。"""
         result, offset = list(values), 0
         for span in ref.parts:
             pos = index[span.register]
@@ -390,7 +479,10 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
             offset += span.width
         return tuple(result)
 
-    for node, controls, inverse in events(program, max_steps=max_steps):
+    for node, controls, inverse in cast(
+        "Iterator[tuple[Primitive | Load | Store | LocalEnter | LocalExit, tuple[tuple[Ref, int], ...], bool]]",
+        events(program, max_steps=max_steps),
+    ):
         if isinstance(node, LocalEnter):
             index[node.name] = len(next(iter(state)))
             state = {values + (0,): amplitude for values, amplitude in state.items()}
@@ -405,7 +497,10 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
             }
             continue
 
-        def active(values, controls=controls):
+        def active(
+            values: tuple[int, ...], controls: tuple[tuple[Ref, int], ...] = controls
+        ) -> bool:
+            """判断基矢是否满足全部控制条件的比较值。"""
             return all(read(ref, values) == expected for ref, expected in controls)
 
         if isinstance(node, Store):
@@ -424,7 +519,7 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
         if isinstance(node, Primitive) and node.op not in {"xor", "swap", "add_const", "gphase"}:
             matrix = gate_matrix(node.op, node.angle, inverse)
             for register, bit in locations(node.operands[0]):
-                result = {}
+                result: dict[tuple[int, ...], complex] = {}
                 pos = index[register]
                 for values, amplitude in state.items():
                     if not active(values):
@@ -432,8 +527,10 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
                         continue
                     incoming = (values[pos] >> bit) & 1
                     for outgoing in range(2):
-                        target = list(values)
-                        target[pos] = (target[pos] & ~(1 << bit)) | (outgoing << bit)
+                        target: list[int] | tuple[int, ...] = list(values)
+                        cast("list[int]", target)[pos] = (
+                            (target[pos] & ~(1 << bit)) | (outgoing << bit)
+                        )
                         target = tuple(target)
                         result[target] = (
                             result.get(target, 0j) + matrix[outgoing][incoming] * amplitude
@@ -450,7 +547,7 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
                     value = memories[node.resource].get(read(node.address, values), 0)
                     target = write(node.data, values, read(node.data, values) ^ value)
                 elif node.op == "gphase":
-                    amplitude *= cmath.exp(1j * node.angle * (-1 if inverse else 1))
+                    amplitude *= cmath.exp(1j * cast(float, node.angle) * (-1 if inverse else 1))
                 elif node.op == "xor":
                     source, dest = node.operands
                     target = write(dest, values, read(source, values) ^ read(dest, values))
@@ -460,7 +557,7 @@ def simulate(program, memory=None, *, initial=None, max_steps=1_000_000, max_sta
                     target = write(b, write(a, values, bv), av)
                 elif node.op == "add_const":
                     ref = node.operands[0]
-                    value = read(ref, values) + node.value * (-1 if inverse else 1)
+                    value = read(ref, values) + cast(int, node.value) * (-1 if inverse else 1)
                     target = write(ref, values, value & ((1 << ref.width) - 1))
             result[target] = result.get(target, 0j) + amplitude
         state = {k: v for k, v in result.items() if abs(v) > 1e-15}

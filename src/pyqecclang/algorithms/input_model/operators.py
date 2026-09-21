@@ -6,11 +6,11 @@ import cmath
 import hashlib
 import math
 from dataclasses import dataclass, replace
-from typing import Protocol
+from typing import Protocol, cast
 
 from pyqecclang.algorithms.input_model.contracts import OracleView, validate_signature
 from pyqecclang.infrastructure.builder import Builder, Operation
-from pyqecclang.infrastructure.ir import Bits, ValidationError
+from pyqecclang.infrastructure.ir import QRAM, Bits, Ref, ValidationError
 from pyqecclang.infrastructure.serialization import dumps
 
 
@@ -21,10 +21,13 @@ class Generator(Protocol):
     满足本协议；算法侧据此接受操作工厂而不绑定具体的生成签名。
     """
 
-    def __call__(self, *args, **kwargs) -> Operation: ...
+    def __call__(self, *args: object, **kwargs: object) -> Operation:
+        """调用生成器并返回其产出的操作。"""
+        ...
 
 
-def _name(kind, *values):
+def _name(kind: str, *values: object) -> str:
+    """按各值的序列化内容生成 ``kind_`` 前缀的确定性模块名。"""
     serialized = [dumps(v.program()) if isinstance(v, Operation) else repr(v) for v in values]
     return kind + "_" + hashlib.sha256("\n".join(serialized).encode()).hexdigest()[:20]
 
@@ -45,11 +48,16 @@ class BlockEncoding(OracleView):
     oracle_kind = "block_encoding"
     operation: Operation
 
-    def block_encoding(self):
-        """返回自身；实现 ``BlockEncodingProtocol`` 的视图适配方法。"""
+    def block_encoding(self) -> BlockEncoding:
+        """返回自身；实现 ``BlockEncodingProtocol`` 的视图适配方法。
+
+        Returns:
+            BlockEncoding: 该视图自身。
+        """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验 target/signal 签名与有限正 ``be_alpha`` 属性约束。"""
         validate_signature(self.operation, ("target", "signal"), "BlockEncoding")
         registers = {r.name: r.type for r in self.operation.module.registers}
         if set(registers) != {"target", "signal"} or any(
@@ -59,21 +67,25 @@ class BlockEncoding(OracleView):
         if not registers["target"].width:
             raise ValidationError("BE 目标不能为空")
         alpha = dict(self.operation.module.attributes).get("be_alpha")
-        if type(alpha) not in (int, float) or not math.isfinite(alpha) or alpha <= 0:
+        if (
+            type(alpha) not in (int, float)
+            or not math.isfinite(cast("int | float", alpha))
+            or cast("int | float", alpha) <= 0
+        ):
             raise ValidationError("BE 必须声明有限正数 be_alpha")
 
     @property
-    def alpha(self):
+    def alpha(self) -> float:
         """模块属性 ``be_alpha`` 中声明的归一化常数。"""
-        return dict(self.operation.module.attributes)["be_alpha"]
+        return cast("float", dict(self.operation.module.attributes)["be_alpha"])
 
     @property
-    def width(self):
+    def width(self) -> int:
         """``target`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
-    def signal_qubits(self):
+    def signal_qubits(self) -> int:
         """``signal`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "signal")
 
@@ -106,27 +118,49 @@ def block_encoding(operation: Operation, alpha: float = 1.0) -> BlockEncoding:
 
 
 def identity(width: int) -> BlockEncoding:
-    """构造单位算子的块编码；alpha 为一且不需要信号位。"""
+    """构造单位算子的块编码；alpha 为一且不需要信号位。
+
+    Args:
+        width: target 寄存器位宽。
+
+    Returns:
+        BlockEncoding: 单位算子的块编码。
+    """
     b = Builder(f"identity_{width}", {"target": Bits(width), "signal": Bits(0)})
     return block_encoding(b.finish())
 
 
 def pauli_x(width: int) -> BlockEncoding:
-    """构造 ``width`` 个 X 门张量幂的块编码；alpha 为一且无信号位。"""
+    """构造 ``width`` 个 X 门张量幂的块编码；alpha 为一且无信号位。
+
+    Args:
+        width: target 寄存器位宽。
+
+    Returns:
+        BlockEncoding: ``X^⊗width`` 的块编码。
+    """
     b = Builder(f"pauli_x_{width}", {"target": Bits(width), "signal": Bits(0)})
     b.x(b["target"])
     return block_encoding(b.finish())
 
 
 def zero(width: int) -> BlockEncoding:
-    """构造零算子的块编码；用一个被翻转的信号位使零信号角块恒为零，alpha 为一。"""
+    """构造零算子的块编码；用一个被翻转的信号位使零信号角块恒为零，alpha 为一。
+
+    Args:
+        width: target 寄存器位宽。
+
+    Returns:
+        BlockEncoding: 零算子的块编码。
+    """
     b = Builder(f"zero_{width}", {"target": Bits(width), "signal": Bits(1)})
     b.x(b["signal"])
     return block_encoding(b.finish())
 
 
-def _resources(a, b=None):
-    result = {}
+def _resources(a: BlockEncoding, b: BlockEncoding | None = None) -> dict[str, QRAM]:
+    """汇总各操作声明的资源并按 ``a__``/``b__`` 前缀重命名。"""
+    result: dict[str, QRAM] = {}
     for prefix, operand in (("a", a), ("b", b)):
         if operand is not None:
             for resource in operand.operation.module.resources:
@@ -134,7 +168,10 @@ def _resources(a, b=None):
     return result
 
 
-def _call(builder, operand, target, signal, prefix):
+def _call(
+    builder: Builder, operand: BlockEncoding, target: Ref, signal: Ref, prefix: str
+) -> None:
+    """按前缀映射资源后在 ``builder`` 中调用块编码操作。"""
     resources = {r.name: prefix + "__" + r.name for r in operand.operation.module.resources}
     builder.call(operand.operation, target=target, signal=signal, resources=resources)
 

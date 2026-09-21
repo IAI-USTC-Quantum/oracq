@@ -19,6 +19,7 @@ from __future__ import annotations
 import cmath
 import json
 import math
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -41,17 +42,28 @@ from pyqecclang.algorithms.input_model.oracles import (
     resources_for,
 )
 from pyqecclang.algorithms.input_model.sparse import chebyshev_block, real_symmetric_sparse_encoding
-from pyqecclang.algorithms.qlss.qlss import CKSConfig, QLSSProtocol
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.algorithms.qlss.qlss import CKSConfig, QLSSProtocol, SparseSystem
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 
 @lru_cache(maxsize=64)
-def gpe_fire_phases(threshold, x_edge, epsilon, degree_cap=40):
+def gpe_fire_phases(
+    threshold: float, x_edge: float, epsilon: float, degree_cap: int = 40
+) -> tuple[tuple[float, ...], int]:
     """GPE fire 判决相位：YLC 定点多项式，x 模长 >= threshold 时 P 的模 >= 1-epsilon。
 
     阈值随 degree 单调下降，从 3 起按奇数搜索至 [threshold, x_edge] 网格验证通过；
     x=0 处 P=0，过渡带（0, threshold) 的响应确定、可精确计算（CKS 未承诺带）。
+
+    Args:
+        threshold: fire 判决阈值（编码谱单位），取 (0, x_edge]。
+        x_edge: 验证网格右端，取 [threshold, 1]。
+        epsilon: 判决响应硬界，取 (0,1)。
+        degree_cap: 判决多项式度数搜索上限，从 3 起按奇数递增搜索。
+
+    Returns:
+        tuple[tuple[float, ...], int]: 通过网格验证的 QSP 相位序列与实际度数。
     """
     finite_real(threshold, "gpe_fire.threshold", minimum=0, strict=True)
     finite_real(x_edge, "gpe_fire.x_edge", minimum=0, strict=True)
@@ -70,8 +82,15 @@ def gpe_fire_phases(threshold, x_edge, epsilon, degree_cap=40):
 
 
 @lru_cache(maxsize=64)
-def clock_or_operation(width):
-    """时钟前缀 OR 谓词：stopped<=j 的相干判据，供 VTAA 反射使用。"""
+def clock_or_operation(width: int) -> Operation:
+    """时钟前缀 OR 谓词：stopped<=j 的相干判据，供 VTAA 反射使用。
+
+    Args:
+        width: 时钟前缀的位数，取正整数。
+
+    Returns:
+        Operation: 把前缀各位之 OR 写入 1 位 stopped 的布尔电路操作。
+    """
     net = BooleanNetwork()
     bits = net.input("prefix", width)
     net.outputs = {"stopped": [net.any(bits)]}
@@ -79,8 +98,13 @@ def clock_or_operation(width):
 
 
 def gapped_phase_estimation(
-    a: BlockEncoding, threshold, x_edge, *, epsilon=0.02, degree_cap=40
-):
+    a: BlockEncoding,
+    threshold: float,
+    x_edge: float,
+    *,
+    epsilon: float = 0.02,
+    degree_cap: int = 40,
+) -> Operation:
     """CKS Lemma 22 的 GPE（确定性 QSP 路线，Low–Su arXiv:2410.18178 Prop 23）。
 
     对 BE 的 qubitization walk 施加 YLC 定点判决多项式 P(lambda/alpha)，在
@@ -125,7 +149,9 @@ def gapped_phase_estimation(
     return b.finish()
 
 
-def band_inverse_step(a: BlockEncoding, coefficients, alpha_max):
+def band_inverse_step(
+    a: BlockEncoding, coefficients: Sequence[float], alpha_max: float
+) -> Operation:
     """CKS Lemma 23 的 W(lambda, delta)：分频带 Chebyshev 逆 LCU 加均匀化旋转。
 
     Args:
@@ -204,7 +230,8 @@ class VTAAConfig:
     degree_cap: int = 40
     rounds: tuple[int, ...] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验阶数、截断、时钟步数、判决硬界与放大轮数的取值。"""
         positive_integer(self.order, "VTAAConfig.order", maximum=128)
         if self.terms is not None:
             positive_integer(self.terms, "VTAAConfig.terms", maximum=self.order)
@@ -220,22 +247,38 @@ class VTAAConfig:
                 raise ValidationError("VTAA rounds 需要非负且不超过 64")
             object.__setattr__(self, "rounds", rounds)
 
-    def band_order(self, step):
+    def band_order(self, step: int) -> int:
         """返回第 step 频带的 Chebyshev 逆多项式阶数。
 
         第 1 频带取 ``order``，其后每个频带翻倍（2 的几何增长），上限 128；
-        ``step`` 小于 1 时按第 1 频带处理。"""
+        ``step`` 小于 1 时按第 1 频带处理。
+
+        Args:
+            step: 频带序号，从 1 起计。
+
+        Returns:
+            int: 该频带的 Chebyshev 阶数，不超过 128。
+        """
         return min(128, self.order * (1 << max(0, step - 1)))
 
-    def band_coefficients(self, step):
+    def band_coefficients(self, step: int) -> tuple[float, ...]:
         """返回第 step 频带的截断逆多项式系数（T_{2k+1} 基）。
 
         以 ``band_order(step)`` 为阶数、``terms`` 为截断项数（None 表示取满阶），
-        经 ``CKSConfig.coefficients`` 计算得到。"""
+        经 ``CKSConfig.coefficients`` 计算得到。
+
+        Args:
+            step: 频带序号，从 1 起计。
+
+        Returns:
+            tuple[float, ...]: 奇次 Chebyshev 基上的截断逆多项式系数序列。
+        """
         return CKSConfig(self.band_order(step), self.terms).coefficients()
 
 
-def tunable_rounds(stage_amplitudes, thresholds=None):
+def tunable_rounds(
+    stage_amplitudes: Iterable[float], thresholds: Iterable[float] | None = None
+) -> tuple[int, ...]:
     """Low–Su 可调 VTAA 日程（arXiv:2410.18178 式 (52)–(53)）。
 
     Args:
@@ -264,8 +307,16 @@ def tunable_rounds(stage_amplitudes, thresholds=None):
     )
 
 
-def vtaa_cks(system, config=None):
-    """CKS §5 的 VTAA 求解内核；输入 SparseSystem，输出解态 StateOracle。"""
+def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOracle:
+    """CKS §5 的 VTAA 求解内核；输入 SparseSystem，输出解态 StateOracle。
+
+    Args:
+        system: 稀疏 Hermitian 线性系统，须携带 Hermitian 与谱界声明。
+        config: VTAA 配置；缺省为默认配置。
+
+    Returns:
+        StateOracle: 变时放大链输出的解态 oracle，correctness 标记为 pending。
+    """
     config = config or VTAAConfig()
     require_instance(config, VTAAConfig, "vtaa_cks.config")
     if not system.hermitian:
@@ -288,7 +339,7 @@ def vtaa_cks(system, config=None):
     if config.rounds is not None and len(config.rounds) != steps:
         raise ValidationError("VTAA rounds 长度必须等于 clock_steps")
 
-    bands = []
+    bands: list[tuple[float, tuple[float, ...], float]] = []
     for step in range(1, steps + 1):
         threshold = x_edge * 2.0 ** (1 - step)
         coefficients = config.band_coefficients(step)
@@ -322,7 +373,7 @@ def vtaa_cks(system, config=None):
     }
     gpe_base = selector_width + a.signal_qubits
 
-    def build_step(step, *, uncompute):
+    def build_step(step: int, *, uncompute: bool) -> Operation:
         """A_j：受控 GPE 写 C_j；C_j=1（fire）时施加 W_j（A'_j 仅翻旗标，式 (99)）。"""
         threshold, coefficients, beta = bands[step - 1]
         kind = "vtaa_uncompute_step" if uncompute else "vtaa_variable_step"
@@ -349,7 +400,8 @@ def vtaa_cks(system, config=None):
             (len([c for c in coefficients if c != 0]) - 1).bit_length() + a.signal_qubits
         )
 
-        def run_gpe():
+        def run_gpe() -> None:
+            """在本步独立信号槽上调用 GPE，把判决写入时钟位。"""
             invoke(
                 b,
                 gpes[step - 1],
@@ -388,7 +440,8 @@ def vtaa_cks(system, config=None):
     invoke(initial, system.rhs.operation, "rhs", target=initial["target"], work=rhs_work)
     initial_op = initial.finish()
 
-    def run_chain(b, items):
+    def run_chain(b: Builder, items: Sequence[tuple[str, Operation]]) -> None:
+        """按各自前缀把 ``items`` 中的操作依次接入 ``b``。"""
         for prefix, op in items:
             invoke(
                 b,
@@ -400,7 +453,8 @@ def vtaa_cks(system, config=None):
                 signal=b["signal"],
             )
 
-    def prefix_module(step, items):
+    def prefix_module(step: int, items: Sequence[tuple[str, Operation]]) -> Operation:
+        """把到第 ``step`` 步为止的操作链封装为单一模块。"""
         b = Builder(
             _name("vtaa_prefix", a.operation, system.rhs.operation, config, step),
             registers,
@@ -414,7 +468,7 @@ def vtaa_cks(system, config=None):
         run_chain(b, items)
         return b.finish()
 
-    def amplification(prefix_op, step, count):
+    def amplification(prefix_op: Operation, step: int, count: int) -> Operation:
         """M_j = (R_s R_f)^{r_j} P_j；R_f 翻转 stopped<=j 且旗标为 0 的相位。"""
         b = Builder(
             _name("vtaa_amplified", prefix_op, step, count),
@@ -430,14 +484,16 @@ def vtaa_cks(system, config=None):
         )
         run_chain(b, (("prefix", prefix_op),))
 
-        def run_prefix():
+        def run_prefix() -> None:
+            """重放一遍被放大的前缀链。"""
             run_chain(b, (("prefix", prefix_op),))
 
         if count:
             orop = clock_or_operation(step)
             stopped = b.local("stopped", Bits(1))
 
-            def mark_stopped():
+            def mark_stopped() -> None:
+                """把时钟前缀的 OR 判决写入 ``stopped`` 辅助位。"""
                 b.call(orop, prefix=b["clock"][:step], stopped=stopped)
 
             with b.repeat(count):
@@ -501,7 +557,8 @@ def vtaa_cks(system, config=None):
         top["signal"][steps + 1 :],
     )
 
-    def call_top(op, prefix):
+    def call_top(op: Operation, prefix: str) -> None:
+        """以给定前缀把 ``op`` 接入顶层电路的时钟、旗标与信号布局。"""
         invoke(top, op, prefix, target=top["target"], clock=clock, flag=flag, signal=rest)
 
     call_top(amplified, "run")
@@ -520,8 +577,15 @@ def vtaa_cks(system, config=None):
     )
 
 
-def make_vtaa_cks_qlss(config=None):
-    """CKS §5 VTAA 求解协议；输入模型与 cks_chebyshev 相同的稀疏访问。"""
+def make_vtaa_cks_qlss(config: VTAAConfig | None = None) -> QLSSProtocol:
+    """CKS §5 VTAA 求解协议；输入模型与 cks_chebyshev 相同的稀疏访问。
+
+    Args:
+        config: VTAA 配置；缺省为默认配置。
+
+    Returns:
+        QLSSProtocol: 稀疏输入模型下的 VTAA 求解协议。
+    """
     config = VTAAConfig() if config is None else config
     require_instance(config, VTAAConfig, "make_vtaa_cks_qlss.config")
     return QLSSProtocol("vtaa_cks", "sparse", lambda system: vtaa_cks(system, config))

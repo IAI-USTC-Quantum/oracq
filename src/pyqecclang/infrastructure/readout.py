@@ -1,9 +1,12 @@
 "宿主读出计划；量子 RIR 保持可组合，末端测量和重置单独描述。"
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
-from pyqecclang.infrastructure.backends import export_originir
-from pyqecclang.infrastructure.ir import ValidationError
+from pyqecclang.infrastructure.backends import OriginIRArtifact, export_originir
+from pyqecclang.infrastructure.ir import Program, ValidationError
 
 
 @dataclass(frozen=True)
@@ -19,7 +22,9 @@ class ReadoutAction:
     register: str
 
 
-def export_with_readout(program, actions=()):
+def export_with_readout(
+    program: Program, actions: Sequence[ReadoutAction] = ()
+) -> OriginIRArtifact:
     """导出闭合程序的 OriginIR，并按序在末端追加宿主读出动作。
 
     Args:

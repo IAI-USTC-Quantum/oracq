@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import cmath
 import math
+from collections.abc import Iterable, Iterator, Sequence
+from typing import cast
 
 from pyqecclang.algorithms.common.transforms import qsvt_sequence
 from pyqecclang.algorithms.input_model.contracts import require_instance
@@ -56,23 +58,33 @@ _STRIP_TOL = 1e-5
 # ---------------------------------------------------------------------------
 
 
-def _trim(p, tol=1e-12):
+def _trim(p: Sequence[float | complex], tol: float = 1e-12) -> tuple[float | complex, ...]:
+    """移除尾部幅值低于容差的系数，并把多项式收紧为元组。"""
     p = list(p)
     while len(p) > 1 and abs(p[-1]) <= tol * max(1.0, max(abs(c) for c in p)):
         p.pop()
     return tuple(p)
 
 
-def _add(a, b):
+def _add(
+    a: Sequence[float | complex], b: Sequence[float | complex]
+) -> tuple[float | complex, ...]:
+    """逐系数相加两个多项式，较短的以零补齐。"""
     n = max(len(a), len(b))
     return tuple((a[i] if i < len(a) else 0) + (b[i] if i < len(b) else 0) for i in range(n))
 
 
-def _sub(a, b):
+def _sub(
+    a: Sequence[float | complex], b: Sequence[float | complex]
+) -> tuple[float | complex, ...]:
+    """逐系数相减两个多项式。"""
     return _add(a, tuple(-v for v in b))
 
 
-def _mul(a, b):
+def _mul(
+    a: Sequence[float | complex], b: Sequence[float | complex]
+) -> tuple[float | complex, ...]:
+    """按卷积相乘两个多项式。"""
     out = [0j] * (len(a) + len(b) - 1)
     for i, x in enumerate(a):
         for j, y in enumerate(b):
@@ -80,41 +92,50 @@ def _mul(a, b):
     return tuple(out)
 
 
-def _scale(c, p):
+def _scale(c: float | complex, p: Sequence[float | complex]) -> tuple[float | complex, ...]:
+    """把多项式逐系数乘以同一标量。"""
     return tuple(c * v for v in p)
 
 
-def _eval(p, x):
+def _eval(p: Sequence[float | complex], x: float | complex) -> complex:
+    """以 Horner 法求多项式在 ``x`` 处的值。"""
     v = 0j
     for c in reversed(p):
         v = v * x + c
     return v
 
 
-def _conj(p):
+def _conj(p: Sequence[float | complex]) -> tuple[complex, ...]:
+    """逐系数取复共轭。"""
     return tuple(complex(v).conjugate() for v in p)
 
 
-def _realify(p, *, tol=1e-10):
+def _realify(p: Sequence[float | complex], *, tol: float = 1e-10) -> tuple[float, ...]:
+    """校验虚部近零后把系数收紧为 ``float`` 元组。"""
     scale = max(1.0, max(abs(c) for c in p))
     if any(abs(complex(c).imag) > tol * scale for c in p):
         raise ValidationError("内部多项式应为实系数")
     return tuple(float(complex(c).real) for c in p)
 
 
-def _deg(p):
+def _deg(p: Sequence[float | complex]) -> int:
+    """返回升幂系数表示的多项式度数。"""
     return len(p) - 1
 
 
-def _grid(n=_GRID):
+def _grid(n: int = _GRID) -> tuple[float, ...]:
+    """返回 [−1, 1] 上的 Chebyshev 余弦节点网格。"""
     return tuple(math.cos(math.pi * j / n) for j in range(n + 1))
 
 
-def _sup_norm(p):
+def _sup_norm(p: Sequence[float | complex]) -> float:
+    """返回多项式在 Chebyshev 网格上的最大幅值。"""
     return max(abs(_eval(p, x)) for x in _grid())
 
 
-def _roots(coeffs, *, iters=4000, tol=1e-30):
+def _roots(
+    coeffs: Iterable[float | complex], *, iters: int = 4000, tol: float = 1e-30
+) -> list[complex]:
     """Durand–Kerner 同时求根；输入升幂首一化前的任意实/复系数。"""
     coeffs = _trim(tuple(complex(c) for c in coeffs))
     n = _deg(coeffs)
@@ -138,9 +159,9 @@ def _roots(coeffs, *, iters=4000, tol=1e-30):
     return roots
 
 
-def _cluster(roots, *, rel=2e-5):
+def _cluster(roots: Iterable[complex], *, rel: float = 2e-5) -> list[tuple[complex, int]]:
     """按相对距离把数值根聚成重根簇，返回 [(质心, 重数), …]。"""
-    clusters = []
+    clusters: list[list[int | complex]] = []
     for r in sorted(roots, key=lambda z: (abs(z), z.real, z.imag)):
         for cluster in clusters:
             if abs(r - cluster[0]) <= rel * max(1.0, abs(r)):
@@ -148,18 +169,20 @@ def _cluster(roots, *, rel=2e-5):
                 break
         else:
             clusters.append([r, 1])
-    return [(c, m) for c, m in clusters]
+    return [(cast("complex", c), cast("int", m)) for c, m in clusters]
 
 
-def _chebyshev_t(n):
+def _chebyshev_t(n: int) -> tuple[float, ...]:
     """T_n 的升幂单项式系数。"""
     if n == 0:
         return (1.0,)
     if n == 1:
         return (0.0, 1.0)
+    a: tuple[float, ...]
+    b: tuple[float, ...]
     a, b = (1.0,), (0.0, 1.0)
     for _ in range(2, n + 1):
-        a, b = b, _sub(_scale(2.0, (0.0,) + b), a)
+        a, b = b, cast("tuple[float, ...]", _sub(_scale(2.0, (0.0,) + b), a))
     return b
 
 
@@ -168,8 +191,16 @@ def _chebyshev_t(n):
 # ---------------------------------------------------------------------------
 
 
-def qsp_response(x, phases):
-    """相位序列 Φ 在反射约定下实现的顶层左块 p(x)（x ∈ [−1, 1]）。"""
+def qsp_response(x: float, phases: Iterable[float]) -> complex:
+    """相位序列 Φ 在反射约定下实现的顶层左块 p(x)（x ∈ [−1, 1]）。
+
+    Args:
+        x: 求值点，取 [−1,1] 内的实数。
+        phases: QSP 相位序列 Φ，弧度制。
+
+    Returns:
+        complex: 相位序列实现的响应多项式 p(x) 的值。
+    """
     phases = tuple(float(p) for p in phases)
     s = math.sqrt(max(0.0, 1.0 - x * x))
     m00, m01, m10, m11 = 1 + 0j, 0j, 0j, 1 + 0j
@@ -186,8 +217,9 @@ def qsp_response(x, phases):
     return m00
 
 
-def _check_real_poly(coeffs, label):
-    values = []
+def _check_real_poly(coeffs: Iterable[float | complex], label: str) -> tuple[float, ...]:
+    """校验有限实系数并收紧为 ``float`` 元组。"""
+    values: list[float] = []
     for c in coeffs:
         z = complex(c)
         if not math.isfinite(z.real) or abs(z.imag) > 1e-12:
@@ -195,17 +227,18 @@ def _check_real_poly(coeffs, label):
         values.append(z.real)
     if not values:
         raise ValidationError(f"{label} 不能为空")
-    return _trim(values)
+    return cast("tuple[float, ...]", _trim(values))
 
 
-def _check_parity(coeffs, d, label):
+def _check_parity(coeffs: Sequence[float | complex], d: int, label: str) -> None:
+    """校验多项式的非零幂次均与 ``d`` 同奇偶。"""
     scale = max(1.0, max(abs(c) for c in coeffs))
     for k, c in enumerate(coeffs):
         if (d - k) % 2 and abs(c) > 1e-9 * scale:
             raise ValidationError(f"{label} 的奇偶性与度数 d mod 2 不符")
 
 
-def _div_1mx2(dpoly, *, tol=1e-8):
+def _div_1mx2(dpoly: Sequence[float | complex], *, tol: float = 1e-8) -> tuple[float, ...]:
     """计算 R = D/(1−x²)；要求 D(±1) = 0，否则抛出 ValidationError。"""
     scale = max(1.0, max(abs(c) for c in dpoly))
     n = len(dpoly)
@@ -217,9 +250,9 @@ def _div_1mx2(dpoly, *, tol=1e-8):
     return _realify(_trim(r[: max(1, n - 2)]))
 
 
-def _q_from_roots(rpoly, d):
+def _q_from_roots(rpoly: Sequence[float], d: int) -> tuple[float | complex, ...] | None:
     """由 R = (1−f²−h²)/(1−x²) 的根构造奇偶性为 (d−1) mod 2 的复系数 Q，使 Q Q̄ = R。"""
-    rpoly = _trim(rpoly)
+    rpoly = cast("tuple[float, ...]", _trim(rpoly))
     if _deg(rpoly) <= 0:
         if rpoly[0] <= 0:
             raise ValidationError("补多项式 R 恒为非正，无法谱分解")
@@ -229,9 +262,9 @@ def _q_from_roots(rpoly, d):
     if rpoly[-1] <= 0:
         raise ValidationError("补多项式首项系数必须为正")
     clusters = _cluster(_roots(rpoly))
-    factors = []  # 每个因子均为偶多项式；零根单独给出奇偶性
+    factors: list[tuple[float | complex, ...]] = []  # 每个因子均为偶多项式；零根单独给出奇偶性
     zero_mult = 0
-    used = set()
+    used: set[int] = set()
     ctol = 1e-5
     for i, (c, m) in enumerate(clusters):
         if i in used:
@@ -292,7 +325,7 @@ def _q_from_roots(rpoly, d):
     m0 = zero_mult // 2
     if m0 % 2 != (d - 1) % 2:
         raise ValidationError("补多项式谱因子的奇偶性与度数要求不符")
-    q = (math.sqrt(float(rpoly[-1])),)
+    q: tuple[float | complex, ...] = (math.sqrt(float(rpoly[-1])),)
     for f in factors:
         q = _mul(q, f)
     q = _mul(q, (0.0, 1.0)) if m0 else q
@@ -305,10 +338,12 @@ def _q_from_roots(rpoly, d):
     return q
 
 
-def _strip(ppoly, qpoly, d):
+def _strip(
+    ppoly: Sequence[float | complex], qpoly: Sequence[float | complex], d: int
+) -> tuple[float, ...]:
     """layer stripping：由 (P, Q) 逐层恢复相位，时间正序返回。"""
     p, q = list(ppoly), list(qpoly)
-    phases = []
+    phases: list[float] = []
     for k in range(d, 0, -1):
         if abs(q[k - 1]) < 1e-13:
             raise ValidationError("逐层剥离退化：补多项式首项过小，相位数值不稳定")
@@ -329,7 +364,7 @@ def _strip(ppoly, qpoly, d):
     return tuple(reversed(phases))
 
 
-def qsp_phases(coeffs, imag=None):
+def qsp_phases(coeffs: Iterable[float], imag: Iterable[float] | None = None) -> tuple[float, ...]:
     """由实系数目标多项式合成 QSP 相位序列（时间正序，长度 d+1）。
 
     coeffs 为升幂实系数（常数项在前），目标为 P = f（imag 为 None）或
@@ -337,6 +372,13 @@ def qsp_phases(coeffs, imag=None):
     d mod 2、在 [−1,1] 上 f² + h² ≤ 1、端点饱和 f(±1)² + h(±1)² = 1，
     且 R = (1 − f² − h²)/(1−x²) 非负并满足谱分解的根重数条件。
     不提供 imag 时即为纯实目标，此时必须有 ``|f(±1)| = 1``。
+
+    Args:
+        coeffs: 目标实部 f 的升幂实系数序列（常数项在前）。
+        imag: 虚部补全 h 的升幂实系数；缺省表示纯实目标。
+
+    Returns:
+        tuple[float, ...]: 时间正序的 QSP 相位序列，长度为目标度数加一。
     """
     f = _check_real_poly(coeffs, "目标多项式")
     d = _deg(f)
@@ -381,20 +423,22 @@ def qsp_phases(coeffs, imag=None):
 # ---------------------------------------------------------------------------
 
 
-def _wrap_qsvt_be(a, phases):
+def _wrap_qsvt_be(a: BlockEncoding, phases: Iterable[float]) -> BlockEncoding:
+    """按相位序列组装 QSVT 操作并包装为块编码。"""
     return BlockEncoding(
         annotate(qsvt_sequence(a, phases), "block_encoding", be_alpha=1.0)
     )
 
 
-def _real_qsvt_be(a, phases):
+def _real_qsvt_be(a: BlockEncoding, phases: Iterable[float]) -> BlockEncoding:
     """块编码 (P + P̄)(A/α)/2 = f(A/α)：−Φ 恰好实现 P̄，经 LCU 各半提取实部。"""
     plus = _wrap_qsvt_be(a, phases)
     minus = _wrap_qsvt_be(a, tuple(-p for p in phases))
     return linear_combination(0.5, plus, 0.5, minus)
 
 
-def _finish(be, algorithm, **attributes):
+def _finish(be: BlockEncoding, algorithm: str, **attributes: float) -> BlockEncoding:
+    """为最终块编码登记算法名与量化属性。"""
     return BlockEncoding(
         annotate(
             be.operation,
@@ -406,7 +450,10 @@ def _finish(be, algorithm, **attributes):
     )
 
 
-def _synthesize_with_imag(f, imag_candidates, label):
+def _synthesize_with_imag(
+    f: Sequence[float], imag_candidates: Iterable[Iterable[float]], label: str
+) -> tuple[float, ...]:
+    """依次尝试虚部补全候选，全部失败时抛出 ValidationError。"""
     for h in imag_candidates:
         try:
             return qsp_phases(f, imag=h)
@@ -420,12 +467,20 @@ def _synthesize_with_imag(f, imag_candidates, label):
 # ---------------------------------------------------------------------------
 
 
-def qsvt_matrix_inversion(a, kappa, *, error=0.05):
+def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05) -> BlockEncoding:
     """近似 A⁻¹ 的 QSVT 块编码（奇扩展多项式 J_b(x) = (1−(1−x²)^b)/x 的缩放）。
 
     目标多项式 f(x) = c·J_b(x)（升幂系数 ( −1)^m C(b, m+1) 解析给出），
     在 ``|x| ≥ 1/κ`` 上相对误差不超过 error 地逼近 c/x，``||f||∞ ≤ 1/3``。
     返回的 BE 的零信号块约为 inverse_scale · A⁻¹，inverse_scale = c·α。
+
+    Args:
+        a: 待求逆矩阵 A 的块编码。
+        kappa: 条件数 κ，取不小于 1 的有限数。
+        error: 相对近似误差，取 (0,1)。
+
+    Returns:
+        BlockEncoding: 零信号块约为 inverse_scale·A⁻¹ 的矩阵求逆块编码。
     """
     require_instance(a, BlockEncoding, "qsvt_matrix_inversion.a")
     if not (math.isfinite(kappa) and kappa >= 1):
@@ -444,10 +499,10 @@ def qsvt_matrix_inversion(a, kappa, *, error=0.05):
         for i in range(d + 1)
         for m in [i // 2]
     )
-    f = _trim(f)
+    f = cast("tuple[float, ...]", _trim(f))
     norm = _sup_norm(f)
     c_scale = 1.0 / (3.0 * norm)
-    f = _scale(c_scale, f)
+    f = cast("tuple[float, ...]", _scale(c_scale, f))
     sat = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
     phases = _synthesize_with_imag(f, [(0.0, sat)], "矩阵求逆多项式")
     be = _real_qsvt_be(a, phases)
@@ -461,12 +516,23 @@ def qsvt_matrix_inversion(a, kappa, *, error=0.05):
     )
 
 
-def eigenstate_filter(a, gap, degree, *, center=0.0):
+def eigenstate_filter(
+    a: BlockEncoding, gap: float, degree: int, *, center: float = 0.0
+) -> BlockEncoding:
     """特征态过滤：块编码在 ``|x−center| ≤ gap`` 外被压到 1/T_d(r) 以下的尖峰多项式。
 
     目标为 Lin–Tong 型过滤多项式 f(x) = T_d(g(x²))/T_d(r)，
     g(y) = 2(y−Δ²)/(1−Δ²) − 1，r = (1+Δ²)/(1−Δ²)；f 在 x=0 处饱和（``|f(0)|=1``），
     在 ``|x| ≥ Δ`` 上 ``|f| ≤ 1/T_d(r)``。center 非零时先经 BE 线性组合平移谱。
+
+    Args:
+        a: 输入算符的块编码。
+        gap: 过滤半宽 Δ，取 (0,1)；与中心距离不超过 Δ 的谱分量被保留。
+        degree: Chebyshev 过滤度数，取正整数；实际合成度数为其两倍。
+        center: 过滤中心的谱位置，取 (−1,1)；取 0 时不平移谱。
+
+    Returns:
+        BlockEncoding: 尖峰过滤块编码，suppression 属性为 1/T_d(r)。
     """
     require_instance(a, BlockEncoding, "eigenstate_filter.a")
     if not (0 < gap < 1):
@@ -484,10 +550,12 @@ def eigenstate_filter(a, gap, degree, *, center=0.0):
     r = (1 + gap**2) / (1 - gap**2)
     norm_d = math.cosh(degree * math.acosh(r))  # T_d(r)
     u = (-1.0 - 2 * gap**2 / (1 - gap**2), 0.0, 2.0 / (1 - gap**2))  # g(x²)
+    t0: tuple[float | complex, ...]
+    t1: tuple[float | complex, ...]
     t0, t1 = (1.0,), u
     for _ in range(2, degree + 1):
         t0, t1 = t1, _sub(_scale(2.0, _mul(u, t1)), t0)
-    f = _scale(1.0 / norm_d, t1 if degree >= 1 else t0)
+    f = cast("tuple[float, ...]", _scale(1.0 / norm_d, t1 if degree >= 1 else t0))
     sat = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
     phases = _synthesize_with_imag(f, [(0.0, 0.0, sat)], "特征态过滤多项式")
     be = _real_qsvt_be(shifted, phases)
@@ -502,7 +570,7 @@ def eigenstate_filter(a, gap, degree, *, center=0.0):
     )
 
 
-def _bessel_j(n, x):
+def _bessel_j(n: int, x: float) -> float:
     """第一类 Bessel 函数 J_n(x)，幂级数纯 Python 实现。"""
     term = (x / 2) ** n / math.factorial(n)
     total = term
@@ -514,7 +582,7 @@ def _bessel_j(n, x):
     return total
 
 
-def _jacobi_anger(t, error):
+def _jacobi_anger(t: float, error: float) -> tuple[tuple[float, ...], tuple[float, ...], int]:
     """e^{itx} 的 Jacobi–Anger 截断：返回 (偶支 cos 系数, 奇支 sin 系数, 截断度数 K)。"""
     kmax = min(_MAX_DEGREE, int(math.ceil(abs(t))) + 8 * int(math.ceil(math.log10(4 / error))) + 8)
     js = [_bessel_j(k, abs(t)) for k in range(kmax + 2)]
@@ -535,15 +603,25 @@ def _jacobi_anger(t, error):
             coef = 2.0 * (-1.0) ** ((j - 1) // 2) * js[j] * sign
             for i, v in enumerate(tk):
                 fs[i] += coef * v
-    return _trim(fc), _trim(fs), k
+    return cast("tuple[float, ...]", _trim(fc)), cast("tuple[float, ...]", _trim(fs)), k
 
 
-def qsvt_hamiltonian_simulation(a, t, *, error=0.01):
+def qsvt_hamiltonian_simulation(
+    a: BlockEncoding, t: float, *, error: float = 0.01
+) -> BlockEncoding:
     """e^{itA/α} 的 QSVT 块编码：Jacobi–Anger 偶/奇两支分别合成，再经 LCU 组合。
 
     偶支近似 cos(tx)、奇支近似 sin(tx)，统一缩放 s 使两支均留出虚部补全余量；
     每支用 (U_Φ + U_{−Φ})/2 提取实部，最后按 1 与 i 做 LCU。
     返回 BE 的零信号块约为 e^{itA/α}/sim_scale，sim_scale = 2s。
+
+    Args:
+        a: 演化生成元 A 的块编码。
+        t: 演化时间，取非零有限实数。
+        error: Jacobi–Anger 截断与合成误差，取 (0,1)。
+
+    Returns:
+        BlockEncoding: 零信号块约为 e^{itA/α}/sim_scale 的块编码。
     """
     require_instance(a, BlockEncoding, "qsvt_hamiltonian_simulation.a")
     if not (math.isfinite(t) and t != 0):
@@ -552,12 +630,16 @@ def qsvt_hamiltonian_simulation(a, t, *, error=0.01):
         raise ValidationError("近似误差 error 必须在 (0,1) 内")
     fc, fs, k = _jacobi_anger(t, error)
     s = 1.5 * max(_sup_norm(fc), _sup_norm(fs), 1e-3)
-    fc, fs = _scale(1.0 / s, fc), _scale(1.0 / s, fs)
+    fc, fs = (
+        cast("tuple[float, ...]", _scale(1.0 / s, fc)),
+        cast("tuple[float, ...]", _scale(1.0 / s, fs)),
+    )
     dc, ds = _deg(fc), _deg(fs)
     if dc % 2 or ds % 2 == 0:
         raise ValidationError("Jacobi–Anger 分支奇偶性异常")
 
-    def cos_imags():
+    def cos_imags() -> Iterator[tuple[float, ...]]:
+        """逐个给出 cos 支可尝试的虚部补全多项式。"""
         a0 = math.sqrt(max(0.0, 1.0 - _eval(fc, 0.0).real ** 2))
         a1 = math.sqrt(max(0.0, 1.0 - _eval(fc, 1.0).real ** 2))
         for m in range(1, dc // 2 + 1):
@@ -566,7 +648,8 @@ def qsvt_hamiltonian_simulation(a, t, *, error=0.01):
                 for i in range(dc + 1)
             )
 
-    def sin_imags():
+    def sin_imags() -> Iterator[tuple[float, ...]]:
+        """逐个给出 sin 支可尝试的虚部补全多项式。"""
         a1 = math.sqrt(max(0.0, 1.0 - _eval(fs, 1.0).real ** 2))
         for m in range(0, (ds - 1) // 2 + 1):
             yield tuple(a1 * (1.0 if i == 2 * m + 1 else 0.0) for i in range(ds + 1))
@@ -586,7 +669,7 @@ def qsvt_hamiltonian_simulation(a, t, *, error=0.01):
     )
 
 
-def fixed_point_search_phases(delta, degree):
+def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
     """Yoder–Low–Chuang 定点振幅放大的相位序列（时间正序，长度 degree+1）。
 
     构造依据 YLC 闭式补多项式：记 L = degree（BE 调用次数，必须为奇数）、
@@ -594,6 +677,13 @@ def fixed_point_search_phases(delta, degree):
     P 由 1 − (1−x²)Q² 的求根谱分解得到。实现的成功概率恰为
     P_S(x) = 1 − δ² T_L²(c√(1−x²))：``|x| ≥ √(1−1/c²)`` 时 P_S ≥ 1 − δ²，
     且阈值随 L 单调下降趋于 0（不动点性质）。
+
+    Args:
+        delta: 失败概率上界 δ，取 (0,1)。
+        degree: 放大度数 L（BE 调用次数），取不超过合成上限一半的正奇数。
+
+    Returns:
+        tuple[float, ...]: 时间正序相位序列，长度为 degree+1。
     """
     if not (0 < delta < 1):
         raise ValidationError("定点搜索误差 δ 必须在 (0,1) 内")
@@ -604,9 +694,9 @@ def fixed_point_search_phases(delta, degree):
     L = degree
     c = math.cosh(math.acosh(1.0 / delta) / L)
     tcoeff = _chebyshev_t(L)
-    qpoly = (0.0,)
+    qpoly: tuple[float | complex, ...] = (0.0,)
     for m in range((L + 1) // 2):
-        term = (tcoeff[2 * m + 1] * c ** (2 * m),)
+        term: tuple[float | complex, ...] = (tcoeff[2 * m + 1] * c ** (2 * m),)
         for _ in range(m):
             term = _mul(term, (1.0, 0.0, -1.0))
         qpoly = _add(qpoly, term)
@@ -616,8 +706,8 @@ def fixed_point_search_phases(delta, degree):
         raise ValidationError("YLC 补多项式构造异常：零根缺失")
     ft = _trim(fpoly[2:])  # 除以 x²（零点二重根）
     clusters = _cluster(_roots(ft))
-    factors = []
-    used = set()
+    factors: list[tuple[float | complex, ...]] = []
+    used: set[int] = set()
     ctol = 1e-5
     for i, (rt, m) in enumerate(clusters):
         if i in used:
@@ -640,7 +730,7 @@ def fixed_point_search_phases(delta, degree):
         used.add(i)
     if 1 + 2 * len(factors) != L:
         raise ValidationError("YLC 谱分解因子计数异常")
-    ppoly = (0.0, 1.0)
+    ppoly: tuple[float | complex, ...] = (0.0, 1.0)
     for fct in factors:
         ppoly = _mul(ppoly, fct)
     ppoly = _trim(_scale(abs(qpoly[-1]), ppoly))
@@ -654,11 +744,19 @@ def fixed_point_search_phases(delta, degree):
     return phases
 
 
-def fixed_point_search(a, delta, degree):
+def fixed_point_search(a: BlockEncoding, delta: float, degree: int) -> BlockEncoding:
     """定点振幅放大的 QSVT 组装：对 BE 应用 fixed_point_search_phases 的序列。
 
     零信号块为复多项式 P(A/α)，成功概率 ``|P(x)|²`` 满足 YLC 不动点保证；
     threshold 属性给出 √(1−1/c²) 的放大阈值。
+
+    Args:
+        a: 待放大的块编码。
+        delta: 失败概率上界 δ，取 (0,1)。
+        degree: 放大度数（BE 调用次数），取正奇数。
+
+    Returns:
+        BlockEncoding: 零信号块为 P(A/α) 的定点放大块编码。
     """
     require_instance(a, BlockEncoding, "fixed_point_search.a")
     phases = fixed_point_search_phases(delta, degree)

@@ -1,9 +1,23 @@
 """QRAM 指针式读写演示：偏移寻址、量子指针、多维视图与随机写。"""
 
-from pyqecclang import QRAM, Builder, QMem, UInt, dumps, estimate_resources, simulate
+from __future__ import annotations
+
+from typing import cast
+
+from pyqecclang import (
+    QRAM,
+    Builder,
+    Operation,
+    QMem,
+    QPtr,
+    UInt,
+    dumps,
+    estimate_resources,
+    simulate,
+)
 
 
-def pointer_loads():
+def pointer_loads() -> Operation:
     """常量偏移与量子指针：读 M[base + off]。"""
     b = Builder(
         "pointer_loads",
@@ -16,26 +30,27 @@ def pointer_loads():
     return b.finish()
 
 
-def grid_load():
+def grid_load() -> Operation:
     """多维视图：row-major 展平 grid[row, 3]。"""
     b = Builder("grid_load", {"row": UInt(2), "out": UInt(4)}, {"rom": QRAM(4, 4)})
     grid = QMem(b, "rom", shape=(4, 4))
-    grid[b["row"], 3].load(b["out"])
+    cast(QPtr, grid[b["row"], 3]).load(b["out"])  # 全维精确下标，运行时必为 QPtr
     return b.finish()
 
 
-def store_roundtrip():
+def store_roundtrip() -> Operation:
     """随机写后读回：M[addr] := val，再 XOR-Load 到独立寄存器。"""
     b = Builder(
         "store_roundtrip", {"addr": UInt(2), "val": UInt(4), "out": UInt(4)}, {"ram": QRAM(2, 4)}
     )
     mem = QMem(b, "ram")
-    mem[b["addr"]].store(b["val"])
-    mem[b["addr"]].load(b["out"])
+    cast(QPtr, mem[b["addr"]]).store(b["val"])  # 全维精确下标，运行时必为 QPtr
+    cast(QPtr, mem[b["addr"]]).load(b["out"])
     return b.finish()
 
 
-def main():
+def main() -> None:
+    """运行三段 QRAM 指针示例并打印振幅与资源台账。"""
     loads = pointer_loads()
     state = simulate(loads.program(), {"rom": [10, 11, 12, 13]}, initial={"idx": 0})
     print("常量偏移读 M[1]，量子指针读 M[idx+1]（idx=0）：", sorted(state.amplitudes.items()))

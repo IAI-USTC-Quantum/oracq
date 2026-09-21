@@ -15,20 +15,23 @@ Repeat 调用行）两侧各翻转一次（2×零位数个 X）；受控单比�
 QRAM 查询数按 ``Load`` 节点逐资源计数（每次 Load = 1 次查询），是
 独立于门级成本的第一类指标。QRAM 随机写按 ``Store`` 节点逐资源计入
 ``qram_writes``：存储单元按经典单元建模，随机写不计入门成本。
-"""""
+"""
 
 from __future__ import annotations
 
 import math
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import cast
 
 from pyqecclang.infrastructure.ir import (
     Adjoint,
     Call,
     Control,
+    Instruction,
     Load,
     Primitive,
+    Program,
     Repeat,
     Store,
     ValidationError,
@@ -42,12 +45,12 @@ CLIFFORD_ATOMS = ("h", "x", "y", "z", "s", "sdg", "cnot", "cz")
 """Clifford 原子名集合；``ResourceEstimate.clifford`` 按这些名字汇总 ``atoms`` 计数。"""
 
 
-def _rz_exact_counts(k):
+def _rz_exact_counts(k: int) -> Counter[str]:
     """rz(k·π/4) 的精确 Clifford+T 计数（k 按 mod 8 归一）。"""
     k %= 8
     if k > 4:
         counts = _rz_exact_counts(8 - k)
-        result = Counter()
+        result: Counter[str] = Counter()
         for atom, n in counts.items():
             result[{"t": "tdg", "s": "sdg", "tdg": "t", "sdg": "s"}.get(atom, atom)] = n
         return result
@@ -62,7 +65,7 @@ def _rz_exact_counts(k):
     )
 
 
-def _quarter_turns(angle):
+def _quarter_turns(angle: float) -> int | None:
     """angle 是否为 π/4 的整数倍；是则返回 k（mod 8），否则 None。"""
     k = round(angle / (_PI / 4))
     if abs(angle - k * _PI / 4) < 1e-12:
@@ -70,16 +73,34 @@ def _quarter_turns(angle):
     return None
 
 
-def classify_rz(angle):
-    """rz/phase 原子分类：精确 Clifford+T 或待合成旋转。"""
+def classify_rz(angle: float) -> tuple[Counter[str], list[tuple[str, float]]]:
+    """rz/phase 原子分类：精确 Clifford+T 或待合成旋转。
+
+    Args:
+        angle: 旋转角，单位为弧度。
+
+    Returns:
+        tuple[Counter[str], list[tuple[str, float]]]: 二元组 ``(精确原子计数,
+        待合成旋转列表)``；角度为 π/4 整数倍时计入前者，否则整笔记为
+        ``("rz", angle)`` 待合成旋转。
+    """
     k = _quarter_turns(angle)
     if k is None:
         return Counter(), [("rz", angle)]
     return _rz_exact_counts(k), []
 
 
-def classify_ry(angle):
-    """ry 原子分类：RY(θ) = S·H·RZ(θ)·H·S†。"""
+def classify_ry(angle: float) -> tuple[Counter[str], list[tuple[str, float]]]:
+    """ry 原子分类：RY(θ) = S·H·RZ(θ)·H·S†。
+
+    Args:
+        angle: 旋转角，单位为弧度。
+
+    Returns:
+        tuple[Counter[str], list[tuple[str, float]]]: 二元组 ``(精确原子计数,
+        待合成旋转列表)``；角度非 π/4 整数倍时整笔记为 ``("ry", angle)`` 待
+        合成旋转，零角度返回两个空容器。
+    """
     k = _quarter_turns(angle)
     if k is None:
         return Counter(), [("ry", angle)]
@@ -90,13 +111,25 @@ def classify_ry(angle):
     return counts, []
 
 
-def classify_u3(theta, phi, lam):
+def classify_u3(
+    theta: float, phi: float, lam: float
+) -> tuple[Counter[str], list[tuple[str, float]]]:
     """U3(θ,φ,λ) = RZ(φ)·RY(θ)·RZ(λ)（丢弃全局相位，与 strict 导出一致）。
 
     常见门 H/X/Y 先按精确单原子匹配，再走 Euler 分解。
+
+    Args:
+        theta: Y 轴欧拉角，单位为弧度。
+        phi: 左侧 Z 轴欧拉角，单位为弧度。
+        lam: 右侧 Z 轴欧拉角，单位为弧度。
+
+    Returns:
+        tuple[Counter[str], list[tuple[str, float]]]: 二元组 ``(精确原子计数,
+        待合成旋转列表)``；H/X/Y 特例匹配单原子，其余按 Euler 分解逐项汇总。
     """
 
-    def close(a, b):
+    def close(a: float, b: float) -> bool:
+        """判断两个浮点数在容差内相等。"""
         return abs(a - b) < 1e-12
 
     if close(theta, _PI / 2) and close(phi, 0.0) and close(lam, _PI):
@@ -105,6 +138,8 @@ def classify_u3(theta, phi, lam):
         return Counter({"x": 1}), []
     if close(theta, _PI) and close(phi, _PI / 2) and close(lam, _PI / 2):
         return Counter({"y": 1}), []
+    counts: Counter[str]
+    rotations: list[tuple[str, float]]
     counts, rotations = Counter(), []
     for counts_part, rotations_part in (
         classify_rz(lam),
@@ -116,8 +151,16 @@ def classify_u3(theta, phi, lam):
     return counts, rotations
 
 
-def mcx_counts(n_controls):
-    """basis.mcx 配方（X 型多控）。"""
+def mcx_counts(n_controls: int) -> Counter[str]:
+    """basis.mcx 配方（X 型多控）。
+
+    Args:
+        n_controls: 有效控制位个数，取非负整数。
+
+    Returns:
+        Counter[str]: 多控 X 的原子计数；c 为 0/1/2 时分别为单 X、
+        H-CZ-H 与单个 Toffoli，c≥3 时为 2c−3 个 Toffoli。
+    """
     if n_controls <= 0:
         return Counter({"x": 1})
     if n_controls == 1:
@@ -127,8 +170,12 @@ def mcx_counts(n_controls):
     return Counter({"toffoli": 2 * n_controls - 3})
 
 
-def _controlled_u3_counts(n_controls, theta, phi, lam, global_angle=0.0):
+def _controlled_u3_counts(
+    n_controls: int, theta: float, phi: float, lam: float, global_angle: float = 0.0
+) -> tuple[Counter[str], list[tuple[str, float]]]:
     """basis.controlled_u3 配方的计数；c≥2 时含 2(c−1) Toffoli 梯子。"""
+    counts: Counter[str]
+    rotations: list[tuple[str, float]]
     counts, rotations = Counter(), []
     if n_controls == 0:
         part, rot = classify_u3(theta, phi, lam)
@@ -168,7 +215,9 @@ _GATE_PARAMETERS = {
 }
 
 
-def _gate_counts(op, angle, n_controls):
+def _gate_counts(
+    op: str, angle: float | None, n_controls: int
+) -> tuple[Counter[str], list[tuple[str, float]]]:
     """单个 1q 门在 n_controls 个有效控制下的计数。"""
     if op == "x":
         return mcx_counts(n_controls), []
@@ -176,13 +225,13 @@ def _gate_counts(op, angle, n_controls):
         theta, phi, lam, glob = _GATE_PARAMETERS[op]
         return _controlled_u3_counts(n_controls, theta, phi, lam, glob)
     if op == "phase":
-        return _controlled_u3_counts(n_controls, 0.0, 0.0, angle, 0.0)
+        return _controlled_u3_counts(n_controls, 0.0, 0.0, cast(float, angle), 0.0)
     if op == "ry":
-        return _controlled_u3_counts(n_controls, angle, 0.0, 0.0, 0.0)
+        return _controlled_u3_counts(n_controls, cast(float, angle), 0.0, 0.0, 0.0)
     if op == "rx":
-        return _controlled_u3_counts(n_controls, angle, -_PI / 2, _PI / 2, 0.0)
+        return _controlled_u3_counts(n_controls, cast(float, angle), -_PI / 2, _PI / 2, 0.0)
     if op == "rz":
-        return _controlled_u3_counts(n_controls, 0.0, 0.0, angle, -angle / 2)
+        return _controlled_u3_counts(n_controls, 0.0, 0.0, cast(float, angle), -cast(float, angle) / 2)
     raise ValidationError(f"资源估计不支持的原始门：{op}")
 
 
@@ -198,56 +247,69 @@ class ResourceEstimate:
     mcx_ancilla: int = 0
 
     @property
-    def toffoli(self):
+    def toffoli(self) -> int:
         """``atoms`` 中的 Toffoli 门总数。"""
         return self.atoms.get("toffoli", 0)
 
     @property
-    def t_exact(self):
+    def t_exact(self) -> int:
         """精确落入 Clifford+T 的 T 与 TDG 门总数（不含待合成旋转的 T 开销）。"""
         return self.atoms.get("t", 0) + self.atoms.get("tdg", 0)
 
     @property
-    def clifford(self):
+    def clifford(self) -> int:
         """``atoms`` 中 ``CLIFFORD_ATOMS`` 所列原子的计数总和。"""
         return sum(self.atoms.get(name, 0) for name in CLIFFORD_ATOMS)
 
     @property
-    def qram_total(self):
+    def qram_total(self) -> int:
         """``qram_queries`` 中全部资源的查询次数总和。"""
         return sum(self.qram_queries.values())
 
     @property
-    def qram_write_total(self):
+    def qram_write_total(self) -> int:
         """``qram_writes`` 中全部资源的随机写次数总和。"""
         return sum(self.qram_writes.values())
 
     @property
-    def gate_total(self):
+    def gate_total(self) -> int:
         """``atoms`` 中全部原子计数的总和（不含 QRAM 查询与写入）。"""
         return sum(self.atoms.values())
 
-    def synthesis_t_per_rotation(self, epsilon=1e-10):
-        "Ross–Selinger 型前导项模型；可整体替换。"
+    def synthesis_t_per_rotation(self, epsilon: float = 1e-10) -> int:
+        """Ross–Selinger 型前导项模型；可整体替换。
+
+        Args:
+            epsilon: 单个旋转的合成精度，取值范围为 (0, 1)。
+
+        Returns:
+            int: 每个待合成旋转的 T 门开销，即 ``ceil(3*log2(1/epsilon))``，至少为 1。
+        """
         return max(1, math.ceil(3 * math.log2(1 / epsilon)))
 
-    def t_synthesis(self, epsilon=1e-10):
+    def t_synthesis(self, epsilon: float = 1e-10) -> int:
         """待合成旋转的总 T 开销：旋转数乘以 ``synthesis_t_per_rotation(epsilon)``。
 
         Args:
             epsilon: 单个旋转的合成精度。
+
+        Returns:
+            int: 全部待合成旋转的 T 门开销估计。
         """
         return len(self.rotations) * self.synthesis_t_per_rotation(epsilon)
 
-    def t_total(self, epsilon=1e-10):
+    def t_total(self, epsilon: float = 1e-10) -> int:
         """精确 T 数与待合成旋转的 T 开销之和（``t_exact + t_synthesis``）。
 
         Args:
             epsilon: 单个旋转的合成精度。
+
+        Returns:
+            int: 精确 T/TDG 计数加上合成 T 开销的总 T 门数。
         """
         return self.t_exact + self.t_synthesis(epsilon)
 
-    def to_dict(self, epsilon=1e-10):
+    def to_dict(self, epsilon: float = 1e-10) -> dict[str, object]:
         """导出 JSON 友好的扁平资源台账。
 
         Args:
@@ -278,15 +340,32 @@ class ResourceEstimate:
         }
 
 
-def estimate_resources(program, *, require_closed=True):
-    "组合式资源估计：按 (module, 控制数) 记忆化，Repeat 符号相乘。"
+def estimate_resources(program: Program, *, require_closed: bool = True) -> ResourceEstimate:
+    """组合式资源估计：按 (module, 控制数) 记忆化，Repeat 符号相乘。
+
+    Args:
+        program: 待估计的 RIR 程序；模块实现须封闭，除非放宽校验。
+        require_closed: 为假时允许保留开放声明模块，默认要求全部封闭。
+
+    Returns:
+        ResourceEstimate: 汇总后的资源台账；量子位数含工作空间，最大控制数
+        决定 ``mcx_ancilla``。
+    """
     program = validate(program, require_closed=require_closed)
     modules = program.module_map
     workspace = workspace_table(program)
-    memo = {}
+    memo: dict[
+        tuple[str, int],
+        tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]],
+    ] = {}
     max_controls = 0
 
-    def merge(total, part, factor=1):
+    def merge(
+        total: tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]],
+        part: tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]],
+        factor: int = 1,
+    ) -> None:
+        """按重复倍数把分段成本累加进总成本台账。"""
         counts, rotations, queries, writes = part
         for atom, n in counts.items():
             total[0][atom] += n * factor
@@ -296,8 +375,15 @@ def estimate_resources(program, *, require_closed=True):
         for resource, n in writes.items():
             total[3][resource] += n * factor
 
-    def primitive_cost(node, n_controls):
+    def primitive_cost(
+        node: Primitive, n_controls: int
+    ) -> tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]]:
+        """计算单条基元指令在给定控制数下的门级成本。"""
         nonlocal max_controls
+        counts: Counter[str]
+        rotations: list[tuple[str, float]]
+        queries: Counter[str]
+        writes: Counter[str]
         counts, rotations, queries, writes = Counter(), [], Counter(), Counter()
         widths = [ref.width for ref in node.operands]
         if node.op in {"xor", "swap"}:
@@ -308,7 +394,7 @@ def estimate_resources(program, *, require_closed=True):
                     counts += mcx_counts(n_controls + 1)
             max_controls = max(max_controls, n_controls + 1)
         elif node.op == "add_const":
-            value = node.value % (1 << widths[0])
+            value = cast(int, node.value) % (1 << widths[0])
             for offset in range(widths[0]):
                 if (value >> offset) & 1:
                     for i in reversed(range(offset + 1, widths[0])):
@@ -316,7 +402,7 @@ def estimate_resources(program, *, require_closed=True):
                         max_controls = max(max_controls, n_controls + (i - offset))
                     counts += mcx_counts(n_controls)
         elif node.op == "gphase":
-            theta = node.angle
+            theta = cast(float, node.angle)
             if n_controls:
                 part, rot = _controlled_u3_counts(n_controls - 1, 0.0, 0.0, theta, 0.0)
                 counts += part
@@ -336,11 +422,21 @@ def estimate_resources(program, *, require_closed=True):
             max_controls = max(max_controls, n_controls)
         return counts, rotations, queries, writes
 
-    def body_cost(nodes, n_controls, n_zeros):
+    def body_cost(
+        nodes: tuple[Instruction, ...], n_controls: int, n_zeros: int
+    ) -> tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]]:
+        """聚合指令体成本，处理零值控制位翻转、重复与模块调用。"""
+        counts: Counter[str]
+        rotations: list[tuple[str, float]]
+        queries: Counter[str]
+        writes: Counter[str]
         counts, rotations, queries, writes = Counter(), [], Counter(), Counter()
         for node in nodes:
             if isinstance(node, Primitive):
-                if n_zeros and not (node.op == "add_const" and not node.value % (1 << node.operands[0].width)):
+                if n_zeros and not (
+                    node.op == "add_const"
+                    and not cast(int, node.value) % (1 << node.operands[0].width)
+                ):
                     counts["x"] += 2 * n_zeros
                 merge((counts, rotations, queries, writes), primitive_cost(node, n_controls))
             elif isinstance(node, Load):
@@ -373,7 +469,10 @@ def estimate_resources(program, *, require_closed=True):
                 merge((counts, rotations, queries, writes), body_cost(node.body, n_controls, n_zeros))
         return counts, rotations, queries, writes
 
-    def module_cost(name, n_controls):
+    def module_cost(
+        name: str, n_controls: int
+    ) -> tuple[Counter[str], list[tuple[str, float]], Counter[str], Counter[str]]:
+        """按 (模块名, 控制数) 记忆化地计算模块体成本。"""
         key = (name, n_controls)
         if key in memo:
             return memo[key]

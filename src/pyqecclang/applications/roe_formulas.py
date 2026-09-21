@@ -1,10 +1,22 @@
 "普通、无副作用的 Roe 数学函数；可经典调用，也可由 compile_function 编译。"
 
+from __future__ import annotations
+
 import math
 
 
-def pick3(index, first, second, third):
-    """按整数索引选取三个值之一，索引不在 0..2 范围时返回 ``0.0``。"""
+def pick3(index: int, first: float, second: float, third: float) -> float:
+    """按整数索引选取三个值之一，索引不在 0..2 范围时返回 ``0.0``。
+
+    Args:
+        index: 选取索引，取 0..2；越界时不选任何分支。
+        first: 索引 0 选中的值。
+        second: 索引 1 选中的值。
+        third: 索引 2 选中的值。
+
+    Returns:
+        float: 被选中的值；索引越界时为 ``0.0``。
+    """
     if index == 0:
         return first
     if index == 1:
@@ -14,7 +26,9 @@ def pick3(index, first, second, third):
     return 0.0
 
 
-def conserved_to_primitive(rho, momentum, energy, gamma):
+def conserved_to_primitive(
+    rho: float, momentum: float, energy: float, gamma: float
+) -> tuple[float, float, float]:
     """把一维 Euler 守恒变量换算为原始变量。
 
     Args:
@@ -32,7 +46,7 @@ def conserved_to_primitive(rho, momentum, energy, gamma):
     return velocity, pressure, enthalpy
 
 
-def euler_entry(velocity, enthalpy, row, col, gamma):
+def euler_entry(velocity: float, enthalpy: float, row: int, col: int, gamma: float) -> float:
     """返回一维 Euler 通量 Jacobi 矩阵的指定元素。
 
     元素只用流速与焓表示；行、列索引与守恒变量 ``(rho, momentum, energy)``
@@ -60,7 +74,7 @@ def euler_entry(velocity, enthalpy, row, col, gamma):
     return pick3(row, first, second, third)
 
 
-def entropy_absolute(eigenvalue, delta):
+def entropy_absolute(eigenvalue: float, delta: float) -> float:
     """带 Harten 熵修正的特征值绝对值。
 
     ``delta`` 为正且特征值绝对值小于它时，返回平滑值
@@ -81,7 +95,18 @@ def entropy_absolute(eigenvalue, delta):
     return (eigenvalue * eigenvalue + delta * delta) / (2 * delta)
 
 
-def frozen_roe_face(rho_l, m_l, e_l, rho_r, m_r, e_r, row, col, gamma=1.4, entropy_delta=0.125):
+def frozen_roe_face(
+    rho_l: float,
+    m_l: float,
+    e_l: float,
+    rho_r: float,
+    m_r: float,
+    e_r: float,
+    row: int,
+    col: int,
+    gamma: float = 1.4,
+    entropy_delta: float = 0.125,
+) -> tuple[float, float]:
     """计算 frozen-Roe 左右系数矩阵在指定行列处的元素。
 
     由左右守恒状态做 Roe 平均得到平均流速与焓；特征值 ``u-c``、``u``、

@@ -9,7 +9,9 @@ import hashlib
 import inspect
 import math
 import textwrap
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import NoReturn, cast
 
 from pyqecclang.infrastructure.ir import ValidationError
 from pyqecclang.infrastructure.mathfunc.graph import (
@@ -76,8 +78,8 @@ class Source:
         namespace: 解析名字引用时使用的全局与闭包变量映射。
     """
 
-    tree: object
-    namespace: dict
+    tree: ast.FunctionDef
+    namespace: dict[str, object]
 
 
 class Frontend:
@@ -100,11 +102,22 @@ class Frontend:
     """
 
     def __init__(
-        self, source, *, inputs=None, constants=None, helpers=None, max_unroll=128, entry=None
-    ):
+        self,
+        source: str | Callable[..., object] | Source,
+        *,
+        inputs: Mapping[str, Index | type | str] | None = None,
+        constants: Mapping[str, bool | int | float | complex] | None = None,
+        helpers: Mapping[str, Callable[..., object]] | None = None,
+        max_unroll: int = 128,
+        entry: str | None = None,
+    ) -> None:
+        """解析入口源并初始化函数表、编译缓存与活动栈。"""
+        self.functions: dict[str, MathFunction]
+        self.cache: dict[tuple, str]
+        self.active: set[tuple]
         self.functions, self.cache, self.active = {}, {}, set()
-        self.max_unroll = max_unroll
-        self.sources = {}
+        self.max_unroll: int = max_unroll
+        self.sources: dict[str, Source] = {}
         if isinstance(source, str):
             try:
                 tree = ast.parse(textwrap.dedent(source))
@@ -112,7 +125,7 @@ class Frontend:
                 raise FunctionCompileError(
                     f"Python 语法错误，第 {exc.lineno} 行：{exc.msg}"
                 ) from exc
-            ns = {"math": math, "cmath": cmath}
+            ns: dict[str, object] = {"math": math, "cmath": cmath}
             for stmt in tree.body:
                 if (
                     isinstance(stmt, ast.Expr)
@@ -132,14 +145,14 @@ class Frontend:
                 ns[key] = value
             if entry is not None and entry not in self.sources:
                 raise FunctionCompileError("源码中没有入口函数：" + entry)
-            entry = self.sources[entry] if entry is not None else list(self.sources.values())[-1]
+            entry = self.sources[entry] if entry is not None else list(self.sources.values())[-1]  # type: ignore[assignment]
         else:
-            entry = self.source(source)
+            entry = self.source(source)  # type: ignore[assignment]
         if helpers:
-            entry.namespace.update(helpers)
-        self.entry = self.compile(entry, inputs, constants or {})
+            cast(Source, entry).namespace.update(helpers)
+        self.entry: str = self.compile(cast(Source, entry), inputs, constants or {})
 
-    def source(self, function):
+    def source(self, function: object) -> Source:
         """把函数对象或 Source 归一化为定位记录。
 
         读取 ``function`` 的源码并唯一定位同名 def，结合其全局变量与
@@ -173,7 +186,7 @@ class Frontend:
         return Source(definitions[0], {**function.__globals__, **closure.nonlocals})
 
     @staticmethod
-    def imports(stmt, namespace):
+    def imports(stmt: ast.Import | ast.ImportFrom, namespace: dict[str, object]) -> None:
         """处理一条 math/cmath 导入语句并写入命名空间。
 
         Args:
@@ -197,19 +210,27 @@ class Frontend:
                     raise FunctionCompileError("未支持的数学导入：" + alias.name)
                 namespace[alias.asname or alias.name] = getattr(module, alias.name)
 
-    def fail(self, node, message):
+    def fail(self, node: ast.AST, message: str) -> NoReturn:
         """抛出带源码位置的错误。
 
         Args:
             node: 出错位置对应的 AST 节点；无位置信息时以问号代替行号。
             message: 错误说明。
 
+        Returns:
+            NoReturn: 不返回；总是以抛出 ``FunctionCompileError`` 结束。
+
         Raises:
             FunctionCompileError: 总是抛出，消息带当前函数标签与行号前缀。
         """
         raise FunctionCompileError(f"{self.label}:{getattr(node, 'lineno', '?')}：{message}")
 
-    def compile(self, source, inputs=None, constants=None):
+    def compile(
+        self,
+        source: Callable[..., object] | Source,
+        inputs: Mapping[str, Index | type | str] | None = None,
+        constants: Mapping[str, bool | int | float | complex] | None = None,
+    ) -> str:
         """编译一个函数定义为 MIR 并返回其符号名。
 
         推导动态输入类型，把函数体解释为 SSA 节点序列，并按 AST、输入、
@@ -253,14 +274,14 @@ class Frontend:
             raise FunctionCompileError("参数不能同时为动态输入和生成期常量")
         if set(inputs) - {p.arg for p in parameters}:
             raise FunctionCompileError("inputs 包含未知参数")
-        dynamic = []
+        dynamic: list[Parameter] = []
         for p in parameters:
             if p.arg in inputs:
-                spec = inputs[p.arg]
+                spec: Index | type | str | Parameter = inputs[p.arg]
                 if isinstance(spec, Index):
                     dynamic.append(Parameter(p.arg, "index", spec.width))
                 else:
-                    kind = KINDS.get(getattr(spec, "__name__", spec), spec)
+                    kind = KINDS.get(getattr(spec, "__name__", spec), spec)  # type: ignore[arg-type]
                     if kind not in {"real", "complex", "bool"}:
                         raise FunctionCompileError("输入类型应为 real/complex/bool 或 Index(width)")
                     dynamic.append(Parameter(p.arg, kind))
@@ -284,10 +305,14 @@ class Frontend:
             raise FunctionCompileError("不支持递归 helper：" + tree.name)
         self.active.add(marker)
         saved = {k: getattr(self, k, None) for k in ("nodes", "intern", "namespace", "label")}
+        self.nodes: list[MathNode]
+        self.intern: dict[MathNode, int]
+        self.namespace: dict[str, object]
+        self.label: str
         self.nodes, self.intern = [], {}
         self.namespace = {**source.namespace, **constants}
         self.label = tree.name
-        env = {}
+        env: dict[str, Value | tuple[Value, ...]] = {}
         try:
             for p in parameters:
                 if p.arg in inputs:
@@ -320,7 +345,13 @@ class Frontend:
             self.active.remove(marker)
         return symbol
 
-    def node(self, op, kind, args=(), data=()):
+    def node(
+        self,
+        op: str,
+        kind: str,
+        args: Sequence[Value] = (),
+        data: Sequence[bool | int | float | str] = (),
+    ) -> Value:
         """构造（或复用）一个 SSA 节点并返回其值。
 
         操作、类型、输入与 data 都相同的节点在当前函数内只保留一份。
@@ -341,7 +372,7 @@ class Frontend:
             self.nodes.append(key)
         return Value(self.intern[key], kind)
 
-    def constant(self, value, node):
+    def constant(self, value: bool | int | float | complex, node: ast.AST) -> Value:
         """把一个有限数值固化为 const 节点。
 
         Args:
@@ -360,10 +391,14 @@ class Frontend:
             self.fail(node, "固定点不表示 NaN/Inf")
         kind = "bool" if type(value) is bool else "complex" if type(value) is complex else "real"
         return self.node(
-            "const", kind, data=(value.real, value.imag) if kind == "complex" else (value,)
+            "const",
+            kind,
+            data=(value.real, value.imag)
+            if kind == "complex"
+            else (cast("bool | int | float", value),),
         )
 
-    def literal(self, value, node):
+    def literal(self, value: Value | tuple[Value, ...], node: ast.AST) -> bool | int | float | complex:
         """取出编译期常量节点承载的 Python 数值。
 
         Args:
@@ -381,7 +416,9 @@ class Frontend:
             return complex(*data) if value.kind == "complex" else data[0]
         self.fail(node, "这里需要生成期数值常量")
 
-    def binary(self, op, a, b, node):
+    def binary(
+        self, op: str, a: Value | tuple[Value, ...], b: Value | tuple[Value, ...], node: ast.AST
+    ) -> Value:
         """构造二元运算节点并推导结果类型。
 
         算术在 real/complex 间按提升规则定型，比较与布尔运算产出 bool；
@@ -415,13 +452,13 @@ class Frontend:
             kind = "complex" if "complex" in (a.kind, b.kind) else "real"
         if self.nodes[a.id].op == "const" and self.nodes[b.id].op == "const":
             av, bv = self.literal(a, node), self.literal(b, node)
-            functions = {
+            functions: dict[str, Callable[[], bool | int | float | complex]] = {
                 "add": lambda: av + bv,
                 "sub": lambda: av - bv,
                 "mul": lambda: av * bv,
                 "div": lambda: av / bv,
                 "pow": lambda: av**bv,
-                "lt": lambda: av < bv,
+                "lt": lambda: cast("bool | int | float", av) < cast("bool | int | float", bv),
                 "eq": lambda: av == bv,
                 "and": lambda: av and bv,
                 "or": lambda: av or bv,
@@ -432,7 +469,13 @@ class Frontend:
                 self.fail(node, "常量表达式无定义：" + str(exc))
         return self.node(op, kind, (a, b))
 
-    def choose(self, test, yes, no, node):
+    def choose(
+        self,
+        test: Value | tuple[Value, ...],
+        yes: Value | tuple[Value, ...],
+        no: Value | tuple[Value, ...],
+        node: ast.AST,
+    ) -> Value | tuple[Value, ...]:
         """构造按布尔条件选择分支值的 select 节点。
 
         分支为 tuple 时逐元素选择；real 与 complex 分支按提升规则统一类型。
@@ -452,7 +495,7 @@ class Frontend:
         if not isinstance(test, Value) or test.kind != "bool":
             self.fail(node, "量子条件必须是布尔表达式")
         if isinstance(yes, tuple) and isinstance(no, tuple) and len(yes) == len(no):
-            return tuple(self.choose(test, a, b, node) for a, b in zip(yes, no, strict=True))
+            return tuple(cast(Value, self.choose(test, a, b, node)) for a, b in zip(yes, no, strict=True))
         if not isinstance(yes, Value) or not isinstance(no, Value):
             self.fail(node, "分支返回/赋值结构不一致")
         if {yes.kind, no.kind} <= {"real", "complex"}:
@@ -463,7 +506,9 @@ class Frontend:
             self.fail(node, "分支类型不一致")
         return self.node("select", kind, (test, yes, no))
 
-    def expr(self, node, env):
+    def expr(
+        self, node: ast.expr, env: dict[str, Value | tuple[Value, ...]]
+    ) -> Value | tuple[Value, ...]:
         """把一个表达式 AST 解释为编译期值。
 
         支持常量、名字、tuple/list、生成期 tuple 下标、math/cmath 常数
@@ -480,14 +525,14 @@ class Frontend:
             FunctionCompileError: 表达式超出受限子集。
         """
         if isinstance(node, ast.Constant):
-            return self.constant(node.value, node)
+            return self.constant(node.value, node)  # type: ignore[arg-type]
         if isinstance(node, ast.Name):
             if node.id in env:
                 return env[node.id]
             value = self.namespace.get(node.id)
-            return self.constant(value, node)
+            return self.constant(value, node)  # type: ignore[arg-type]
         if isinstance(node, (ast.Tuple, ast.List)):
-            return tuple(self.expr(x, env) for x in node.elts)
+            return tuple(self.expr(x, env) for x in node.elts)  # type: ignore[misc]
         if isinstance(node, ast.Subscript):
             value = self.expr(node.value, env)
             index = self.literal(self.expr(node.slice, env), node)
@@ -532,14 +577,14 @@ class Frontend:
             if isinstance(node.op, ast.UAdd):
                 return value
             if isinstance(node.op, ast.USub):
-                if self.nodes[value.id].op == "const":
+                if self.nodes[cast(Value, value).id].op == "const":
                     return self.constant(-self.literal(value, node), node)
-                return self.node("neg", value.kind, (value,))
-            if isinstance(node.op, ast.Not) and value.kind == "bool":
-                return self.node("not", "bool", (value,))
+                return self.node("neg", cast(Value, value).kind, (cast(Value, value),))
+            if isinstance(node.op, ast.Not) and cast(Value, value).kind == "bool":
+                return self.node("not", "bool", (cast(Value, value),))
             self.fail(node, "未支持的单目运算")
         if isinstance(node, ast.Compare):
-            pairs = []
+            pairs: list[Value] = []
             left = self.expr(node.left, env)
             for operator, right_node in zip(node.ops, node.comparators, strict=True):
                 right = self.expr(right_node, env)
@@ -555,9 +600,9 @@ class Frontend:
                     test = self.node("not", "bool", (test,))
                 pairs.append(test)
                 left = right
-            result = pairs[0]
+            result: Value | tuple[Value, ...] = pairs[0]
             for test in pairs[1:]:
-                result = self.node("and", "bool", (result, test))
+                result = self.node("and", "bool", (cast(Value, result), test))
             return result
         if isinstance(node, ast.BoolOp):
             values = [self.expr(v, env) for v in node.values]
@@ -581,7 +626,9 @@ class Frontend:
             return self.call(node, env)
         self.fail(node, "未支持的表达式：" + type(node).__name__)
 
-    def call(self, node, env):
+    def call(
+        self, node: ast.Call, env: dict[str, Value | tuple[Value, ...]]
+    ) -> Value | tuple[Value, ...]:
         """解释函数调用表达式。
 
         处理 ``conjugate`` 方法、具名纯 helper 调用、白名单内建
@@ -605,8 +652,8 @@ class Frontend:
             and not node.keywords
         ):
             value = self.expr(node.func.value, env)
-            return self.node("conj", value.kind, (value,))
-        module = None
+            return self.node("conj", cast(Value, value).kind, (cast(Value, value),))
+        module: object | None = None
         if isinstance(node.func, ast.Name):
             symbol = node.func.id
             target = self.namespace.get(symbol, getattr(builtins, symbol, None))
@@ -634,12 +681,12 @@ class Frontend:
             actual = dict(zip(names, args, strict=False))
             if set(actual) & set(kwargs) or set(kwargs) - set(names):
                 self.fail(node, "helper 参数重复或未知")
-            actual.update(kwargs)
+            actual.update(kwargs)  # type: ignore[arg-type]
             if any(not isinstance(x, Value) for x in actual.values()):
                 self.fail(node, "helper 参数必须为标量")
-            key = self.compile(source, {k: v.kind for k, v in actual.items()})
+            key = self.compile(source, {k: cast(Value, v).kind for k, v in actual.items()})
             child = self.functions[key]
-            ordered = tuple(actual[p.name] for p in child.parameters)
+            ordered = tuple(cast(Value, actual[p.name]) for p in child.parameters)
             values = tuple(
                 self.node("call", child.nodes[ret].kind, ordered, (key, i))
                 for i, ret in enumerate(child.returns)
@@ -651,10 +698,13 @@ class Frontend:
             return self.node(
                 "complex",
                 "complex",
-                (args[0], args[1] if len(args) > 1 else self.constant(0, node)),
+                (
+                    cast(Value, args[0]),
+                    cast(Value, args[1]) if len(args) > 1 else self.constant(0, node),
+                ),
             )
         if symbol == "abs" and module is None and len(args) == 1:
-            return self.node("abs", "real", args)
+            return self.node("abs", "real", cast("list[Value]", args))
         if symbol in {"min", "max"} and module is None and len(args) >= 2:
             result = args[0]
             for other in args[1:]:
@@ -676,19 +726,24 @@ class Frontend:
             not isinstance(x, Value) or x.kind == "bool" for x in args
         ):
             self.fail(node, "数学函数参数数目/类型无效")
-        if module is math and any(x.kind == "complex" for x in args):
+        if module is math and any(cast(Value, x).kind == "complex" for x in args):
             self.fail(node, "math 接口不接收复数；请使用 cmath")
         if symbol == "polar":
             return (
-                self.node("abs", "real", args),
-                self.node("intrinsic", "real", args, ("phase",)),
+                self.node("abs", "real", cast("list[Value]", args)),
+                self.node("intrinsic", "real", cast("list[Value]", args), ("phase",)),
             )
-        if symbol in {"atan2", "hypot", "rect"} and any(x.kind != "real" for x in args):
+        if symbol in {"atan2", "hypot", "rect"} and any(cast(Value, x).kind != "real" for x in args):
             self.fail(node, "此数学函数要求实数参数")
         kind = "real" if symbol in {"phase", "atan2", "hypot"} or module is math else "complex"
-        return self.node("intrinsic", kind, args, (symbol,))
+        return self.node("intrinsic", kind, cast("list[Value]", args), (symbol,))
 
-    def assign(self, target, value, env):
+    def assign(
+        self,
+        target: ast.expr,
+        value: Value | tuple[Value, ...],
+        env: dict[str, Value | tuple[Value, ...]],
+    ) -> None:
         """把一个值绑定到赋值目标。
 
         支持单个局部名字与 tuple/list 解包，禁止属性等突变目标。
@@ -713,7 +768,9 @@ class Frontend:
         else:
             self.fail(target, "只允许局部名字赋值或 tuple 解包，禁止对象突变")
 
-    def statements(self, body, env):
+    def statements(
+        self, body: list[ast.stmt], env: dict[str, Value | tuple[Value, ...]]
+    ) -> tuple[dict[str, Value | tuple[Value, ...]], Value | tuple[Value, ...] | None]:
         """顺序解释一个语句块，返回执行后的环境与返回值。
 
         支持 return、赋值/解包、增量赋值、导入、结构化 if（两分支的环境
@@ -738,9 +795,9 @@ class Frontend:
             ):
                 continue
             if isinstance(node, ast.Return):
-                return env, self.expr(node.value, env)
+                return env, self.expr(node.value, env)  # type: ignore[arg-type]
             if isinstance(node, (ast.Assign, ast.AnnAssign)):
-                value = self.expr(node.value, env)
+                value = self.expr(node.value, env)  # type: ignore[arg-type]
                 for target in node.targets if isinstance(node, ast.Assign) else (node.target,):
                     self.assign(target, value, env)
             elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
@@ -775,7 +832,7 @@ class Frontend:
                 values = [self.literal(self.expr(arg, env), node) for arg in node.iter.args]
                 if any(type(v) is not int for v in values):
                     self.fail(node, "range 边界必须为整数生成参数")
-                indices = range(*values)
+                indices = range(*cast("list[int]", values))
                 if len(indices) > self.max_unroll:
                     self.fail(node, "静态循环超过展开上限")
                 for j in indices:
@@ -787,7 +844,7 @@ class Frontend:
                 self.fail(node, "禁止副作用或未支持的语句：" + type(node).__name__)
         return env, None
 
-    def program(self):
+    def program(self) -> MathProgram:
         """汇总编译结果并返回经校验的 MIR 程序。
 
         Returns:

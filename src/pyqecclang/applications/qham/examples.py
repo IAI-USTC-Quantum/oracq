@@ -3,7 +3,7 @@
 from pyqecclang.applications.qham.pde import Field, Known, PolynomialPDE
 
 
-def example_pde(name):
+def example_pde(name: str) -> PolynomialPDE:
     """按名字返回内置的示例 PDE。
 
     可用案例为 ``burgers``、``kdv``、``reaction``、``coupled`` 和

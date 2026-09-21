@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from pyqecclang.algorithms.common.arithmetic import FixedFormat
-from pyqecclang.algorithms.input_model.operators import _name
+from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name
 from pyqecclang.algorithms.input_model.oracles import (
     SparseAccess,
     StatePreparation,
+    XorDatabase,
     abstract_database,
     abstract_state_prep,
     annotate,
@@ -19,9 +21,11 @@ from pyqecclang.algorithms.input_model.oracles import (
     resources_for,
 )
 from pyqecclang.algorithms.input_model.sparse import compare_words, value_transposition
-from pyqecclang.applications.roe import ArithmeticBuilder, roe_face
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Adjoint, Bits, ValidationError, fuse
+from pyqecclang.algorithms.qlss.qlss import LinearSystem, QLSSProtocol, SolveResult, SpectralPromise
+from pyqecclang.applications.flow_data import RoeFlowData
+from pyqecclang.applications.roe import ArithmeticBuilder, Word, roe_face
+from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.ir import Adjoint, Bits, Program, Ref, ValidationError, fuse
 from pyqecclang.infrastructure.linking import Binding, bind
 
 
@@ -48,26 +52,32 @@ class RoeQfvmInputs:
     cell_width: int
     fmt: FixedFormat
     angle_width: int
-    rho: object
-    momentum: object
-    energy: object
-    geometry: object
-    theta: object
+    rho: XorDatabase
+    momentum: XorDatabase
+    energy: XorDatabase
+    geometry: XorDatabase
+    theta: XorDatabase
     rhs: StatePreparation
-    residual: object
+    residual: XorDatabase
 
     @property
-    def width(self):
+    def width(self) -> int:
         """完整矩阵坐标位宽：2 位分量 + cell_width 位单元 + 1 位扩张半块标志。"""
         return self.cell_width + 3
 
     @property
-    def geometry_width(self):
+    def geometry_width(self) -> int:
         """几何表字位宽：对手坐标、对称槽位、源单元、行/列分量、源带与有效位七段打包。"""
         return self.width + 4 + self.cell_width + 2 + 2 + 2 + 1
 
 
-def roe_qfvm_inputs(*, cell_width=2, fmt=None, angle_width=8, prefix="RoeQfvm"):
+def roe_qfvm_inputs(
+    *,
+    cell_width: int = 2,
+    fmt: FixedFormat | None = None,
+    angle_width: int = 8,
+    prefix: str = "RoeQfvm",
+) -> RoeQfvmInputs:
     """声明 QFVM 的整套抽象输入槽位：六个数据库加一个 RHS 态制备。
 
     返回的全是开放槽位，尚无数据；数据到绑定（``bind_qfvm``）与执行期
@@ -105,10 +115,19 @@ def roe_qfvm_inputs(*, cell_width=2, fmt=None, angle_width=8, prefix="RoeQfvm"):
     )
 
 
-def geometry_cells(inputs):
-    """只编码稀疏位置与原始数据索引，不含任何流场矩阵值。"""
+def geometry_cells(inputs: RoeQfvmInputs) -> dict[int, int]:
+    """只编码稀疏位置与原始数据索引，不含任何流场矩阵值。
+
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，决定坐标位宽与几何表布局。
+
+    Returns:
+        dict[int, int]: 几何表内容；地址为矩阵坐标拼 4 位槽位编号，值为
+        对手坐标、反向槽位、源单元、行/列分量、源带与有效位的七段打包字。
+    """
     cw, w = inputs.cell_width, inputs.width
-    n, table = 1 << cw, {}
+    n = 1 << cw
+    table: dict[int, int] = {}
     for row in range(1 << w):
         cell, var, half = (row >> 2) % n, row % 4, row >> (cw + 2)
         for slot in range(16):
@@ -138,7 +157,7 @@ def geometry_cells(inputs):
     return table
 
 
-def ptheta_cells(fmt, angle_width, amax):
+def ptheta_cells(fmt: FixedFormat, angle_width: int, amax: float) -> dict[int, int]:
     """生成 theta 表：残差值定点字到旋转角字 ``2*acos(min(1, |v|/amax))`` 的换算。
 
     Args:
@@ -163,7 +182,14 @@ def ptheta_cells(fmt, angle_width, amax):
     }
 
 
-def roe_entry(inputs, *, gamma=1.4, entropy_delta=0.125, mass=1.0, dx=1.0):
+def roe_entry(
+    inputs: RoeQfvmInputs,
+    *,
+    gamma: float = 1.4,
+    entropy_delta: float = 0.125,
+    mass: float = 1.0,
+    dx: float = 1.0,
+) -> Operation:
     """构造单个 Roe 矩阵元的可逆算术电路（不含稀疏寻址）。
 
     对 ``source`` 及其左右邻居单元各查询三个守恒量库（周期边界回绕），
@@ -208,25 +234,26 @@ def roe_entry(inputs, *, gamma=1.4, entropy_delta=0.125, mass=1.0, dx=1.0):
         },
     )
     g = ArithmeticBuilder(b, fmt)
-    addresses, words = [], []
+    addresses: list[Ref] = []
+    words: list[list[Ref]] = []
     for offset in (-1, 0, 1):
         addr = g.local(cw)
         b.xor(b["source"], addr)
         b.add_const(addr.reinterpret("uint"), offset % (1 << cw))
         addresses.append(addr)
-        state = []
+        state: list[Ref] = []
         for name, op in fields:
             word = g.local()
             invoke(b, op, name, address=addr, data=word)
             state.append(word)
         words.append(state)
     face = roe_face(fmt=fmt, gamma=gamma, entropy_delta=entropy_delta)
-    faces = []
+    faces: list[tuple[Word, Word]] = []
     for i in range(2):
         left, right, flag = g.local(), g.local(), g.local(2)
         b.call(
             face,
-            **dict(
+            **dict(  # type: ignore[arg-type]  # 动态关键字分发：mypy 无法排除 resources 形参
                 zip(
                     ("rho_l", "m_l", "e_l", "rho_r", "m_r", "e_r"),
                     words[i] + words[i + 1],
@@ -256,17 +283,35 @@ def roe_entry(inputs, *, gamma=1.4, entropy_delta=0.125, mass=1.0, dx=1.0):
     return g.finish([(b["value"], value)], b["status"])
 
 
-def _geometry_refs(ref, inputs):
+def _geometry_refs(ref: Ref, inputs: RoeQfvmInputs) -> list[Ref]:
+    """按声明宽度把几何表字切分为七段连续视图。"""
     sizes = (inputs.width, 4, inputs.cell_width, 2, 2, 2, 1)
-    refs, offset = [], 0
+    refs: list[Ref] = []
+    offset = 0
     for size in sizes:
         refs.append(ref[offset : offset + size])
         offset += size
     return refs
 
 
-def roe_qfvm_block_encoding(inputs, *, amax=8.0, padding_value=1.0, **entry_options):
-    """显式从稀疏输入转换到 BE；QFVM 本身不再强制只暴露 BE。"""
+def roe_qfvm_block_encoding(
+    inputs: RoeQfvmInputs,
+    *,
+    amax: float = 8.0,
+    padding_value: float = 1.0,
+    **entry_options: float,
+) -> BlockEncoding:
+    """显式从稀疏输入转换到 BE；QFVM 本身不再强制只暴露 BE。
+
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
+        amax: 稀疏元素的幅值上界，作为块编码的缩放参数。
+        padding_value: 补齐对角值，须为正且不超过 ``amax``。
+        **entry_options: 透传给 ``roe_entry`` 的算术选项（gamma、mass 等）。
+
+    Returns:
+        BlockEncoding: Roe 矩阵 Hermitian 扩张的实对称稀疏块编码。
+    """
     from pyqecclang.algorithms.input_model.sparse import real_symmetric_sparse_encoding
 
     if not 0 < padding_value <= amax:
@@ -275,12 +320,15 @@ def roe_qfvm_block_encoding(inputs, *, amax=8.0, padding_value=1.0, **entry_opti
     return real_symmetric_sparse_encoding(access, inputs.fmt, amax, diagonal_nonnegative=True)
 
 
-def rhs_qram_preparation(inputs):
+def rhs_qram_preparation(inputs: RoeQfvmInputs) -> StatePreparation:
     """构造归一化残差态的 QRAM 制备：幅度取自平方范数树，符号经相位反冲写入。
 
     幅度由 ``qram_state_prep`` 按层查询 ``rhs_angles`` 角字 bank 得到；
     符号用一位 ``rhs_sign`` bank 经 Load、Z 与反 Load 把负残差分量变成
     pi 相位。输入为零态，work 复净。
+
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，坐标与角字位宽取自其中。
 
     Returns:
         StatePreparation: target 为完整矩阵坐标（cell_width+3 位），幅度
@@ -303,7 +351,7 @@ def rhs_qram_preparation(inputs):
     return StatePreparation(annotate(b.finish(), "state_prep_isometry", zero_input=True))
 
 
-def qram_bindings(inputs):
+def qram_bindings(inputs: RoeQfvmInputs) -> dict[str, Binding]:
     """给出 QFVM 抽象槽位到 QRAM 实现的完整绑定映射。
 
     三个守恒量库、几何表与 theta 表绑定 ``qram_database`` 实际库（table
@@ -311,10 +359,13 @@ def qram_bindings(inputs):
     （rhs_values）；RHS 制备槽绑定 ``rhs_qram_preparation`` 电路（角字与
     符号资源分别映射到 rhs_angles 与 rhs_sign）。
 
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，提供全部待绑定抽象槽位。
+
     Returns:
         dict: 抽象槽位模块名到 ``Binding`` 的映射，可直接交给 ``bind``。
     """
-    mapping = {}
+    mapping: dict[str, Binding] = {}
     for key in ("rho", "momentum", "energy", "geometry", "theta"):
         db = getattr(inputs, key)
         actual = qram_database(db.address_width, db.data_width, name="RoeMemory_" + key)
@@ -332,7 +383,7 @@ def qram_bindings(inputs):
     return mapping
 
 
-def bind_qfvm(program, inputs):
+def bind_qfvm(program: Program, inputs: RoeQfvmInputs) -> Program:
     """把程序中尚未解析的 QFVM 抽象槽位绑定到 QRAM 实现与符号残差树制备。
 
     Args:
@@ -348,7 +399,9 @@ def bind_qfvm(program, inputs):
     return bind(program, {k: v for k, v in qram_bindings(inputs).items() if k in missing})
 
 
-def qfvm_memories(inputs, flow, *, amax=8.0):
+def qfvm_memories(
+    inputs: RoeQfvmInputs, flow: RoeFlowData, *, amax: float = 8.0
+) -> Mapping[str, Sequence[int] | Mapping[int, int]]:
     """物化 QFVM 路径的运行时内存表：流场快照加静态几何表与 theta 表。
 
     Args:
@@ -376,9 +429,28 @@ def qfvm_memories(inputs, flow, *, amax=8.0):
 
 
 def roe_qfvm_problem(
-    inputs, *, spectrum, rhs_norm=None, amax=8.0, padding_value=1.0, **entry_options
-):
-    """D=([[0,M],[M.T,0]] on physical coordinates) + padding_value*I_pad。"""
+    inputs: RoeQfvmInputs,
+    *,
+    spectrum: SpectralPromise,
+    rhs_norm: float | None = None,
+    amax: float = 8.0,
+    padding_value: float = 1.0,
+    **entry_options: float,
+) -> LinearSystem:
+    """D=([[0,M],[M.T,0]] on physical coordinates) + padding_value*I_pad。
+
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
+        spectrum: 覆盖量化后 Roe 矩阵谱界的 ``SpectralPromise``，必填。
+        rhs_norm: 经典右端范数；提供后方能恢复解的物理幅值。
+        amax: 稀疏元素的幅值上界。
+        padding_value: 补齐对角值，须为正且不超过 ``amax``。
+        **entry_options: 透传给 ``roe_entry`` 的算术选项（gamma、mass 等）。
+
+    Returns:
+        LinearSystem: 由稀疏访问、残差制备与并入补齐值的扩展谱界组成的
+        QLSS 线性系统。
+    """
     from pyqecclang.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
 
     if not 0 < padding_value <= amax:
@@ -415,7 +487,14 @@ def roe_qfvm_problem(
     )
 
 
-def roe_qfvm_step(inputs, qlss, *, spectrum=None, rhs_norm=None, **options):
+def roe_qfvm_step(
+    inputs: RoeQfvmInputs,
+    qlss: QLSSProtocol,
+    *,
+    spectrum: SpectralPromise | None = None,
+    rhs_norm: float | None = None,
+    **options: float,
+) -> SolveResult:
     """把 QFVM 问题交给可替换的 QLSS 协议求解。
 
     Args:
@@ -447,7 +526,9 @@ def roe_qfvm_step(inputs, qlss, *, spectrum=None, rhs_norm=None, **options):
     return qlss.solve(roe_qfvm_problem(inputs, spectrum=spectrum, rhs_norm=rhs_norm, **options))
 
 
-def qfvm_sparse_access(inputs, *, padding_value=1.0, **entry_options):
+def qfvm_sparse_access(
+    inputs: RoeQfvmInputs, *, padding_value: float = 1.0, **entry_options: float
+) -> SparseAccess:
     """构造 QFVM 的 CKS 稀疏访问：原地位置置换与任意坐标矩阵元 XOR 两个 oracle。
 
     位置 oracle 查询每列的九个结构槽位，经九次相干值转置补全为完整置换；
@@ -485,7 +566,8 @@ def qfvm_sparse_access(inputs, *, padding_value=1.0, **entry_options):
             "construction": "nine coherent transpositions",
         },
     )
-    neighbors, lefts = [], []
+    neighbors: list[Ref] = []
+    lefts: list[Ref] = []
     for rank in range(9):
         slot = locator.local("slot_" + str(rank), Bits(4))
         data = locator.local("geometry_" + str(rank), Bits(inputs.geometry_width))

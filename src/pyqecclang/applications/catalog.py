@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, cast
 
 from pyqecclang.algorithms.basics.oracle_algorithms import deutsch_jozsa
 from pyqecclang.algorithms.common.estimation import phase_estimation
@@ -20,8 +22,11 @@ from pyqecclang.algorithms.input_model.block_encoding import (
     pad_signal,
     tensor,
 )
-from pyqecclang.algorithms.input_model.operators import identity, pauli_x
+from pyqecclang.algorithms.input_model.operators import BlockEncoding, identity, pauli_x
 from pyqecclang.algorithms.input_model.oracles import (
+    StateOracle,
+    StatePreparation,
+    XorDatabase,
     abstract_block_encoding,
     abstract_database,
     abstract_sparse_access,
@@ -56,10 +61,13 @@ from pyqecclang.applications.legacy import (
     qham_lift_m1,
     qham_m1,
 )
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, Program
 from pyqecclang.infrastructure.linking import Binding, bind
 from pyqecclang.infrastructure.readout import ReadoutAction
+
+if TYPE_CHECKING:
+    from pyqecclang.infrastructure.backends import OriginIRArtifact
 
 
 @dataclass(frozen=True)
@@ -78,17 +86,21 @@ class Case:
 
     name: str
     program: Program
-    bindings: dict = field(default_factory=dict)
-    memory: dict = field(default_factory=dict)
+    bindings: dict[str, Binding | Operation] = field(default_factory=dict)
+    memory: dict[str, list[int] | dict[int, int]] = field(default_factory=dict)
     source: tuple[str, ...] = ()
     notes: tuple[str, ...] = ()
     readout: tuple[ReadoutAction, ...] = ()
 
-    def closed(self):
-        """按 ``bindings`` 绑定 ``program`` 的开放槽位，返回闭合后的 ``Program``。"""
+    def closed(self) -> Program:
+        """按 ``bindings`` 绑定 ``program`` 的开放槽位，返回闭合后的 ``Program``。
+
+        Returns:
+            Program: 各开放槽位替换为绑定实现后的闭合程序。
+        """
         return bind(self.program, self.bindings)
 
-    def artifact(self):
+    def artifact(self) -> OriginIRArtifact:
         """导出闭合程序的 OriginIR 产物。
 
         Returns:
@@ -144,14 +156,15 @@ CASES = (
 """
 
 
-def _sparse_case(name):
+def _sparse_case(name: str) -> Case:
+    """构造稀疏访问案例；``costa`` 前缀时再叠加 Costa QLSS 求解组装。"""
     access = abstract_sparse_access("Sparse", 1, 2, 2)
     amplitude = declare(
         "SparseAmplitude", {"value": Bits(2), "amplitude": Bits(1)}, paradigm="reversible_function"
     )
     a = sparse_block_encoding(access, amplitude)
-    binding = {"SparseAmplitude": word_rotation(2)}
-    memory = {}
+    binding: dict[str, Binding | Operation] = {"SparseAmplitude": word_rotation(2)}
+    memory: dict[str, list[int] | dict[int, int]] = {}
     if name.endswith("qram"):
         binding["Sparse_position"] = Binding(
             sparse_location_qram(1), {"forward": "positions", "inverse": "inverse_positions"}
@@ -183,10 +196,16 @@ def _sparse_case(name):
     )
 
 
-def _qfvm_case(name):
+def _qfvm_case(name: str) -> Case:
+    """构造 QFVM 范式案例；``qram`` 后缀把各数据库槽位绑定到宿主内存表。"""
     inputs = qfvm_inputs()
-    state = qfvm_step(inputs, make_costa_qlss(CostaConfig(steps=1)))
-    bindings, memory = {}, {}
+    # QLSSProtocol.__call__ 在 algorithms 侧标注宽松（*args -> SolveResult | StateOracle），
+    # 此处按 qfvm_step 的协议用法收窄为求解回调。
+    state = qfvm_step(
+        inputs, cast("Callable[..., StateOracle]", make_costa_qlss(CostaConfig(steps=1)))
+    )
+    bindings: dict[str, Binding | Operation] = {}
+    memory: dict[str, list[int] | dict[int, int]] = {}
     database_slots = [
         (inputs.position, "position", [0, 1, 1, 0]),
         (inputs.reverse_slot, "reverse_slot", [0, 0, 1, 1]),
@@ -232,14 +251,22 @@ def _qfvm_case(name):
     )
 
 
-def _qham_case(name):
+def _qham_case(name: str) -> Case:
+    """构造 QHAM m=1 提升系统案例；``qpde`` 后缀改经 QPDE 封装求解。"""
     linear_impl = matrix_pauli_encoding([[-0.2, 0.1], [0.1, -0.2]])
     fold_impl = matrix_pauli_encoding([[0, 0.5, 0, 0], [0, 0, -0.5, 0], [0, 0, 0, 0], [0, 0, 0, 0]])
     linear = abstract_block_encoding("QhamLinear", 1, linear_impl.signal_qubits, linear_impl.alpha)
     fold = abstract_block_encoding("QhamFold", 2, fold_impl.signal_qubits, fold_impl.alpha)
     lifted = qham_lift_m1(linear, fold)
     initial = abstract_state_prep("QhamInitial", lifted.width)
-    qode = make_euler_history_qode(make_costa_qlss(CostaConfig(steps=1)), steps=1)
+    # QLSSProtocol.__call__ 在 algorithms 侧标注宽松，按生成函数协议收窄。
+    qode = make_euler_history_qode(
+        cast(
+            "Callable[[BlockEncoding, StatePreparation], StateOracle]",
+            make_costa_qlss(CostaConfig(steps=1)),
+        ),
+        steps=1,
+    )
     solver = make_qpde(qode) if name.endswith("qpde") else qode
     state = qham_m1(linear, fold, initial, solver, via_pde=name.endswith("qpde"))
     return Case(
@@ -259,7 +286,7 @@ def _qham_case(name):
     )
 
 
-def build_case(name):
+def build_case(name: str) -> Case:
     """按名称构建一条范式参考案例。
 
     全部案例由固定常量生成，可重复构造；QRAM 案例同时给出宿主内存表。
@@ -284,12 +311,14 @@ def build_case(name):
         return Case(name, b.finish().program(), source=("spec-tests 00-primitives",))
     if name == "python_generators":
 
-        def count(n):
+        def count(n: int) -> int:
+            """按递推返回第 n 个 Fibonacci 数，作为生成期常量。"""
             return 1 if n < 2 else count(n - 1) + count(n - 2)
 
         width = count(3)
 
-        def generate(depth):
+        def generate(depth: int) -> Operation:
+            """递归构造 ``depth`` 层嵌套 ``Repeat`` 调用的演示模块。"""
             b = Builder(f"recursive_{depth}", {"q": Bits(width)}, attributes={"const_alpha": 2.5})
             if depth:
                 with b.repeat(2):
@@ -309,14 +338,23 @@ def build_case(name):
             source=("spec-tests 06-protocols/hamsim-trotter",),
         )
     if name == "carleman_step":
-        implementation = matrix_pauli_encoding(
+        implementation: BlockEncoding | XorDatabase = matrix_pauli_encoding(
             [[0, 0, 0, 0], [0, -0.2, 0.1, 0], [0, 0, -0.4, 0.2], [0, 0, 0, -0.6]]
         )
         generator = abstract_block_encoding(
-            "CarlemanGenerator", 2, implementation.signal_qubits, implementation.alpha
+            "CarlemanGenerator",
+            2,
+            cast(BlockEncoding, implementation).signal_qubits,
+            cast(BlockEncoding, implementation).alpha,
         )
         initial = abstract_state_prep("CarlemanInitial", 2)
-        solver = make_euler_history_qode(make_costa_qlss(CostaConfig(steps=1)), steps=1)
+        solver = make_euler_history_qode(
+            cast(
+                "Callable[[BlockEncoding, StatePreparation], StateOracle]",
+                make_costa_qlss(CostaConfig(steps=1)),
+            ),
+            steps=1,
+        )
         return Case(
             name,
             solver(generator, initial, 0.1).operation.program(),
@@ -351,12 +389,12 @@ def build_case(name):
     if name == "banked_qram":
         from pyqecclang.algorithms.input_model.oracles import banked_database
 
-        slot = banked_database(2, 96, abstract=True)
-        impl = banked_database(2, 96)
+        slot: Operation | XorDatabase | StatePreparation = banked_database(2, 96, abstract=True)
+        impl: Operation | StatePreparation | BlockEncoding = banked_database(2, 96)
         return Case(
             name,
-            slot.program(),
-            {slot.module.name: Binding(impl, {"bank0": "low", "bank1": "high"})},
+            cast(Operation, slot).program(),
+            {cast(Operation, slot).module.name: Binding(cast(Operation, impl), {"bank0": "low", "bank1": "high"})},
             {"low": {0: 5}, "high": {0: 7}},
             ("reference-workloads 1 packed flow words; register-level storage",),
             ("96 位逻辑数据拆成 64/32 位两个 bank；本例验收描述，不在密集模拟器执行。",),
@@ -411,10 +449,11 @@ def build_case(name):
         )
         if work:
             impl = phase_from_database(qram_database(2, 1))
-            binding = Binding(impl, {"db__table": "marks"})
-            memory = {"marks": [0, 0, 0, 1]}
+            binding: Binding | Operation = Binding(impl, {"db__table": "marks"})
+            memory: dict[str, list[int] | dict[int, int]] = {"marks": [0, 0, 0, 1]}
         else:
-            binding, memory = phase_marks(2, [3]), {}
+            binding = phase_marks(2, [3])
+            memory = {}
         return Case(
             name,
             grover(slot, 2).operation.program(),
@@ -431,7 +470,8 @@ def build_case(name):
             memory = {"angles": qram_state_angles(amplitudes, 3)}
         else:
             slot = abstract_state_prep("Prepare", 2)
-            binding, memory = gate_state_prep(amplitudes).operation, {}
+            binding = gate_state_prep(amplitudes).operation
+            memory = {}
         return Case(
             name,
             slot.operation.program(),
@@ -451,7 +491,7 @@ def build_case(name):
             a_impl = matrix_pauli_encoding([[2, -1], [-1, 2]])
             a = abstract_block_encoding("A", 1, a_impl.signal_qubits, a_impl.alpha)
             b_impl = gate_state_prep([1, 0])
-        bindings = {
+        bindings: dict[str, Binding | Operation] = {
             "A": Binding(a_impl.operation, {"db__table": "matrix_angles"})
             if qram
             else a_impl.operation,
@@ -486,7 +526,13 @@ def build_case(name):
             initial = abstract_state_prep("Initial", 1)
             bindings["Initial"] = uniform_state(1).operation
             if name == "heat_qode":
-                solver = make_euler_history_qode(make_costa_qlss(CostaConfig(steps=1)), steps=1)
+                solver = make_euler_history_qode(
+                    cast(
+                        "Callable[[BlockEncoding, StatePreparation], StateOracle]",
+                        make_costa_qlss(CostaConfig(steps=1)),
+                    ),
+                    steps=1,
+                )
             else:
                 solver = make_lchs_qode(
                     lambda g, t: qsvt_sequence(g, [t, -t, t]), [0.5, 1.0], [0.4, 0.6]
@@ -502,8 +548,15 @@ def build_case(name):
         )
     if name == "be_algebra":
         a = abstract_block_encoding("A", 1, 0, 1.0)
-        b = abstract_block_encoding("B", 1, 1, 2.0)
-        combined = lcu([(1, direct_sum(a, b)), (0.5, tensor(a, b)), (-0.25, kronecker_sum(a))])
+        # 分支间复用短变量名 b（其余分支为 Builder）；正确修法是重命名，但本任务禁止改名。
+        b = abstract_block_encoding("B", 1, 1, 2.0)  # type: ignore[assignment]
+        combined = lcu(
+            [
+                (1, direct_sum(a, cast(BlockEncoding, b))),
+                (0.5, tensor(a, cast(BlockEncoding, b))),
+                (-0.25, kronecker_sum(a)),
+            ]
+        )
         return Case(
             name,
             combined.operation.program(),
@@ -542,7 +595,8 @@ def build_case(name):
     raise AssertionError(name)
 
 
-def _one_signal_identity(alpha):
+def _one_signal_identity(alpha: float) -> Operation:
+    """返回按 ``alpha`` 缩放并补一个信号位的恒等块编码实现。"""
     from pyqecclang.algorithms.input_model.operators import scale
 
     return pad_signal(scale(alpha, identity(1)), 1).operation

@@ -15,7 +15,9 @@ iteration_circuits 逐轮生成。
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import cast
 
 from pyqecclang.algorithms.input_model.contracts import (
     finite_real,
@@ -31,11 +33,17 @@ from pyqecclang.algorithms.input_model.density import (
 )
 from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name
 from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
-def trace_estimate_circuit(purification, observable, *, component="real", name=None):
+def trace_estimate_circuit(
+    purification: PurificationAccess | ApproximatePurification,
+    observable: BlockEncoding,
+    *,
+    component: str = "real",
+    name: str | None = None,
+) -> Operation:
     """``Tr(M ρ)/α`` 的探针估计电路：纯化态 + BE 的受控调用（Hadamard test 结构）。
 
     probe 的 Z 期望等于 ``Re/Im⟨ψ_ρ| (M/α ⊗ I) |ψ_ρ⟩``；``Tr(M ρ)`` 由
@@ -43,7 +51,17 @@ def trace_estimate_circuit(purification, observable, *, component="real", name=N
     BE 的 signal 从全零参与调用，电路不执行测量。
     purification 也可以是 ApproximatePurification（近似纯化）：此时纯化态
     只存在于其 signal == 0 分支，probe 读数必须对该分支条件化，解码用
-    trace_from_joint。"""
+    trace_from_joint。
+
+    Args:
+        purification: Gibbs 态的纯化访问句柄，system 宽度须与观测量一致。
+        observable: 观测量 M 的块编码。
+        component: 读取的分量，取 ``real`` 或 ``imag``。
+        name: 生成的模块名；缺省自动生成。
+
+    Returns:
+        Operation: 由 probe 寄存器读出的迹估计探针电路，不执行测量。
+    """
     approximate = isinstance(purification, ApproximatePurification)
     if not approximate and not isinstance(purification, PurificationAccess):
         raise ValidationError("trace_estimate_circuit 需要 PurificationAccess 或 ApproximatePurification")
@@ -61,7 +79,7 @@ def trace_estimate_circuit(purification, observable, *, component="real", name=N
     }
     purif_args = {"system": "system", "environment": "environment"}
     if approximate:
-        registers["purification_signal"] = Bits(purification.signal_qubits)
+        registers["purification_signal"] = Bits(cast("ApproximatePurification", purification).signal_qubits)
         purif_args["signal"] = "purification_signal"
     b = Builder(
         name or _name("trace_estimate", purification.operation, observable.operation, component),
@@ -90,8 +108,16 @@ def trace_estimate_circuit(purification, observable, *, component="real", name=N
     return b.finish()
 
 
-def trace_from_probe(probability_one, alpha):
-    """由 probe 测得 1 的概率解码 ``Tr(M ρ)``：Z 期望 = 1 − 2p，乘上 BE 的 α。"""
+def trace_from_probe(probability_one: float, alpha: float) -> float:
+    """由 probe 测得 1 的概率解码 ``Tr(M ρ)``：Z 期望 = 1 − 2p，乘上 BE 的 α。
+
+    Args:
+        probability_one: probe 测得 1 的概率，取 [0,1]。
+        alpha: 观测量块编码的尺度 α，取正实数。
+
+    Returns:
+        float: ``Tr(M ρ)`` 的估计值。
+    """
     finite_real(probability_one, "trace_from_probe.probability_one", minimum=0)
     if probability_one > 1:
         raise ValidationError("probe 概率必须在 [0,1] 内")
@@ -99,11 +125,22 @@ def trace_from_probe(probability_one, alpha):
     return alpha * (1.0 - 2.0 * probability_one)
 
 
-def trace_from_joint(probe_expectation_joint, weight_signal_zero, alpha):
+def trace_from_joint(
+    probe_expectation_joint: float, weight_signal_zero: float, alpha: float
+) -> float:
     """近似纯化路径的解码：``Tr(M ρ) = α · E[Z_probe·1_{signal=0}] / P(signal=0)``。
 
     probe_expectation_joint 是 probe 的 Z 期望与纯化 signal == 0 指示的联合期望，
-    weight_signal_zero 是纯化 signal == 0 分支的概率。"""
+    weight_signal_zero 是纯化 signal == 0 分支的概率。
+
+    Args:
+        probe_expectation_joint: probe 的 Z 期望与 signal==0 指示的联合期望。
+        weight_signal_zero: 纯化 signal==0 分支的概率，取正实数。
+        alpha: 观测量块编码的尺度 α，取正实数。
+
+    Returns:
+        float: 对成功分支条件化后的 ``Tr(M ρ)`` 估计值。
+    """
     finite_real(weight_signal_zero, "trace_from_joint.weight_signal_zero", minimum=0, strict=True)
     finite_real(alpha, "trace_from_joint.alpha", minimum=0, strict=True)
     return alpha * probe_expectation_joint / weight_signal_zero
@@ -118,9 +155,10 @@ class SdpInstance:
     惩罚 Hamiltonian 的 BE 组装随之替换（见 iteration_circuits 的参数）。
     """
 
-    constraints: tuple
+    constraints: tuple[tuple[tuple[tuple[complex, ...], ...], float], ...]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验并规范化各约束为 ``(A_i, b_i)`` 二元组后存回字段。"""
         constraints = tuple(self.constraints)
         if not constraints:
             raise ValidationError("SdpInstance 至少需要一个约束")
@@ -137,18 +175,28 @@ class SdpInstance:
         object.__setattr__(self, "constraints", tuple(normalized))
 
     @property
-    def width(self):
+    def width(self) -> int:
         """系统量子位数。"""
         return (len(self.constraints[0][0]) - 1).bit_length()
 
     @property
-    def num_constraints(self):
+    def num_constraints(self) -> int:
         """约束条数 m，即 ``constraints`` 中 (A_i, b_i) 对的数量。"""
         return len(self.constraints)
 
 
-def penalty_hamiltonian(instance, weights):
-    """MMW 惩罚 Hamiltonian ``H = Σ_i w_i (A_i − b_i I)`` （显式小矩阵）。"""
+def penalty_hamiltonian(
+    instance: SdpInstance, weights: Iterable[float]
+) -> tuple[tuple[complex, ...], ...]:
+    """MMW 惩罚 Hamiltonian ``H = Σ_i w_i (A_i − b_i I)`` （显式小矩阵）。
+
+    Args:
+        instance: 可行性 SDP 输入模型，提供各 (A_i, b_i) 约束。
+        weights: 与约束一一对应的权重序列，长度等于约束数。
+
+    Returns:
+        tuple[tuple[complex, ...], ...]: 惩罚矩阵，按行嵌套的元组表示。
+    """
     require_instance(instance, SdpInstance, "penalty_hamiltonian.instance")
     weights = tuple(weights)
     if len(weights) != instance.num_constraints:
@@ -163,10 +211,23 @@ def penalty_hamiltonian(instance, weights):
     )
 
 
-def classical_estimator(hamiltonian_matrix, beta, instance):
+def classical_estimator(
+    hamiltonian_matrix: Iterable[Iterable[complex]],
+    beta: float,
+    instance: SdpInstance,
+) -> tuple[tuple[tuple[complex, ...], ...], tuple[float, ...]]:
     """经典参考估计：由显式 Gibbs 态计算全部 ``Tr(A_i ρ)`` （供对拍与驱动缺省）。
 
     返回 (rho, estimates)：rho 为密度矩阵（嵌套元组），estimates 为各约束的迹。
+
+    Args:
+        hamiltonian_matrix: 显式 Hermitian 惩罚矩阵。
+        beta: Gibbs 分布的逆温度，取正实数。
+        instance: 提供 (A_i, b_i) 约束序列的 SDP 输入模型。
+
+    Returns:
+        tuple[tuple[tuple[complex, ...], ...], tuple[float, ...]]: (Gibbs 密度矩阵
+        ρ, 各约束的迹估计序列)。
     """
     rho = gibbs_state(hamiltonian_matrix, beta)
     estimates = tuple(
@@ -176,7 +237,19 @@ def classical_estimator(hamiltonian_matrix, beta, instance):
     return rho, estimates
 
 
-def qsdp_gibbs_solve(instance, *, epsilon, max_iterations=None, estimator=None):
+def qsdp_gibbs_solve(
+    instance: SdpInstance,
+    *,
+    epsilon: float,
+    max_iterations: int | None = None,
+    estimator: (
+        Callable[
+            [Iterable[Iterable[complex]], float, SdpInstance],
+            tuple[tuple[tuple[complex, ...], ...], tuple[float, ...]],
+        ]
+        | None
+    ) = None,
+) -> dict[str, tuple[tuple[complex, ...], ...] | tuple[float, ...] | int | bool]:
     """矩阵乘权（MMW）可行性求解：对称零和博弈 ``min_X max_w Σ_i w_i v_i`` 的 Hedge 迭代。
 
     约束语义为单边不等式 ``Tr(A_i X) ≤ b_i``（违反量 ``v_i = Tr(A_i ρ) − b_i``，
@@ -213,7 +286,8 @@ def qsdp_gibbs_solve(instance, *, epsilon, max_iterations=None, estimator=None):
     rho_average = [[0.0 + 0j] * d for _ in range(d)]
     iterations_run = 0
 
-    def current_violations(count):
+    def current_violations(count: int) -> tuple[float, ...]:
+        """以 ``rho_average / count`` 为平均迭代时各约束的违反量。"""
         return tuple(
             sum((a[i][j] * rho_average[j][i]).real for i in range(d) for j in range(d)) / count
             - bound
@@ -251,13 +325,32 @@ def qsdp_gibbs_solve(instance, *, epsilon, max_iterations=None, estimator=None):
     }
 
 
-def iteration_circuits(instance, weights, beta, *, hamiltonian_encoding, error=0.05):
+def iteration_circuits(
+    instance: SdpInstance,
+    weights: Iterable[float],
+    beta: float,
+    *,
+    hamiltonian_encoding: Callable[[tuple[tuple[complex, ...], ...]], BlockEncoding],
+    error: float = 0.05,
+) -> tuple[ApproximatePurification, list[Operation]]:
     """生成单轮 MMW 迭代的量子子程序：Gibbs 纯化 + 各约束的迹估计电路。
 
     hamiltonian_encoding 是把显式惩罚矩阵编成 BE 的 callable（小实例可用
     matrix_pauli_encoding；大规模换稀疏/低秩访问模型）。返回
     (ApproximatePurification, [trace_estimate Operation, ...])，供量子路径
-    的估计器逐轮调用。"""
+    的估计器逐轮调用。
+
+    Args:
+        instance: 可行性 SDP 输入模型，提供各 (A_i, b_i) 约束。
+        weights: 本轮迭代的约束权重序列，长度等于约束数。
+        beta: Gibbs 纯化的逆温度，取正实数。
+        hamiltonian_encoding: 把显式惩罚矩阵编成块编码的回调。
+        error: 纯化近似误差，取正实数。
+
+    Returns:
+        tuple[ApproximatePurification, list[Operation]]: Gibbs 纯化句柄与各约束
+        的迹估计电路列表。
+    """
     require_instance(instance, SdpInstance, "iteration_circuits.instance")
     finite_real(beta, "iteration_circuits.beta", minimum=0, strict=True)
     finite_real(error, "iteration_circuits.error", minimum=0, strict=True)

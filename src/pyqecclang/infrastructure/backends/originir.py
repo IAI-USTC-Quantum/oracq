@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import TypeAlias, cast
 
 from pyqecclang.infrastructure.ir import (
     Adjoint,
     Call,
     Control,
+    Instruction,
     Load,
+    Module,
     Primitive,
     Program,
+    Ref,
     Repeat,
     Store,
     ValidationError,
@@ -55,21 +60,33 @@ def export_originir(program: Program) -> OriginIRArtifact:
     return _Exporter(validate(program, require_closed=True)).run()
 
 
+_DefinitionKey: TypeAlias = (
+    tuple[str, str, tuple[tuple[str, str], ...], int]
+    | tuple[str, str, tuple[tuple[str, str], ...], tuple[Instruction, ...], int, int]
+)
+"""定义缓存的键：``("module", …)`` 模块键或 ``("repeat", …)`` 重复体键。"""
+
+
 class _Exporter:
-    def __init__(self, program):
-        self.program = program
-        self.modules = program.module_map
-        self.definitions = []
-        self.cache = {}
+    """按模块记忆化地把闭合程序翻译为 OriginIR-ext 定义表。"""
+
+    def __init__(self, program: Program) -> None:
+        """绑定程序、模块表与定义缓存，并预计算工作区配额。"""
+        self.program: Program = program
+        self.modules: dict[str, Module] = program.module_map
+        self.definitions: list[list[str]] = []
+        self.cache: dict[_DefinitionKey, str] = {}
         from pyqecclang.infrastructure.layout import workspace_table
 
-        self.workspace = workspace_table(program)
+        self.workspace: dict[str, int] = workspace_table(program)
 
-    def _symbol(self, key):
+    def _symbol(self, key: _DefinitionKey) -> str:
+        """由缓存键生成确定性的 ``DEF`` 符号名。"""
         digest = hashlib.sha256(repr(key).encode()).hexdigest()[:24]
         return f"m_{key[1]}_{digest}"
 
-    def _mapping(self, module):
+    def _mapping(self, module: Module) -> dict[str, tuple[str, ...]]:
+        """构造模块全部寄存器名到位线名元组的映射。"""
         result = {
             reg.name: tuple(f"v_{reg.name}[{i}]" for i in range(reg.type.width))
             for reg in module.registers
@@ -82,23 +99,28 @@ class _Exporter:
             cursor += reg.type.width
         return result
 
-    def _workspace_args(self, module):
+    def _workspace_args(self, module: Module) -> list[str]:
+        """生成模块调用处传入的工作区位线实参列表。"""
         return [f"pw_work[{i}]" for i in range(self.workspace[module.name])]
 
-    def _bits(self, ref, mapping):
+    def _bits(self, ref: Ref, mapping: Mapping[str, tuple[str, ...]]) -> list[str]:
+        """把视图展开为 OriginIR 位线名列表。"""
         return [
             bit
             for span in ref.parts
             for bit in mapping[span.register][span.start : span.start + span.width]
         ]
 
-    def _args(self, module, mapping):
+    def _args(self, module: Module, mapping: Mapping[str, tuple[str, ...]]) -> list[str]:
+        """按公开寄存器声明顺序拼接模块的实参位线。"""
         return [bit for reg in module.registers for bit in mapping[reg.name]]
 
-    def _control_formals(self, count):
+    def _control_formals(self, count: int) -> tuple[tuple[str, int], ...]:
+        """生成取值恒为 1 的 ``pc_control`` 控制形式参数元组。"""
         return tuple((f"pc_control[{i}]", 1) for i in range(count))
 
-    def _header(self, symbol, module, control_count):
+    def _header(self, symbol: str, module: Module, control_count: int) -> str:
+        """生成 ``DEF`` 行，按需追加工作区与控制形式参数。"""
         args = [f"v_{r.name}[{r.type.width}]" for r in module.registers if r.type.width]
         if self.workspace[module.name]:
             args.append(f"pw_work[{self.workspace[module.name]}]")
@@ -106,7 +128,7 @@ class _Exporter:
             args.append(f"pc_control[{control_count}]")
         return f"DEF {symbol}({', '.join(args)})"
 
-    def _wrap(self, lines, controls):
+    def _wrap(self, lines: list[str], controls: tuple[tuple[str, int], ...]) -> list[str]:
         """仅包装普通门或 QRAM 调用；合并已有的内层逐门控制。"""
         if not lines or not controls:
             return lines
@@ -120,7 +142,9 @@ class _Exporter:
         result.extend(f"X {bit}" for bit in reversed(zeros))
         return result
 
-    def _call(self, symbol, args, controls):
+    def _call(
+        self, symbol: str, args: list[str], controls: tuple[tuple[str, int], ...]
+    ) -> list[str]:
         """模块控制通过附加形式参数传递，定义和调用都不展开。"""
         zeros = [bit for bit, value in controls if value == 0]
         full_args = args + [bit for bit, _ in controls]
@@ -130,20 +154,56 @@ class _Exporter:
             + [f"X {bit}" for bit in reversed(zeros)]
         )
 
-    def module(self, module, resources, control_count=0):
+    def module(
+        self, module: Module, resources: Mapping[str, str], control_count: int = 0
+    ) -> str:
+        """生成（或复用）模块在给定控制数下的 ``DEF`` 定义，返回符号名。
+
+        Args:
+            module: 待翻译的模块定义。
+            resources: 模块资源名到导出 QRAM 名的映射。
+            control_count: 定义需容纳的附加控制位个数；省略为无控制。
+
+        Returns:
+            str: ``DEF`` 定义的符号名；同键模块只生成一次，重复调用直接复用。
+        """
         key = ("module", module.name, tuple(sorted(resources.items())), control_count)
         if key in self.cache:
             return self.cache[key]
         symbol = self._symbol(key)
         self.cache[key] = symbol
         mapping = self._mapping(module)
+        # 导出入口要求闭合程序，module.body 经 require_closed 验证非空。
         body = self.body(
-            module.body, module, mapping, resources, self._control_formals(control_count)
+            cast("tuple[Instruction, ...]", module.body),
+            module,
+            mapping,
+            resources,
+            self._control_formals(control_count),
         )
         self.definitions.append([self._header(symbol, module, control_count), *body, "ENDDEF"])
         return symbol
 
-    def repeat(self, nodes, count, module, resources, control_count):
+    def repeat(
+        self,
+        nodes: tuple[Instruction, ...],
+        count: int,
+        module: Module,
+        resources: Mapping[str, str],
+        control_count: int,
+    ) -> str:
+        """用二进制平方法为重复体生成（或复用）``DEF`` 定义，返回符号名。
+
+        Args:
+            nodes: 重复体的指令序列。
+            count: 重复次数，取正整数。
+            module: 重复体所属的模块定义。
+            resources: 模块资源名到导出 QRAM 名的映射。
+            control_count: 定义需容纳的附加控制位个数。
+
+        Returns:
+            str: 重复体 ``DEF`` 定义的符号名；同体同次只生成一次。
+        """
         key = ("repeat", module.name, tuple(sorted(resources.items())), nodes, count, control_count)
         if key in self.cache:
             return self.cache[key]
@@ -163,8 +223,27 @@ class _Exporter:
         self.definitions.append([self._header(symbol, module, control_count), *lines, "ENDDEF"])
         return symbol
 
-    def body(self, nodes, module, mapping, resources, controls=()):
-        lines = []
+    def body(
+        self,
+        nodes: tuple[Instruction, ...],
+        module: Module,
+        mapping: Mapping[str, tuple[str, ...]],
+        resources: Mapping[str, str],
+        controls: tuple[tuple[str, int], ...] = (),
+    ) -> list[str]:
+        """把指令体逐节点翻译为 OriginIR-ext 文本行。
+
+        Args:
+            nodes: 待翻译的指令序列。
+            module: 指令体所属的模块，提供局部寄存器与调用上下文。
+            mapping: 寄存器名到位线名元组的映射。
+            resources: 模块资源名到导出 QRAM 名的映射。
+            controls: 从外层 ``Control`` 继承的 (位线, 生效值) 控制元组。
+
+        Returns:
+            list[str]: 翻译得到的 OriginIR-ext 文本行序列。
+        """
+        lines: list[str] = []
         for node in nodes:
             if isinstance(node, Control):
                 bits = self._bits(node.register, mapping)
@@ -209,10 +288,28 @@ class _Exporter:
                 lines.extend(self.primitive(node, module, mapping, controls))
         return lines
 
-    def primitive(self, node, module, mapping, controls):
+    def primitive(
+        self,
+        node: Primitive,
+        module: Module,
+        mapping: Mapping[str, tuple[str, ...]],
+        controls: tuple[tuple[str, int], ...],
+    ) -> list[str]:
+        """把单条基元指令降低为 OriginIR-ext 门文本行。
+
+        Args:
+            node: 待降低的基元指令。
+            module: 指令所属的模块；gphase 无控制时锚定其首个实参位线。
+            mapping: 寄存器名到位线名元组的映射。
+            controls: 从外层 ``Control`` 继承的 (位线, 生效值) 控制元组。
+
+        Returns:
+            list[str]: 该基元对应的门文本行，控制合并进 ``controlled_by``。
+        """
         operands = [self._bits(ref, mapping) for ref in node.operands]
         if node.op == "gphase":
-            angle = repr(float(node.angle))
+            # 校验保证 gphase 的角度为有限实数。
+            angle = repr(float(cast(float, node.angle)))
             if controls:
                 zeros = [bit for bit, value in controls if not value]
                 active = tuple((bit, 1) for bit, _ in controls[:-1])
@@ -235,7 +332,8 @@ class _Exporter:
         elif node.op == "add_const":
             bits, raw = operands[0], []
             for offset in range(len(bits)):
-                if (node.value >> offset) & 1:
+                # 校验保证 add_const 的整数值存在。
+                if (cast(int, node.value) >> offset) & 1:
                     for i in reversed(range(offset + 1, len(bits))):
                         raw.extend(
                             self._wrap([f"X {bits[i]}"], tuple((b, 1) for b in bits[offset:i]))
@@ -247,7 +345,13 @@ class _Exporter:
             raw = [f"{gate} {bit}{suffix}" for bit in operands[0]]
         return self._wrap(raw, controls)
 
-    def run(self):
+    def run(self) -> OriginIRArtifact:
+        """导出入口模块并拼装完整 OriginIR-ext 文本及映射信息。
+
+        Returns:
+            OriginIRArtifact: 完整导出文本，以及寄存器、资源名与工作区到
+            全局量子位的映射信息。
+        """
         entry = self.program.main
         resources = {res.name: "ram_" + res.name for res in entry.resources}
         registers, cursor = {}, 0
@@ -268,8 +372,24 @@ class _Exporter:
         return OriginIRArtifact("\n".join(text) + "\n", registers, resources, private)
 
 
-def run_originir(program: Program, memory=None, *, max_qubits=24, max_steps=1_000_000):
-    """通过实际 UnifiedQuantum 后端执行小规模实例；依赖为可选安装。"""
+def run_originir(
+    program: Program,
+    memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None = None,
+    *,
+    max_qubits: int = 24,
+    max_steps: int = 1_000_000,
+) -> list[complex]:
+    """通过实际 UnifiedQuantum 后端执行小规模实例；依赖为可选安装。
+
+    Args:
+        program: 待执行的闭合 RIR 程序；不得含运行期 QRAM 写（Store）。
+        memory: 资源名到 QRAM 内容的绑定；序列按下标、映射按地址给数据字。
+        max_qubits: 状态向量模拟的量子位预算上限，含工作区。
+        max_steps: 展开后的指令步数预算上限。
+
+    Returns:
+        list[complex]: 入口公开寄存器空间上的末态振幅，按低位到高位排列。
+    """
     from pyqecclang.infrastructure.execution import check_memory, expanded_steps
     from pyqecclang.infrastructure.linking import uses_store
 
@@ -298,8 +418,9 @@ def run_originir(program: Program, memory=None, *, max_qubits=24, max_steps=1_00
     artifact = export_originir(program)
     sim = Simulator(least_qubit_remapping=False)
     sim.simulate_preprocess(artifact.text)
-    for resource, cells in memories.items():
-        ram = sim.qram_objects[artifact.resources[resource]]
+    for resource, cells in memories.items():  # type: ignore[assignment]
+        # resource 在上方循环绑定为 Resource 对象，此处承载资源名字符串。
+        ram = sim.qram_objects[artifact.resources[cast(str, resource)]]
         for address, value in cells.items():
             ram.write(address, value)
     vector = sim.simulate_statevector(artifact.text)

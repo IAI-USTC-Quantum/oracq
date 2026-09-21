@@ -1,5 +1,7 @@
 """生成算法展示目录；--native 使用真实后端比较完整复幅度。"""
 
+from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
@@ -15,7 +17,8 @@ from pyqecclang import (
 from pyqecclang.applications.gallery import algorithm_gallery
 
 
-def main():
+def main() -> None:
+    """遍历算法展示目录，写出各案例的导出产物并汇总索引。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/algorithm-gallery"))
     parser.add_argument("--native", action="store_true")

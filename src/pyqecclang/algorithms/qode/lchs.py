@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
@@ -12,7 +13,10 @@ from pyqecclang.algorithms.input_model.contracts import (
     positive_integer,
     require_instance,
 )
+from pyqecclang.algorithms.input_model.operators import BlockEncoding
+from pyqecclang.algorithms.input_model.oracles import StateOracle
 from pyqecclang.algorithms.qode._dynamics import _lcu_dynamics
+from pyqecclang.algorithms.qode.ode_models import LinearODE
 from pyqecclang.infrastructure.ir import ValidationError
 
 
@@ -33,7 +37,8 @@ class QuadraturePlan:
     weights: tuple[complex, ...]
     kernel: str = "user_supplied"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """把节点与权重规范化为元组，并校验长度一致、数值有限且权重非全零。"""
         object.__setattr__(self, "nodes", tuple(self.nodes))
         object.__setattr__(self, "weights", tuple(self.weights))
         if not self.nodes or len(self.nodes) != len(self.weights):
@@ -50,7 +55,7 @@ class QuadraturePlan:
             raise ValidationError("积分权重不能全部为零")
 
     @classmethod
-    def cauchy(cls, cutoff=2, spacing=1.0):
+    def cauchy(cls, cutoff: int = 2, spacing: float = 1.0) -> QuadraturePlan:
         """构造 Cauchy 核的对称求积计划。
 
         Args:
@@ -71,7 +76,13 @@ class QuadraturePlan:
         return cls(nodes, tuple(spacing / (math.pi * (1 + k * k)) for k in nodes), "finite_cauchy")
 
 
-def lchs_qode(model, time, *, plan=None, hamiltonian_function=taylor_hamiltonian):
+def lchs_qode(
+    model: LinearODE,
+    time: float,
+    *,
+    plan: QuadraturePlan | None = None,
+    hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
+) -> StateOracle:
     """按 LCHS 把耗散线性演化组装为 Hermitian 演化分支的有限加权和。
 
     Args:

@@ -6,6 +6,7 @@ import unittest
 from pyqecclang import Bits, Builder, ValidationError, bind, declare, simulate, unresolved
 from pyqecclang.algorithms.input_model.graph_walks import (
     abstract_adjacency,
+    as_adjacency,
     gate_adjacency,
     hitting_times,
     qram_adjacency,
@@ -83,6 +84,12 @@ class AdjacencyOracleTests(unittest.TestCase):
             gate_adjacency([[1], [3]])  # 顶点越界
         with self.assertRaises(ValidationError):
             hitting_times(transition_matrix([[1], [0], [2]]), {0})  # 顶点 2 不可达 marked
+
+    def test_as_adjacency_accepts_bare_operation(self):
+        adjacency = gate_adjacency(HYPERCUBE_Q3)
+        recovered = as_adjacency(adjacency.operation)
+        self.assertEqual(recovered, adjacency)
+        szegedy_setup(recovered)
 
 
 class SzegedyWalkTests(unittest.TestCase):

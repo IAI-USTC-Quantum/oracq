@@ -7,7 +7,7 @@
 - 领域模型、数据准备和应用级组合放在 `src/pyqecclang/applications/`。
 - 文档使用 Sphinx；完整文档与教程分开，API 从源码生成。历史记录放入 `docs/archive/`。
 
-运行核心、案例和文档检查：
+运行核心、案例、类型与文档检查（含 `ruff`、`mypy src examples` 与 Sphinx 构建）：
 
 ```bash
 uv run python tools/check_project.py --docs

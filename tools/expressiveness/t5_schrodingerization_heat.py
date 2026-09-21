@@ -19,12 +19,12 @@ import numpy as np
 import scipy.linalg
 
 from pyqecclang import simulate
-from pyqecclang.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding, tensor
 from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.ode_models import HermitianParts
+from pyqecclang.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding, tensor
 from pyqecclang.algorithms.input_model.operators import identity
 from pyqecclang.algorithms.input_model.oracles import gate_state_prep
+from pyqecclang.algorithms.qode.ode import linear_qode
+from pyqecclang.algorithms.qode.ode_models import HermitianParts
 from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan, fourier_momentum
 
 TIME, DEGREE = 0.05, 2

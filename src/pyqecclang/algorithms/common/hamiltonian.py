@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from pyqecclang.algorithms.input_model.block_encoding import lcu, pauli_word
 from pyqecclang.algorithms.input_model.contracts import (
@@ -26,11 +27,13 @@ from pyqecclang.algorithms.input_model.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
-def trotter_hamsim(terms, final_time, *, steps=2):
+def trotter_hamsim(
+    terms: Iterable[tuple[float, str]], final_time: float, *, steps: int = 2
+) -> Operation:
     """一阶 Trotter 乘积公式模拟 Pauli 分解的 Hamiltonian 演化。
 
     对 H = sum_j c_j P_j 按 exp(-i*H*t) ≈ (prod_j exp(-i*c_j*P_j*t/steps))**steps
@@ -86,13 +89,26 @@ def trotter_hamsim(terms, final_time, *, steps=2):
     return b.finish()
 
 
-def taylor_hamiltonian(hamiltonian, time, *, degree=2):
-    """可闭合的普通 Hamiltonian-function BE；可替换为 QSP/HamSim protocol。"""
+def taylor_hamiltonian(
+    hamiltonian: BlockEncoding, time: float, *, degree: int = 2
+) -> BlockEncoding:
+    """可闭合的普通 Hamiltonian-function BE；可替换为 QSP/HamSim protocol。
+
+    Args:
+        hamiltonian: 算符的块编码。
+        time: 演化时长，取有限实数。
+        degree: Taylor 截断阶数，取不小于 0 的整数；0 阶仅保留恒等项。
+
+    Returns:
+        BlockEncoding: 截断 Taylor 级数的 LCU 块编码，correctness 标记为 pending。
+    """
     require_instance(hamiltonian, BlockEncoding, "taylor_hamiltonian.H")
     positive_integer(degree, "taylor_hamiltonian.degree", minimum=0)
     finite_real(time, "taylor_hamiltonian.time")
     if degree < 0 or not math.isfinite(time):
         raise ValidationError("Taylor 阶数/演化时间无效")
+    powers: list[tuple[complex, BlockEncoding]]
+    current: BlockEncoding
     powers, current = [(1, identity(hamiltonian.width))], identity(hamiltonian.width)
     for k in range(1, degree + 1):
         current = product(hamiltonian, current)
@@ -126,10 +142,16 @@ class HermitianProtocol(Protocol):
 class EvolvableProtocol(Protocol):
     """宿主声明算符可给出自身酉演化的访问协议。"""
 
-    def evolution(self, time: float):
+    def evolution(self, time: float) -> Operation:
         """按演化时长返回该算符的酉 Operation。
 
         Trotter 路径要求返回的演化无需后选择：除 target 外公开寄存器为零宽。
+
+        Args:
+            time: 演化时长，取有限实数。
+
+        Returns:
+            Operation: 该算符在给定时长下的酉演化操作。
         """
         ...
 
@@ -138,8 +160,12 @@ class EvolvableProtocol(Protocol):
 class TrotterizableProtocol(Protocol):
     """宿主声明算符可分解为 Trotter 项列表的访问协议。"""
 
-    def trotter_list(self):
-        """返回构成 Hamiltonian 的 TrotterTerm 序列；hamiltonian_simulation 要求非空。"""
+    def trotter_list(self) -> Sequence[TrotterTerm]:
+        """返回构成 Hamiltonian 的 TrotterTerm 序列；hamiltonian_simulation 要求非空。
+
+        Returns:
+            Sequence[TrotterTerm]: 构成 Hamiltonian 的乘积公式项序列，要求非空。
+        """
         ...
 
 
@@ -159,7 +185,8 @@ class TrotterTerm:
     coefficient: float
     operator: object
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验系数为有限实数且算符满足 EvolvableProtocol。"""
         finite_real(self.coefficient, "TrotterTerm.coefficient")
         requires(self.operator, EvolvableProtocol, path="TrotterTerm.operator")
 
@@ -179,7 +206,8 @@ class PauliOperator:
     word: str
     hermitian = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验 word 为宽度不超过 64 的 I/X/Y/Z 字符串。"""
         if (
             not isinstance(self.word, str)
             or not self.word
@@ -188,12 +216,23 @@ class PauliOperator:
             raise ValidationError("Pauli word 必须是非空 I/X/Y/Z 字符串")
         positive_integer(len(self.word), "PauliOperator.width", maximum=64)
 
-    def block_encoding(self):
-        """返回该 Pauli 词的 alpha=1.0 块编码：逐位单量子比特门加零宽 signal。"""
+    def block_encoding(self) -> BlockEncoding:
+        """返回该 Pauli 词的 alpha=1.0 块编码：逐位单量子比特门加零宽 signal。
+
+        Returns:
+            BlockEncoding: 尺度为 1.0 的 Pauli 词块编码。
+        """
         return pauli_word(self.word)
 
-    def evolution(self, time):
-        """返回 ``exp(-1j*word*time)`` 的精确酉演化（单项单步，无乘积公式误差）。"""
+    def evolution(self, time: float) -> Operation:
+        """返回 ``exp(-1j*word*time)`` 的精确酉演化（单项单步，无乘积公式误差）。
+
+        Args:
+            time: 演化时长，取有限实数。
+
+        Returns:
+            Operation: 单项单步合成的精确酉演化操作。
+        """
         finite_real(time, "PauliOperator.time")
         return trotter_hamsim(((1.0, self.word),), time, steps=1)
 
@@ -213,7 +252,8 @@ class PauliHamiltonian:
     terms: tuple[tuple[float, str], ...]
     hermitian = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """归一化项列表并校验非空、系数有限与各 Pauli 词等宽。"""
         object.__setattr__(self, "terms", tuple(tuple(t) for t in self.terms))
         if not self.terms:
             raise ValidationError("PauliHamiltonian 需要非空项列表")
@@ -223,15 +263,23 @@ class PauliHamiltonian:
         if len({len(word) for _, word in self.terms}) != 1:
             raise ValidationError("Pauli 项宽度不一致")
 
-    def block_encoding(self):
-        """返回非零系数项的 LCU 块编码；无非零项时退化为零算子块编码。"""
+    def block_encoding(self) -> BlockEncoding:
+        """返回非零系数项的 LCU 块编码；无非零项时退化为零算子块编码。
+
+        Returns:
+            BlockEncoding: 尺度为系数绝对值之和的 LCU 块编码，无非零项时为零算子。
+        """
         from pyqecclang.algorithms.input_model.operators import zero
 
         terms = [(c, pauli_word(w)) for c, w in self.terms if c]
         return lcu(terms) if terms else zero(len(self.terms[0][1]))
 
-    def trotter_list(self):
-        """把每个 ``(系数, 词)`` 包装为 TrotterTerm 元组返回。"""
+    def trotter_list(self) -> tuple[TrotterTerm, ...]:
+        """把每个 ``(系数, 词)`` 包装为 TrotterTerm 元组返回。
+
+        Returns:
+            tuple[TrotterTerm, ...]: 每项系数与 Pauli 词逐一包装成的 Trotter 项元组。
+        """
         return tuple(TrotterTerm(c, PauliOperator(w)) for c, w in self.terms)
 
 
@@ -242,18 +290,41 @@ class EncodedOperator:
     encoding: BlockEncoding
     hermitian: bool
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """把编码适配为 ``BlockEncoding`` 并校验 hermitian 为 bool。"""
         object.__setattr__(self, "encoding", as_block_encoding(self.encoding))
         if type(self.hermitian) is not bool:
             raise ValidationError("hermitian 需要 bool 声明")
 
-    def block_encoding(self):
-        """返回构造时携带的块编码。"""
+    def block_encoding(self) -> BlockEncoding:
+        """返回构造时携带的块编码。
+
+        Returns:
+            BlockEncoding: 构造时传入并经适配校验的块编码。
+        """
         return self.encoding
 
 
-def hamiltonian_simulation(operator, time, *, method="auto", steps=2, qsp=None):
-    """当前优先可分解的 Trotter；QSP 需要调用者提供实际实现。"""
+def hamiltonian_simulation(
+    operator: HermitianProtocol,
+    time: float,
+    *,
+    method: str = "auto",
+    steps: int = 2,
+    qsp: Callable[[BlockEncoding, float], BlockEncoding] | None = None,
+) -> BlockEncoding:
+    """当前优先可分解的 Trotter；QSP 需要调用者提供实际实现。
+
+    Args:
+        operator: 声明 Hermitian 的算符，须额外满足可 Trotter 分解或可块编码协议。
+        time: 演化时长，取有限实数。
+        method: 路径选择，取 ``auto``、``trotter`` 或 ``qsp``；``auto`` 按算符协议挑选。
+        steps: Trotter 乘积公式的重复段数，取正整数。
+        qsp: 形如 qsp(BE, time) 返回 BlockEncoding 的实际实现；仅 ``qsp`` 路径需要。
+
+    Returns:
+        BlockEncoding: 演化 exp(-iHt) 的块编码，Trotter 路径尺度为 1.0。
+    """
     requires(operator, HermitianProtocol, path="HamSim.operator")
     if operator.hermitian is not True:
         raise ValidationError(
@@ -270,7 +341,7 @@ def hamiltonian_simulation(operator, time, *, method="auto", steps=2, qsp=None):
             raise ValidationError(
                 "QSP 路径需要注入实际 qsp(BE,time) 实现；当前库没有通用 QSP-HamSim 内核"
             )
-        encoded = as_block_encoding(operator)
+        encoded = as_block_encoding(cast("BlockEncodingProtocol", operator))
         result = qsp(encoded, time)
         require_instance(result, BlockEncoding, "QSP.output")
         if result.width != encoded.width:
@@ -278,14 +349,16 @@ def hamiltonian_simulation(operator, time, *, method="auto", steps=2, qsp=None):
         return result
     requires(operator, TrotterizableProtocol, path="Trotter.operator")
     positive_integer(steps, "Trotter.steps")
-    terms = tuple(operator.trotter_list())
+    terms = tuple(cast("TrotterizableProtocol", operator).trotter_list())
     if not terms:
         raise ValidationError("trotter_list() 需要非空项列表")
-    evolutions = []
+    evolutions: list[Operation] = []
     for term in terms:
         require_instance(term, TrotterTerm, "Trotter.term")
         # 每项必须提供无后选择的酉演化；一般多项式 BE 不能替代它。
-        evolution = term.operator.evolution(term.coefficient * time / steps)
+        evolution = cast("EvolvableProtocol", term.operator).evolution(
+            term.coefficient * time / steps
+        )
         from pyqecclang.infrastructure.builder import Operation
 
         require_instance(evolution, Operation, "Trotter.term.evolution")

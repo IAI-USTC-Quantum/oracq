@@ -10,18 +10,22 @@ QROM 查找把经典表 ``T`` 实现为 XOR 数据库 ``|address, data> -> |addr
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 from pyqecclang.algorithms.input_model.contracts import positive_integer
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import XorDatabase, annotate, gate_database, invoke
 from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits, ValidationError
+from pyqecclang.infrastructure.ir import Bits, Ref, ValidationError
 
 __all__ = ["QromCost", "qrom_cost", "qrom_lookup", "select_swap_qrom"]
 
 
-def _normalize_table(table, data_bits, path):
+def _normalize_table(
+    table: Mapping[int, int] | Sequence[int], data_bits: int | None, path: str
+) -> tuple[tuple[tuple[int, int], ...], int, int]:
     """校验查询表并给出 ``(有序条目, 地址位宽, 数据位宽)``；缺失地址按 0 处理。"""
     if isinstance(table, dict):
         pairs = tuple(sorted(table.items()))
@@ -49,7 +53,8 @@ def _normalize_table(table, data_bits, path):
     return pairs, address_bits, width
 
 
-def _check_partitions(partitions, address_bits, path):
+def _check_partitions(partitions: int, address_bits: int, path: str) -> None:
+    """校验分区数是不超过地址空间且为二的幂的正整数。"""
     positive_integer(partitions, path + ".partitions", maximum=1 << address_bits)
     if partitions & (partitions - 1):
         raise ValidationError(f"{path}：partitions 必须是二的幂")
@@ -69,27 +74,31 @@ class QromCost:
     fanout_qubits: int
 
     @property
-    def t_count(self):
+    def t_count(self) -> int:
         """compute 单程 T 计数，按每个 Toffoli 4 个 T 估计。"""
         return 4 * (self.select_toffoli + self.swap_toffoli)
 
     @property
-    def t_depth(self):
+    def t_depth(self) -> int:
         """T 深度：分区并行加载时 select 段为串行一元迭代，交换段按分区逐级归并。"""
         return self.select_toffoli + max(0, self.partitions - 1)
 
     @property
-    def round_trip_t_count(self):
+    def round_trip_t_count(self) -> int:
         """相干复净（compute 加伴随 uncompute）的往返 T 计数；测量复净可省掉 uncompute。"""
         return 2 * self.t_count
 
     @property
-    def ancilla_qubits(self):
+    def ancilla_qubits(self) -> int:
         """辅助比特总数：λ 个数据窗口加低位扇出副本（后者可用 dirty qubit）。"""
         return self.work_qubits + self.fanout_qubits
 
-    def to_dict(self):
-        """供目录与后端报告使用的结构化字典。"""
+    def to_dict(self) -> dict[str, int]:
+        """供目录与后端报告使用的结构化字典。
+
+        Returns:
+            dict[str, int]: 各项资源计数与宽度字段的扁平字典。
+        """
         return {
             "n_addresses": self.n_addresses,
             "data_bits": self.data_bits,
@@ -106,13 +115,16 @@ class QromCost:
         }
 
 
-def qrom_cost(n_addresses, data_bits, partitions=1):
+def qrom_cost(n_addresses: int, data_bits: int, partitions: int = 1) -> QromCost:
     """Select-Swap QROM 的纯经典资源估算：T 计数/深度约 ``4(N/λ + λ·b)``，λ 即 partitions。
 
     Args:
         n_addresses: 查询表字数 N。
         data_bits: 数据字位宽 b。
         partitions: 分区数 λ，必须是二的幂且不超过 ``2^ceil(log2 N)``。
+
+    Returns:
+        QromCost: 该配置下的 Toffoli/T 计数与辅助比特估算快照。
     """
     positive_integer(n_addresses, "qrom_cost.n_addresses")
     positive_integer(data_bits, "qrom_cost.data_bits", maximum=64)
@@ -136,7 +148,8 @@ def qrom_cost(n_addresses, data_bits, partitions=1):
     )
 
 
-def _cost_attributes(cost):
+def _cost_attributes(cost: QromCost) -> dict[str, int]:
+    """把 ``QromCost`` 快照转成可写入模块属性的扁平字典。"""
     return {
         "qrom_partitions": cost.partitions,
         "qrom_address_bits": cost.address_bits,
@@ -150,7 +163,12 @@ def _cost_attributes(cost):
     }
 
 
-def qrom_lookup(table, *, data_bits=None, name=None):
+def qrom_lookup(
+    table: Mapping[int, int] | Sequence[int],
+    *,
+    data_bits: int | None = None,
+    name: str | None = None,
+) -> XorDatabase:
     """QROM 基线：逐地址受控 XOR 的一元迭代（即 partitions=1 的 Select-Swap）。
 
     结构与 gate_database 相同，但标注 qrom_unary_iteration 并附带 qrom_cost 估算，
@@ -160,6 +178,9 @@ def qrom_lookup(table, *, data_bits=None, name=None):
         table: 字序列或稀疏字典，缺失地址按 0 处理。
         data_bits: 数据位宽，缺省取最大表字的位宽。
         name: 模块名，缺省按表内容生成。
+
+    Returns:
+        XorDatabase: 带 qrom_cost 标注的一元迭代数据库视图。
     """
     pairs, address_bits, width = _normalize_table(table, data_bits, "qrom_lookup")
     base = gate_database(address_bits, width, dict(pairs), name=name)
@@ -174,7 +195,13 @@ def qrom_lookup(table, *, data_bits=None, name=None):
     )
 
 
-def select_swap_qrom(table, *, partitions, data_bits=None, name=None):
+def select_swap_qrom(
+    table: Mapping[int, int] | Sequence[int],
+    *,
+    partitions: int,
+    data_bits: int | None = None,
+    name: str | None = None,
+) -> XorDatabase:
     """Select-Swap QROM：高位地址共享的分区并行加载加低位受控交换归并。
 
     λ 个窗口寄存器（clean 局部寄存器）各自执行子表查询 ``window_i ^= T[h·λ + i]``，
@@ -189,6 +216,9 @@ def select_swap_qrom(table, *, partitions, data_bits=None, name=None):
         partitions: 分区数 λ，必须是二的幂且不超过地址数。
         data_bits: 数据位宽，缺省取最大表字的位宽。
         name: 模块名，缺省按表内容生成。
+
+    Returns:
+        XorDatabase: 带 qrom_cost 标注的 Select-Swap 数据库视图。
     """
     pairs, address_bits, width = _normalize_table(table, data_bits, "select_swap_qrom")
     _check_partitions(partitions, address_bits, "select_swap_qrom")
@@ -210,12 +240,13 @@ def select_swap_qrom(table, *, partitions, data_bits=None, name=None):
     )
     windows = [b.local(f"window{index}", Bits(width)) for index in range(partitions)]
 
-    def load():
+    def load() -> None:
+        """每个窗口并行加载自己分区对应的子表。"""
         for index, window in enumerate(windows):
             if high_bits:
                 invoke(
                     b,
-                    sub_databases[index].operation,
+                    cast("tuple[XorDatabase, ...]", sub_databases)[index].operation,
                     f"sub{index}",
                     address=b["address"][low_bits:],
                     data=window,
@@ -225,7 +256,8 @@ def select_swap_qrom(table, *, partitions, data_bits=None, name=None):
                     if (sub_tables[index][0] >> bit) & 1:
                         b.x(window[bit])
 
-    def merge(index, window):
+    def merge(index: int, window: Ref) -> None:
+        """按低位地址比较把窗口内容归并进数据寄存器。"""
         data = b["data"]
         if partitions == 1:
             b.swap(window, data)

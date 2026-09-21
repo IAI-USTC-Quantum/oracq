@@ -6,15 +6,20 @@
 谱嵌入（Pauli 精确展开）、以及数据路径走开放角数据库/QRAM 资源的变体。
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from functools import partial
 from pathlib import Path
+from typing import cast
 
 from pyqecclang import (
     Binding,
     FixedFormat,
+    Operation,
     bind,
     dumps,
     export_originir,
@@ -27,6 +32,7 @@ from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 from pyqecclang.algorithms.common.prepare_select import lcu_prepare_select, qram_prepare
 from pyqecclang.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding
 from pyqecclang.algorithms.input_model.oracles import (
+    StateOracle,
     abstract_block_encoding,
     abstract_sparse_access,
     abstract_state_prep,
@@ -59,7 +65,15 @@ from pyqecclang.applications.qham import (
 )
 
 
-def save_case(root, name, state, bindings=None, memory=None, *, notes=None):
+def save_case(
+    root: Path,
+    name: str,
+    state: StateOracle,
+    bindings: Mapping[str, Operation | Binding] | None = None,
+    memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None = None,
+    *,
+    notes: Mapping[str, object] | None = None,
+) -> dict[str, object]:
     """同时留下开放/部分绑定/闭合产物；不内联 oracle 主体。"""
     folder = root / name
     folder.mkdir(parents=True, exist_ok=True)
@@ -99,11 +113,18 @@ def save_case(root, name, state, bindings=None, memory=None, *, notes=None):
     (folder / "report.json").write_text(
         json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(name, "modules", len(closed.modules), "open slots", len(record["open_slots"]), flush=True)
+    print(
+        name,
+        "modules",
+        len(closed.modules),
+        "open slots",
+        len(cast(list[str], record["open_slots"])),
+        flush=True,
+    )
     return record
 
 
-def polynomial_from_bindings(bindings):
+def polynomial_from_bindings(bindings: QHAMBindings) -> PolynomialODE:
     """教程宿主适配器：按次数合并 PDE 多线性端口，交给 Carleman。"""
     grouped = defaultdict(list)
     for _, port in bindings.ports:
@@ -116,7 +137,9 @@ def polynomial_from_bindings(bindings):
     )
 
 
-def reopen_coefficients(problem, label):
+def reopen_coefficients(
+    problem: PolynomialODE, label: str
+) -> tuple[PolynomialODE, dict[str, Operation | Binding]]:
     """把具体系数 BE 重新声明为开放槽位；返回 (PolynomialODE, 绑定)。"""
     coefficient_slots, bindings = [], {}
     for order, coefficient in problem.coefficients:
@@ -132,11 +155,13 @@ def reopen_coefficients(problem, label):
     bindings[label + "Initial"] = problem.initial.operation
     return (
         PolynomialODE(problem.width, tuple(coefficient_slots), initial_slot, problem.initial_norm),
-        bindings,
+        # 字典不变性：实际值域为 Operation，按声明的联合类型传出。
+        cast("dict[str, Operation | Binding]", bindings),
     )
 
 
-def main():
+def main() -> None:
+    """按四个求解器家族装配输入模型变体并落盘对比产物与索引。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/input-models"))
     args = parser.parse_args()
@@ -205,7 +230,7 @@ def main():
             },
         )
     )
-    qram_memory = {
+    qram_memory: dict[str, Sequence[int] | Mapping[int, int]] = {
         "coeff_angles": word_table,
         "initial_angles": qram_state_angles(profile, 8),
     }
@@ -363,7 +388,7 @@ def main():
         ),
         "GridInitial": Binding(qram_state_prep(2, 8).operation, {"angles": "grid_angles"}),
     }
-    grid_memory = {
+    grid_memory: dict[str, Sequence[int] | Mapping[int, int]] = {
         "positions": forward,
         "inverse_positions": inverse,
         "entries": entries,

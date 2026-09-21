@@ -28,7 +28,11 @@ class StatePreparationProtocol(Protocol):
     """要求 ``state_preparation()`` 方法；满足即可作为算法的初态输入。"""
 
     def state_preparation(self) -> StatePreparation:
-        """返回该输入对应的 ``StatePreparation`` 访问视图。"""
+        """返回该输入对应的 ``StatePreparation`` 访问视图。
+
+        Returns:
+            StatePreparation: 该输入在零输入寄存器上制备目标态的视图。
+        """
         ...
 
 
@@ -37,7 +41,11 @@ class UnitaryProtocol(StatePreparationProtocol, Protocol):
     """在态制备协议之上增加 ``unitary()`` 的完整酉接口。"""
 
     def unitary(self) -> Operation:
-        """返回完整寄存器空间上的酉 ``Operation``。"""
+        """返回完整寄存器空间上的酉 ``Operation``。
+
+        Returns:
+            Operation: 作用在该输入全部寄存器上的酉操作。
+        """
         ...
 
 
@@ -46,7 +54,11 @@ class BlockEncodingProtocol(Protocol):
     """要求 ``block_encoding()`` 方法；满足即可作为块编码输入。"""
 
     def block_encoding(self) -> BlockEncoding:
-        """返回该输入对应的 ``BlockEncoding`` 访问视图。"""
+        """返回该输入对应的 ``BlockEncoding`` 访问视图。
+
+        Returns:
+            BlockEncoding: 把该输入编码为酉的正规化子块的访问视图。
+        """
         ...
 
 
@@ -55,7 +67,11 @@ class CKSSparseProtocol(Protocol):
     """要求 ``sparse_access()`` 方法；满足即可作为 CKS 稀疏矩阵输入。"""
 
     def sparse_access(self) -> SparseAccess:
-        """返回 CKS 位置与元素操作组成的 ``SparseAccess``。"""
+        """返回 CKS 位置与元素操作组成的 ``SparseAccess``。
+
+        Returns:
+            SparseAccess: 由位置 oracle 与元素 oracle 组成的稀疏访问视图。
+        """
         ...
 
 
@@ -64,7 +80,11 @@ class XorDatabaseProtocol(Protocol):
     """要求 ``xor_database()`` 方法；满足即可作为 XOR 数据库输入。"""
 
     def xor_database(self) -> XorDatabase:
-        """返回该输入对应的 ``XorDatabase`` 访问视图。"""
+        """返回该输入对应的 ``XorDatabase`` 访问视图。
+
+        Returns:
+            XorDatabase: 以 XOR 方式应答查询的数据库访问视图。
+        """
         ...
 
 
@@ -73,11 +93,15 @@ class StateOracleProtocol(Protocol):
     """要求 ``state_oracle()`` 方法；满足即可作为输出态 oracle。"""
 
     def state_oracle(self) -> StateOracle:
-        """返回含成功信号的 ``StateOracle``。"""
+        """返回含成功信号的 ``StateOracle``。
+
+        Returns:
+            StateOracle: 在输出态中标注成功子空间的 oracle。
+        """
         ...
 
 
-def as_state_preparation(value):
+def as_state_preparation(value: StatePreparationProtocol) -> StatePreparation:
     """把满足协议的输入转换成 ``StatePreparation``。
 
     Args:
@@ -97,8 +121,24 @@ def as_state_preparation(value):
     return result
 
 
-def checked_state_preparation(value, *, adjoint=False, controlled=False, path="preparation"):
-    """取得零输入、干净工作区的制备；由调用算法选择需要的变换能力。"""
+def checked_state_preparation(
+    value: StatePreparationProtocol,
+    *,
+    adjoint: bool = False,
+    controlled: bool = False,
+    path: str = "preparation",
+) -> StatePreparation:
+    """取得零输入、干净工作区的制备；由调用算法选择需要的变换能力。
+
+    Args:
+        value: 满足 ``StatePreparationProtocol`` 的输入对象。
+        adjoint: 制备是否必须提供厄米共轭版本。
+        controlled: 制备是否必须支持受控版本。
+        path: 契约报告中该输入的路径名。
+
+    Returns:
+        StatePreparation: 通过零输入与干净工作区检查的制备视图。
+    """
     result = as_state_preparation(value)
     requirement = InputRequirement(
         path,
@@ -114,7 +154,7 @@ def checked_state_preparation(value, *, adjoint=False, controlled=False, path="p
     return result
 
 
-def as_block_encoding(value):
+def as_block_encoding(value: BlockEncodingProtocol) -> BlockEncoding:
     """把满足协议的输入转换成 ``BlockEncoding``。
 
     Args:
@@ -134,7 +174,7 @@ def as_block_encoding(value):
     return result
 
 
-def as_sparse_access(value):
+def as_sparse_access(value: CKSSparseProtocol) -> SparseAccess:
     """把满足协议的输入转换成 ``SparseAccess``。
 
     Args:
@@ -154,7 +194,9 @@ def as_sparse_access(value):
     return result
 
 
-def as_qlss_matrix(value):
+def as_qlss_matrix(
+    value: BlockEncodingProtocol | CKSSparseProtocol,
+) -> BlockEncoding | SparseAccess:
     """按可用接口把矩阵输入转换成 ``BlockEncoding`` 或 ``SparseAccess``。
 
     满足 ``BlockEncodingProtocol`` 时优先返回块编码视图，否则按
@@ -176,8 +218,25 @@ def as_qlss_matrix(value):
     )
 
 
-def operator_state_contract(name, *, matrix="generator", state="initial", composable=True):
-    """当前 BE 型演化算法的需求；其他算法可定义完全不同的契约。"""
+def operator_state_contract(
+    name: str,
+    *,
+    matrix: str = "generator",
+    state: str = "initial",
+    composable: bool = True,
+) -> ProtocolContract:
+    """当前 BE 型演化算法的需求；其他算法可定义完全不同的契约。
+
+    Args:
+        name: 契约名，用于报告与诊断。
+        matrix: 块编码矩阵输入在契约中的路径名。
+        state: 初态制备输入在契约中的路径名。
+        composable: 初态是否要求厄米共轭与受控能力，供组合式算法使用。
+
+    Returns:
+        ProtocolContract: 要求矩阵为可逆可控的块编码、初态为零输入且
+        干净工作区的制备，并约束两者寄存器等宽的契约。
+    """
     return ProtocolContract(
         name,
         (

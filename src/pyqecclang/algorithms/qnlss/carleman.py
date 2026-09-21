@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from pyqecclang.algorithms.common.state_preparation import select_subspace
@@ -49,7 +50,8 @@ class PolynomialODE:
     initial: StatePreparation
     initial_norm: float = 1.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验宽度、系数表与初态布局的构造期约束。"""
         positive_integer(self.width, "PolynomialODE.width", maximum=64)
         object.__setattr__(self, "initial", as_state_preparation(self.initial))
         finite_real(self.initial_norm, "PolynomialODE.initial_norm", minimum=0)
@@ -67,7 +69,15 @@ class PolynomialODE:
                 raise ValidationError("F_p 必须为 d×d^p、补齐到 max(d,d^p) 的 BE")
 
 
-def _carleman_term(coefficient, n, cutoff, output_level, order, position):
+def _carleman_term(
+    coefficient: BlockEncoding,
+    n: int,
+    cutoff: int,
+    output_level: int,
+    order: int,
+    position: int,
+) -> BlockEncoding:
+    """组装单个 Carleman 放置项：在选定张量位置施加 F_p 并维护层级计数。"""
     level_bits = cutoff.bit_length()
     data_width, source_level = cutoff * n, output_level + order - 1
     b = Builder(
@@ -114,7 +124,7 @@ def _carleman_term(coefficient, n, cutoff, output_level, order, position):
     return BlockEncoding(annotate(b.finish(), "block_encoding", be_alpha=coefficient.alpha))
 
 
-def carleman_lift(problem, *, cutoff=2):
+def carleman_lift(problem: PolynomialODE, *, cutoff: int = 2) -> BlockEncoding:
     """组装截断 Carleman 线性嵌入的块编码。
 
     对每个目标张量层与多项式次数枚举放置项，以等权 LCU 组合；输出属性
@@ -135,7 +145,7 @@ def carleman_lift(problem, *, cutoff=2):
     positive_integer(cutoff, "carleman.cutoff")
     if cutoff < 1:
         raise ValidationError("Carleman 截断阶必须为正")
-    terms = []
+    terms: list[tuple[complex, BlockEncoding]] = []
     for k in range(1, cutoff + 1):
         for order, coefficient in problem.coefficients:
             source = k + order - 1
@@ -158,7 +168,7 @@ def carleman_lift(problem, *, cutoff=2):
     )
 
 
-def carleman_initial(problem, *, cutoff=2):
+def carleman_initial(problem: PolynomialODE, *, cutoff: int = 2) -> StatePreparation:
     """构造张量初态的零输入制备。
 
     层级寄存器按 ``initial_norm`` 的幂加权制备，再受控地把初态复制到
@@ -211,7 +221,13 @@ def carleman_initial(problem, *, cutoff=2):
     )
 
 
-def carleman_qode(problem, time, linear_solver, *, cutoff=2):
+def carleman_qode(
+    problem: PolynomialODE,
+    time: float,
+    linear_solver: Callable[[BlockEncoding, StatePreparation, float], StateOracle],
+    *,
+    cutoff: int = 2,
+) -> StateOracle:
     """把 Carleman 嵌入交给线性求解器并投影回第一层。
 
     先组装 ``carleman_lift`` 与 ``carleman_initial``，再由 ``linear_solver``

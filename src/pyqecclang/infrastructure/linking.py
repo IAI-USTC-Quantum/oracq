@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
+from typing import cast
 
 from pyqecclang.infrastructure.builder import Operation
 from pyqecclang.infrastructure.ir import (
@@ -12,6 +14,8 @@ from pyqecclang.infrastructure.ir import (
     Adjoint,
     Call,
     Control,
+    Instruction,
+    Module,
     Program,
     Ref,
     Repeat,
@@ -54,8 +58,15 @@ class Binding:
     resources: dict[str, str] | None = None
 
 
-def calls(nodes):
-    """按出现顺序产出指令体（含嵌套结构块）中的全部模块调用节点。"""
+def calls(nodes: tuple[Instruction, ...] | None) -> Iterator[Call]:
+    """按出现顺序产出指令体（含嵌套结构块）中的全部模块调用节点。
+
+    Args:
+        nodes: 待扫描的指令体；``None`` 或空元组视为无内容。
+
+    Returns:
+        Iterator[Call]: 按出现顺序惰性产出的 ``Call`` 节点，含嵌套块内。
+    """
     for node in nodes or ():
         if isinstance(node, Call):
             yield node
@@ -63,8 +74,15 @@ def calls(nodes):
             yield from calls(node.body)
 
 
-def stores(nodes):
-    """列出指令体（含嵌套结构块）中的全部 Store 副作用。"""
+def stores(nodes: tuple[Instruction, ...] | None) -> Iterator[Store]:
+    """列出指令体（含嵌套结构块）中的全部 Store 副作用。
+
+    Args:
+        nodes: 待扫描的指令体；``None`` 或空元组视为无内容。
+
+    Returns:
+        Iterator[Store]: 按出现顺序惰性产出的 ``Store`` 节点，含嵌套块内。
+    """
     for node in nodes or ():
         if isinstance(node, Store):
             yield node
@@ -73,7 +91,14 @@ def stores(nodes):
 
 
 def uses_store(program: Program) -> bool:
-    """入口可达的模块中是否存在 QRAM 随机写。"""
+    """入口可达的模块中是否存在 QRAM 随机写。
+
+    Args:
+        program: 待检查的 RIR 程序，从入口沿调用图遍历。
+
+    Returns:
+        bool: 任一入口可达模块体内存在 ``Store`` 节点时为 True。
+    """
     modules = program.module_map
     pending, seen = [program.entry], set()
     while pending:
@@ -85,13 +110,22 @@ def uses_store(program: Program) -> bool:
         if body is not None and any(True for _ in stores(body)):
             return True
         pending.extend(call.module for call in calls(body))
+    return False
 
 
 def unresolved(program: Program) -> tuple[OracleRequirement, ...]:
-    """列出入口结构可达的未实现声明，并给出首条最短调用路径。"""
+    """列出入口结构可达的未实现声明，并给出首条最短调用路径。
+
+    Args:
+        program: 待分析的 RIR 程序；内部先做结构校验。
+
+    Returns:
+        tuple[OracleRequirement, ...]: 按声明名排序的开放声明需求列表，每项
+        记录从入口出发的首条最短调用路径。
+    """
     validate(program)
     modules = program.module_map
-    pending = deque([(program.entry, (program.entry,))])
+    pending: deque[tuple[str, tuple[str, ...]]] = deque([(program.entry, (program.entry,))])
     visited, result = set(), []
     while pending:
         key, path = pending.popleft()
@@ -103,7 +137,8 @@ def unresolved(program: Program) -> tuple[OracleRequirement, ...]:
             result.append(
                 OracleRequirement(
                     key,
-                    dict(module.attributes)["oracle_paradigm"],
+                    # 校验保证开放声明的 oracle_paradigm 属性为 str。
+                    cast(str, dict(module.attributes)["oracle_paradigm"]),
                     path,
                     module.registers,
                     module.attributes,
@@ -115,16 +150,29 @@ def unresolved(program: Program) -> tuple[OracleRequirement, ...]:
     return tuple(sorted(result, key=lambda item: item.name))
 
 
-def capability_table(program: Program):
-    """一次遍历推导全部模块的变换能力。"""
+def capability_table(program: Program) -> dict[str, dict[str, bool]]:
+    """一次遍历推导全部模块的变换能力。
+
+    Args:
+        program: 待分析的 RIR 程序，遍历其全部模块。
+
+    Returns:
+        dict[str, dict[str, bool]]: 模块名到能力字典的映射；含 ``Store``
+        副作用的模块各项能力均为 False。
+    """
+    cache: dict[str, dict[str, bool]]
     modules, cache = program.module_map, {}
 
-    def infer(name):
+    def infer(name: str) -> dict[str, bool]:
+        """按声明与被调模块能力保守合取，推导单个模块的能力字典。"""
         if name in cache:
             return cache[name]
         module = modules[name]
         attrs = dict(module.attributes)
-        result = {cap: attrs.get(cap, True) for cap in ("supports_adjoint", "supports_controlled")}
+        # 校验保证 supports_adjoint/supports_controlled 属性存在时必为布尔值。
+        result: dict[str, bool] = {
+            cap: cast(bool, attrs.get(cap, True)) for cap in ("supports_adjoint", "supports_controlled")
+        }
         if module.body is not None and any(True for _ in stores(module.body)):
             result = {cap: False for cap in result}
         for call in calls(module.body):
@@ -138,7 +186,7 @@ def capability_table(program: Program):
     return cache
 
 
-def capabilities(program: Program, key: str | None = None):
+def capabilities(program: Program, key: str | None = None) -> dict[str, bool]:
     """返回指定模块（默认入口）的变换能力字典。
 
     能力取值由模块声明与被调用模块的能力保守合取推导，见
@@ -155,7 +203,15 @@ def capabilities(program: Program, key: str | None = None):
 
 
 def bind(program: Program | Operation, bindings: dict[str, Binding | Operation]) -> Program:
-    """绑定已声明的槽；新增的 QRAM 资源沿模块图显式提升，其他槽可以继续开放。"""
+    """绑定已声明的槽；新增的 QRAM 资源沿模块图显式提升，其他槽可以继续开放。
+
+    Args:
+        program: 含开放声明槽的 ``Program`` 或 ``Operation``。
+        bindings: 声明槽名到 ``Binding``（或裸 ``Operation``）的映射。
+
+    Returns:
+        Program: 绑定并提升捕获资源后重新校验的程序；未涉及的槽保持开放。
+    """
     if isinstance(program, Operation):
         program = program.program()
     validate(program)
@@ -163,7 +219,8 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
     global_types = {r.name: r.type for r in program.main.resources}
     captures = {}
 
-    def add(module):
+    def add(module: Module) -> None:
+        """把实现模块并入模块表，同名且不同定义时抛错。"""
         existing = modules.get(module.name)
         if existing is not None and existing != module:
             raise ValidationError(f"绑定实现的模块名冲突：{module.name}")
@@ -202,6 +259,8 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
             raise ValidationError("绑定包含未知资源形式参数")
         formal_resources = {r.name: r.type for r in declaration.resources}
         resource_arguments = []
+        # resource 先后承载 Resource 形参对象与捕获资源名字符串，按联合类型注解。
+        resource: Resource | str
         for resource in target.resources:
             if resource.name not in explicit and resource.name in formal_resources:
                 if formal_resources[resource.name] != resource.type:
@@ -230,15 +289,18 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
             attributes=tuple(sorted(attributes.items())),
         )
 
+    requirements: dict[str, tuple[str, ...]]
+    active: set[str]
     requirements, active = {}, set()
 
-    def need(key):
+    def need(key: str) -> tuple[str, ...]:
+        """收集模块及其被调链所需的全部捕获资源名，并检测循环调用。"""
         if key in active:
             raise ValidationError("绑定引入了循环调用")
         if key in requirements:
             return requirements[key]
         active.add(key)
-        result = set()
+        result: set[str] = set()
         for call in calls(modules[key].body):
             result.update(r[1:] for r in call.resources if r.startswith("@"))
             if call.module not in modules:
@@ -278,10 +340,13 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
         local_names[key] = names
         additions[key] = tuple(extra)
 
-    def rewrite(nodes, owner):
+    def rewrite(
+        nodes: tuple[Instruction, ...] | None, owner: str
+    ) -> tuple[Instruction, ...] | None:
+        """改写体内调用的捕获资源绑定，并把提升资源追加到被调实参。"""
         if nodes is None:
             return None
-        result = []
+        result: list[Instruction] = []
         for node in nodes:
             if isinstance(node, Call):
                 values = tuple(
@@ -290,7 +355,10 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
                 values += tuple(local_names[owner][key] for key, _ in additions[node.module])
                 result.append(replace(node, resources=values))
             elif isinstance(node, (Repeat, Control, Adjoint)):
-                result.append(replace(node, body=rewrite(node.body, owner)))
+                # 传入的 node.body 为具体元组时 rewrite 必返回元组（None 仅来自 None 入参）。
+                result.append(
+                    replace(node, body=cast("tuple[Instruction, ...]", rewrite(node.body, owner)))
+                )
             else:
                 result.append(node)
         return tuple(result)

@@ -5,11 +5,11 @@ from __future__ import annotations
 import math
 
 from pyqecclang.algorithms.input_model.contracts import positive_integer
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits
 
 
-def qft(width):
+def qft(width: int) -> Operation:
     """生成正号离散 Fourier 变换。
 
     Args:
@@ -31,22 +31,36 @@ def qft(width):
     return b.finish()
 
 
-def qft_with_work(width):
-    """保留早期零宽 work 接口的 QFT 适配。"""
+def qft_with_work(width: int) -> Operation:
+    """保留早期零宽 work 接口的 QFT 适配。
+
+    Args:
+        width: target 位宽，范围为 1..64。
+
+    Returns:
+        Operation: 除 target 外另含零宽 work 寄存器的 QFT 操作。
+    """
     b = Builder("qft_with_work_" + str(width), {"target": Bits(width), "work": Bits(0)})
     b.call(qft(width), target=b["target"])
     return b.finish()
 
 
-def inverse_qft(width):
-    """生成 QFT 的伴随操作，保持模块调用。"""
+def inverse_qft(width: int) -> Operation:
+    """生成 QFT 的伴随操作，保持模块调用。
+
+    Args:
+        width: target 位宽，范围为 1..64。
+
+    Returns:
+        Operation: 以伴随模块调用包装的逆 QFT 操作。
+    """
     b = Builder("inverse_qft_" + str(width), {"target": Bits(width)})
     with b.adjoint():
         b.call(qft(width), target=b["target"])
     return b.finish()
 
 
-def fourier_add(width):
+def fourier_add(width: int) -> Operation:
     """用 QFT 实现无进位寄存器的模加法。
 
     Args:

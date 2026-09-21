@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import cast
 
 from pyqecclang.algorithms.input_model.operators import BlockEncoding
 from pyqecclang.algorithms.input_model.oracles import (
+    StateOracle,
     StatePreparation,
 )
 
@@ -27,7 +30,10 @@ class DiscretePDE:
     label: str = "linear_pde"
 
 
-def make_qpde(qode, discretizer=lambda problem: problem):
+def make_qpde(
+    qode: Callable[[BlockEncoding, StatePreparation, float], StateOracle],
+    discretizer: Callable[[object], DiscretePDE] = lambda problem: cast("DiscretePDE", problem),
+) -> Callable[[object, float], StateOracle]:
     """把三参数线性 QODE 协议包装成 QPDE 生成函数。
 
     Args:
@@ -37,7 +43,8 @@ def make_qpde(qode, discretizer=lambda problem: problem):
     Returns:
         callable: 形如 ``(problem, final_time) -> StateOracle`` 的生成函数。
     """
-    def generate(problem, final_time):
+    def generate(problem: object, final_time: float) -> StateOracle:
+        """离散化问题对象后交给线性求解协议演化。"""
         discrete = discretizer(problem)
         result = qode(discrete.generator, discrete.initial, final_time)
         return result
@@ -53,7 +60,10 @@ class PDEInput:
     label: str = "open_spatial_discretization"
 
 
-def qpde_solver(qode, spatial_discretizer=lambda problem: problem.model):
+def qpde_solver(
+    qode: Callable[[object, float], StateOracle],
+    spatial_discretizer: Callable[[object], object] = lambda problem: cast("PDEInput", problem).model,
+) -> Callable[[object, float], StateOracle]:
     """把 ``(model, time)`` 形式的求解协议包装成 QPDE 生成函数。
 
     与 ``make_qpde`` 不同，这里把离散化结果作为单个模型直接交给 ``qode``，适合 ``PolynomialODE`` 等模型级协议。
@@ -65,7 +75,8 @@ def qpde_solver(qode, spatial_discretizer=lambda problem: problem.model):
     Returns:
         callable: 形如 ``(problem, time) -> StateOracle`` 的生成函数。
     """
-    def generate(problem, time):
+    def generate(problem: object, time: float) -> StateOracle:
+        """提取问题模型后交给求解协议演化。"""
         return qode(spatial_discretizer(problem), time)
 
     return generate

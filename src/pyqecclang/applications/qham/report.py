@@ -1,10 +1,16 @@
 "导出可审阅的自动推导与 QODE input manifest。"
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict
+from pathlib import Path
+from typing import cast
+
+from pyqecclang.applications.qham.linearization import Block, QHAMPlan
 
 
-def input_manifest(plan, state_width):
+def input_manifest(plan: QHAMPlan, state_width: int) -> dict[str, object]:
     """构造交给 QODE 求解侧的输入 manifest。
 
     Args:
@@ -44,7 +50,9 @@ def input_manifest(plan, state_width):
     }
 
 
-def row_description(plan, block, state_width, eta):
+def row_description(
+    plan: QHAMPlan, block: Block, state_width: int, eta: complex
+) -> dict[str, object]:
     """构造单个行块的推导描述。
 
     Args:
@@ -83,7 +91,15 @@ def row_description(plan, block, state_width, eta):
     }
 
 
-def export_derivation(plan, directory, *, state_width=2, eta=-1.0, max_blocks=256, row=None):
+def export_derivation(
+    plan: QHAMPlan,
+    directory: str | Path,
+    *,
+    state_width: int = 2,
+    eta: complex = -1.0,
+    max_blocks: int = 256,
+    row: Block | None = None,
+) -> dict[str, object]:
     """把自动推导结果导出为可审阅的 JSON、Markdown 与 QODE manifest。
 
     在 ``directory`` 下写入 ``pde.json``、``qcl-plan.json``、
@@ -119,7 +135,7 @@ def export_derivation(plan, directory, *, state_width=2, eta=-1.0, max_blocks=25
     manifest = input_manifest(plan, state_width)
     manifest["eta"] = [complex(eta).real, complex(eta).imag]
     if row is not None:
-        blocks = (row,)
+        blocks: tuple[Block, ...] = (row,)
         manifest["rows_materialized"] = "single requested row"
     elif plan.block_count <= max_blocks:
         blocks = tuple(plan.blocks())
@@ -146,7 +162,8 @@ def export_derivation(plan, directory, *, state_width=2, eta=-1.0, max_blocks=25
         "|---|---|---|---|---|",
     ]
     for item in rows:
-        for term in item["terms"]:
+        # rows 由 row_description 构造，"terms" 恒为行块术语字典列表。
+        for term in cast(list[dict[str, object]], item["terms"]):
             text.append(
                 f"| {item['row']} | {term['column']} | {term['operator']} ({term['arity']}→1) | {term['position']} | {term['formula']} |"
             )

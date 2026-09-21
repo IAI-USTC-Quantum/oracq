@@ -1,24 +1,28 @@
 "纯 Python 数学函数编译入口。"
 
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping, Sequence
+
 from pyqecclang.algorithms.common.arithmetic import FixedFormat
-from pyqecclang.infrastructure.mathfunc.frontend import Frontend, FunctionCompileError
+from pyqecclang.infrastructure.mathfunc.frontend import Frontend, FunctionCompileError, Source
 from pyqecclang.infrastructure.mathfunc.graph import Index, MathProgram
 from pyqecclang.infrastructure.mathfunc.lowering import CompiledFunction, Lowerer
 from pyqecclang.infrastructure.mathfunc.numeric import MathConfig
 
 
 def compile_function(
-    function,
+    function: str | Callable[..., object] | Source,
     *,
-    fmt=None,
-    inputs=None,
-    constants=None,
-    helpers=None,
-    output_names=None,
-    config=None,
-    max_unroll=128,
-    entry=None,
-):
+    fmt: FixedFormat | None = None,
+    inputs: Mapping[str, Index | type | str] | None = None,
+    constants: Mapping[str, bool | int | float | complex] | None = None,
+    helpers: Mapping[str, Callable[..., object]] | None = None,
+    output_names: Sequence[str] | None = None,
+    config: MathConfig | None = None,
+    max_unroll: int = 128,
+    entry: str | None = None,
+) -> CompiledFunction:
     """把普通 Python 纯函数一步编译为可逆量子模块。
 
     先由前端解释受限 AST 生成 MIR，再按定点格式与数学核配置降低为
@@ -55,7 +59,13 @@ def compile_function(
     return lower_math_ir(program, fmt=fmt, config=config, output_names=output_names)
 
 
-def lower_math_ir(program, *, fmt=None, config=None, output_names=None):
+def lower_math_ir(
+    program: MathProgram,
+    *,
+    fmt: FixedFormat | None = None,
+    config: MathConfig | None = None,
+    output_names: Sequence[str] | None = None,
+) -> CompiledFunction:
     """把已构造的 MIR 程序按给定生成配置降低为可逆 RIR 模块。
 
     Args:

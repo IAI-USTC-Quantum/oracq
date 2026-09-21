@@ -1,14 +1,24 @@
 """参数化量子电路、MaxCut QAOA 和 VQE 的 Pauli 测量电路。"""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import cast
+
 from pyqecclang.algorithms.input_model.contracts import finite_real, positive_integer
-from pyqecclang.algorithms.input_model.interfaces import checked_state_preparation
+from pyqecclang.algorithms.input_model.interfaces import (
+    StatePreparationProtocol,
+    checked_state_preparation,
+)
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
-def hardware_efficient_ansatz(width, layers):
+def hardware_efficient_ansatz(
+    width: int, layers: Sequence[Sequence[Sequence[float]]]
+) -> Operation:
     """生成 Ry/Rz 层与相邻 CNOT 组成的参数化电路。
 
     Args:
@@ -41,7 +51,12 @@ def hardware_efficient_ansatz(width, layers):
     return b.finish()
 
 
-def qaoa_maxcut(width, edges, gammas, betas):
+def qaoa_maxcut(
+    width: int,
+    edges: Sequence[tuple[int, int, float]],
+    gammas: Sequence[float],
+    betas: Sequence[float],
+) -> Operation:
     """生成 MaxCut 的 QAOA cost/mixer 电路。
 
     Args:
@@ -55,7 +70,7 @@ def qaoa_maxcut(width, edges, gammas, betas):
 
     Cost 为 Σw(1-ZuZv)/2。该函数不运行经典优化器。"""
     positive_integer(width, "qaoa.width", maximum=64)
-    edges = tuple(tuple(edge) for edge in edges)
+    edges = tuple(cast("tuple[int, int, float]", tuple(edge)) for edge in edges)
     gammas, betas = tuple(gammas), tuple(betas)
     if not gammas or len(gammas) != len(betas):
         raise ValidationError("QAOA 需要同长且非空的 gamma/beta 列表")
@@ -87,7 +102,7 @@ def qaoa_maxcut(width, edges, gammas, betas):
     return b.finish()
 
 
-def pauli_measurement(preparation, word):
+def pauli_measurement(preparation: StatePreparationProtocol, word: str) -> Operation:
     """将制备态旋转到指定 Pauli 测量基。
 
     Args:
@@ -118,7 +133,9 @@ def pauli_measurement(preparation, word):
     return b.finish()
 
 
-def vqe_measurements(preparation, terms):
+def vqe_measurements(
+    preparation: StatePreparationProtocol, terms: Sequence[tuple[float, str]]
+) -> tuple[tuple[float, Operation], ...]:
     """为 VQE 的 Hamiltonian 各项生成测量电路。
 
     Args:
@@ -127,7 +144,7 @@ def vqe_measurements(preparation, terms):
 
     Returns:
         tuple: (系数, 测量 Operation) 列表。能量汇总与参数优化在经典侧进行。"""
-    circuits = []
+    circuits: list[tuple[float, Operation]] = []
     for coefficient, word in terms:
         finite_real(coefficient, "vqe.coefficient")
         circuits.append((coefficient, pauli_measurement(preparation, word)))

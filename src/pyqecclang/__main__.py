@@ -1,5 +1,7 @@
 "已序列化 RIR 的验证、后端导出与小规模执行。"
 
+from __future__ import annotations
+
 import argparse
 import json
 from dataclasses import asdict
@@ -8,6 +10,7 @@ from pathlib import Path
 from pyqecclang import (
     Binding,
     Operation,
+    RegisterState,
     bind,
     describe_oracle,
     dumps,
@@ -20,7 +23,12 @@ from pyqecclang import (
 )
 
 
-def main():
+def main() -> None:
+    """命令行入口：按子命令验证、检查、规范化、导出或执行已序列化的 RIR。
+
+    子命令包括 validate、inspect、canonicalize、emit、run、requirements、
+    bind 与 compile-function；输入与取值错误统一经 ``parser.exit`` 以退出码 2 报告。
+    """
     parser = argparse.ArgumentParser(prog="pyqecclang")
     parser.add_argument(
         "command",
@@ -97,7 +105,10 @@ def main():
             )
         elif args.command == "validate":
             missing = unresolved(program)
-            state = f"open ({len(missing)} unresolved oracles)" if missing else "closed"
+            # state 在 validate 分支为状态描述字符串，在 run 分支为执行终态。
+            state: str | RegisterState = (
+                f"open ({len(missing)} unresolved oracles)" if missing else "closed"
+            )
             result = f"RIR {program.version}: {len(program.modules)} modules; valid; {state}\n"
         elif args.command == "requirements":
             result = (
@@ -110,7 +121,7 @@ def main():
             if args.bindings is None:
                 raise ValueError("bind 需要 --bindings JSON 清单")
             manifest = json.loads(args.bindings.read_text())
-            bindings = {}
+            bindings: dict[str, Binding | Operation] = {}
             for name, item in manifest.items():
                 path = args.bindings.parent / item["program"]
                 implementation = loads(path.read_text())
@@ -151,6 +162,8 @@ def main():
                 )
             else:
                 runner = simulate if args.backend == "reference" else run_pysparq
+                options: dict[str, object]
+                report: dict[str, int | list[str] | str]
                 options, report = {}, {}
                 if args.native_arithmetic:
                     if args.backend != "pysparq":
@@ -163,7 +176,8 @@ def main():
                         ),
                         "report": report,
                     }
-                state = runner(program, memory, **options)
+                # runner 按 backend 动态选择，**options 为异构关键字包，无法静态验证。
+                state = runner(program, memory, **options)  # type: ignore[arg-type]
                 result = (
                     json.dumps(
                         {

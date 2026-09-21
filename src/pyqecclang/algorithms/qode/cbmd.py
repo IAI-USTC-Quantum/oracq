@@ -5,6 +5,7 @@ from __future__ import annotations
 import cmath
 import json
 import math
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
@@ -15,11 +16,9 @@ from pyqecclang.algorithms.input_model.contracts import (
     require_instance,
 )
 from pyqecclang.algorithms.input_model.operators import BlockEncoding
-from pyqecclang.algorithms.input_model.oracles import (
-    annotate,
-)
+from pyqecclang.algorithms.input_model.oracles import StateOracle, annotate
 from pyqecclang.algorithms.qode._dynamics import _lcu_dynamics
-from pyqecclang.algorithms.qode.ode_models import HermitianParts
+from pyqecclang.algorithms.qode.ode_models import HermitianParts, LinearODE
 from pyqecclang.infrastructure.ir import ValidationError
 
 
@@ -31,7 +30,8 @@ class ContourPlan:
     cutoff: int = 2
     poles: tuple[complex, ...] = (2j, -1 + 1j, 1j, 1 + 1j)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验 a、截断与辅助极点的有限性、互异性及非实性。"""
         finite_real(self.a, "ContourPlan.a", minimum=0, strict=True)
         positive_integer(self.cutoff, "ContourPlan.cutoff", minimum=0)
         object.__setattr__(self, "poles", tuple(self.poles))
@@ -49,12 +49,12 @@ class ContourPlan:
             raise ValidationError("CBMD 当前要求非实互异简单辅助极点，且避开 -i")
 
     @property
-    def nodes(self):
+    def nodes(self) -> tuple[float, ...]:
         """主级数实节点，第 k 项为 k/a，k 取 -cutoff..cutoff，共 2*cutoff+1 个。"""
         return tuple(k / self.a for k in range(-self.cutoff, self.cutoff + 1))
 
     @property
-    def weights(self):
+    def weights(self) -> tuple[complex, ...]:
         """主级数各节点的复权重，与 ``nodes`` 一一对应。
 
         按 QST Eq.12 的留数闭式计算，分母包含 (q+i) 因子与全部辅助极点。"""
@@ -73,7 +73,7 @@ class ContourPlan:
         )
 
     @property
-    def auxiliary_coefficients(self):
+    def auxiliary_coefficients(self) -> tuple[complex, ...]:
         """各辅助极点的复系数，与 ``poles`` 一一对应。
 
         对应的非 Hermitian 演化分支当前不生成，仅在 ``metadata`` 的 omitted 列表中声明。"""
@@ -87,12 +87,13 @@ class ContourPlan:
             for p in self.poles
         )
 
-    def metadata(self):
+    def metadata(self) -> str:
         """导出计划参数与遗漏项声明的 JSON 文本。
 
         Returns:
             str: 含 a、cutoff、节点、极点、权重、辅助系数、omitted 遗漏项、assumption 前提与 source 文献来源。"""
-        def pair(z):
+        def pair(z: complex) -> list[float]:
+            """把复数展开为实部与虚部构成的二元列表。"""
             return [complex(z).real, complex(z).imag]
 
         return json.dumps(
@@ -111,7 +112,13 @@ class ContourPlan:
         )
 
 
-def cbmd_qode(model, time, *, plan=None, hamiltonian_function=taylor_hamiltonian):
+def cbmd_qode(
+    model: LinearODE,
+    time: float,
+    *,
+    plan: ContourPlan | None = None,
+    hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
+) -> StateOracle:
     """基于轮廓分解组装 u'=-Au 的量子模拟程序。
 
     Args:
@@ -141,8 +148,24 @@ def cbmd_qode(model, time, *, plan=None, hamiltonian_function=taylor_hamiltonian
     )
 
 
-def cbmd_function(a, nodes, residue_weights, hermitian_function):
-    """通用 f(A) 组装点：Hermitian function protocol 保持开放，不偷换为矩阵求逆。"""
+def cbmd_function(
+    a: BlockEncoding,
+    nodes: Sequence[float],
+    residue_weights: Sequence[complex],
+    hermitian_function: Callable[[BlockEncoding], BlockEncoding],
+) -> BlockEncoding:
+    """通用 f(A) 组装点：Hermitian function protocol 保持开放，不偷换为矩阵求逆。
+
+    Args:
+        a: 目标算符 A 的块编码。
+        nodes: 留数极点位置序列，逐点进入 H + q·L 的组合。
+        residue_weights: 与极点一一对应的复留数权重，符号约定由调用方保证。
+        hermitian_function: Hermitian function protocol 实现；输入为极点组合后的
+            块编码，须返回 BlockEncoding。
+
+    Returns:
+        BlockEncoding: 留数加权的 f(A) 块编码，correctness 标记为 pending。
+    """
     parts = HermitianParts.from_operator(a)
     terms = [
         (weight, hermitian_function(lcu([(node, parts.h), (1, parts.hermitian)])))

@@ -19,9 +19,9 @@ import numpy as np
 
 import pyqecclang
 from pyqecclang import simulate
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
 from pyqecclang.algorithms.common.qsvt import qsp_phases
 from pyqecclang.algorithms.common.transforms import qsvt_sequence
+from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
 from pyqecclang.infrastructure.ir import ValidationError
 
 KAPPA, EPS, THRESHOLD = 8, 1e-2, 1e-2

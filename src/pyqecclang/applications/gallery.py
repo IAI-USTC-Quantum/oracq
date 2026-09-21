@@ -1,5 +1,7 @@
 """算法展示目录：每个条目提供可运行的小实例及其读出说明。"""
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 
@@ -58,11 +60,23 @@ class GalleryCase:
     opened: Operation | None = None
 
 
-def algorithm_gallery():
-    """返回小型案例；不运行后端，不读写文件，也不请求外部数据。"""
-    cases = []
+def algorithm_gallery() -> tuple[GalleryCase, ...]:
+    """返回小型案例；不运行后端，不读写文件，也不请求外部数据。
 
-    def add(name, family, operation, readout, opened=None):
+    Returns:
+        tuple[GalleryCase, ...]: 演示条目目录，每条含完整 ``Operation``、
+        算法类别与读出说明。
+    """
+    cases: list[GalleryCase] = []
+
+    def add(
+        name: str,
+        family: str,
+        operation: Operation,
+        readout: str,
+        opened: Operation | None = None,
+    ) -> None:
+        """把一条演示条目追加到目录。"""
         cases.append(GalleryCase(name, family, operation, readout, opened))
 
     f = affine_boolean_oracle(3, 5, bias=1)

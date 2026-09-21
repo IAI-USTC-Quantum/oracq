@@ -1,13 +1,17 @@
 """qubitization、显式 QSVT 相位序列和 oblivious amplification 的组装。"""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+
 from pyqecclang.algorithms.input_model.block_encoding import reflect_zero
-from pyqecclang.algorithms.input_model.operators import _name
+from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name
 from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits
 
 
-def qubitization_walk(a):
+def qubitization_walk(a: BlockEncoding) -> Operation:
     """组装块编码 ``a`` 的 qubitization walk 操作。
 
     先正向调用 ``a``，再对 signal 做关于零子空间的正反射，得到
@@ -31,7 +35,7 @@ def qubitization_walk(a):
     return b.finish()
 
 
-def qsvt_sequence(a, phases):
+def qsvt_sequence(a: BlockEncoding, phases: Iterable[float]) -> Operation:
     """按显式相位序列对块编码 ``a`` 组装 QSVT 线路。
 
     相位按时间顺序排列（``phases[0]`` 最先作用），``len(phases)`` 个相位
@@ -69,7 +73,7 @@ def qsvt_sequence(a, phases):
     return b.finish()
 
 
-def oblivious_amplification(a, iterations=1):
+def oblivious_amplification(a: BlockEncoding, iterations: int = 1) -> Operation:
     """对块编码 ``a`` 组装 oblivious amplitude amplification。
 
     先正向调用 ``a``；随后每轮依次执行 signal 零反射、逆向调用 ``a``、

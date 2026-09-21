@@ -1,17 +1,22 @@
 """小规模模乘、量子求阶与经典因子后处理。"""
 
+from __future__ import annotations
+
 import math
 from fractions import Fraction
+from typing import cast
 
 from pyqecclang.algorithms.common.estimation import phase_estimation
 from pyqecclang.algorithms.input_model.contracts import positive_integer
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import _transposition, invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
-def modular_multiply(multiplier, modulus, *, width=None, max_width=8):
+def modular_multiply(
+    multiplier: int, modulus: int, *, width: int | None = None, max_width: int = 8
+) -> Operation:
     """生成可逆的有限规模模乘置换。
 
     Args:
@@ -56,7 +61,9 @@ def modular_multiply(multiplier, modulus, *, width=None, max_width=8):
     return b.finish()
 
 
-def order_finding(multiplier, modulus, *, precision=3, max_width=8):
+def order_finding(
+    multiplier: int, modulus: int, *, precision: int = 3, max_width: int = 8
+) -> Operation:
     """从整数一开始，对模乘 unitary 做量子求阶。
 
     Args:
@@ -86,7 +93,9 @@ def order_finding(multiplier, modulus, *, precision=3, max_width=8):
     return b.finish()
 
 
-def factors_from_phase(value, precision, multiplier, modulus):
+def factors_from_phase(
+    value: int, precision: int, multiplier: int, modulus: int
+) -> tuple[int, int] | None:
     """用相位样本的连分数候选阶尝试得到非平凡因子。
 
     Args:
@@ -103,7 +112,7 @@ def factors_from_phase(value, precision, multiplier, modulus):
     positive_integer(multiplier, "factors.multiplier")
     common = math.gcd(multiplier, modulus)
     if 1 < common < modulus:
-        return tuple(sorted((common, modulus // common)))
+        return cast("tuple[int, int]", tuple(sorted((common, modulus // common))))
     if value == 0:
         return None
     order = Fraction(value, 1 << precision).limit_denominator(modulus).denominator
@@ -112,5 +121,5 @@ def factors_from_phase(value, precision, multiplier, modulus):
     half = pow(multiplier, order // 2, modulus)
     for candidate in (math.gcd(half - 1, modulus), math.gcd(half + 1, modulus)):
         if 1 < candidate < modulus:
-            return tuple(sorted((candidate, modulus // candidate)))
+            return cast("tuple[int, int]", tuple(sorted((candidate, modulus // candidate))))
     return None

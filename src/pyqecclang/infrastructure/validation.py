@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import math
 import re
+from typing import cast
 
 from pyqecclang.infrastructure.ir import (
+    QRAM,
     VERSION,
     Adjoint,
     Call,
     Control,
+    Instruction,
     Load,
+    Module,
     Primitive,
     Program,
     Ref,
@@ -32,7 +36,7 @@ IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 """合法标识符的正则模式：以字母或下划线开头，后随字母、数字或下划线。"""
 
 
-def require(condition, message):
+def require(condition: object, message: str) -> None:
     """断言结构检查条件成立，否则抛出 ``ValidationError``。
 
     Args:
@@ -46,7 +50,7 @@ def require(condition, message):
         raise ValidationError(message)
 
 
-def integer(value, lo, hi, message):
+def integer(value: object, lo: int, hi: int, message: str) -> None:
     """断言 ``value`` 是位于闭区间 ``lo..hi`` 内的整数。
 
     Args:
@@ -61,8 +65,11 @@ def integer(value, lo, hi, message):
     require(type(value) is int and lo <= value <= hi, message)
 
 
-def name(value):
+def name(value: object) -> None:
     """断言 ``value`` 是匹配 ``IDENTIFIER`` 模式的合法标识符字符串。
+
+    Args:
+        value: 待检查的标识符，如寄存器名、资源名或模块名。
 
     Raises:
         ValidationError: ``value`` 不是字符串或包含非法字符。
@@ -72,8 +79,11 @@ def name(value):
     )
 
 
-def reg_type(dtype: RegType):
+def reg_type(dtype: RegType) -> None:
     """断言 ``dtype`` 是种类已知、宽度为 0..64 的寄存器类型。
+
+    Args:
+        dtype: 待检查的存储类型对象。
 
     Raises:
         ValidationError: ``dtype`` 不是 ``RegType``、种类未知或宽度越界。
@@ -82,7 +92,7 @@ def reg_type(dtype: RegType):
     integer(dtype.width, 0, 64, "每个寄存器或视图的宽度必须为 0..64")
 
 
-def locations(ref: Ref):
+def locations(ref: Ref) -> tuple[tuple[str, int], ...]:
     """展开视图引用覆盖的全部量子位坐标。
 
     Args:
@@ -95,13 +105,14 @@ def locations(ref: Ref):
 
 
 def _validate(program: Program) -> Program:
+    """对程序执行全部跨节点结构检查，通过后原样返回。"""
     require(isinstance(program, Program) and type(program.modules) is tuple, "需要不可变 Program")
     require(program.version in {"0.1", "0.2", VERSION}, f"不支持 RIR 版本：{program.version}")
     name(program.entry)
     modules = program.module_map
     require(len(modules) == len(program.modules), "模块名重复")
     require(program.entry in modules, "入口模块不存在")
-    graph = {key: set() for key in modules}
+    graph: dict[str, set[str]] = {key: set() for key in modules}
 
     for module in program.modules:
         name(module.name)
@@ -143,7 +154,8 @@ def _validate(program: Program) -> Program:
             integer(resource.type.address_width, 1, 64, "QRAM 地址宽度必须为 1..64")
             integer(resource.type.data_width, 1, 64, "QRAM 数据宽度必须为 1..64")
 
-        def check_ref(ref, regs=regs):
+        def check_ref(ref: Ref, regs: dict[str, RegType] = regs) -> set[tuple[str, int]]:
+            """校验单个视图的合法性与无重叠，返回其覆盖的量子位集合。"""
             require(isinstance(ref, Ref), "需要寄存器视图")
             reg_type(ref.type)
             require(type(ref.parts) is tuple, "视图必须不可变")
@@ -157,15 +169,24 @@ def _validate(program: Program) -> Program:
             require(len(set(locs)) == len(locs), "视图内存在重叠量子位")
             return set(locs)
 
-        def distinct(refs, protected):
-            used = set()
+        def distinct(refs: tuple[Ref, ...], protected: frozenset[tuple[str, int]]) -> None:
+            """断言各操作数互不重叠，且不修改受保护的控制量子位。"""
+            used: set[tuple[str, int]] = set()
             for ref in refs:
                 current = check_ref(ref)
                 require(not current & used, "操作数存在别名或重叠")
                 require(not current & protected, "操作数修改了受保护的控制寄存器")
                 used |= current
 
-        def body(nodes, protected=frozenset(), depth=0, resources=resources, module=module, unitary=True):
+        def body(
+            nodes: tuple[Instruction, ...],
+            protected: frozenset[tuple[str, int]] = frozenset(),
+            depth: int = 0,
+            resources: dict[str, QRAM] = resources,
+            module: Module = module,
+            unitary: bool = True,
+        ) -> None:
+            """递归校验指令体：基元元数、别名、控制保护与调用匹配。"""
             require(depth < 128, "嵌套深度超过 127")
             require(type(nodes) is tuple, "指令体必须不可变")
             for node in nodes:
@@ -181,7 +202,8 @@ def _validate(program: Program) -> Program:
                         )
                     if node.op in ROTATIONS | {"gphase"}:
                         require(
-                            type(node.angle) in (float, int) and math.isfinite(node.angle),
+                            # and 短路保证进入 isfinite 时 angle 已是有限实数类型。
+                            type(node.angle) in (float, int) and math.isfinite(cast(float, node.angle)),
                             "旋转角必须是有限实数",
                         )
                     else:
@@ -222,9 +244,12 @@ def _validate(program: Program) -> Program:
                     distinct(node.arguments, protected)
                     for actual, formal in zip(node.arguments, target.registers, strict=True):
                         require(actual.type == formal.type, f"模块参数类型不符：{formal.name}")
-                    for actual, formal in zip(node.resources, target.resources, strict=True):
+                    # actual/formal 在上一循环绑定为 Ref/Register，本循环承载 str/Resource。
+                    for actual, formal in zip(  # type: ignore[assignment]
+                        node.resources, target.resources, strict=True
+                    ):
                         require(
-                            actual in resources and resources[actual] == formal.type,
+                            actual in resources and resources[cast(str, actual)] == formal.type,
                             "模块 QRAM 实参类型不符",
                         )
                     graph[module.name].add(node.module)
@@ -251,9 +276,12 @@ def _validate(program: Program) -> Program:
         else:
             body(module.body)
 
+    visited: set[str]
+    active: set[str]
     visited, active = set(), set()
 
-    def visit(key):
+    def visit(key: str) -> None:
+        """沿调用图深度优先检测递归与过深的模块调用。"""
         require(key not in active, "模块调用图存在递归")
         require(len(active) < 128, "模块调用深度超过 127")
         if key in visited:
@@ -270,7 +298,10 @@ def _validate(program: Program) -> Program:
 
     inferred = capability_table(program)
 
-    def check_demands(nodes, controlled=False, inverse=False):
+    def check_demands(
+        nodes: tuple[Instruction, ...] | None, controlled: bool = False, inverse: bool = False
+    ) -> None:
+        """检查控制或伴随语境下调用的模块具备相应能力。"""
         for node in nodes or ():
             if isinstance(node, Call):
                 if controlled:

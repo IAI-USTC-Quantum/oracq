@@ -19,7 +19,9 @@ signal == 0 后，system 的约化密度矩阵正比于 g(H/α)² = e^{−βH}�
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, replace
+from typing import cast
 
 from pyqecclang.algorithms.common.qsvt import (
     _MAX_DEGREE,
@@ -32,6 +34,7 @@ from pyqecclang.algorithms.common.qsvt import (
     _trim,
 )
 from pyqecclang.algorithms.input_model.contracts import (
+    OracleSpec,
     OracleView,
     fail,
     finite_real,
@@ -48,7 +51,7 @@ from pyqecclang.algorithms.input_model.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 __all__ = [
@@ -69,7 +72,10 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _as_complex_matrix(matrix, path):
+def _as_complex_matrix(
+    matrix: Iterable[Iterable[complex]], path: str
+) -> tuple[tuple[complex, ...], ...]:
+    """把输入规范化为非空、元素有限的复方阵元组。"""
     try:
         result = tuple(tuple(complex(v) for v in row) for row in matrix)
     except (TypeError, ValueError) as exc:
@@ -82,7 +88,10 @@ def _as_complex_matrix(matrix, path):
     return result
 
 
-def _check_hermitian(matrix, path, *, tol=1e-9):
+def _check_hermitian(
+    matrix: Iterable[Iterable[complex]], path: str, *, tol: float = 1e-9
+) -> tuple[tuple[complex, ...], ...]:
+    """校验并返回 Hermitian 复方阵；非 Hermitian 时抛 ``ValidationError``。"""
     matrix = _as_complex_matrix(matrix, path)
     d = len(matrix)
     scale = max(1.0, max(abs(v) for row in matrix for v in row))
@@ -93,7 +102,10 @@ def _check_hermitian(matrix, path, *, tol=1e-9):
     return matrix
 
 
-def _check_density_matrix(rho, *, tol=1e-7):
+def _check_density_matrix(
+    rho: Iterable[Iterable[complex]], *, tol: float = 1e-7
+) -> tuple[tuple[complex, ...], ...]:
+    """校验密度矩阵的维度与迹，返回规范化后的复方阵元组。"""
     matrix = _check_hermitian(rho, "gate_purification.rho")
     d = len(matrix)
     if d < 2 or d & (d - 1):
@@ -105,7 +117,9 @@ def _check_density_matrix(rho, *, tol=1e-7):
     return matrix
 
 
-def _hermitian_eigendecomposition(matrix, *, tol=1e-13, max_sweeps=64):
+def _hermitian_eigendecomposition(
+    matrix: Sequence[Sequence[complex]], *, tol: float = 1e-13, max_sweeps: int = 64
+) -> tuple[tuple[float, ...], list[list[complex]]]:
     """循环 Jacobi 方法求小 Hermitian 矩阵的特征分解。
 
     返回 (特征值元组, 特征向量表)；特征值按降序排列，特征向量表的第 i 行第 j 列
@@ -155,11 +169,22 @@ def _hermitian_eigendecomposition(matrix, *, tol=1e-13, max_sweeps=64):
     return values, [[vectors[i][k] for k in order] for i in range(d)]
 
 
-def partial_trace(amplitudes, system_width, environment_width):
+def partial_trace(
+    amplitudes: Iterable[complex], system_width: int, environment_width: int
+) -> tuple[tuple[complex, ...], ...]:
     """对 environment 取偏迹，返回 system 上的约化密度矩阵（行主序嵌套元组）。
 
     amplitudes 是长度 2^(system_width + environment_width) 的稠密态向量，
     基态下标约定为 system | (environment << system_width)。
+
+    Args:
+        amplitudes: 满足上述长度约定的纯态幅度序列。
+        system_width: system 寄存器位宽，范围 0..20。
+        environment_width: 被求偏迹的 environment 寄存器位宽，范围 0..20。
+
+    Returns:
+        tuple[tuple[complex, ...], ...]: 行主序嵌套元组表示的 2^system_width
+        维约化密度矩阵。
     """
     positive_integer(system_width, "partial_trace.system_width", minimum=0, maximum=20)
     positive_integer(environment_width, "partial_trace.environment_width", minimum=0, maximum=20)
@@ -179,8 +204,18 @@ def partial_trace(amplitudes, system_width, environment_width):
     )
 
 
-def gibbs_state(hamiltonian, beta):
-    """经典参考 Gibbs 态 e^{−βH}/Tr(e^{−βH})；仅用于小矩阵的经典见证。"""
+def gibbs_state(
+    hamiltonian: Iterable[Iterable[complex]], beta: float
+) -> tuple[tuple[complex, ...], ...]:
+    """经典参考 Gibbs 态 e^{−βH}/Tr(e^{−βH})；仅用于小矩阵的经典见证。
+
+    Args:
+        hamiltonian: 小规模 Hermitian 矩阵，以复数元素的嵌套序列给出。
+        beta: 逆温度，与 H 谱同量纲的有限实数。
+
+    Returns:
+        tuple[tuple[complex, ...], ...]: 归一化 Gibbs 态矩阵，行主序嵌套元组。
+    """
     matrix = _check_hermitian(hamiltonian, "gibbs_state.hamiltonian")
     finite_real(beta, "gibbs_state.beta")
     values, vectors = _hermitian_eigendecomposition(matrix)
@@ -197,8 +232,18 @@ def gibbs_state(hamiltonian, beta):
     )
 
 
-def trace_distance(rho, sigma):
-    """迹距离 T(ρ,σ) = ‖ρ−σ‖₁/2，经差矩阵的 Hermitian 特征分解计算。"""
+def trace_distance(
+    rho: Iterable[Iterable[complex]], sigma: Iterable[Iterable[complex]]
+) -> float:
+    """迹距离 T(ρ,σ) = ‖ρ−σ‖₁/2，经差矩阵的 Hermitian 特征分解计算。
+
+    Args:
+        rho: 第一个 Hermitian 矩阵，通常为密度矩阵。
+        sigma: 第二个 Hermitian 矩阵，维度须与 rho 一致。
+
+    Returns:
+        float: 迹距离，取值范围 [0,1]。
+    """
     a = _check_hermitian(rho, "trace_distance.rho")
     b = _check_hermitian(sigma, "trace_distance.sigma")
     if len(a) != len(b):
@@ -224,39 +269,46 @@ class PurificationAccess(OracleView):
     """
 
     oracle_kind = "purification_access"
-    operation: object
+    operation: Operation
 
-    def purification_access(self):
+    def purification_access(self) -> PurificationAccess:
         """纯化访问的结构化协议访问器，返回 ``self``。
 
         宿主对象实现同名方法并返回 ``PurificationAccess`` 即可被按协议适配，
         与 ``state_preparation``、``block_encoding`` 等访问器同构。
+
+        Returns:
+            PurificationAccess: 该视图自身。
         """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验包装操作的 system/environment 寄存器签名与位宽。"""
         validate_signature(self.operation, ("system", "environment"), "PurificationAccess")
         if self.width < 1:
             raise ValidationError("PurificationAccess 的 system 寄存器不能为空")
 
     @property
-    def width(self):
+    def width(self) -> int:
         """system 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "system"
         )
 
     @property
-    def environment_width(self):
+    def environment_width(self) -> int:
         """environment 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "environment"
         )
 
-    def describe(self):
+    def describe(self) -> OracleSpec:
         """返回类型为 ``purification_access`` 的 ``OracleSpec`` 快照。
 
         system 宽度记入 main_qubit，environment 宽度记入 anc_qubit。
+
+        Returns:
+            OracleSpec: 快照，type 为 ``purification_access``。
         """
         from pyqecclang.algorithms.input_model.contracts import describe_oracle
 
@@ -269,11 +321,18 @@ class PurificationAccess(OracleView):
         )
 
     @classmethod
-    def from_state_preparation(cls, preparation):
+    def from_state_preparation(cls, preparation: StatePreparation) -> PurificationAccess:
         """纯态即平凡纯化：work 复净的 StatePreparation 适配为 PurificationAccess。
 
         work 寄存器扮演 environment 角色；制备契约承诺 work 复净，因此偏迹环境后
         system 上仍是原来的纯态。
+
+        Args:
+            preparation: work 寄存器复净的纯态制备视图；work 宽度大于 0 时
+                必须带有 clean_work 承诺。
+
+        Returns:
+            PurificationAccess: environment 取原 work 寄存器的平凡纯化视图。
         """
         require_instance(
             preparation, StatePreparation, "PurificationAccess.from_state_preparation"
@@ -304,8 +363,12 @@ class PurificationAccess(OracleView):
             )
         )
 
-    def as_state_preparation(self):
-        """把纯化操作整体视为 system⊕environment 上的 StatePreparation（供 B2 组合）。"""
+    def as_state_preparation(self) -> StatePreparation:
+        """把纯化操作整体视为 system⊕environment 上的 StatePreparation（供 B2 组合）。
+
+        Returns:
+            StatePreparation: 目标态为纯化态、work 宽度为 0 的制备视图。
+        """
         n, m = self.width, self.environment_width
         b = Builder(
             _name("purification_as_state_preparation", self.operation),
@@ -339,17 +402,21 @@ class ApproximatePurification(OracleView):
     """
 
     oracle_kind = "approximate_purification"
-    operation: object
+    operation: Operation
 
-    def approximate_purification(self):
+    def approximate_purification(self) -> ApproximatePurification:
         """近似纯化的结构化协议访问器，返回 ``self``。
 
         宿主对象实现同名方法并返回 ``ApproximatePurification`` 即可被按协议适配，
         与 ``state_preparation``、``block_encoding`` 等访问器同构。
+
+        Returns:
+            ApproximatePurification: 该视图自身。
         """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验包装操作的 system/environment/signal 寄存器签名与位宽。"""
         validate_signature(
             self.operation, ("system", "environment", "signal"), "ApproximatePurification"
         )
@@ -357,45 +424,48 @@ class ApproximatePurification(OracleView):
             raise ValidationError("ApproximatePurification 的 system 寄存器不能为空")
 
     @property
-    def width(self):
+    def width(self) -> int:
         """system 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "system"
         )
 
     @property
-    def environment_width(self):
+    def environment_width(self) -> int:
         """environment 寄存器位宽，以 RIR 寄存器签名为准。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "environment"
         )
 
     @property
-    def signal_qubits(self):
+    def signal_qubits(self) -> int:
         """signal 寄存器位宽；后置选择要求其读出全 0。"""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "signal"
         )
 
     @property
-    def attributes(self):
+    def attributes(self) -> dict[str, str | int | float | bool]:
         """模块属性字典的副本；保存 beta、error 等算法参数。"""
         return dict(self.operation.module.attributes)
 
     @property
-    def beta(self):
+    def beta(self) -> float | None:
         """逆温度 β，取自模块属性；未记录时为 ``None``。"""
-        return self.attributes.get("beta")
+        return cast("float | None", self.attributes.get("beta"))
 
     @property
-    def error(self):
+    def error(self) -> float | None:
         """多项式一致逼近误差参数，取自模块属性；未记录时为 ``None``。"""
-        return self.attributes.get("error")
+        return cast("float | None", self.attributes.get("error"))
 
-    def describe(self):
+    def describe(self) -> OracleSpec:
         """返回类型为 ``approximate_purification`` 的 ``OracleSpec`` 快照。
 
         system 宽度记入 main_qubit，environment 与 signal 宽度之和记入 anc_qubit。
+
+        Returns:
+            OracleSpec: 快照，type 为 ``approximate_purification``。
         """
         from pyqecclang.algorithms.input_model.contracts import describe_oracle
 
@@ -413,11 +483,22 @@ class ApproximatePurification(OracleView):
 # ---------------------------------------------------------------------------
 
 
-def abstract_purification(name, width, environment_width=None, *, reversible=True):
+def abstract_purification(
+    name: str, width: int, environment_width: int | None = None, *, reversible: bool = True
+) -> PurificationAccess:
     """DM input model 的开放声明：制备 ``|ψ_ρ⟩`` 的纯化访问槽，供分批绑定。
 
     environment_width 缺省取 width（任何密度矩阵都有等宽环境的纯化）；
     声明经 linking.bind 绑定 gate_purification 等见证实现后程序闭合。
+
+    Args:
+        name: 槽名，供 linking.bind 绑定见证实现时引用。
+        width: system 寄存器位宽，范围 1..63。
+        environment_width: environment 寄存器位宽，范围 0..63；缺省取 width。
+        reversible: 声明槽是否同时承诺厄米共轭与受控能力。
+
+    Returns:
+        PurificationAccess: 待绑定见证实现的开放声明槽。
     """
     positive_integer(width, "abstract_purification.width", maximum=63)
     environment_width = width if environment_width is None else environment_width
@@ -436,12 +517,21 @@ def abstract_purification(name, width, environment_width=None, *, reversible=Tru
     )
 
 
-def gate_purification(rho, *, name=None):
+def gate_purification(
+    rho: Iterable[Iterable[complex]], *, name: str | None = None
+) -> PurificationAccess:
     """显式小密度矩阵的纯化见证：特征分解 ρ = Σ_j p_j ``|v_j⟩⟨v_j|`` 后受控制备。
 
     纯化态取 ``|ψ_ρ⟩ = Σ_j √p_j |v_j⟩_s |j⟩_e``，其幅度向量经
     gate_state_prep 的多重旋转树在 system 与 environment 的拼接寄存器上制备；
     对环境取偏迹恰好回到 ρ。
+
+    Args:
+        rho: 显式密度矩阵，须是迹为 1、半正定且维度不超过 16 的二的幂方阵。
+        name: 生成操作的名称；缺省由矩阵内容派生。
+
+    Returns:
+        PurificationAccess: 以特征分解见证实现的纯化访问视图。
     """
     matrix = _check_density_matrix(rho)
     d = len(matrix)
@@ -484,8 +574,16 @@ def gate_purification(rho, *, name=None):
     )
 
 
-def maximally_mixed_purification(width, *, name=None):
-    """最大混合态 I/2^n 的纯化生成器：n 对 Bell 对 ``|Φ+⟩`` 的张量积。"""
+def maximally_mixed_purification(width: int, *, name: str | None = None) -> PurificationAccess:
+    """最大混合态 I/2^n 的纯化生成器：n 对 Bell 对 ``|Φ+⟩`` 的张量积。
+
+    Args:
+        width: system 与 environment 寄存器各自的位宽，范围 1..32。
+        name: 生成操作的名称；缺省为 ``bell_purification_{width}``。
+
+    Returns:
+        PurificationAccess: 制备 n 对 Bell 对张量积的纯化视图。
+    """
     positive_integer(width, "maximally_mixed_purification.width", maximum=32)
     b = Builder(
         name or f"bell_purification_{width}",
@@ -510,7 +608,7 @@ def maximally_mixed_purification(width, *, name=None):
 # ---------------------------------------------------------------------------
 
 
-def _bessel_i(n, x):
+def _bessel_i(n: int, x: float) -> float:
     """第一类修正 Bessel 函数 I_n(x)，幂级数纯 Python 实现。"""
     term = (x / 2) ** n / math.factorial(n)
     total = term
@@ -522,7 +620,9 @@ def _bessel_i(n, x):
     return total
 
 
-def _gibbs_branches(c, error):
+def _gibbs_branches(
+    c: float, error: float
+) -> tuple[tuple[float, ...], tuple[float, ...], int, int]:
     """g(x) = e^{−c(x+1)} 的偶/奇 Chebyshev 截断：e^{−c}cosh(cx) 与 −e^{−c}sinh(cx)。
 
     每支截断尾部按 2e^{−c}·Σ_{k>d} I_k(c) ≤ error/8 控制，合计一致误差不超过
@@ -534,7 +634,8 @@ def _gibbs_branches(c, error):
     for j in range(kmax + 1, -1, -1):
         suffix[j] = suffix[j + 1] + ivals[j]
 
-    def tail_ok(k):
+    def tail_ok(k: int) -> bool:
+        """判断度数 ``k`` 的 Bessel 截断尾部是否已压到 error/8 以内。"""
         return 2.0 * math.exp(-c) * suffix[k + 1] <= error / 8
 
     d_even = next((k for k in range(2, kmax + 1, 2) if tail_ok(k)), None)
@@ -554,10 +655,11 @@ def _gibbs_branches(c, error):
         coef = -2.0 * shift * ivals[2 * k + 1]
         for i, v in enumerate(_chebyshev_t(2 * k + 1)):
             odd[i] += coef * v
-    return _trim(even), _trim(odd), d_even, d_odd
+    return cast("tuple[float, ...]", _trim(even)), cast("tuple[float, ...]", _trim(odd)), d_even, d_odd
 
 
-def _even_imag_candidates(f):
+def _even_imag_candidates(f: Sequence[float]) -> Iterator[tuple[float, ...]]:
+    """枚举偶支虚部补全的候选多项式：常数项与 ``x^{2m}`` 项分别取饱和幅值。"""
     d = len(f) - 1
     a0 = math.sqrt(max(0.0, 1.0 - _eval(f, 0.0).real ** 2))
     a1 = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
@@ -568,14 +670,17 @@ def _even_imag_candidates(f):
         )
 
 
-def _odd_imag_candidates(f):
+def _odd_imag_candidates(f: Sequence[float]) -> Iterator[tuple[float, ...]]:
+    """枚举奇支虚部补全的候选多项式：仅在 ``x^{2m+1}`` 项取饱和幅值。"""
     d = len(f) - 1
     a1 = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
     for m in range(0, (d - 1) // 2 + 1):
         yield tuple(a1 * (1.0 if i == 2 * m + 1 else 0.0) for i in range(d + 1))
 
 
-def gibbs_purification(hamiltonian, beta, *, error=0.01):
+def gibbs_purification(
+    hamiltonian: BlockEncoding, beta: float, *, error: float = 0.01
+) -> ApproximatePurification:
     """Gibbs 态 ρ = e^{−βH}/Z 的近似纯化制备（QSVT 纯化路线）。
 
     hamiltonian 是 H 的 BlockEncoding，约定谱含于 [−α,α]（α = be_alpha）；
@@ -590,6 +695,15 @@ def gibbs_purification(hamiltonian, beta, *, error=0.01):
     error 控制多项式一致逼近误差（每支截断尾部 ≤ error/8）；返回
     ApproximatePurification，模块属性含 algorithm="gibbs_purification"、beta、
     error、qsp_degree 与 gibbs_scale = 2s。β = 0 时退化为最大混合态纯化。
+
+    Args:
+        hamiltonian: H 的块编码，谱须含于 [−α,α]（α = be_alpha）。
+        beta: 逆温度，非负有限实数；0 时退化为最大混合态纯化。
+        error: 多项式一致逼近误差，取值范围 (0,1)。
+
+    Returns:
+        ApproximatePurification: 后置选择 signal == 0 后 system 约化态为
+        e^{−βH}/Z 的近似纯化视图。
     """
     require_instance(hamiltonian, BlockEncoding, "gibbs_purification.hamiltonian")
     finite_real(beta, "gibbs_purification.beta", minimum=0)
@@ -621,7 +735,10 @@ def gibbs_purification(hamiltonian, beta, *, error=0.01):
     c = float(beta) * hamiltonian.alpha / 2.0
     g_even, g_odd, d_even, d_odd = _gibbs_branches(c, error)
     s = 1.5 * max(_sup_norm(g_even), _sup_norm(g_odd), 1e-3)
-    f_even, f_odd = _scale(1.0 / s, g_even), _scale(1.0 / s, g_odd)
+    f_even, f_odd = (
+        cast("tuple[float, ...]", _scale(1.0 / s, g_even)),
+        cast("tuple[float, ...]", _scale(1.0 / s, g_odd)),
+    )
     phases_even = _synthesize_with_imag(f_even, _even_imag_candidates(f_even), "Gibbs 偶支")
     phases_odd = _synthesize_with_imag(f_odd, _odd_imag_candidates(f_odd), "Gibbs 奇支")
     be_even = _real_qsvt_be(hamiltonian, phases_even)

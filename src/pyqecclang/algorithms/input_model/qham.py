@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
 from pyqecclang.algorithms.common.arithmetic import BooleanNetwork
@@ -24,9 +25,10 @@ from pyqecclang.algorithms.input_model.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.applications.qham.linearization import Block
+from pyqecclang.applications.qham.linearization import Block, QHAMPlan
+from pyqecclang.applications.qham.reference import Discretization
 from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits, ValidationError
+from pyqecclang.infrastructure.ir import Bits, Ref, ValidationError
 
 
 @dataclass(frozen=True)
@@ -58,7 +60,7 @@ class QHAMBindings:
     initial: StatePreparation
     initial_norm: float
 
-    def validate(self, plan):
+    def validate(self, plan: QHAMPlan) -> QHAMBindings:
         """校验绑定与 QCL plan 的端口集合和寄存器布局是否匹配。
 
         Args:
@@ -87,7 +89,16 @@ class QHAMBindings:
         return self
 
     @classmethod
-    def declare(cls, plan, state_width, port_specs, *, initial_norm, initial_work=0, prefix="Qham"):
+    def declare(
+        cls,
+        plan: QHAMPlan,
+        state_width: int,
+        port_specs: Mapping[str, tuple[float, int]],
+        *,
+        initial_norm: float,
+        initial_work: int = 0,
+        prefix: str = "Qham",
+    ) -> QHAMBindings:
         """以抽象声明方式构造开放的端口与初值绑定。
 
         为每个 PDE 端口生成一个未实现的块编码声明，并把 QCL plan 序列、端口名与输入秩写入模块属性；初值同样保留为抽象制备，构造完成后整体执行 ``validate``。
@@ -108,7 +119,7 @@ class QHAMBindings:
         """
         if set(port_specs) != {p.name for p in plan.pde.ports}:
             raise ValidationError("开放 QHAM 端口的 alpha/信号位规格不完整")
-        ports = []
+        ports: list[tuple[str, PortBinding]] = []
         for port in plan.pde.ports:
             alpha, signal = port_specs[port.name]
             be = abstract_block_encoding(
@@ -131,14 +142,28 @@ class QHAMBindings:
         ).validate(plan)
 
 
-def gate_bindings(discretization, initial, *, max_port_qubits=5):
-    """仅物化小型基础端口，不构造整个提升矩阵 G。"""
+def gate_bindings(
+    discretization: Discretization,
+    initial: Sequence[complex],
+    *,
+    max_port_qubits: int = 5,
+) -> QHAMBindings:
+    """仅物化小型基础端口，不构造整个提升矩阵 G。
+
+    Args:
+        discretization: 带端口与维度信息的离散化对象。
+        initial: 按完整寄存器布局编码的有限初值向量。
+        max_port_qubits: 基础端口门实现允许的最大位数。
+
+    Returns:
+        QHAMBindings: 小型端口门实现与初态制备组成的绑定。
+    """
     width = discretization.width
     if len(initial) != discretization.dimension or any(
         not math.isfinite(complex(v).real) or not math.isfinite(complex(v).imag) for v in initial
     ):
         raise ValidationError("初值必须是有限的、按完整寄存器布局编码的向量")
-    ports = []
+    ports: list[tuple[str, PortBinding]] = []
     for port in discretization.pde.ports:
         local_width = max(1, port.arity) * width
         if local_width > max_port_qubits:
@@ -163,7 +188,8 @@ def gate_bindings(discretization, initial, *, max_port_qubits=5):
     return QHAMBindings(width, tuple(ports), prep, norm)
 
 
-def _permute_slots(builder, target, width, desired):
+def _permute_slots(builder: Builder, target: Ref, width: int, desired: Sequence[int]) -> None:
+    """以等宽槽位交换把 ``target`` 重排为 ``desired`` 指定的槽位次序。"""
     current = list(range(len(desired)))
     for position, token in enumerate(desired):
         other = current.index(token)
@@ -175,7 +201,9 @@ def _permute_slots(builder, target, width, desired):
             current[position], current[other] = current[other], current[position]
 
 
-def place_port(binding, state_width, source_rank, position):
+def place_port(
+    binding: PortBinding, state_width: int, source_rank: int, position: int
+) -> BlockEncoding:
     """把基础端口放置到张量字的指定槽位，返回秩收缩后的块编码。
 
     端口作用在 ``source_rank`` 重输入张量从 ``position`` 开始的连续 ``arity`` 个槽位上，其余槽位作恒等映射；元数为 0 时先把一个空槽换入 ``position`` 供常量注入，元数大于 1 时把多余的被消耗槽位置换到末尾，输出张量秩为 ``source_rank - arity + 1``。
@@ -230,8 +258,27 @@ def place_port(binding, state_width, source_rank, position):
     return BlockEncoding(annotate(b.finish(), "block_encoding", be_alpha=base.alpha))
 
 
-def embed_rectangular(local, global_width, row_offset, column_offset, input_width, output_width):
-    """同时约束输入和输出窗口，避免矩形零填充污染相邻块。"""
+def embed_rectangular(
+    local: BlockEncoding,
+    global_width: int,
+    row_offset: int,
+    column_offset: int,
+    input_width: int,
+    output_width: int,
+) -> BlockEncoding:
+    """同时约束输入和输出窗口，避免矩形零填充污染相邻块。
+
+    Args:
+        local: 局部块的块编码。
+        global_width: 全局 target 寄存器位宽。
+        row_offset: 输出窗口在全局布局中的行偏移。
+        column_offset: 输入窗口在全局布局中的列偏移。
+        input_width: 输入窗口的位数。
+        output_width: 输出窗口的位数。
+
+    Returns:
+        BlockEncoding: 窗口约束后的全局位布局块编码，alpha 沿用 local。
+    """
     if (
         local.width > global_width
         or max(row_offset + (1 << output_width), column_offset + (1 << input_width))
@@ -259,7 +306,8 @@ def embed_rectangular(local, global_width, row_offset, column_offset, input_widt
     )
     b.add_const(b["target"].reinterpret("uint"), (-column_offset) % (1 << global_width))
 
-    def reject_nonzero(ref, flag):
+    def reject_nonzero(ref: Ref, flag: Ref) -> None:
+        """把 ``ref`` 是否全零写入 ``flag``：全零时 ``flag`` 为 1，否则为 0。"""
         if ref.width:
             b.x(flag)
             with b.control(ref, 0):
@@ -278,7 +326,14 @@ def embed_rectangular(local, global_width, row_offset, column_offset, input_widt
     return BlockEncoding(annotate(b.finish(), "block_encoding", be_alpha=local.alpha))
 
 
-def generator_encoding(plan, bindings, eta, *, max_blocks=256, max_terms=4096):
+def generator_encoding(
+    plan: QHAMPlan,
+    bindings: QHAMBindings,
+    eta: complex,
+    *,
+    max_blocks: int = 256,
+    max_terms: int = 4096,
+) -> BlockEncoding:
     """按 QCL plan 的行规则显式装配提升生成元的块编码。
 
     枚举各块的行耦合，把每个非零耦合表示为端口放置加矩形嵌入后的 LCU 项；相同 ``(算子, 列秩, 张量位置)`` 的放置被缓存复用。
@@ -303,8 +358,8 @@ def generator_encoding(plan, bindings, eta, *, max_blocks=256, max_terms=4096):
     dimension = 1 << n
     width = (plan.raw_dimension(dimension) - 1).bit_length()
     blocks = tuple(plan.blocks(max_blocks=max_blocks))
-    terms = []
-    placements = {}
+    terms: list[tuple[complex, BlockEncoding]] = []
+    placements: dict[tuple[str, int, int], BlockEncoding] = {}
     for block in blocks:
         for coupling in plan.row_terms(block):
             coefficient = coupling.weight.evaluate(eta)
@@ -356,7 +411,7 @@ def generator_encoding(plan, bindings, eta, *, max_blocks=256, max_terms=4096):
     )
 
 
-def lifted_initial(plan, bindings):
+def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePreparation, float]:
     """构造提升张量空间的初态制备及其对数范数。
 
     分支权重保持各提升块的相对范数 r, r, r**2, ..., r**K（有强迫时常量分量为 1）：先按缩放后的权重制备选择标签，各分支内按块秩重复调用初值 oracle 并把结果平移到块偏移，最后用地址区间反算选择标签；对已知零输入的制备均复净工作位。
@@ -408,7 +463,7 @@ def lifted_initial(plan, bindings):
     )
     selector = b["work"][work_width - selector_width :]
     invoke(b, selector_prep.operation, target=selector, work=selector[:0])
-    intervals = []
+    intervals: list[tuple[int, int, int]] = []
     for branch, (block, _) in enumerate(candidates):
         rank = block.rank
         with b.control(selector, branch):
@@ -465,7 +520,11 @@ class QHAMInputModel:
     log_initial_norm: float
     growth_shift: float = 0.0
 
-    def solve(self, qode, time):
+    def solve(
+        self,
+        qode: Callable[[BlockEncoding, StatePreparation, float], StateOracle],
+        time: float,
+    ) -> StateOracle:
         """用给定的 QODE 协议演化提升系统并选出物理输出块。
 
         Args:
@@ -484,9 +543,9 @@ class QHAMInputModel:
                 physical.operation,
                 "unitary",
                 algorithm="general_qham",
-                ham_order=self.plan.order,
-                pde_degree=self.plan.pde.degree,
-                qham_plan=self.plan.dumps(),
+                ham_order=self.plan.order,  # type: ignore[attr-defined]
+                pde_degree=self.plan.pde.degree,  # type: ignore[attr-defined]
+                qham_plan=self.plan.dumps(),  # type: ignore[attr-defined]
                 qham_log_initial_norm=self.log_initial_norm,
                 qham_growth_rescale_log=self.growth_shift * time,
                 output_semantics="normalized truncated HAM sum; magnitude follows chosen QODE normalization",
@@ -494,8 +553,15 @@ class QHAMInputModel:
             )
         )
 
-    def dissipative_shift(self, shift=None):
-        """给 LCHS/CBMD 显式适配；整个提升向量统一乘 exp(-shift*t)。"""
+    def dissipative_shift(self, shift: float | None = None) -> QHAMInputModel:
+        """给 LCHS/CBMD 显式适配；整个提升向量统一乘 exp(-shift*t)。
+
+        Args:
+            shift: 显式耗散移位量；缺省取生成元的 alpha，且不得小于它。
+
+        Returns:
+            QHAMInputModel: 生成元改为 G − shift·I 的新输入模型。
+        """
         shift = self.generator.alpha if shift is None else float(shift)
         if not math.isfinite(shift) or shift < self.generator.alpha:
             raise ValidationError("自动耗散适配要求 shift >= 已声明的 BE 范数界 alpha")
@@ -511,7 +577,14 @@ class QHAMInputModel:
         )
 
 
-def qham_input_model(plan, bindings, *, eta=-1.0, max_blocks=256, max_terms=4096):
+def qham_input_model(
+    plan: QHAMPlan,
+    bindings: QHAMBindings,
+    *,
+    eta: complex = -1.0,
+    max_blocks: int = 256,
+    max_terms: int = 4096,
+) -> QHAMInputModel:
     """装配显式 QHAM 输入模型：提升生成元块编码加提升初态。
 
     Args:
@@ -535,9 +608,27 @@ def qham_input_model(plan, bindings, *, eta=-1.0, max_blocks=256, max_terms=4096
 
 
 def open_qham_input(
-    plan, bindings, *, generator_alpha, generator_signal, eta=-1.0, name="QhamGenerator"
-):
-    """显式保留整个提升生成元未实现；不给它伪造一个空主体。"""
+    plan: QHAMPlan,
+    bindings: QHAMBindings,
+    *,
+    generator_alpha: float,
+    generator_signal: int,
+    eta: complex = -1.0,
+    name: str = "QhamGenerator",
+) -> QHAMInputModel:
+    """显式保留整个提升生成元未实现；不给它伪造一个空主体。
+
+    Args:
+        plan: QCL 计划对象。
+        bindings: 与 plan 匹配的端口/初值绑定。
+        generator_alpha: 开放生成元声明的范数界。
+        generator_signal: 开放生成元声明的 signal 位宽。
+        eta: HAM 同伦参数，须为有限复数。
+        name: 开放生成元声明的名称，缺省为 ``QhamGenerator``。
+
+    Returns:
+        QHAMInputModel: 生成元保持开放声明、待后续绑定的输入模型。
+    """
     bindings.validate(plan)
     width = (plan.raw_dimension(1 << bindings.state_width) - 1).bit_length()
     abstract = abstract_block_encoding(name, width, generator_signal, generator_alpha)
@@ -558,13 +649,29 @@ def open_qham_input(
     )
 
 
-def taylor_qode(generator, initial, time, *, degree=2):
-    """普通可闭合的有限 Taylor 候选；无 Hermitian/耗散前提，不承诺效率。"""
+def taylor_qode(
+    generator: BlockEncoding,
+    initial: StatePreparation,
+    time: float,
+    *,
+    degree: int = 2,
+) -> StateOracle:
+    """普通可闭合的有限 Taylor 候选；无 Hermitian/耗散前提，不承诺效率。
+
+    Args:
+        generator: 生成元的块编码。
+        initial: 初态制备。
+        time: 演化时长，须为有限实数。
+        degree: Taylor 截断阶数，非负整数。
+
+    Returns:
+        StateOracle: 截断 Taylor 多项式演化后的输出态 oracle。
+    """
     from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
 
     if type(degree) is not int or degree < 0 or not math.isfinite(time):
         raise ValidationError("Taylor QODE 参数无效")
-    powers = [(1, identity(generator.width))]
+    powers: list[tuple[float, BlockEncoding]] = [(1, identity(generator.width))]
     current = identity(generator.width)
     for order in range(1, degree + 1):
         current = product(generator, current)

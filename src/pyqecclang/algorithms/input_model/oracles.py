@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import cmath
 import math
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from typing import cast
 
 from pyqecclang.algorithms.input_model.contracts import (
+    OracleSpec,
     OracleView,
     fail,
     positive_integer,
@@ -19,7 +22,9 @@ from pyqecclang.infrastructure.ir import (
     QRAM,
     Bits,
     Module,
+    Ref,
     Register,
+    RegType,
     Resource,
     ValidationError,
     fuse,
@@ -40,14 +45,14 @@ PARADIGMS = {
 
 
 def declare(
-    name,
-    registers,
+    name: str,
+    registers: Mapping[str, RegType],
     *,
-    paradigm="unitary",
-    resources=None,
-    attributes=None,
-    supports_adjoint=True,
-    supports_controlled=True,
+    paradigm: str = "unitary",
+    resources: Mapping[str, QRAM] | None = None,
+    attributes: Mapping[str, str | int | float | bool] | None = None,
+    supports_adjoint: bool = True,
+    supports_controlled: bool = True,
 ) -> Operation:
     """声明一个开放的 oracle 操作。
 
@@ -91,7 +96,11 @@ def declare(
     return operation
 
 
-def annotate(operation, paradigm, **attributes):
+def annotate(
+    operation: Operation,
+    paradigm: str,
+    **attributes: str | int | float | bool,
+) -> Operation:
     """为已生成的实现操作登记范式与属性。
 
     把 ``implementation_status`` 置为 ``constructed`` 并写入 ``oracle_paradigm``；
@@ -132,7 +141,7 @@ def annotate(operation, paradigm, **attributes):
     )
 
 
-def resources_for(*items):
+def resources_for(*items: tuple[str, Operation]) -> dict[str, QRAM]:
     """汇总多个操作的资源并以 ``前缀__资源名`` 重命名。
 
     Args:
@@ -146,7 +155,7 @@ def resources_for(*items):
     return {f"{prefix}__{r.name}": r.type for prefix, op in items for r in op.module.resources}
 
 
-def invoke(builder, operation, prefix="", **arguments):
+def invoke(builder: Builder, operation: Operation, prefix: str = "", **arguments: Ref) -> None:
     """在构建器中以带前缀的资源映射调用一个操作。
 
     Args:
@@ -178,23 +187,28 @@ class XorDatabase(OracleView):
     oracle_kind = "database_xor"
     operation: Operation
 
-    def xor_database(self):
-        """返回自身；实现 ``XorDatabaseProtocol`` 的视图适配方法。"""
+    def xor_database(self) -> XorDatabase:
+        """返回自身；实现 ``XorDatabaseProtocol`` 的视图适配方法。
+
+        Returns:
+            XorDatabase: 该视图自身。
+        """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验包装操作恰有 ``address`` 与 ``data`` 两个 bits 寄存器。"""
         validate_signature(self.operation, ("address", "data"), "XorDatabase")
         regs = {r.name: r.type for r in self.operation.module.registers}
         if set(regs) != {"address", "data"} or any(r.kind != "bits" for r in regs.values()):
             raise ValidationError("XOR database 需要 address/data bits 接口")
 
     @property
-    def address_width(self):
+    def address_width(self) -> int:
         """``address`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "address")
 
     @property
-    def data_width(self):
+    def data_width(self) -> int:
         """``data`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "data")
 
@@ -213,19 +227,41 @@ class StatePreparation(OracleView):
     oracle_kind = "state_prep_isometry"
     operation: Operation
 
-    def state_preparation(self):
-        """返回自身；实现 ``StatePreparationProtocol`` 的视图适配方法。"""
+    def state_preparation(self) -> StatePreparation:
+        """返回自身；实现 ``StatePreparationProtocol`` 的视图适配方法。
+
+        Returns:
+            StatePreparation: 该视图自身。
+        """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验包装操作恰有 ``target`` 与 ``work`` 两个 bits 寄存器。"""
         validate_signature(self.operation, ("target", "work"), "StatePreparation")
         regs = {r.name: r.type for r in self.operation.module.registers}
         if set(regs) != {"target", "work"} or any(r.kind != "bits" for r in regs.values()):
             raise ValidationError("StatePreparation 需要 target/work bits 接口")
 
     @classmethod
-    def from_unitary(cls, operation, *, target=None, work=None, clean_work=False):
-        """显式赋予 U|0> 初态角色；有工作寄存器时由调用方承诺复净。"""
+    def from_unitary(
+        cls,
+        operation: Operation,
+        *,
+        target: str | None = None,
+        work: str | None = None,
+        clean_work: bool = False,
+    ) -> StatePreparation:
+        """显式赋予 U|0> 初态角色；有工作寄存器时由调用方承诺复净。
+
+        Args:
+            operation: 完整酉 ``Operation``。
+            target: 承担初态制备的寄存器名；缺省时把全部寄存器拼接为 target。
+            work: 工作寄存器名；仅在显式指定 target 时可指定。
+            clean_work: work 非零宽时必须为 True，承诺制备后 work 复净。
+
+        Returns:
+            StatePreparation: 以零输入角色包装该操作的制备视图。
+        """
         require_instance(operation, Operation, "StatePreparation.from_unitary")
         if target is None:
             if work is not None:
@@ -237,7 +273,8 @@ class StatePreparation(OracleView):
                 {"target": Bits(width), "work": Bits(0)},
                 resources_for(("unitary", operation)),
             )
-            cursor, arguments = 0, {}
+            cursor = 0
+            arguments: dict[str, Ref] = {}
             for reg in operation.module.registers:
                 arguments[reg.name] = b["target"][cursor : cursor + reg.type.width].reinterpret(
                     reg.type.kind
@@ -273,12 +310,12 @@ class StatePreparation(OracleView):
         return cls(annotate(b.finish(), "state_prep_isometry", zero_input=True, clean_work=True))
 
     @property
-    def width(self):
+    def width(self) -> int:
         """``target`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
-    def work_width(self):
+    def work_width(self) -> int:
         """``work`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "work")
 
@@ -297,20 +334,25 @@ class StateOracle(OracleView):
     oracle_kind = "state_oracle"
     operation: Operation
 
-    def state_oracle(self):
-        """返回自身；实现 ``StateOracleProtocol`` 的视图适配方法。"""
+    def state_oracle(self) -> StateOracle:
+        """返回自身；实现 ``StateOracleProtocol`` 的视图适配方法。
+
+        Returns:
+            StateOracle: 该视图自身。
+        """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验包装操作恰有 ``target`` 与 ``signal`` 寄存器。"""
         validate_signature(self.operation, ("target", "signal"), "StateOracle")
 
     @property
-    def width(self):
+    def width(self) -> int:
         """``target`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
-    def signal_qubits(self):
+    def signal_qubits(self) -> int:
         """``signal`` 寄存器的位宽。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "signal")
 
@@ -335,11 +377,15 @@ class SparseAccess(OracleView):
     value_width: int
     sparsity: int
 
-    def sparse_access(self):
-        """返回自身；实现 ``CKSSparseProtocol`` 的视图适配方法。"""
+    def sparse_access(self) -> SparseAccess:
+        """返回自身；实现 ``CKSSparseProtocol`` 的视图适配方法。
+
+        Returns:
+            SparseAccess: 该视图自身。
+        """
         return self
 
-    def describe(self):
+    def describe(self) -> OracleSpec:
         """汇总两个组件得到束整体的只读描述。
 
         类型为 ``cks_sparse`` 且 ``anc_qubit`` 恒为 ``None``；adjoint 与
@@ -372,7 +418,8 @@ class SparseAccess(OracleView):
             components=components,
         )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验位宽、稀疏度取值与两个组件操作的寄存器签名。"""
         positive_integer(self.width, "SparseAccess.width", maximum=64)
         positive_integer(self.value_width, "SparseAccess.value_width", maximum=64)
         positive_integer(self.sparsity, "SparseAccess.sparsity", maximum=1 << self.width)
@@ -400,7 +447,7 @@ class SparseAccess(OracleView):
             raise ValidationError("SparseAccess 需要任意 row/column 的元素 XOR 接口")
 
 
-def abstract_database(name, address_width, data_width):
+def abstract_database(name: str, address_width: int, data_width: int) -> XorDatabase:
     """返回未绑定实现的开放 XOR 数据库声明。
 
     Args:
@@ -420,7 +467,13 @@ def abstract_database(name, address_width, data_width):
     )
 
 
-def abstract_state_prep(name, width, work_width=0, *, reversible=True):
+def abstract_state_prep(
+    name: str,
+    width: int,
+    work_width: int = 0,
+    *,
+    reversible: bool = True,
+) -> StatePreparation:
     """返回未绑定实现的开放态制备声明。
 
     Args:
@@ -444,7 +497,12 @@ def abstract_state_prep(name, width, work_width=0, *, reversible=True):
     )
 
 
-def abstract_block_encoding(name, width, signal_width, alpha):
+def abstract_block_encoding(
+    name: str,
+    width: int,
+    signal_width: int,
+    alpha: float,
+) -> BlockEncoding:
     """返回未绑定实现的开放块编码声明。
 
     Args:
@@ -466,7 +524,13 @@ def abstract_block_encoding(name, width, signal_width, alpha):
     )
 
 
-def abstract_sparse_access(name, width, value_width, sparsity, work_width=None):
+def abstract_sparse_access(
+    name: str,
+    width: int,
+    value_width: int,
+    sparsity: int,
+    work_width: int | None = None,
+) -> SparseAccess:
     """返回未绑定实现的开放稀疏访问束。
 
     生成 ``name_position`` 与 ``name_entry`` 两个开放操作；位置操作带
@@ -502,7 +566,13 @@ def abstract_sparse_access(name, width, value_width, sparsity, work_width=None):
     return SparseAccess(location, entry, width, value_width, sparsity)
 
 
-def gate_database(address_width, data_width, table, *, name=None):
+def gate_database(
+    address_width: int,
+    data_width: int,
+    table: Mapping[int, int] | Sequence[int],
+    *,
+    name: str | None = None,
+) -> XorDatabase:
     """以门级真值表实现 XOR 数据库。
 
     非零表字在地址控制下逐位施加 X 门；门数随表规模增长，适合小实例见证。
@@ -539,7 +609,7 @@ def gate_database(address_width, data_width, table, *, name=None):
     return XorDatabase(annotate(b.finish(), "database_xor", implementation="gate_truth_table"))
 
 
-def qram_database(address_width, data_width, *, name=None):
+def qram_database(address_width: int, data_width: int, *, name: str | None = None) -> XorDatabase:
     """以 QRAM 资源实现 XOR 数据库。
 
     声明名为 ``table`` 的 ``QRAM(address_width, data_width)`` 资源并发出一条
@@ -562,7 +632,7 @@ def qram_database(address_width, data_width, *, name=None):
     return XorDatabase(annotate(b.finish(), "database_xor", implementation="qram"))
 
 
-def basis_state(width, value=0, *, work_width=0):
+def basis_state(width: int, value: int = 0, *, work_width: int = 0) -> StatePreparation:
     """以逐位 X 门制备计算基态 ``|value>``。
 
     Args:
@@ -587,7 +657,7 @@ def basis_state(width, value=0, *, work_width=0):
     return StatePreparation(annotate(b.finish(), "state_prep_isometry", zero_input=True))
 
 
-def uniform_state(width, *, work_width=0):
+def uniform_state(width: int, *, work_width: int = 0) -> StatePreparation:
     """对整个 ``target`` 施加 Hadamard，制备均匀叠加态。
 
     Args:
@@ -604,7 +674,10 @@ def uniform_state(width, *, work_width=0):
     return StatePreparation(annotate(b.finish(), "state_prep_isometry", zero_input=True))
 
 
-def _state_angles(amplitudes):
+def _state_angles(
+    amplitudes: Iterable[complex],
+) -> tuple[tuple[complex, ...], int, list[tuple[int, int, int, float]]]:
+    """校验幅度向量并推导 Ry 旋转树各节点的旋转角。"""
     values = tuple(complex(v) for v in amplitudes)
     if not values or len(values) & (len(values) - 1):
         raise ValidationError("态向量长度必须是二的幂")
@@ -613,7 +686,7 @@ def _state_angles(amplitudes):
     if sum(abs(v) ** 2 for v in values) == 0:
         raise ValidationError("零向量不能制备为归一化态")
     n = (len(values) - 1).bit_length()
-    nodes = []
+    nodes: list[tuple[int, int, int, float]] = []
     for depth in range(n):
         bit = n - depth - 1
         for prefix in range(1 << depth):
@@ -624,7 +697,12 @@ def _state_angles(amplitudes):
     return values, n, nodes
 
 
-def gate_state_prep(amplitudes, *, work_width=0, name=None):
+def gate_state_prep(
+    amplitudes: Iterable[complex],
+    *,
+    work_width: int = 0,
+    name: str | None = None,
+) -> StatePreparation:
     """以多路复用 Ry 旋转树制备任意复幅度态。
 
     幅度按二叉树分解为受控 ``Ry`` 角度，非零相位分量经受控 ``global_phase``
@@ -668,7 +746,7 @@ def gate_state_prep(amplitudes, *, work_width=0, name=None):
     )
 
 
-def qram_state_prep(width, angle_width=8):
+def qram_state_prep(width: int, angle_width: int = 8) -> StatePreparation:
     """以 QRAM 角度表实现旋转树态制备。
 
     逐层把 ``target`` 高位前缀换入地址并查询角表，按角度字的各个位受控施加
@@ -716,7 +794,7 @@ def qram_state_prep(width, angle_width=8):
     )
 
 
-def qram_state_angles(amplitudes, angle_width=8):
+def qram_state_angles(amplitudes: Iterable[complex], angle_width: int = 8) -> dict[int, int]:
     """由幅度向量生成 QRAM 旋转树的角表。
 
     键为 ``(1 << depth) - 1 + prefix`` 形式的树节点下标，值为量化到
@@ -742,7 +820,7 @@ def qram_state_angles(amplitudes, angle_width=8):
     }
 
 
-def phase_marks(width, marked):
+def phase_marks(width: int, marked: Iterable[int]) -> Operation:
     """生成对指定计算基态施加相位 ``pi`` 的相位 oracle。
 
     Args:
@@ -760,7 +838,8 @@ def phase_marks(width, marked):
     return annotate(b.finish(), "phase_oracle")
 
 
-def _transposition(b, ref, first, second):
+def _transposition(b: Builder, ref: Ref, first: int, second: int) -> None:
+    """把 ``first`` 与 ``second`` 的对换编译为受控 X 的往返门序列。"""
     path = [first]
     for bit in range(ref.width):
         if ((first ^ second) >> bit) & 1:
@@ -777,7 +856,13 @@ def _transposition(b, ref, first, second):
             b.x(ref[bit])
 
 
-def sparse_location_gate(width, permutations, *, work_width=None, name=None):
+def sparse_location_gate(
+    width: int,
+    permutations: Iterable[Iterable[int]],
+    *,
+    work_width: int | None = None,
+    name: str | None = None,
+) -> Operation:
     """以门级置换网络实现 CKS 原地位置查询。
 
     每列在列控制下把置换按循环分解为对换，对换再化为受控 X 的往返路径；
@@ -808,22 +893,23 @@ def sparse_location_gate(width, permutations, *, work_width=None, name=None):
         {"column": Bits(width), "index": Bits(width), "work": Bits(work_width)},
     )
     for column, permutation in enumerate(permutations):
-        visited = set()
+        visited: set[int] = set()
         with b.control(b["column"], column):
             for first in range(dimension):
                 if first in visited:
                     continue
-                cycle, current = [], first
+                cycle: list[int] = []
+                current = first
                 while current not in visited:
                     visited.add(current)
                     cycle.append(current)
-                    current = permutation[current]
+                    current = cast("tuple[int, ...]", permutation)[current]
                 for second in cycle[1:]:
                     _transposition(b, b["index"], first, second)
     return annotate(b.finish(), "sparse_location_inplace", full_permutation_extension=True)
 
 
-def sparse_location_qram(width):
+def sparse_location_qram(width: int) -> Operation:
     """以正反两张 QRAM 表实现 CKS 原地位置查询。
 
     三步完成：``work ^= forward[column, index]``、``swap(index, work)``、
@@ -848,7 +934,7 @@ def sparse_location_qram(width):
     return annotate(b.finish(), "sparse_location_inplace", full_permutation_extension=True)
 
 
-def sparse_entry(database: XorDatabase, width):
+def sparse_entry(database: XorDatabase, width: int) -> Operation:
     """把 XOR 数据库适配为任意行列的矩阵元素查询。
 
     ``row`` 与 ``column`` 拼接成 ``2*width`` 位地址驱动数据库，``data`` 保存
@@ -875,8 +961,22 @@ def sparse_entry(database: XorDatabase, width):
     return annotate(b.finish(), "sparse_entry_xor")
 
 
-def diagonal_block_encoding(database: XorDatabase, *, alpha=1.0, angle_scale=None):
-    """按查询字控制信号 Ry，编码由该角表决定的对角矩阵。"""
+def diagonal_block_encoding(
+    database: XorDatabase,
+    *,
+    alpha: float = 1.0,
+    angle_scale: float | None = None,
+) -> BlockEncoding:
+    """按查询字控制信号 Ry，编码由该角表决定的对角矩阵。
+
+    Args:
+        database: 存放旋转角字的 XOR 数据库，地址驱动 target。
+        alpha: 块编码归一化常数。
+        angle_scale: 数据字第 k 位的角步长；缺省为 ``2π/2^数据位宽``。
+
+    Returns:
+        BlockEncoding: 对角元为 ``alpha*cos(encoded_angle/2)`` 的块编码。
+    """
     angle_scale = 2 * math.pi / (1 << database.data_width) if angle_scale is None else angle_scale
     n, w = database.address_width, database.data_width
     b = Builder(
@@ -901,8 +1001,24 @@ def diagonal_block_encoding(database: XorDatabase, *, alpha=1.0, angle_scale=Non
     )
 
 
-def banked_database(address_width, data_width, *, name="BankedData", abstract=False):
-    """将一个宽数据字拆成不超过 64 位的寄存器与 QRAM bank。"""
+def banked_database(
+    address_width: int,
+    data_width: int,
+    *,
+    name: str = "BankedData",
+    abstract: bool = False,
+) -> Operation:
+    """将一个宽数据字拆成不超过 64 位的寄存器与 QRAM bank。
+
+    Args:
+        address_width: 地址字的位宽。
+        data_width: 逻辑数据字的总位宽，须为正整数。
+        name: 生成操作的名称，缺省为 ``BankedData``。
+        abstract: 为 True 时生成体为空的开放声明而非 QRAM 实现。
+
+    Returns:
+        Operation: 按小端序拆分为多个不超过 64 位 bank 的数据库操作。
+    """
     if type(data_width) is not int or data_width < 1:
         raise ValidationError("banked 数据宽度必须为正整数")
     chunks = tuple(min(64, data_width - offset) for offset in range(0, data_width, 64))

@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
 from pyqecclang.algorithms.common.arithmetic import FixedFormat
 from pyqecclang.algorithms.input_model.operators import _name
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits, ValidationError
-from pyqecclang.infrastructure.mathfunc.numeric import Numeric, NumericEmitter
+from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.ir import Bits, Program, Ref, RegType, ValidationError
+from pyqecclang.infrastructure.mathfunc.graph import MathProgram
+from pyqecclang.infrastructure.mathfunc.numeric import MathConfig, Numeric, NumericEmitter
 
 
-def ports(name, kind, fmt, index_width=0):
+def ports(
+    name: str, kind: str, fmt: FixedFormat, index_width: int = 0
+) -> list[tuple[str, RegType]]:
     """按数学类型展开一个端口的物理寄存器名与位宽。
 
     complex 拆为实部/虚部两个定点寄存器，real 占一个定点字，
@@ -45,14 +49,14 @@ class CompiledFunction:
         output_layout: 各逻辑输出到其展开物理寄存器名的对应表，结构与 ``input_layout`` 相同。
     """
 
-    operation: object
-    math_ir: object
+    operation: Operation
+    math_ir: MathProgram
     fmt: FixedFormat
     output_names: tuple[str, ...]
     input_layout: tuple[tuple[str, tuple[str, ...]], ...]
     output_layout: tuple[tuple[str, tuple[str, ...]], ...]
 
-    def program(self):
+    def program(self) -> Program:
         """返回编译结果的完整 RIR 程序。
 
         Returns:
@@ -75,13 +79,21 @@ class Lowerer:
         output_names: 入口各返回值的输出寄存器名；省略时单返回值为 out，多返回值依次为 out_0、out_1 等。
     """
 
-    def __init__(self, program, fmt, config, output_names=None):
-        self.program = program.validate()
-        self.fmt, self.config = fmt, config
-        self.outputs = output_names
-        self.cache = {}
+    def __init__(
+        self,
+        program: MathProgram,
+        fmt: FixedFormat,
+        config: MathConfig,
+        output_names: Sequence[str] | None = None,
+    ) -> None:
+        """校验并绑定 MIR 程序与降低配置，初始化函数降低缓存。"""
+        self.program: MathProgram = program.validate()
+        self.fmt: FixedFormat = fmt
+        self.config: MathConfig = config
+        self.outputs: Sequence[str] | None = output_names
+        self.cache: dict[str, CompiledFunction] = {}
 
-    def lower(self, key):
+    def lower(self, key: str) -> CompiledFunction:
         """降低指定函数并缓存结果，同一函数只编译一次。
 
         Args:
@@ -132,7 +144,7 @@ class Lowerer:
             },
         )
         e = NumericEmitter(b, self.fmt, self.config)
-        parameters = {}
+        parameters: dict[str, Numeric] = {}
         for p, (_, layout) in zip(graph.parameters, in_layout, strict=True):
             refs = tuple(b[name] for name, _ in layout)
             if p.kind == "index":
@@ -144,9 +156,11 @@ class Lowerer:
             parameters[p.name] = Numeric(
                 "real" if p.kind == "index" else p.kind, refs, e.zero_status
             )
-        values, called = {}, {}
+        values: dict[int, Numeric] = {}
+        called: dict[tuple[str, tuple[int, ...]], list[Numeric]] = {}
 
-        def value(index):
+        def value(index: int) -> Numeric:
+            """按需递归求值指定节点并缓存其电路表示。"""
             if index in values:
                 return values[index]
             node = graph.nodes[index]
@@ -182,12 +196,12 @@ class Lowerer:
                 if callkey not in called:
                     child = self.lower(callee)
                     child_graph = self.program.function_map[callee]
-                    actual = {}
+                    actual: dict[str, Ref] = {}
                     for (_, names_), arg in zip(child.input_layout, args, strict=True):
                         if len(names_) != len(arg.parts):
                             raise ValidationError("helper 输入类型展开不匹配")
                         actual.update(zip(names_, arg.parts, strict=True))
-                    returned = []
+                    returned: list[tuple[str, tuple[Ref, ...]]] = []
                     flag = e.local(2)
                     for (_, names_), ret in zip(
                         child.output_layout, child_graph.returns, strict=True

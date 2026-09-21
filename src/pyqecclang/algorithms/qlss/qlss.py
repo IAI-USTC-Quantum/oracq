@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
+from typing import cast
 
 from pyqecclang.algorithms.common.arithmetic import FixedFormat
 from pyqecclang.algorithms.common.state_preparation import apply_be_to_state, select_subspace
@@ -39,7 +41,7 @@ from pyqecclang.algorithms.input_model.oracles import (
     resources_for,
 )
 from pyqecclang.algorithms.input_model.sparse import chebyshev_block, real_symmetric_sparse_encoding
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 
@@ -57,13 +59,14 @@ class SpectralPromise:
     sigma_min_lower: float
     evidence: str = "caller_declared_unverified"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验范数上界与奇异值下界的声明取值。"""
         finite_real(self.norm_upper, "spectrum.norm_upper", minimum=0, strict=True)
         finite_real(self.sigma_min_lower, "spectrum.sigma_min_lower", minimum=0, strict=True)
         if not 0 < self.sigma_min_lower <= self.norm_upper or not math.isfinite(self.norm_upper):
             raise ValidationError("需要有限正的范数上界及最小奇异值下界")
 
-    def inverse_bound(self, alpha):
+    def inverse_bound(self, alpha: float) -> float:
         """由声明的奇异值下界推导编码逆算子的谱界上界。
 
         Args:
@@ -92,7 +95,8 @@ class SparseSystem:
     diagonal_nonnegative: bool = False
     hermitian: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """归一稀疏访问与 RHS 视图，并校验布局声明与元素幅值上界。"""
         object.__setattr__(self, "access", as_sparse_access(self.access))
         object.__setattr__(self, "rhs", as_state_preparation(self.rhs))
         require_instance(self.value_format, FixedFormat, "SparseSystem.value_format")
@@ -124,7 +128,8 @@ class BlockSystem:
     rhs: StatePreparation
     spectrum: SpectralPromise
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """归一块编码与 RHS 视图，并校验两者目标宽度一致。"""
         object.__setattr__(self, "encoding", as_block_encoding(self.encoding))
         object.__setattr__(self, "rhs", as_state_preparation(self.rhs))
         require_instance(self.rhs, StatePreparation, "BlockSystem.rhs")
@@ -133,7 +138,7 @@ class BlockSystem:
             raise ValidationError("BE 与 RHS 宽度不匹配")
 
     @property
-    def inverse_norm_bound(self):
+    def inverse_norm_bound(self) -> float:
         """编码矩阵 A/alpha 的逆谱界 ``max(1, alpha / sigma_min_lower)``。"""
         return self.spectrum.inverse_bound(self.encoding.alpha)
 
@@ -158,14 +163,22 @@ class LinearSystem:
     rhs_norm: float | None = None
     data_assumptions: tuple[str, ...] = ()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验二选一的源输入模型及物理子空间与右端范数声明。"""
         if (self.sparse is None) == (self.block is None):
             raise ValidationError("线性问题需要且只能指定一种源输入模型，其他模型由显式适配生成")
-        source = self.block if self.block is not None else self.sparse
+        source = cast(
+            "BlockSystem | SparseSystem",
+            self.block if self.block is not None else self.sparse,
+        )
         require_instance(
             source, BlockSystem if self.block is not None else SparseSystem, "LinearSystem.source"
         )
-        width = source.encoding.width if self.block is not None else source.access.width
+        width = (
+            cast("BlockSystem", source).encoding.width
+            if self.block is not None
+            else cast("SparseSystem", source).access.width
+        )
         if self.physical_width is not None:
             positive_integer(self.physical_width, "LinearSystem.physical_width", maximum=width)
         positive_integer(
@@ -179,7 +192,7 @@ class LinearSystem:
         if self.rhs_norm is not None and (self.rhs_norm < 0 or not math.isfinite(self.rhs_norm)):
             raise ValidationError("右端范数声明无效")
 
-    def block_input(self):
+    def block_input(self) -> tuple[BlockSystem, tuple[str, ...]]:
         """把源输入归一为 ``BlockSystem`` 并给出适配轨迹。
 
         Returns:
@@ -192,7 +205,7 @@ class LinearSystem:
             return self.block, ("block input supplied",)
         from pyqecclang.algorithms.input_model.sparse import real_symmetric_sparse_encoding
 
-        s = self.sparse
+        s = cast("SparseSystem", self.sparse)
         if not s.hermitian:
             raise ValidationError(
                 "当前稀疏适配需要显式 Hermitian 声明；非 Hermitian 系统需先提供行列访问并扩张"
@@ -228,16 +241,20 @@ class SolveResult:
     adapter_trace: tuple[str, ...]
     kernel_status: str = "prototype; solver accuracy pending"
 
-    def state_oracle(self):
-        """返回物理子空间解态的 ``StateOracle``。"""
+    def state_oracle(self) -> StateOracle:
+        """返回物理子空间解态的 ``StateOracle``。
+
+        Returns:
+            StateOracle: 物理子空间解态的读出句柄。
+        """
         return self.state
 
     @property
-    def operation(self):
+    def operation(self) -> Operation:
         """解态对应的 RIR ``Operation``。"""
         return self.state.operation
 
-    def recover_norm(self, solver_success, joint_matrix_success):
+    def recover_norm(self, solver_success: float, joint_matrix_success: float) -> float:
         """由两次成功概率恢复解向量的范数。
 
         Args:
@@ -272,17 +289,18 @@ class QLSSProtocol:
     provides = (StateOracleProtocol,)
     name: str
     input_model: str
-    kernel: object
-    legacy: object = None
+    kernel: Callable[..., StateOracle]
+    legacy: Callable[..., StateOracle] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验协议名称、输入模型枚举与内核入口的可调用性。"""
         if not self.name or self.input_model not in {"sparse", "block_encoding"}:
             raise ValidationError("QLSSProtocol 的名称或 input_model 无效")
         if not callable(self.kernel) or (self.legacy is not None and not callable(self.legacy)):
             raise ValidationError("QLSSProtocol 内核必须可调用")
 
     @property
-    def contract(self):
+    def contract(self) -> ProtocolContract:
         """按输入模型给出 A 与 b 的 ``ProtocolContract``。
 
         稀疏模型只接受稀疏 oracle；块编码模型同时接受块编码与稀疏接口。
@@ -311,8 +329,16 @@ class QLSSProtocol:
             assumptions=("谱界与矩阵解释是调用者声明；算法精度与成功通道待核验",),
         )
 
-    def check(self, problem):
-        """不运行内核或适配器；给出结构、能力及所需适配的完整报告。"""
+    def check(self, problem: object) -> ContractReport:
+        """不运行内核或适配器；给出结构、能力及所需适配的完整报告。
+
+        Args:
+            problem: 待检查的线性系统问题，合法类型为 ``LinearSystem``。
+
+        Returns:
+            ContractReport: 汇总输入类型、零右端、谱界声明冲突与所需
+            适配步骤的契约报告。
+        """
         if not isinstance(problem, LinearSystem):
             return ContractReport(
                 self.name,
@@ -327,10 +353,18 @@ class QLSSProtocol:
                     ),
                 ),
             )
-        source = problem.block if problem.block is not None else problem.sparse
-        a = source.encoding if problem.block is not None else source.access
+        source = cast(
+            "BlockSystem | SparseSystem",
+            problem.block if problem.block is not None else problem.sparse,
+        )
+        a = (
+            cast("BlockSystem", source).encoding
+            if problem.block is not None
+            else cast("SparseSystem", source).access
+        )
         report = self.contract.check(A=a, b=source.rhs)
-        issues, adapters = list(report.issues), []
+        issues: list[ContractIssue] = list(report.issues)
+        adapters: list[str] = []
         if problem.rhs_norm == 0:
             issues.append(
                 ContractIssue(
@@ -360,9 +394,12 @@ class QLSSProtocol:
                         )
                     )
             adapters.append("CKS real symmetric sparse -> Tdag S T block encoding")
-            alpha = source.access.sparsity * source.entry_bound
+            alpha = (
+                cast("SparseSystem", source).access.sparsity
+                * cast("SparseSystem", source).entry_bound
+            )
         else:
-            alpha = source.encoding.alpha
+            alpha = cast("BlockSystem", source).encoding.alpha
         if alpha < source.spectrum.sigma_min_lower:
             issues.append(
                 ContractIssue(
@@ -375,17 +412,36 @@ class QLSSProtocol:
             )
         return replace(report, issues=tuple(issues), adapters=tuple(adapters))
 
-    def __call__(self, *args):
+    def __call__(self, *args: object) -> SolveResult | StateOracle:
+        """按调用形状分派协议入口。
+
+        单个 ``LinearSystem`` 参数走 ``solve``；两参形状先按 ``legacy`` 的
+        算子-态契约检查，再交给旧式入口。
+
+        Args:
+            *args: 单个 ``LinearSystem``，或块编码矩阵与 RHS 制备两参
+                （后者要求声明了 ``legacy``）。
+
+        Returns:
+            SolveResult | StateOracle: 单参形状的 ``SolveResult``，或 legacy
+                两参形状内核输出的解态。
+
+        Raises:
+            ValidationError: 调用形状不受支持，或 legacy 入口契约不满足。
+        """
         if len(args) == 1 and isinstance(args[0], LinearSystem):
             return self.solve(args[0])
         if len(args) == 2 and self.legacy is not None:
             operator_state_contract(self.name, matrix="A", state="b").check(
                 A=args[0], b=args[1]
             ).require()
-            return self.legacy(as_block_encoding(args[0]), as_state_preparation(args[1]))
+            return self.legacy(
+                as_block_encoding(cast("BlockEncodingProtocol", args[0])),
+                as_state_preparation(cast("StatePreparationProtocol", args[1])),
+            )
         raise ValidationError("QLSS protocol 需要 LinearSystem；不能根据调用形状猜测输入模型")
 
-    def solve(self, problem):
+    def solve(self, problem: LinearSystem) -> SolveResult:
         """求解 ``LinearSystem`` 并组装 ``SolveResult``。
 
         先运行契约检查，再按 input_model 把源输入交给内核，随后选取物理
@@ -511,7 +567,8 @@ class CostaConfig:
     filter_degree: int = 2
     filter_attenuation: float = 0.2
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验行走步数、调度幂指数与 filter 阶数、旁瓣的取值范围。"""
         positive_integer(self.steps, "CostaConfig.steps")
         finite_real(self.kappa, "CostaConfig.kappa", minimum=1)
         finite_real(self.schedule_power, "CostaConfig.schedule_power")
@@ -544,8 +601,16 @@ class FilterPlan:
     method: str = "explicit"
 
 
-def dolph_chebyshev_plan(degree=2, attenuation=0.2):
-    """以 Laurent 多项式递推构造一个偶数阶 Dolph–Chebyshev LCU。"""
+def dolph_chebyshev_plan(degree: int = 2, attenuation: float = 0.2) -> FilterPlan:
+    """以 Laurent 多项式递推构造一个偶数阶 Dolph–Chebyshev LCU。
+
+    Args:
+        degree: filter 阶数，取不小于 2 的偶数。
+        attenuation: 阻带衰减，取 (0,1)。
+
+    Returns:
+        FilterPlan: 起始幂为 −degree、幂间距为 2 的行走幂 filter 计划。
+    """
     if type(degree) is not int or degree < 2 or degree % 2:
         raise ValidationError("Dolph–Chebyshev 原型需要正偶数阶")
     if not 0 < attenuation < 1:
@@ -553,7 +618,7 @@ def dolph_chebyshev_plan(degree=2, attenuation=0.2):
     beta = math.cosh(math.acosh(1 / attenuation) / degree)
     previous, current = {0: 1.0}, {-1: beta / 2, 1: beta / 2}
     for _ in range(2, degree + 1):
-        following = {}
+        following: dict[int, float] = {}
         for power, value in current.items():
             following[power - 1] = following.get(power - 1, 0.0) + beta * value
             following[power + 1] = following.get(power + 1, 0.0) + beta * value
@@ -566,7 +631,7 @@ def dolph_chebyshev_plan(degree=2, attenuation=0.2):
     return FilterPlan(weights, stride=2, offset=-degree, method="dolph_chebyshev")
 
 
-def schedule(s, kappa, power=1.5):
+def schedule(s: float, kappa: float, power: float = 1.5) -> float:
     """计算 Costa 插值调度在调度点 s 处的取值。
 
     Args:
@@ -587,7 +652,7 @@ def schedule(s, kappa, power=1.5):
     return kappa / (kappa - 1) * (1 - (1 + s * (kappa ** (power - 1) - 1)) ** (1 / (1 - power)))
 
 
-def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float):
+def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float) -> Operation:
     """组装 Costa 参数化量子行走的单步算子。
 
     依次搭建 RHS 零态反射、调度旋转与受控的正逆块编码调用，末尾对全部
@@ -622,14 +687,16 @@ def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float):
     start = a.signal_qubits + bprep.work_width
     a1, a2, a3, a4 = (b["signal"][start + i] for i in range(4))
 
-    def prep(inverse=False):
+    def prep(inverse: bool = False) -> None:
+        """调用 RHS 态制备；``inverse`` 为真时施加其伴随。"""
         if inverse:
             with b.adjoint():
                 invoke(b, bprep.operation, "b", target=b["target"], work=bw)
         else:
             invoke(b, bprep.operation, "b", target=b["target"], work=bw)
 
-    def reflect_rhs_input_zero():
+    def reflect_rhs_input_zero() -> None:
+        """对 target 与工作位全零的分支翻转相位，实现 RHS 输入零态反射。"""
         # U_b 是 target+work 上的酉扩张，投影必须同时要求工作位为零。
         with b.control(b["target"], 0):
             if bw.width:
@@ -638,7 +705,8 @@ def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float):
             else:
                 b.global_phase(math.pi)
 
-    def rotation():
+    def rotation() -> None:
+        """在行走辅助位上施加调度点 ``fs`` 处的旋转 R(s)。"""
         # R(s) 是反射矩阵，写成 Ry(2 atan2(f,1-f)) Z。
         b.z(a2)
         b.ry(a2, 2 * math.atan2(fs, 1 - fs))
@@ -684,7 +752,7 @@ def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float):
     return b.finish()
 
 
-def unary_weight_preparation(weights):
+def unary_weight_preparation(weights: Iterable[float]) -> Operation:
     """按 unary 前缀链制备 LCU 权重叠加态。
 
     Args:
@@ -716,7 +784,7 @@ def unary_weight_preparation(weights):
     return annotate(b.finish(), "state_prep_isometry", zero_input=True, encoding="unary_prefix")
 
 
-def lcu_filter(walk, plan: FilterPlan):
+def lcu_filter(walk: Operation, plan: FilterPlan) -> Operation:
     """在行走幂上相干叠加出 Laurent 多项式 filter。
 
     权重 ``plan.weights[k]`` 作用在行走幂 ``plan.offset + k * plan.stride``
@@ -754,7 +822,8 @@ def lcu_filter(walk, plan: FilterPlan):
     )
     work, clock = b["signal"][: widths["signal"]], b["signal"][widths["signal"] :]
 
-    def repeat_walk(count):
+    def repeat_walk(count: int) -> None:
+        """把行走算子重复调用 ``count`` 次。"""
         with b.repeat(count):
             invoke(b, walk, "walk", target=b["target"], signal=work)
 
@@ -772,7 +841,13 @@ def lcu_filter(walk, plan: FilterPlan):
     return b.finish()
 
 
-def costa_qlss(a: BlockEncoding, bprep: StatePreparation, config=None, *, filtering=None):
+def costa_qlss(
+    a: BlockEncoding,
+    bprep: StatePreparation,
+    config: CostaConfig | None = None,
+    *,
+    filtering: FilterPlan | None = None,
+) -> StateOracle:
     """Costa 行走求解内核：制备 RHS、串联各调度点行走并施加 filter。
 
     Args:
@@ -825,14 +900,22 @@ def costa_qlss(a: BlockEncoding, bprep: StatePreparation, config=None, *, filter
     return StateOracle(b.finish())
 
 
-def make_costa_qlss(config=None):
-    """声明 BE 输入；问题层自动按 alpha/sigma_min 推导实际调度参数。"""
+def make_costa_qlss(config: CostaConfig | None = None) -> QLSSProtocol:
+    """声明 BE 输入；问题层自动按 alpha/sigma_min 推导实际调度参数。
+
+    Args:
+        config: Costa 行走求解配置；缺省为默认配置。
+
+    Returns:
+        QLSSProtocol: 块编码输入模型下的 Costa 求解协议，含两参 legacy 入口。
+    """
     from dataclasses import replace
 
     config = CostaConfig() if config is None else config
     require_instance(config, CostaConfig, "make_costa_qlss.config")
 
-    def kernel(system):
+    def kernel(system: BlockSystem) -> StateOracle:
+        """按系统的逆谱界覆盖 kappa 后调用 Costa 内核。"""
         effective = replace(config, kappa=system.inverse_norm_bound)
         return costa_qlss(system.encoding, system.rhs, effective)
 
@@ -853,12 +936,13 @@ class CKSConfig:
     order: int = 2
     terms: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验展开阶数与可选截断项数的取值范围。"""
         positive_integer(self.order, "CKSConfig.order", maximum=128)
         if self.terms is not None:
             positive_integer(self.terms, "CKSConfig.terms", maximum=self.order)
 
-    def coefficients(self):
+    def coefficients(self) -> tuple[float, ...]:
         """计算 1/x 截断 Chebyshev 展开的 LCU 权重。
 
         Returns:
@@ -882,7 +966,7 @@ class CKSConfig:
         )
 
 
-def cks_chebyshev(system, config=None):
+def cks_chebyshev(system: SparseSystem, config: CKSConfig | None = None) -> StateOracle:
     """CKS 基础 Chebyshev 求解内核，接收稀疏 Hermitian 输入模型。
 
     把 1/x 的截断 Chebyshev 展开作用到稀疏块编码上，再将逆算子 LCU
@@ -929,7 +1013,7 @@ def cks_chebyshev(system, config=None):
     )
 
 
-def make_cks_qlss(config=None):
+def make_cks_qlss(config: CKSConfig | None = None) -> QLSSProtocol:
     """构造稀疏输入的 CKS 求解协议。
 
     Args:

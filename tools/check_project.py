@@ -26,6 +26,7 @@ def main():
     env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
     commands = [
         ("lint", [sys.executable, "-m", "ruff", "check", "src", "tests", "examples", "tools"]),
+        ("types", [sys.executable, "-m", "mypy", "src", "examples"]),
         ("core_schema", [sys.executable, "-m", "pytest", "tests/core", "tests/schema", "-q"]),
         (
             "contracts_example",

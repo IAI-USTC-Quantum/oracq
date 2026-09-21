@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import fields, is_dataclass, replace
+from typing import cast
 
 from pyqecclang.infrastructure import ir
 from pyqecclang.infrastructure.validation import validate
@@ -31,7 +32,7 @@ TYPES = {
 """JSON ``tag`` 到 ``ir`` 数据类的映射，``decode`` 据此还原节点类型。"""
 
 
-def encode(value):
+def encode(value: object) -> dict[str, object] | list[object] | int | float | str | bool | None:
     """把 RIR 值编码为 JSON 兼容结构。
 
     数据类编码为携带 ``tag`` 字段的对象，元组编码为数组，标量与 ``None``
@@ -54,11 +55,11 @@ def encode(value):
     if isinstance(value, tuple):
         return [encode(item) for item in value]
     if value is None or type(value) in (int, float, str, bool):
-        return value
+        return cast("int | float | str | bool | None", value)
     raise ir.ValidationError(f"不可序列化的值：{type(value).__name__}")
 
 
-def decode(value):
+def decode(value: object) -> object:
     """把 JSON 兼容结构重建为 RIR 数据类树。
 
     Args:
@@ -80,7 +81,8 @@ def decode(value):
         expected = {field.name for field in fields(cls)}
         if set(value) != expected | {"tag"}:
             raise ir.ValidationError(f"{tag} 的字段缺失或多余")
-        return cls(**{key: decode(value[key]) for key in expected})
+        # 按 tag 泛型分发到各数据类构造器，mypy 无法静态验证 **payload 字段类型。
+        return cls(**{key: decode(value[key]) for key in expected})  # type: ignore[arg-type]
     return value
 
 
@@ -104,12 +106,14 @@ def dumps(program: ir.Program) -> str:
     canonical = replace(program, modules=tuple(sorted(program.modules, key=lambda m: m.name)))
     data = encode(canonical)
     if program.version in {"0.1", "0.2"}:
-        for module in data["modules"]:
+        # encode(Program) 的规范形状已知：顶层为 dict，modules 为模块 dict 列表。
+        for module in cast("list[dict[str, object]]", cast("dict[str, object]", data)["modules"]):
             module.pop("locals")
     return json.dumps(data, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2) + "\n"
 
 
-def _unique(pairs):
+def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """把 JSON 对象的键值对列表组装成字典，遇重复键即抛 ``ValidationError``。"""
     result = {}
     for key, value in pairs:
         if key in result:

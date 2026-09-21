@@ -1,12 +1,15 @@
 """从一个 gate 到 QLSS、LCU、HamSim：算法自己的 Python 协议。"""
 
+from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from pyqecclang import (
     Bits,
+    BlockEncoding,
     BlockSystem,
     Builder,
     LinearSystem,
@@ -32,7 +35,11 @@ from pyqecclang.algorithms.input_model.interfaces import (
     StatePreparationProtocol,
     UnitaryProtocol,
 )
-from pyqecclang.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
+from pyqecclang.algorithms.input_model.oracles import (
+    StatePreparation,
+    abstract_block_encoding,
+    abstract_state_prep,
+)
 from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
 from pyqecclang.algorithms.qode.lchs import QuadraturePlan
 from pyqecclang.algorithms.qode.ode import linear_qode
@@ -46,24 +53,29 @@ class HasDiagonal(Protocol):
 
 
 class GivenMatrix:
-    def __init__(self):
+    def __init__(self) -> None:
+        """构造宿主对象，把矩阵 A 声明为名为 GivenA 的开放块编码。"""
         self.encoding = abstract_block_encoding("GivenA", 1, 0, 1.0)
 
-    def block_encoding(self):
+    def block_encoding(self) -> BlockEncoding:
+        """返回构造时声明的开放块编码。"""
         return self.encoding
 
-    def diagonal_values(self):
+    def diagonal_values(self) -> tuple[float, float]:
+        """返回矩阵 A 的对角元。"""
         return (1.0, 1.0)
 
 
 class MyHamiltonian:
     hermitian = True
 
-    def trotter_list(self):
+    def trotter_list(self) -> tuple[TrotterTerm, ...]:
+        """返回由 I 与 X 两项构成的 Trotter 分解。"""
         return (TrotterTerm(0.3, PauliOperator("I")), TrotterTerm(0.7, PauliOperator("X")))
 
 
-def main():
+def main() -> None:
+    """逐项演示协议检查与求解，并落盘 QLSS、QODE 与 HamSim 的产物。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/algorithm-contracts"))
     root = parser.parse_args().output
@@ -75,14 +87,21 @@ def main():
     assert isinstance(gate, UnitaryProtocol)
     assert isinstance(gate, StatePreparationProtocol)
     assert isinstance(gate, BlockEncodingProtocol)
-    encoded_sum = lcu(((1, gate), (1, identity(1))))
+    # gate 在运行时满足 BlockEncoding/StatePreparation 协议（上方 isinstance 断言）；
+    # 构造器按具体视图类型标注，这里按已知形状收窄。
+    encoded_sum = lcu(((1, cast(BlockEncoding, gate)), (1, identity(1))))
 
     a = GivenMatrix()
     assert requires(a, HasDiagonal).diagonal_values() == (1, 1)
     info = a.block_encoding()
     print("A:", info.type, "main", info.main_qubit, "anc", info.anc_qubit, "alpha", info.alpha)
     qlss = make_costa_qlss(CostaConfig(steps=1))
-    problem = LinearSystem(block=BlockSystem(a, gate, SpectralPromise(1, 1)), rhs_norm=1)
+    problem = LinearSystem(
+        block=BlockSystem(
+            cast(BlockEncoding, a), cast(StatePreparation, gate), SpectralPromise(1, 1)
+        ),
+        rhs_norm=1,
+    )
     report = qlss.check(problem)
     report.require()
     result = qlss(problem)
@@ -94,11 +113,15 @@ def main():
     (root / "qlss.originir").write_text(export_originir(closed).text, encoding="utf-8")
 
     limited = abstract_state_prep("ForwardOnly", 1, reversible=False)
-    rejected = qlss.check(LinearSystem(block=BlockSystem(a, limited, SpectralPromise(1, 1))))
+    rejected = qlss.check(
+        LinearSystem(block=BlockSystem(cast(BlockEncoding, a), limited, SpectralPromise(1, 1)))
+    )
     assert not rejected.ok
     print("QLSS rejected:", [i.path for i in rejected.issues])
 
-    model = QODEProblem(scale(-1, identity(1)), gate, dissipative=True, initial_norm=1)
+    model = QODEProblem(
+        scale(-1, identity(1)), cast(StatePreparation, gate), dissipative=True, initial_norm=1
+    )
     lchs = linear_qode("lchs", plan=QuadraturePlan.cauchy(cutoff=1))
     schrodinger = linear_qode("schrodingerization")
     for solver in (lchs, schrodinger):

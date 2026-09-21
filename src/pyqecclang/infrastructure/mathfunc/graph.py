@@ -22,7 +22,8 @@ class Index:
 
     width: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验位宽范围为 1..64。"""
         if type(self.width) is not int or not 1 <= self.width <= 64:
             raise ValidationError("Index 位宽必须为 1..64")
 
@@ -96,11 +97,11 @@ class MathProgram:
     version: str = "0.1"
 
     @property
-    def function_map(self):
+    def function_map(self) -> dict[str, MathFunction]:
         """函数符号名到 ``MathFunction`` 的映射。"""
         return {f.name: f for f in self.functions}
 
-    def validate(self):
+    def validate(self) -> MathProgram:
         """核对程序的结构与类型约束并返回自身。
 
         覆盖版本号、函数表不可变性与入口有效性、参数唯一性与类型、
@@ -283,9 +284,11 @@ class MathProgram:
                     valid = False
                 if not valid:
                     raise ValidationError("MIR 操作类型/数据约束不满足：" + node.op)
-        active, visited = set(), set()
+        active: set[str] = set()
+        visited: set[str] = set()
 
-        def visit(key):
+        def visit(key: str) -> None:
+            """深度优先遍历调用图，发现回边即判定存在递归。"""
             if key in active:
                 raise ValidationError("MIR 不支持递归")
             if key in visited:
@@ -301,7 +304,7 @@ class MathProgram:
             visit(key)
         return self
 
-    def dumps(self):
+    def dumps(self) -> str:
         """先校验再把程序序列化为规范化 JSON 文本。
 
         Returns:
@@ -317,7 +320,7 @@ class MathProgram:
         )
 
     @classmethod
-    def loads(cls, text):
+    def loads(cls, text: str) -> MathProgram:
         """从 JSON 文本反序列化并校验 MIR 程序。
 
         Args:
@@ -333,7 +336,7 @@ class MathProgram:
             raw = json.loads(text)
             if set(raw) != {"entry", "functions", "version"}:
                 raise ValidationError("MIR 顶层字段无效")
-            functions = []
+            functions: list[MathFunction] = []
             for f in raw["functions"]:
                 if set(f) != {"name", "label", "parameters", "nodes", "returns"} or any(
                     set(n) != {"op", "kind", "args", "data"} for n in f["nodes"]

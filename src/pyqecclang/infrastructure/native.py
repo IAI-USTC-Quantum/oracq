@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from types import ModuleType
+from typing import cast
 
 from pyqecclang.infrastructure.builder import Operation
-from pyqecclang.infrastructure.ir import Module, Ref, ValidationError
+from pyqecclang.infrastructure.ir import Module, Program, Ref, ValidationError
 from pyqecclang.infrastructure.linking import calls
 from pyqecclang.infrastructure.validation import validate
 
@@ -46,12 +48,18 @@ class NativeEntry:
 class NativeRegistry:
     """按模块名登记 PySparQ 模块级原生实现，并对照程序核对覆盖情况。"""
 
-    def __init__(self):
-        self.entries = {}
+    def __init__(self) -> None:
+        """初始化空的模块名到原生实现登记表。"""
+        self.entries: dict[str, NativeEntry] = {}
 
     def register(
-        self, operation: Operation | Module, factory, *, label=None, kind="pysparq_custom"
-    ):
+        self,
+        operation: Operation | Module,
+        factory: Callable[[NativeContext], object],
+        *,
+        label: str | None = None,
+        kind: str = "pysparq_custom",
+    ) -> NativeRegistry:
         """登记一个模块的原生实现。
 
         Args:
@@ -74,7 +82,7 @@ class NativeRegistry:
         self.entries[module.name] = entry
         return self
 
-    def matching(self, program):
+    def matching(self, program: Program) -> frozenset[str]:
         """求程序中被原生实现接管的模块名集合。
 
         Args:
@@ -94,7 +102,7 @@ class NativeRegistry:
                 result.add(module.name)
         return frozenset(result)
 
-    def missing(self, program):
+    def missing(self, program: Program) -> tuple[str, ...]:
         """列出从入口可达、尚未被原生实现覆盖的开放声明模块名。
 
         Args:
@@ -110,7 +118,8 @@ class NativeRegistry:
         supported = self.matching(program)
         result, visited = [], set()
 
-        def visit(key):
+        def visit(key: str) -> None:
+            """跳过已接管的模块，递归收集入口可达的开放声明名。"""
             if key in visited or key in supported:
                 return
             visited.add(key)
@@ -143,7 +152,7 @@ class NativeContext:
     qrams: dict
     memories: dict
 
-    def register_id(self, parameter):
+    def register_id(self, parameter: str) -> int:
         """把模块的量子形参解析为 PySparQ 的整数寄存器 id。
 
         Args:
@@ -161,11 +170,12 @@ class NativeContext:
             raise ValidationError("当前原生工厂需要完整寄存器参数")
         span = ref.parts[0]
         name = self.names[span.register]
-        if span.start != 0 or span.width != self.ps.System.size_of(name):
+        # ps 为已导入的 pysparq 模块对象，System 属性由动态模块提供。
+        if span.start != 0 or span.width != cast(ModuleType, self.ps).System.size_of(name):
             raise ValidationError("当前原生工厂不接收切片；请使用完整寄存器或门级实现")
-        return self.ps.System.get_id(name)
+        return cast(ModuleType, self.ps).System.get_id(name)
 
-    def qram(self, parameter):
+    def qram(self, parameter: str) -> object:
         """把模块的资源形参解析为该调用点绑定的 QRAM 对象。
 
         Args:
@@ -181,13 +191,25 @@ class NativeContext:
 class DynamicCppFactory:
     """按需调用真实 compile_operator，C++ 代码不写入 RIR。"""
 
-    def __init__(self, name, source, parameters, *, cache_dir, base_class="SelfAdjointOperator"):
-        self.name, self.source = name, source
-        self.parameters = tuple(parameters)
-        self.cache_dir, self.base_class = str(cache_dir), base_class
-        self._class = None
+    def __init__(
+        self,
+        name: str,
+        source: str,
+        parameters: Iterable[str],
+        *,
+        cache_dir: str,
+        base_class: str = "SelfAdjointOperator",
+    ) -> None:
+        """记录算子名、C++ 源与参数，延迟到首次调用再编译。"""
+        self.name: str = name
+        self.source: str = source
+        self.parameters: tuple[str, ...] = tuple(parameters)
+        self.cache_dir: str = str(cache_dir)
+        self.base_class: str = base_class
+        self._class: type | None = None
 
-    def __call__(self, context):
+    def __call__(self, context: NativeContext) -> object:
+        """首次调用时延迟编译 C++ 算子源码，再按形参寄存器 id 构造实例。"""
         if self._class is None:
             from pysparq.dynamic_operator import compile_operator
 

@@ -5,15 +5,21 @@
 这些检查不认证求解精度。
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 from collections import defaultdict
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
 from pathlib import Path
+from typing import cast
 
 from pyqecclang import (
     Binding,
+    BlockEncoding,
     FixedFormat,
+    Operation,
     bind,
     dumps,
     export_originir,
@@ -28,6 +34,8 @@ from pyqecclang import (
 from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
 from pyqecclang.algorithms.input_model.block_encoding import lcu
 from pyqecclang.algorithms.input_model.oracles import (
+    StateOracle,
+    StatePreparation,
     abstract_block_encoding,
     abstract_database,
     abstract_sparse_access,
@@ -54,12 +62,22 @@ from pyqecclang.applications.qham import (
     Field,
     Grid,
     PolynomialPDE,
+    QHAMBindings,
     structured_fd_bindings,
 )
 from pyqecclang.applications.qham.stencils import derivative_encoding
 
 
-def save_case(root, name, state, bindings=None, memory=None, *, notes=None, native_parse=False):
+def save_case(
+    root: Path,
+    name: str,
+    state: StateOracle,
+    bindings: Mapping[str, Operation | Binding] | None = None,
+    memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None = None,
+    *,
+    notes: Mapping[str, object] | None = None,
+    native_parse: bool = False,
+) -> dict[str, object]:
     """同时留下开放/部分绑定/闭合产物；不内联 oracle 主体。"""
     folder = root / name
     folder.mkdir(parents=True, exist_ok=True)
@@ -104,11 +122,18 @@ def save_case(root, name, state, bindings=None, memory=None, *, notes=None, nati
     (folder / "report.json").write_text(
         json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(name, "modules", len(closed.modules), "open slots", len(record["open_slots"]), flush=True)
+    print(
+        name,
+        "modules",
+        len(closed.modules),
+        "open slots",
+        len(cast(list[str], record["open_slots"])),
+        flush=True,
+    )
     return record
 
 
-def verify_bindings(root):
+def verify_bindings(root: Path) -> None:
     """真实 PySparQ 比较角数据库案例两种绑定的完整复幅度。"""
     records = []
     for stem in ("given_xor",):
@@ -133,7 +158,7 @@ def verify_bindings(root):
     (root / "binding-validation.json").write_text(json.dumps(records, indent=2), encoding="utf-8")
 
 
-def polynomial_from_bindings(bindings):
+def polynomial_from_bindings(bindings: QHAMBindings) -> PolynomialODE:
     """教程宿主适配器：按次数合并 PDE 多线性端口，交给 Carleman。"""
     grouped = defaultdict(list)
     for _, port in bindings.ports:
@@ -146,10 +171,14 @@ def polynomial_from_bindings(bindings):
     )
 
 
-def shifted_solver(qode, recovery):
+def shifted_solver(
+    qode: Callable[[BlockEncoding, StatePreparation, float], StateOracle],
+    recovery: dict[str, float],
+) -> Callable[[BlockEncoding, StatePreparation, float], StateOracle]:
     """给提升后的线性系统施加移位；范数恢复记录放在宿主报告中。"""
 
-    def solve(generator, initial, time):
+    def solve(generator: BlockEncoding, initial: StatePreparation, time: float) -> StateOracle:
+        """用 ``G - mu*I`` 移位后的生成元交给底层求解协议演化。"""
         mu = generator.alpha
         shifted = lcu([(1, generator), (-mu, identity(generator.width))])
         recovery.update(growth_shift=mu, log_amplitude_rescale=mu * time)
@@ -158,7 +187,8 @@ def shifted_solver(qode, recovery):
     return solve
 
 
-def main():
+def main() -> None:
+    """构造各输入范式案例并写出开放、部分绑定与闭合产物。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/ode-input-models"))
     parser.add_argument("--native-parse", action="store_true", help="用真实 uniqc 解析全部导出")
@@ -298,7 +328,12 @@ def main():
         gate_state_prep([1, 0, 0, 0]),
         label="periodic_heat",
     )
-    for method, solver in (("lchs", lchs), ("schrodingerization", schrodinger)):
+    # QODEProtocol.__call__ 与三参求解回调同形；按回调类型声明 solver，
+    # 使下方 shifted_solver 的返回值能与协议实例共用同一循环变量。
+    for method, solver in (
+        ("lchs", cast("Callable[[BlockEncoding, StatePreparation, float], StateOracle]", lchs)),
+        ("schrodingerization", schrodinger),
+    ):
         records.append(write("heat_" + method, make_qpde(solver)(heat, time)))
 
     # 6. 普通 PDE -> F_p 端口 -> Carleman -> 可替换线性 solver。
@@ -322,7 +357,7 @@ def main():
     problem = PolynomialODE(
         concrete.width, tuple(coefficient_slots), initial_slot, concrete.initial_norm
     )
-    recovery = {}
+    recovery: dict[str, float] = {}
     for method, solver in (
         ("schrodingerization", schrodinger),
         ("shifted_lchs", shifted_solver(lchs, recovery)),

@@ -1,20 +1,25 @@
 """相位估计、振幅估计与重叠测量电路；读出和统计在宿主侧完成。"""
 
+from __future__ import annotations
+
 import math
+from collections.abc import Iterable
 
 from pyqecclang.algorithms.common.fourier import qft
 from pyqecclang.algorithms.input_model.contracts import positive_integer
 from pyqecclang.algorithms.input_model.interfaces import (
+    BlockEncodingProtocol,
+    StatePreparationProtocol,
     as_block_encoding,
     checked_state_preparation,
 )
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import basis_state, invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
-def phase_estimation(operation, *, precision=2):
+def phase_estimation(operation: Operation, *, precision: int = 2) -> Operation:
     """标准量子相位估计（QPE）。
 
     Args:
@@ -48,7 +53,12 @@ def phase_estimation(operation, *, precision=2):
     return b.finish()
 
 
-def hadamard_test(unitary, preparation=None, *, component="real"):
+def hadamard_test(
+    unitary: BlockEncodingProtocol,
+    preparation: StatePreparationProtocol | None = None,
+    *,
+    component: str = "real",
+) -> Operation:
     """生成复期望值的 Hadamard test 电路。
 
     Args:
@@ -90,7 +100,7 @@ def hadamard_test(unitary, preparation=None, *, component="real"):
     return b.finish()
 
 
-def swap_test(first, second):
+def swap_test(first: StatePreparationProtocol, second: StatePreparationProtocol) -> Operation:
     """生成两个纯态的重叠测量电路。
 
     Args:
@@ -125,7 +135,9 @@ def swap_test(first, second):
     return b.finish()
 
 
-def amplitude_estimation(preparation, marked, *, precision=3):
+def amplitude_estimation(
+    preparation: StatePreparationProtocol, marked: Iterable[int], *, precision: int = 3
+) -> Operation:
     """生成对好状态概率进行估计的 QPE 电路。
 
     Args:
@@ -157,7 +169,7 @@ def amplitude_estimation(preparation, marked, *, precision=3):
     return b.finish()
 
 
-def amplitude_from_phase(value, precision):
+def amplitude_from_phase(value: int, precision: int) -> float:
     """将一个相位样本转换为好状态概率的估计。
 
     Args:

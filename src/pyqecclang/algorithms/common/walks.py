@@ -1,12 +1,14 @@
 """离散时间 coined quantum walk。"""
 
+from __future__ import annotations
+
 from pyqecclang.algorithms.input_model.contracts import positive_integer
 from pyqecclang.algorithms.input_model.operators import _name
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits
 
 
-def cycle_walk(width, *, steps=1):
+def cycle_walk(width: int, *, steps: int = 1) -> Operation:
     """生成周期格点上的 Hadamard coined walk。
 
     Args:

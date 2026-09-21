@@ -10,7 +10,8 @@ from pyqecclang.applications.qham.pde import PolynomialPDE
 from pyqecclang.applications.qham.report import export_derivation
 
 
-def main():
+def main() -> None:
+    """解析命令行，把输入 PDE 推导为 QHAM 线性化并导出报告。"""
     parser = argparse.ArgumentParser(description="从有限多项式 PDE 自动推导 QHAM 量子适配线性化")
     parser.add_argument("input", nargs="?", type=Path, help="PDE 0.1 JSON；省略则选择内置案例")
     parser.add_argument(

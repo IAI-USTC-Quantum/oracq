@@ -6,12 +6,12 @@ import math
 import re
 
 from pyqecclang.infrastructure.backends.originir import OriginIRArtifact, export_originir
-from pyqecclang.infrastructure.ir import ValidationError
+from pyqecclang.infrastructure.ir import Program, ValidationError
 
 _PI = math.pi
 
 
-def export_toffoli_u3_cz(program):
+def export_toffoli_u3_cz(program: Program) -> OriginIRArtifact:
     """导出 Toffoli+U3+CZ 门集上的 OriginIR-ext 网表。
 
     等价于 ``lower_toffoli_u3_cz(export_originir(program))``；模块调用和
@@ -27,7 +27,7 @@ def export_toffoli_u3_cz(program):
     return lower_toffoli_u3_cz(export_originir(program))
 
 
-def lower_toffoli_u3_cz(artifact):
+def lower_toffoli_u3_cz(artifact: OriginIRArtifact) -> OriginIRArtifact:
     """把 OriginIR-ext 网表中的门降低到 Toffoli、U3 与 CZ。
 
     X 型多控门（含 CNOT，SWAP 展开为三次交换）按 ``mcx`` 配方用 Toffoli
@@ -60,19 +60,24 @@ def lower_toffoli_u3_cz(artifact):
     pool = [f"pb_work[{i}]" for i in range(count)]
     result, inside = [], False
 
-    def u3(t, theta, phi, lam):
+    def u3(t: str, theta: float, phi: float, lam: float) -> str:
+        """发射单比特 ``U3`` 门文本行。"""
         return f"U3 {t}, ({float(theta)!r}, {float(phi)!r}, {float(lam)!r})"
 
-    def h(t):
+    def h(t: str) -> str:
+        """发射 ``H`` 门的 ``U3`` 等价文本行。"""
         return u3(t, _PI / 2, 0, _PI)
 
-    def phase(t, angle):
+    def phase(t: str, angle: float) -> str:
+        """发射相位旋转门的 ``U3`` 等价文本行。"""
         return u3(t, 0, 0, angle)
 
-    def cx(c, t):
+    def cx(c: str, t: str) -> list[str]:
+        """用 H 环绕 CZ 实现 ``CNOT``。"""
         return [h(t), f"CZ {c}, {t}", h(t)]
 
-    def mcx(controls, target):
+    def mcx(controls: list[str], target: str) -> list[str]:
+        """用 Toffoli 梯子（含 ``pb_work`` 辅助比特池）实现多控 X。"""
         n = len(controls)
         if n == 0:
             return [u3(target, _PI, 0, _PI)]
@@ -86,7 +91,15 @@ def lower_toffoli_u3_cz(artifact):
             ladder + [f"TOFFOLI {pool[n - 3]}, {controls[-1]}, {target}"] + list(reversed(ladder))
         )
 
-    def controlled_u3(controls, target, theta, phi, lam, global_angle=0):
+    def controlled_u3(
+        controls: list[str],
+        target: str,
+        theta: float,
+        phi: float,
+        lam: float,
+        global_angle: float = 0,
+    ) -> list[str]:
+        """用 Toffoli 梯子加相位分解实现受控 ``U3``。"""
         if not controls:
             output = [u3(target, theta, phi, lam)]
             if global_angle:
@@ -97,7 +110,7 @@ def lower_toffoli_u3_cz(artifact):
                     *mcx([], target),
                 ]
             return output
-        ladder = []
+        ladder: list[str] = []
         if len(controls) == 1:
             c = controls[0]
         else:

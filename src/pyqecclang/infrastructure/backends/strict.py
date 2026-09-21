@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pyqecclang.infrastructure.backends.basis import lower_toffoli_u3_cz
 from pyqecclang.infrastructure.backends.originir import OriginIRArtifact, export_originir
 from pyqecclang.infrastructure.estimate import classify_ry, classify_rz, classify_u3
-from pyqecclang.infrastructure.ir import ValidationError
+from pyqecclang.infrastructure.ir import Program, ValidationError
 
 _ATOM_NAMES = {
     "t": "T",
@@ -34,15 +34,16 @@ class StrictArtifact:
     "严格网表：文本 + 逐原子计数 + 布局信息。"
 
     text: str
-    counts: Counter
-    registers: dict
-    resources: dict
-    workspace_qubits: tuple
-    qram_queries: Counter
-    qram_writes: Counter = field(default_factory=Counter)
+    counts: Counter[str]
+    registers: dict[str, tuple[int, ...]]
+    resources: dict[str, str]
+    workspace_qubits: tuple[int, ...]
+    qram_queries: Counter[str]
+    qram_writes: Counter[str] = field(default_factory=Counter)
 
 
-def _emit_rz(lines, counts, target, angle):
+def _emit_rz(lines: list[str], counts: Counter[str], target: str, angle: float) -> None:
+    """按 ``classify_rz`` 的分类向网表发射 RZ 角度的原子序列。"""
     atoms, rotations = classify_rz(angle)
     for atom, n in sorted(atoms.items()):
         lines.extend(f"{_ATOM_NAMES[atom]} {target}" for _ in range(n))
@@ -52,7 +53,8 @@ def _emit_rz(lines, counts, target, angle):
     counts.update(axis for axis, _ in rotations)
 
 
-def _emit_ry(lines, counts, target, angle):
+def _emit_ry(lines: list[str], counts: Counter[str], target: str, angle: float) -> None:
+    """按 ``classify_ry`` 的分类向网表发射 RY 角度的原子序列。"""
     atoms, rotations = classify_ry(angle)
     if rotations:
         lines.append(f"RY {target}, ({rotations[0][1]!r})")
@@ -69,7 +71,10 @@ def _emit_ry(lines, counts, target, angle):
     lines.append(f"SDG {target}")
 
 
-def _emit_u3(lines, counts, target, theta, phi, lam):
+def _emit_u3(
+    lines: list[str], counts: Counter[str], target: str, theta: float, phi: float, lam: float
+) -> None:
+    """按 ``classify_u3`` 的分类向网表发射 U3 角度的原子序列。"""
     atoms, rotations = classify_u3(theta, phi, lam)
     if not rotations and set(atoms) <= {"h", "x", "y"} and sum(atoms.values()) == 1:
         atom = next(iter(atoms))
@@ -99,7 +104,10 @@ def lower_strict(artifact: OriginIRArtifact) -> StrictArtifact:
     Raises:
         ValidationError: ``U3`` 行的角度参数不是三个。
     """
-    lines, counts, qram, writes = [], Counter(), Counter(), Counter()
+    lines: list[str] = []
+    counts: Counter[str] = Counter()
+    qram: Counter[str] = Counter()
+    writes: Counter[str] = Counter()
     for line in artifact.text.splitlines():
         if line.startswith("U3 "):
             head, _, tail = line.partition("(")
@@ -129,6 +137,14 @@ def lower_strict(artifact: OriginIRArtifact) -> StrictArtifact:
     )
 
 
-def export_strict(program) -> StrictArtifact:
-    "编译到 Toffoli+Clifford+T(+待合成旋转)+QRAM 级别的模块保持网表。"
+def export_strict(program: Program) -> StrictArtifact:
+    """编译到 Toffoli+Clifford+T(+待合成旋转)+QRAM 级别的模块保持网表。
+
+    Args:
+        program: 待导出的闭合 RIR 程序。
+
+    Returns:
+        StrictArtifact: 网表文本，连同 Toffoli/CZ 门计数、QRAM 查询与
+        写入统计以及寄存器和资源映射。
+    """
     return lower_strict(lower_toffoli_u3_cz(export_originir(program)))

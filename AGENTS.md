@@ -6,7 +6,7 @@ RIR 是架构中心。修改 IR 时，必须同步 docs/reference/rir.md、JSON 
 
 核心不依赖量子后端。后端导出与执行分离，原生依赖只在执行入口导入。代码标识符使用英文，文档和注释使用中文。
 
-核心验证命令是 python -m unittest discover -s tests/core -v。真实后端验证使用具有 uniqc 和 pysparq 的解释器运行 tests/integration，不使用模拟替身或 skip 代替真实对拍。静态检查使用 ruff check src tests examples。
+核心验证命令是 python -m unittest discover -s tests/core -v。真实后端验证使用具有 uniqc 和 pysparq 的解释器运行 tests/integration，不使用模拟替身或 skip 代替真实对拍。静态检查使用 ruff check src tests examples，类型检查使用 mypy src examples。
 
 不要提交虚拟环境、缓存、构建产物和模拟输出。没有明确要求时不执行 git commit 或 push。
 

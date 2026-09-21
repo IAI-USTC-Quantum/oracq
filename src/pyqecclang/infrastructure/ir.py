@@ -27,22 +27,50 @@ class RegType:
 
 
 def Bits(width: int) -> RegType:
-    """返回 ``bits`` 解释的 ``RegType``，表示不指定数值意义的位串。"""
+    """返回 ``bits`` 解释的 ``RegType``，表示不指定数值意义的位串。
+
+    Args:
+        width: 位宽，范围为 0..64；零宽度表示空接口。
+
+    Returns:
+        RegType: kind 为 ``bits``、位宽等于 ``width`` 的存储类型。
+    """
     return RegType("bits", width)
 
 
 def UInt(width: int) -> RegType:
-    """返回 ``uint`` 解释的 ``RegType``，表示 0 到 2^width-1 的无符号整数。"""
+    """返回 ``uint`` 解释的 ``RegType``，表示 0 到 2^width-1 的无符号整数。
+
+    Args:
+        width: 位宽，范围为 0..64；零宽度表示空接口。
+
+    Returns:
+        RegType: kind 为 ``uint``、位宽等于 ``width`` 的存储类型。
+    """
     return RegType("uint", width)
 
 
 def SInt(width: int) -> RegType:
-    """返回 ``sint`` 解释的 ``RegType``，表示二补码整数；位操作仍作用于原始字。"""
+    """返回 ``sint`` 解释的 ``RegType``，表示二补码整数；位操作仍作用于原始字。
+
+    Args:
+        width: 位宽，范围为 0..64；零宽度表示空接口。
+
+    Returns:
+        RegType: kind 为 ``sint``、位宽等于 ``width`` 的存储类型。
+    """
     return RegType("sint", width)
 
 
 def Rational(width: int) -> RegType:
-    """返回 ``rational`` 解释的 ``RegType``，表示无符号字除以 2^width。"""
+    """返回 ``rational`` 解释的 ``RegType``，表示无符号字除以 2^width。
+
+    Args:
+        width: 位宽，范围为 0..64；同时是分母的以 2 为底指数。
+
+    Returns:
+        RegType: kind 为 ``rational``、位宽等于 ``width`` 的存储类型。
+    """
     return RegType("rational", width)
 
 
@@ -87,6 +115,17 @@ class Ref:
         return self.type.width
 
     def __getitem__(self, key: int | slice) -> Ref:
+        """按低位到高位的整数下标或连续切片截取子视图。
+
+        Args:
+            key: 整数下标或步长为一的切片；起点省略取零，终点省略取位宽。
+
+        Returns:
+            Ref: 截取出的子视图，解释为 ``bits``。
+
+        Raises:
+            ValidationError: 下标不是整数、切片步长不是一，或范围越界。
+        """
         if isinstance(key, int):
             start, stop = key, key + 1
         elif isinstance(key, slice) and key.step in (None, 1):

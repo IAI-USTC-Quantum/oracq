@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from numbers import Number
+from typing import Never, cast
 
 from pyqecclang.infrastructure.ir import ValidationError
 from pyqecclang.infrastructure.validation import name as check_name
 
 
-def derivative_add(derivative, axis, order):
+def derivative_add(
+    derivative: Sequence[tuple[str, int]], axis: str, order: int
+) -> tuple[tuple[str, int], ...]:
     """返回在指定轴上累加导数阶数后的新导数说明。
 
     同轴阶数相加，零阶条目被去除，结果按轴名排序。
@@ -75,23 +79,28 @@ class Expr:
     """
     terms: tuple[Monomial, ...]
 
-    def __add__(self, other):
+    def __add__(self, other: Expr | float | complex) -> Expr:
+        """返回与 ``other`` 之和的规范化 ``Expr``。"""
         return Expr(self.terms + expression(other).terms).normalized()
 
     __radd__ = __add__
 
-    def __neg__(self):
+    def __neg__(self) -> Expr:
+        """返回各项系数取反后的 ``Expr``。"""
         return Expr(tuple(replace(t, coefficient=-t.coefficient) for t in self.terms))
 
-    def __sub__(self, other):
+    def __sub__(self, other: Expr | float | complex) -> Expr:
+        """返回减去 ``other`` 后的规范化 ``Expr``。"""
         return self + -expression(other)
 
-    def __rsub__(self, other):
+    def __rsub__(self, other: Expr | float | complex) -> Expr:
+        """返回 ``other`` 减去 ``self`` 后的规范化 ``Expr``。"""
         return expression(other) + -self
 
-    def __mul__(self, other):
+    def __mul__(self, other: Expr | float | complex) -> Expr:
+        """返回两个表达式的多项式乘积并规范化。"""
         other = expression(other)
-        terms = []
+        terms: list[Monomial] = []
         for a in self.terms:
             for b in other.terms:
                 if a.outer_derivative or b.outer_derivative:
@@ -112,15 +121,18 @@ class Expr:
 
     __rmul__ = __mul__
 
-    def __truediv__(self, value):
+    def __truediv__(self, value: float | complex) -> Expr:
+        """返回除以非零数值常量后的 ``Expr``。"""
         if not isinstance(value, Number) or value == 0:
             raise ValidationError("PDE 只允许除以非零数值常量，未知场分母不在多项式规则内")
         return self * (1 / value)
 
-    def __rtruediv__(self, value):
+    def __rtruediv__(self, value: float | complex) -> Never:
+        """未知场作分母不在多项式 PDE 规则内，总是抛出 ``ValidationError``。"""
         raise ValidationError("未知场分母不在多项式 PDE 规则内")
 
-    def __pow__(self, power):
+    def __pow__(self, power: int) -> Expr:
+        """返回表达式的非负整数次幂。"""
         if type(power) is not int or power < 0:
             raise ValidationError("PDE 多项式幂必须是非负整数")
         result = expression(1)
@@ -128,7 +140,7 @@ class Expr:
             result = result * self
         return result
 
-    def d(self, axis, order=1):
+    def d(self, axis: str, order: int = 1) -> Expr:
         """对表达式的每个单项式施加空间导数。
 
         只含单个未知场原子或只含单个已知系数原子且无外导数的单项式，导数直接
@@ -145,7 +157,7 @@ class Expr:
         Raises:
             ValidationError: 轴名非法或阶数不是非负整数。
         """
-        result = []
+        result: list[Monomial] = []
         for term in self.terms:
             if len(term.fields) == 1 and not term.known and not term.outer_derivative:
                 atom = term.fields[0]
@@ -175,7 +187,7 @@ class Expr:
                 )
         return Expr(tuple(result))
 
-    def normalized(self):
+    def normalized(self) -> Expr:
         """合并同结构单项式并去除零系数项，返回规范化后的新表达式。
 
         以 ``(fields, known, outer_derivative)`` 为键累加系数，按键的 ``repr``
@@ -184,7 +196,9 @@ class Expr:
         Returns:
             Expr: 规范化后的新表达式；自身不变。
         """
-        terms = {}
+        terms: dict[
+            tuple[tuple[Atom, ...], tuple[Atom, ...], tuple[tuple[str, int], ...]], complex
+        ] = {}
         for term in self.terms:
             key = (term.fields, term.known, term.outer_derivative)
             terms[key] = terms.get(key, 0) + term.coefficient
@@ -197,7 +211,7 @@ class Expr:
         )
 
 
-def expression(value):
+def expression(value: Expr | float | complex) -> Expr:
     """把 ``value`` 归一为 ``Expr``：数值常量包装为常量表达式，``Expr`` 原样返回。
 
     零数值对应不含任何单项式的空表达式。
@@ -221,7 +235,7 @@ def expression(value):
     raise ValidationError("需要 PDE 表达式或数值常量")
 
 
-def Field(name):
+def Field(name: str) -> Expr:
     """构造引用指定未知场的单位 ``Expr``。
 
     Args:
@@ -237,7 +251,7 @@ def Field(name):
     return Expr((Monomial(fields=(Atom(name),)),))
 
 
-def Known(name):
+def Known(name: str) -> Expr:
     """构造引用指定已知系数（如强迫数据）的单位 ``Expr``。
 
     Args:
@@ -300,7 +314,13 @@ class PolynomialPDE:
     version: str = "0.1"
 
     @classmethod
-    def from_equations(cls, equations, *, axes=("x",), label="polynomial_pde"):
+    def from_equations(
+        cls,
+        equations: Mapping[str, Expr | float | complex],
+        *,
+        axes: Sequence[str] = ("x",),
+        label: str = "polynomial_pde",
+    ) -> PolynomialPDE:
         """从方程右端字典构造并校验 PDE。
 
         每个右端经 ``expression`` 转为 ``Expr``，用 ``normalized`` 合并同类项后
@@ -329,7 +349,7 @@ class PolynomialPDE:
         )
         return result.validate()
 
-    def validate(self):
+    def validate(self) -> PolynomialPDE:
         """校验 PDE 表示的结构、语义与不可变性。
 
         检查标签与版本、字段非空且不重复、各方程项输出分量已声明、系数有限、
@@ -379,7 +399,7 @@ class PolynomialPDE:
         return self
 
     @property
-    def degree(self):
+    def degree(self) -> int:
         """所有方程项中未知场原子个数的最大值，即推导使用的非线性次数。
 
         强迫项计 0，线性项计 1；没有任何项时返回 0。
@@ -387,7 +407,7 @@ class PolynomialPDE:
         return max((len(t.monomial.fields) for t in self.terms), default=0)
 
     @property
-    def ports(self):
+    def ports(self) -> tuple[OperatorPort, ...]:
         """把方程项归组为线性化端口。
 
         恰含一个未知场原子的项归入线性端口 ``L``；不含未知场原子的项归入强迫
@@ -399,7 +419,7 @@ class PolynomialPDE:
         """
         linear = tuple(t for t in self.terms if len(t.monomial.fields) == 1)
         forcing = tuple(t for t in self.terms if not t.monomial.fields)
-        result = []
+        result: list[OperatorPort] = []
         if linear:
             result.append(OperatorPort("L", 1, linear))
         if forcing:
@@ -411,7 +431,7 @@ class PolynomialPDE:
         ]
         return tuple(result)
 
-    def dumps(self):
+    def dumps(self) -> str:
         """先执行 ``validate``，再把 PDE 序列化为符合 PDE 0.1 格式的 JSON 文本。
 
         复系数以 ``[实部, 虚部]`` 数组表示；键排序、两格缩进，文本以换行结尾。
@@ -423,7 +443,7 @@ class PolynomialPDE:
             ValidationError: 表示未通过 ``validate``。
         """
         self.validate()
-        data = {
+        data: dict[str, object] = {
             "version": self.version,
             "label": self.label,
             "fields": self.fields,
@@ -434,13 +454,13 @@ class PolynomialPDE:
             item = asdict(term)
             c = term.monomial.coefficient
             item["monomial"]["coefficient"] = [c.real, c.imag]
-            data["terms"].append(item)
+            cast(list[object], data["terms"]).append(item)
         return (
             json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
         )
 
     @classmethod
-    def loads(cls, text):
+    def loads(cls, text: str) -> PolynomialPDE:
         """从 JSON 文本重建 PDE。
 
         严格检查顶层与各项的键集合，复系数按 ``[实部, 虚部]`` 读回，重建结果
@@ -464,12 +484,13 @@ class PolynomialPDE:
             if set(data) != {"version", "label", "fields", "axes", "terms"}:
                 raise ValidationError("未知 PDE 字段")
 
-            def atom(raw):
+            def atom(raw: Mapping[str, object]) -> Atom:
+                """从 JSON 对象重建单个 ``Atom``，字段非法时抛出 ``ValidationError``。"""
                 if set(raw) != {"name", "derivative"} or type(raw["derivative"]) is not list:
                     raise ValidationError("未知或无效 PDE atom 字段")
-                return Atom(raw["name"], tuple(tuple(d) for d in raw["derivative"]))
+                return Atom(cast(str, raw["name"]), tuple(tuple(d) for d in raw["derivative"]))
 
-            terms = []
+            terms: list[EquationTerm] = []
             for item in data["terms"]:
                 if set(item) != {"output", "monomial"}:
                     raise ValidationError("未知 PDE 项字段")

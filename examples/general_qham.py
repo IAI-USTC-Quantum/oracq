@@ -1,5 +1,7 @@
 """从普通 PDE 表达式到开放 QODE 输入的最小示例。"""
 
+from __future__ import annotations
+
 from functools import partial
 
 from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian

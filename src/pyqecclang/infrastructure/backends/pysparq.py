@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import cmath
+from collections.abc import Iterator, Mapping, Sequence
 from threading import Lock
+from typing import cast
 
 from pyqecclang.infrastructure.execution import (
     LocalEnter,
@@ -13,22 +15,22 @@ from pyqecclang.infrastructure.execution import (
     events,
     gate_matrix,
 )
-from pyqecclang.infrastructure.ir import Load, ValidationError
-from pyqecclang.infrastructure.native import NativeContext, NativeSite
+from pyqecclang.infrastructure.ir import Load, Primitive, Program, Ref, ValidationError
+from pyqecclang.infrastructure.native import NativeContext, NativeRegistry, NativeSite
 from pyqecclang.infrastructure.validation import locations, validate
 
 _LOCK = Lock()
 
 
 def run_pysparq(
-    program,
-    memory=None,
+    program: Program,
+    memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None = None,
     *,
-    max_steps=1_000_000,
-    max_states=65536,
-    native_registry=None,
-    report=None,
-):
+    max_steps: int = 1_000_000,
+    max_states: int = 65536,
+    native_registry: NativeRegistry | None = None,
+    report: dict[str, int | list[str] | str] | None = None,
+) -> RegisterState:
     """经 PySparQ 稀疏寄存器模拟器按事件执行程序。
 
     RIR 根寄存器映射为 PySparQ 的原生命名寄存器，门与 QRAM 查询在稀疏态上
@@ -91,7 +93,7 @@ def run_pysparq(
             for reg in program.main.registers:
                 if reg.type.width:
                     ps.AddRegister(names[reg.name], kinds[reg.type.kind], reg.type.width)(state)
-            qrams = {}
+            qrams: dict[str, object] = {}
             for res in program.main.resources:
                 data = [0] * (1 << res.type.address_width)
                 for address, value in memories[res.name].items():
@@ -100,18 +102,23 @@ def run_pysparq(
                     res.type.address_width, res.type.data_width, data
                 )
 
-            def apply(operator, controls=()):
+            def apply(operator: object, controls: Sequence[tuple[str, int]] = ()) -> None:
+                """在当前稀疏态上施加算子并检查稀疏态数量预算。"""
                 if controls:
-                    operator.conditioned_by_bit(list(controls))
-                operator(state)
+                    # pysparq 原生算子为动态后端对象，无类型存根可用。
+                    operator.conditioned_by_bit(list(controls))  # type: ignore[attr-defined]
+                operator(state)  # type: ignore[operator]
                 if len(state.basis_states) > max_states:
                     raise ValidationError("PySparQ 执行超过稀疏态数量预算")
 
-            def actual(ref):
+            def actual(ref: Ref) -> list[tuple[str, int]]:
+                """把视图解析为 PySparQ 的 ``(寄存器名, 位)`` 坐标列表。"""
                 return [(names[name], bit) for name, bit in locations(ref)]
 
-            for node, conditions, inverse in events(
-                program, max_steps=max_steps, native_modules=native_modules
+            # 程序已在上方拒绝 Store，事件流中实际只会出现其余五类节点。
+            for node, conditions, inverse in cast(
+                "Iterator[tuple[Primitive | Load | NativeSite | LocalEnter | LocalExit, tuple[tuple[Ref, int], ...], bool]]",
+                events(program, max_steps=max_steps, native_modules=native_modules),
             ):
                 if isinstance(node, LocalEnter):
                     names[node.name] = "pyqec_" + node.name
@@ -137,7 +144,8 @@ def run_pysparq(
                 for pair in zeros:
                     ps.Xgate_Bool(*pair)(state)
                 if isinstance(node, NativeSite):
-                    entry = native_registry.entries[node.module.name]
+                    # NativeSite 事件仅在提供了原生注册表（native_modules 非空）时产生。
+                    entry = cast(NativeRegistry, native_registry).entries[node.module.name]
                     context = NativeContext(ps, node, names, qrams, memories)
                     untouched = (
                         ps.split_systems(
@@ -159,11 +167,13 @@ def run_pysparq(
                     finally:
                         if untouched is not None:
                             ps.combine_systems(state, untouched)
-                    report["native_calls"] += 1
-                    if entry.label not in report["native_labels"]:
-                        report["native_labels"].append(entry.label)
+                    cast("dict[str, int]", report)["native_calls"] += 1
+                    if entry.label not in cast("list[str]", report["native_labels"]):
+                        cast("list[str]", report["native_labels"]).append(entry.label)
                 elif isinstance(node, Load):
                     # 视图通过可逆 XOR 复制到临时整数寄存器；载入后完整反算。
+                    a: str | tuple[str, int]
+                    d: str
                     a, d = "pyqec_tmp_address", "pyqec_tmp_data"
                     ps.AddRegister(a, ps.StateStorageType.General, node.address.width)(state)
                     ps.AddRegister(d, ps.StateStorageType.General, node.data.width)(state)
@@ -179,7 +189,7 @@ def run_pysparq(
                     ps.RemoveRegister(d)(state)
                     ps.RemoveRegister(a)(state)
                 elif node.op == "gphase":
-                    theta = node.angle * (-1 if inverse else 1)
+                    theta = cast(float, node.angle) * (-1 if inverse else 1)
                     if controls:
                         apply(ps.Phase_Bool(*controls[-1], theta), controls[:-1])
                     else:
@@ -196,7 +206,9 @@ def run_pysparq(
                             apply(ps.Xgate_Bool(*b), tuple(controls) + (a,))
                 elif node.op == "add_const":
                     bits = actual(node.operands[0])
-                    value = (-node.value if inverse else node.value) % (1 << len(bits))
+                    value = (-cast(int, node.value) if inverse else cast(int, node.value)) % (
+                        1 << len(bits)
+                    )
                     for offset in range(len(bits)):
                         if (value >> offset) & 1:
                             for i in reversed(range(offset + 1, len(bits))):
@@ -209,10 +221,10 @@ def run_pysparq(
                     for pair in actual(node.operands[0]):
                         apply(ps.Rot_Bool(*pair, [v for row in matrix for v in row]), controls)
                 if not isinstance(node, NativeSite):
-                    report["gate_events"] += 1
+                    cast("dict[str, int]", report)["gate_events"] += 1
                 for pair in reversed(zeros):
                     ps.Xgate_Bool(*pair)(state)
-            result = {}
+            result: dict[tuple[int, ...], complex] = {}
             for basis in state.basis_states:
                 key = tuple(
                     (
@@ -232,13 +244,24 @@ def run_pysparq(
 
 
 def run_pysparq_rir(
-    program,
-    memory=None,
+    program: Program,
+    memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None = None,
     *,
-    max_steps=1_000_000,
-    max_states=65536,
-):
-    """经 PySparQ 原生 RIR 解释器执行；与 run_pysparq 互为独立实现，用于交叉验证。"""
+    max_steps: int = 1_000_000,
+    max_states: int = 65536,
+) -> RegisterState:
+    """经 PySparQ 原生 RIR 解释器执行；与 run_pysparq 互为独立实现，用于交叉验证。
+
+    Args:
+        program: 待执行的闭合 RIR 程序；不得含运行期 QRAM 写（Store）。
+        memory: 资源名到 QRAM 内容的绑定；序列按下标、映射按地址给数据字。
+        max_steps: 解释器展开执行的指令步数预算上限。
+        max_states: 解释器维护的基矢数预算上限。
+
+    Returns:
+        RegisterState: 入口公开寄存器空间上的末态，以各寄存器整数值元组
+        为键的稀疏复振幅。
+    """
     from pyqecclang.infrastructure.linking import uses_store
     from pyqecclang.infrastructure.serialization import dumps
 

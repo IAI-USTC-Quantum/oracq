@@ -5,6 +5,7 @@ from __future__ import annotations
 import cmath
 import itertools
 import math
+from collections.abc import Iterable, Sequence
 
 from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name, identity, scale
 from pyqecclang.algorithms.input_model.oracles import (
@@ -14,10 +15,10 @@ from pyqecclang.algorithms.input_model.oracles import (
     resources_for,
 )
 from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits, ValidationError
+from pyqecclang.infrastructure.ir import Bits, Ref, ValidationError
 
 
-def reflect_zero(builder, register, *, positive=False):
+def reflect_zero(builder: Builder, register: Ref, *, positive: bool = False) -> None:
     """在给定寄存器的零态上追加符号翻转反射 ``I-2|0><0|``。
 
     Args:
@@ -35,7 +36,7 @@ def reflect_zero(builder, register, *, positive=False):
         builder.global_phase(math.pi)
 
 
-def pad_signal(a: BlockEncoding, width):
+def pad_signal(a: BlockEncoding, width: int) -> BlockEncoding:
     """把 BE 的信号寄存器扩张到指定位宽。
 
     Args:
@@ -59,7 +60,7 @@ def pad_signal(a: BlockEncoding, width):
     return BlockEncoding(annotate(b.finish(), "block_encoding", be_alpha=a.alpha))
 
 
-def tensor(a: BlockEncoding, b: BlockEncoding):
+def tensor(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
     """构造两个 BE 的张量积。
 
     Args:
@@ -91,7 +92,7 @@ def tensor(a: BlockEncoding, b: BlockEncoding):
     return BlockEncoding(annotate(out.finish(), "block_encoding", be_alpha=a.alpha * b.alpha))
 
 
-def adjoint_be(a):
+def adjoint_be(a: BlockEncoding) -> BlockEncoding:
     """返回编码伴随矩阵 A† 的 BE。
 
     Args:
@@ -110,7 +111,7 @@ def adjoint_be(a):
     return BlockEncoding(annotate(out.finish(), "block_encoding", be_alpha=a.alpha))
 
 
-def lcu(terms):
+def lcu(terms: Iterable[tuple[complex, BlockEncoding]]) -> BlockEncoding:
     """以 PREPARE/SELECT 结构组装若干 BE 的线性组合。
 
     Args:
@@ -158,7 +159,7 @@ def lcu(terms):
     )
 
 
-def kronecker_sum(a, b=None):
+def kronecker_sum(a: BlockEncoding, b: BlockEncoding | None = None) -> BlockEncoding:
     """构造两个 BE 的 Kronecker 和 A⊗I+I⊗B。
 
     Args:
@@ -172,7 +173,7 @@ def kronecker_sum(a, b=None):
     return lcu([(1, tensor(a, identity(b.width))), (1, tensor(identity(a.width), b))])
 
 
-def projector(width, accepted):
+def projector(width: int, accepted: Iterable[int]) -> BlockEncoding:
     """构造到指定基态子空间的投影 BE。
 
     Args:
@@ -191,7 +192,7 @@ def projector(width, accepted):
     return BlockEncoding(annotate(out.finish(), "block_encoding", be_alpha=1.0))
 
 
-def direct_sum(a, b):
+def direct_sum(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
     """构造同宽矩阵的直和。
 
     Args:
@@ -209,7 +210,7 @@ def direct_sum(a, b):
     return lcu([(1, tensor(projector(1, [0]), a)), (1, tensor(projector(1, [1]), b))])
 
 
-def truncated_shift(width, last):
+def truncated_shift(width: int, last: int) -> BlockEncoding:
     """构造截断上移位 BE。
 
     Args:
@@ -232,7 +233,7 @@ def truncated_shift(width, last):
     return BlockEncoding(annotate(out.finish(), "block_encoding", be_alpha=1.0))
 
 
-def pauli_word(word):
+def pauli_word(word: str) -> BlockEncoding:
     """把 Pauli 字符串编码为无信号位的 BE。
 
     Args:
@@ -253,8 +254,18 @@ def pauli_word(word):
     return BlockEncoding(annotate(b.finish(), "block_encoding", be_alpha=1.0))
 
 
-def matrix_pauli_encoding(matrix, *, drop_tolerance=1e-12):
-    """小型应用的显式门实现；不宣称矩阵输入或经典展开具有量子加速。"""
+def matrix_pauli_encoding(
+    matrix: Sequence[Sequence[complex]], *, drop_tolerance: float = 1e-12
+) -> BlockEncoding:
+    """小型应用的显式门实现；不宣称矩阵输入或经典展开具有量子加速。
+
+    Args:
+        matrix: 二的幂维复方阵，维数不超过 32（即 5 个量子位）。
+        drop_tolerance: 幅值不超过该容差的 Pauli 系数项被丢弃。
+
+    Returns:
+        BlockEncoding: Pauli 展开的 LCU 块编码；全部系数被丢弃时为零算子。
+    """
     matrix = tuple(tuple(complex(v) for v in row) for row in matrix)
     d = len(matrix)
     if d < 2 or d & (d - 1) or any(len(row) != d for row in matrix):
@@ -262,7 +273,7 @@ def matrix_pauli_encoding(matrix, *, drop_tolerance=1e-12):
     n = (d - 1).bit_length()
     if n > 5:
         raise ValidationError("显式 Pauli 展开仅用于最多 5 位的小实例；大实例使用访问 oracle")
-    terms = []
+    terms: list[tuple[complex, BlockEncoding]] = []
     for letters in itertools.product("IXYZ", repeat=n):
         coefficient = 0j
         for column in range(d):

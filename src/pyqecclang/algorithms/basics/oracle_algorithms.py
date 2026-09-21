@@ -1,14 +1,25 @@
 """Deutsch–Jozsa、Bernstein–Vazirani 与 Simon 查询算法。"""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+
 from pyqecclang.algorithms.input_model.contracts import positive_integer
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import XorDatabase, annotate, invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
-def deutsch_jozsa(function: XorDatabase):
-    """生成 D-J 查询电路；调用者声明函数是常量或平衡函数。"""
+def deutsch_jozsa(function: XorDatabase) -> Operation:
+    """生成 D-J 查询电路；调用者声明函数是常量或平衡函数。
+
+    Args:
+        function: 一位结果的 XOR database，须满足常量或平衡承诺。
+
+    Returns:
+        Operation: 寄存器 input 与 answer 的查询电路；读出 input 判定常量/平衡。
+    """
     if function.data_width != 1:
         raise ValidationError("D-J oracle 必须只有一个结果位")
     b = Builder(
@@ -29,7 +40,7 @@ def deutsch_jozsa(function: XorDatabase):
     return b.finish()
 
 
-def bernstein_vazirani(function):
+def bernstein_vazirani(function: XorDatabase) -> Operation:
     """生成 Bernstein–Vazirani 秘密字符串读出电路。
 
     Args:
@@ -56,8 +67,17 @@ def bernstein_vazirani(function):
     )
 
 
-def affine_boolean_oracle(width, secret, *, bias=0):
-    """构造 BV 的普通门 oracle，secret 的第 i 位对应地址第 i 位。"""
+def affine_boolean_oracle(width: int, secret: int, *, bias: int = 0) -> XorDatabase:
+    """构造 BV 的普通门 oracle，secret 的第 i 位对应地址第 i 位。
+
+    Args:
+        width: 地址寄存器位宽，取 1..64。
+        secret: 秘密字符串的整数编码，取 0..2^width−1。
+        bias: 常数偏置 c，取 0 或 1。
+
+    Returns:
+        XorDatabase: 实现 f(x)=s·x XOR c 的门级 XOR database 句柄。
+    """
     positive_integer(width, "affine_boolean_oracle.width", maximum=64)
     positive_integer(secret, "affine_boolean_oracle.secret", minimum=0, maximum=(1 << width) - 1)
     positive_integer(bias, "affine_boolean_oracle.bias", minimum=0, maximum=1)
@@ -72,7 +92,7 @@ def affine_boolean_oracle(width, secret, *, bias=0):
     return XorDatabase(annotate(b.finish(), "database_xor"))
 
 
-def simon_sample(function):
+def simon_sample(function: XorDatabase) -> Operation:
     """生成一次 Simon 采样电路。
 
     Args:
@@ -100,7 +120,7 @@ def simon_sample(function):
     return b.finish()
 
 
-def simon_nullspace(samples, width):
+def simon_nullspace(samples: Iterable[int], width: int) -> tuple[int, ...]:
     """求 Simon 样本约束在 GF(2) 上的零空间。
 
     Args:

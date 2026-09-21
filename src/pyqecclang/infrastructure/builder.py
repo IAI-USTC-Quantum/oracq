@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, TypeAlias
 
 from pyqecclang.infrastructure.ir import (
     QRAM,
     Adjoint,
     Call,
     Control,
+    Instruction,
     Load,
     Module,
     Primitive,
@@ -25,6 +28,14 @@ from pyqecclang.infrastructure.ir import (
 )
 from pyqecclang.infrastructure.validation import validate
 
+if TYPE_CHECKING:
+    from pyqecclang.algorithms.input_model.operators import BlockEncoding
+    from pyqecclang.algorithms.input_model.oracles import StatePreparation
+    from pyqecclang.infrastructure.estimate import ResourceEstimate
+
+RegisterSpec: TypeAlias = dict[str, RegType]
+"""Builder 构造器的寄存器规格：寄存器名到存储类型的映射。"""
+
 
 @dataclass(frozen=True)
 class Operation:
@@ -38,18 +49,30 @@ class Operation:
     module: Module
     dependencies: tuple[Module, ...] = ()
 
-    def unitary(self):
-        """RIR 操作的全寄存器酉作用；不表示某个目标矩阵本身是酉矩阵。"""
+    def unitary(self) -> Operation:
+        """RIR 操作的全寄存器酉作用；不表示某个目标矩阵本身是酉矩阵。
+
+        Returns:
+            Operation: 原样返回自身；RIR 操作本身即全寄存器空间上的酉演化。
+        """
         return self
 
-    def state_preparation(self):
-        """把完整公开寄存器空间作为目标，制备 U|0>。"""
+    def state_preparation(self) -> StatePreparation:
+        """把完整公开寄存器空间作为目标，制备 U|0>。
+
+        Returns:
+            StatePreparation: 以 ``from_unitary`` 包装本操作得到的态制备对象。
+        """
         from pyqecclang.algorithms.input_model.oracles import StatePreparation
 
         return StatePreparation.from_unitary(self)
 
-    def block_encoding(self):
-        """完整酉矩阵自身的 alpha=1、零信号 BE；保留原模块调用。"""
+    def block_encoding(self) -> BlockEncoding:
+        """完整酉矩阵自身的 alpha=1、零信号 BE；保留原模块调用。
+
+        Returns:
+            BlockEncoding: 缩放因子为 1.0、信号寄存器零宽的平凡块编码。
+        """
         from pyqecclang.algorithms.input_model.operators import _name, block_encoding
         from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
         from pyqecclang.infrastructure.ir import Bits
@@ -64,8 +87,15 @@ class Operation:
         return block_encoding(b.finish(), alpha=1.0)
 
     @classmethod
-    def from_program(cls, program: Program):
-        """由序列化程序恢复入口操作及模块依赖，保留开放声明。"""
+    def from_program(cls, program: Program) -> Operation:
+        """由序列化程序恢复入口操作及模块依赖，保留开放声明。
+
+        Args:
+            program: 待恢复的完整 RIR 程序；入口之外的模块转为依赖。
+
+        Returns:
+            Operation: 入口为 ``program.main``、依赖为其余全部模块的操作。
+        """
         validate(program)
         return cls(program.main, tuple(m for m in program.modules if m.name != program.entry))
 
@@ -78,21 +108,30 @@ class Operation:
         Raises:
             ValidationError: 同名依赖模块存在冲突定义，或合并结果违反 RIR 规则。
         """
-        modules = {}
+        modules: dict[str, Module] = {}
         for item in (*self.dependencies, self.module):
             if item.name in modules and modules[item.name] != item:
                 raise ValidationError(f"同名模块定义冲突：{item.name}")
             modules[item.name] = item
         return validate(Program(self.module.name, tuple(modules[k] for k in sorted(modules))))
 
-    def quantikz(self, **kwargs):
-        """把入口模块绘制成 quantikz 代码；结构保持 RIR，不展开调用。"""
+    def quantikz(self, **kwargs: bool | str | None) -> str:
+        """把入口模块绘制成 quantikz 代码；结构保持 RIR，不展开调用。
+
+        Returns:
+            str: 绘制入口模块得到的 quantikz LaTeX 源码。
+        """
         from pyqecclang.infrastructure.backends.quantikz import quantikz
 
-        return quantikz(self, **kwargs)
+        # **kwargs 转发到仅关键字参数，mypy 无法验证异构关键字包。
+        return quantikz(self, **kwargs)  # type: ignore[arg-type]
 
-    def estimate(self, **kwargs):
-        """Toffoli+Clifford+T+QRAM 级别的组合式资源估计（Repeat 符号相乘）。"""
+    def estimate(self, **kwargs: bool) -> ResourceEstimate:
+        """Toffoli+Clifford+T+QRAM 级别的组合式资源估计（Repeat 符号相乘）。
+
+        Returns:
+            ResourceEstimate: 按 Toffoli、Clifford、T 与 QRAM 查询数汇总的估计结果。
+        """
         from pyqecclang.infrastructure.estimate import estimate_resources
 
         return estimate_resources(self.program(), **kwargs)
@@ -114,20 +153,29 @@ class Builder:
     def __init__(
         self,
         name: str,
-        registers: dict[str, RegType],
+        registers: RegisterSpec,
         resources: dict[str, QRAM] | None = None,
         *,
         attributes: dict | None = None,
-    ):
-        self.name = name
-        self.attributes = tuple(sorted((attributes or {}).items()))
-        self.registers = tuple(Register(k, v) for k, v in registers.items())
-        self.resources = tuple(Resource(k, v) for k, v in (resources or {}).items())
-        self._refs = {r.name: Ref((Span(r.name, 0, r.type.width),), r.type) for r in self.registers}
-        self.locals = []
-        self._frames = [[]]
-        self._dependencies = {}
-        self._closed = False
+    ) -> None:
+        """声明模块签名并初始化指令帧、引用表与依赖表。"""
+        self.name: str = name
+        self.attributes: tuple[tuple[str, str | int | float | bool], ...] = tuple(
+            sorted((attributes or {}).items())
+        )
+        self.registers: tuple[Register, ...] = tuple(
+            Register(k, v) for k, v in registers.items()
+        )
+        self.resources: tuple[Resource, ...] = tuple(
+            Resource(k, v) for k, v in (resources or {}).items()
+        )
+        self._refs: dict[str, Ref] = {
+            r.name: Ref((Span(r.name, 0, r.type.width),), r.type) for r in self.registers
+        }
+        self.locals: list[Register] = []
+        self._frames: list[list[Instruction]] = [[]]
+        self._dependencies: dict[str, Module] = {}
+        self._closed: bool = False
 
     def local(self, name: str, type: RegType) -> Ref:
         """声明一个模块私有工作寄存器并返回覆盖它的完整视图。
@@ -150,9 +198,10 @@ class Builder:
         return ref
 
     def __getitem__(self, name: str) -> Ref:
+        """按公开或局部寄存器名取覆盖整个寄存器的 ``Ref`` 视图。"""
         return self._refs[name]
 
-    def emit(self, instruction):
+    def emit(self, instruction: Instruction) -> None:
         """把一条 RIR 指令追加到当前最内层作用域。
 
         Args:
@@ -165,7 +214,7 @@ class Builder:
             raise ValidationError("构造器已经结束")
         self._frames[-1].append(instruction)
 
-    def gate(self, name: str, target: Ref, angle: float | None = None):
+    def gate(self, name: str, target: Ref, angle: float | None = None) -> None:
         """发射单目标 ``Primitive`` 门。
 
         Args:
@@ -175,53 +224,106 @@ class Builder:
         """
         self.emit(Primitive(name, (target,), angle=angle))
 
-    def h(self, target):
-        """发射 Hadamard 门。"""
+    def h(self, target: Ref) -> None:
+        """发射 Hadamard 门。
+
+        Args:
+            target: 承受门作用的目标视图。
+        """
         self.gate("h", target)
 
-    def x(self, target):
-        """发射 Pauli-X 门。"""
+    def x(self, target: Ref) -> None:
+        """发射 Pauli-X 门。
+
+        Args:
+            target: 承受门作用的目标视图。
+        """
         self.gate("x", target)
 
-    def z(self, target):
-        """发射 Pauli-Z 门。"""
+    def z(self, target: Ref) -> None:
+        """发射 Pauli-Z 门。
+
+        Args:
+            target: 承受门作用的目标视图。
+        """
         self.gate("z", target)
 
-    def ry(self, target, angle):
-        """发射绕 Y 轴旋转 ``angle`` 弧度的门。"""
+    def ry(self, target: Ref, angle: float) -> None:
+        """发射绕 Y 轴旋转 ``angle`` 弧度的门。
+
+        Args:
+            target: 承受旋转的目标视图。
+            angle: 旋转角，单位为弧度。
+        """
         self.gate("ry", target, angle)
 
-    def rz(self, target, angle):
-        """发射绕 Z 轴旋转 ``angle`` 弧度的门。"""
+    def rz(self, target: Ref, angle: float) -> None:
+        """发射绕 Z 轴旋转 ``angle`` 弧度的门。
+
+        Args:
+            target: 承受旋转的目标视图。
+            angle: 旋转角，单位为弧度。
+        """
         self.gate("rz", target, angle)
 
-    def xor(self, source: Ref, target: Ref):
-        """发射按位异或门，把 ``source`` 的值异或进等宽的 ``target``。"""
+    def xor(self, source: Ref, target: Ref) -> None:
+        """发射按位异或门，把 ``source`` 的值异或进等宽的 ``target``。
+
+        Args:
+            source: 提供被异或值的源视图。
+            target: 与 ``source`` 等宽、累积异或结果的目标视图。
+        """
         self.emit(Primitive("xor", (source, target)))
 
-    def swap(self, first: Ref, second: Ref):
-        """发射 ``first`` 与 ``second`` 两个等宽视图的交换门。"""
+    def swap(self, first: Ref, second: Ref) -> None:
+        """发射 ``first`` 与 ``second`` 两个等宽视图的交换门。
+
+        Args:
+            first: 参与交换的第一个视图。
+            second: 与 ``first`` 等宽的第二个视图。
+        """
         self.emit(Primitive("swap", (first, second)))
 
-    def add_const(self, target: Ref, value: int):
-        """发射常量加法门，把 ``target`` 加上 ``value`` 并按位宽回绕。"""
+    def add_const(self, target: Ref, value: int) -> None:
+        """发射常量加法门，把 ``target`` 加上 ``value`` 并按位宽回绕。
+
+        Args:
+            target: 承受加法并按其位宽回绕的目标视图。
+            value: 要加上的整型常量。
+        """
         self.emit(Primitive("add_const", (target,), value=value))
 
-    def global_phase(self, angle: float):
-        """发射全局相位门，整体幅值乘以 ``exp(i*angle)``。"""
+    def global_phase(self, angle: float) -> None:
+        """发射全局相位门，整体幅值乘以 ``exp(i*angle)``。
+
+        Args:
+            angle: 整体相位角，单位为弧度。
+        """
         self.emit(Primitive("gphase", (), angle=angle))
 
-    def qram(self, resource: str, address: Ref, data: Ref):
-        """发射 QRAM 读取：按 ``address`` 查询 ``resource``，把命中的字异或进 ``data``。"""
+    def qram(self, resource: str, address: Ref, data: Ref) -> None:
+        """发射 QRAM 读取：按 ``address`` 查询 ``resource``，把命中的字异或进 ``data``。
+
+        Args:
+            resource: 被查询的 QRAM 资源名。
+            address: 提供查询单元地址的视图。
+            data: 命中数据字异或进去的等宽目标视图。
+        """
         self.emit(Load(resource, address, data))
 
-    def store(self, resource: str, address: Ref, data: Ref):
-        """发射 QRAM 写入：把 ``data`` 存入 ``resource`` 的 ``address`` 单元。"""
+    def store(self, resource: str, address: Ref, data: Ref) -> None:
+        """发射 QRAM 写入：把 ``data`` 存入 ``resource`` 的 ``address`` 单元。
+
+        Args:
+            resource: 写入的目标 QRAM 资源名。
+            address: 指定写入单元的地址视图。
+            data: 提供写入数据的源视图。
+        """
         self.emit(Store(resource, address, data))
 
     def call(
         self, operation: Operation, *, resources: dict[str, str] | None = None, **arguments: Ref
-    ):
+    ) -> None:
         """原样调用另一个 ``Operation``；被调模块保留为 ``Call`` 节点，不在生成期展开。
 
         Args:
@@ -252,7 +354,10 @@ class Builder:
         )
 
     @contextmanager
-    def _block(self, factory):
+    def _block(
+        self, factory: Callable[[tuple[Instruction, ...]], Instruction]
+    ) -> Iterator[Builder]:
+        """打开新指令帧，正常退出时把帧内指令经 ``factory`` 聚合后发射。"""
         if self._closed:
             raise ValidationError("构造器已经结束")
         self._frames.append([])
@@ -265,15 +370,18 @@ class Builder:
             nodes = tuple(self._frames.pop())
             self.emit(factory(nodes))
 
-    def repeat(self, count: int):
+    def repeat(self, count: int) -> AbstractContextManager[Builder]:
         """打开重复 ``count`` 次的作用域；体内指令聚合为 ``Repeat`` 节点，计数保持符号，不在生成期展开。
+
+        Args:
+            count: 体内作用域重复执行的次数；保持符号存入 ``Repeat`` 节点。
 
         Returns:
             ``with`` 语句使用的作用域上下文；块须按 ``with`` 层级全部关闭后才能 ``finish``。
         """
         return self._block(lambda body: Repeat(count, body))
 
-    def control(self, register: Ref, value: int | None = None):
+    def control(self, register: Ref, value: int | None = None) -> AbstractContextManager[Builder]:
         """打开受控作用域；体内指令聚合为 ``Control`` 节点。
 
         Args:
@@ -287,7 +395,7 @@ class Builder:
             value = (1 << register.width) - 1
         return self._block(lambda body: Control(register, value, body))
 
-    def adjoint(self):
+    def adjoint(self) -> AbstractContextManager[Builder]:
         """打开逆作用域；体内指令聚合为 ``Adjoint`` 块，执行时整体逆序取逆。
 
         Returns:

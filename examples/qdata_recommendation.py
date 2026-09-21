@@ -1,12 +1,14 @@
 """QMatrix sample-and-query 数据结构 + KP 量子推荐系统演示。"""
 
+from __future__ import annotations
+
 from pyqecclang import estimate_resources, simulate
 from pyqecclang.algorithms.common.arithmetic import FixedFormat
 from pyqecclang.algorithms.input_model.qdata import QMatrix
 from pyqecclang.algorithms.qml.recommendation import KPRecommendationConfig, kp_recommendation
 
 
-def preference_matrix():
+def preference_matrix() -> QMatrix:
     """秩一主导的偏好矩阵：三类商品中第 0 类最受欢迎，附小对角扰动。"""
     base = (0.5, 0.25, 0.25, 0.0)
     scales = (1.0, 0.5, 0.5, 1.0)
@@ -18,7 +20,8 @@ def preference_matrix():
     )
 
 
-def main():
+def main() -> None:
+    """演示 QMatrix 查询结构与 KP 推荐电路的读出和资源统计。"""
     matrix = preference_matrix()
     print("‖A‖_F =", round(matrix.frobenius, 6))
     print("用户分布 |Ã⟩ =", [round(a, 4) for a in matrix.user_amplitudes()])

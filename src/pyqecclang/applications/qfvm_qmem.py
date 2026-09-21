@@ -10,30 +10,54 @@ QRAM 形式资源，三守恒量合并为一张 (场, 单元) 状态表，邻居
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from typing import cast
+
 from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, FixedFormat
 from pyqecclang.algorithms.input_model.operators import _name
-from pyqecclang.algorithms.input_model.oracles import annotate
+from pyqecclang.algorithms.input_model.oracles import StatePreparation, annotate
 from pyqecclang.algorithms.input_model.qdata import QVector
 from pyqecclang.algorithms.input_model.sparse import compare_words, value_transposition
 from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.qfvm import geometry_cells
-from pyqecclang.applications.roe import ArithmeticBuilder, roe_face
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import QRAM, Adjoint, Bits, ValidationError, fuse
-from pyqecclang.infrastructure.qmem import QMem
+from pyqecclang.applications.qfvm import RoeQfvmInputs, geometry_cells
+from pyqecclang.applications.roe import ArithmeticBuilder, Word, roe_face
+from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.ir import QRAM, Adjoint, Bits, Ref, ValidationError, fuse
+from pyqecclang.infrastructure.qmem import QMem, QPtr
 
 
-def _geometry_refs(ref, inputs):
+def _geometry_refs(ref: Ref, inputs: RoeQfvmInputs) -> list[Ref]:
+    """按声明宽度把几何表字切分为七段连续视图。"""
     sizes = (inputs.width, 4, inputs.cell_width, 2, 2, 2, 1)
-    refs, offset = [], 0
+    refs: list[Ref] = []
+    offset = 0
     for size in sizes:
         refs.append(ref[offset : offset + size])
         offset += size
     return refs
 
 
-def qfvm_qmem_physical(inputs, *, gamma=1.4, entropy_delta=0.125, mass=1.0, dx=1.0):
-    """矩阵元物理计算：状态表按 (场, 邻居单元) 二维寻址，周期邻居用模加指针。"""
+def qfvm_qmem_physical(
+    inputs: RoeQfvmInputs,
+    *,
+    gamma: float = 1.4,
+    entropy_delta: float = 0.125,
+    mass: float = 1.0,
+    dx: float = 1.0,
+) -> Operation:
+    """矩阵元物理计算：状态表按 (场, 邻居单元) 二维寻址，周期邻居用模加指针。
+
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，提供单元编号位宽与定点格式。
+        gamma: 比热比。
+        entropy_delta: Roe 熵修正系数。
+        mass: 质量项，只作用于中心块的分量对角。
+        dx: 网格步长。
+
+    Returns:
+        Operation: 寄存器为 source、row、col、band、value、status 的矩阵元
+        计算电路，status 聚合各算术节点的失效旗标。
+    """
     cw, fmt = inputs.cell_width, inputs.fmt
     b = Builder(
         _name("qfvm_qmem_physical", cw, fmt, gamma, entropy_delta, mass, dx),
@@ -57,24 +81,24 @@ def qfvm_qmem_physical(inputs, *, gamma=1.4, entropy_delta=0.125, mass=1.0, dx=1
     )
     state = QMem(b, "state", shape=(3, 1 << cw))
     g = ArithmeticBuilder(b, fmt)
-    words = []
+    words: list[list[Ref]] = []
     for offset in (-1, 0, 1):
         addr = g.local(cw)
         b.xor(b["source"], addr)
         b.add_const(addr.reinterpret("uint"), offset % (1 << cw))
-        row_words = []
+        row_words: list[Ref] = []
         for field in range(3):
             word = g.local()
-            state[field, addr].load(word)
+            cast(QPtr, state[field, addr]).load(word)
             row_words.append(word)
         words.append(row_words)
     face = roe_face(fmt=fmt, gamma=gamma, entropy_delta=entropy_delta)
-    faces = []
+    faces: list[tuple[Word, Word]] = []
     for i in range(2):
         left, right, flag = g.local(), g.local(), g.local(2)
         b.call(
             face,
-            **dict(
+            **dict(  # type: ignore[arg-type]  # 动态关键字分发：mypy 无法排除 resources 形参
                 zip(
                     ("rho_l", "m_l", "e_l", "rho_r", "m_r", "e_r"),
                     words[i] + words[i + 1],
@@ -101,8 +125,15 @@ def qfvm_qmem_physical(inputs, *, gamma=1.4, entropy_delta=0.125, mass=1.0, dx=1
     return g.finish([(b["value"], value)], b["status"])
 
 
-def qfvm_qmem_location(inputs):
-    """CKS 原地位置置换：九个结构槽位经 (列, 槽位) 二维几何寻址。"""
+def qfvm_qmem_location(inputs: RoeQfvmInputs) -> Operation:
+    """CKS 原地位置置换：九个结构槽位经 (列, 槽位) 二维几何寻址。
+
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，决定坐标与几何表字位宽。
+
+    Returns:
+        Operation: 寄存器为 column、index、work 的原地稀疏位置置换电路。
+    """
     n = inputs.width
     b = Builder(
         _name("qfvm_qmem_location", n),
@@ -118,7 +149,8 @@ def qfvm_qmem_location(inputs):
         },
     )
     geometry = QMem(b, "geometry", shape=(16, 1 << n))
-    neighbors, lefts = [], []
+    neighbors: list[Ref] = []
+    lefts: list[Ref] = []
     for rank in range(9):
         slot = b.local("slot_" + str(rank), Bits(4))
         data = b.local("geometry_" + str(rank), Bits(inputs.geometry_width))
@@ -127,7 +159,7 @@ def qfvm_qmem_location(inputs):
         for bit in range(4):
             if (rank >> bit) & 1:
                 b.x(slot[bit])
-        geometry[slot, b["column"]].load(data)
+        cast(QPtr, geometry[slot, b["column"]]).load(data)
         b.xor(data[:n], neighbor)
         padded = b.local("padded_neighbor_" + str(rank), Bits(n))
         b.xor(b["column"], padded)
@@ -149,8 +181,20 @@ def qfvm_qmem_location(inputs):
     return annotate(b.finish(), "sparse_location_inplace")
 
 
-def qfvm_qmem_entry(inputs, *, padding_value=1.0, **entry_options):
-    """任意坐标矩阵元 oracle：与 qfvm_sparse_access 的 entry 同语义，数据面直连 QMem。"""
+def qfvm_qmem_entry(
+    inputs: RoeQfvmInputs, *, padding_value: float = 1.0, **entry_options: float
+) -> Operation:
+    """任意坐标矩阵元 oracle：与 qfvm_sparse_access 的 entry 同语义，数据面直连 QMem。
+
+    Args:
+        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
+        padding_value: 补齐对角值，须为定点格式可精确表示的正数。
+        **entry_options: 透传给 ``qfvm_qmem_physical`` 的算术选项（gamma、mass 等）。
+
+    Returns:
+        Operation: 寄存器为 row、column、data 的矩阵元 XOR 电路；结构域外
+        条目为零，算术失效条目归零，补齐坐标写 padding 对角。
+    """
     if padding_value <= 0 or inputs.fmt.decode(inputs.fmt.encode(padding_value)) != padding_value:
         raise ValidationError("补齐对角值必须是定点格式可精确表示的正数")
     n = inputs.width
@@ -180,13 +224,13 @@ def qfvm_qmem_entry(inputs, *, padding_value=1.0, **entry_options):
         for bit in range(4):
             if (rank >> bit) & 1:
                 b.x(slot[bit])
-        geometry[slot, b["column"]].load(geom)
+        cast(QPtr, geometry[slot, b["column"]]).load(geom)
         b.call(compare_words(n), a=b["row"], b=geom[:n], flag=match)
         with b.control(fuse(match, geom[inputs.geometry_width - 1])):
             b.xor(geom[: inputs.geometry_width - 1], selected[: inputs.geometry_width - 1])
             b.x(selected[inputs.geometry_width - 1])
         b.call(compare_words(n), a=b["row"], b=geom[:n], flag=match)
-        geometry[slot, b["column"]].load(geom)
+        cast(QPtr, geometry[slot, b["column"]]).load(geom)
     _, _, source, row, col, band, valid = _geometry_refs(selected, inputs)
     value = b.local("computed_value", Bits(inputs.fmt.width))
     status = b.local("arithmetic_status", Bits(2))
@@ -218,32 +262,57 @@ def qfvm_qmem_entry(inputs, *, padding_value=1.0, **entry_options):
 class RoeQmemData:
     """经典侧流场数据：复用 RoeFlowData 的物理量与残差，量子面重组为 QMem bank。"""
 
-    def __init__(self, states, *, fmt=None, angle_width=10, gamma=1.4, entropy_delta=0.125, dx=1.0,
-                 name="residual"):
+    def __init__(
+        self,
+        states: Sequence[Sequence[float]],
+        *,
+        fmt: FixedFormat | None = None,
+        angle_width: int = 10,
+        gamma: float = 1.4,
+        entropy_delta: float = 0.125,
+        dx: float = 1.0,
+        name: str = "residual",
+    ) -> None:
+        """初始化流场并组装残差 QVector。
+
+        Args:
+            states: 各单元的守恒变量三元组（密度、动量、能量），单元数须为
+                不少于 4 的二次幂。
+            fmt: 守恒量定点格式；省略时使用 ``FixedFormat(10, 5)``。
+            angle_width: 残差 QVector 的旋转角字位宽。
+            gamma: 比热比。
+            entropy_delta: Harten 熵修正阈值。
+            dx: 网格步长，须为正。
+            name: 残差 QVector 的 QRAM bank 命名前缀。
+
+        Raises:
+            ValidationError: 流场单元数、分量数或 dx 非法。
+        """
         fmt = fmt or FixedFormat(10, 5)
-        self.flow = RoeFlowData(
+        self.flow: RoeFlowData = RoeFlowData(
             states, fmt=fmt, angle_width=angle_width, gamma=gamma,
             entropy_delta=entropy_delta, dx=dx,
         )
-        self.fmt, self.angle_width = fmt, angle_width
-        self.cell_width = self.flow.n.bit_length() - 1
-        values = []
+        self.fmt: FixedFormat = fmt
+        self.angle_width: int = angle_width
+        self.cell_width: int = self.flow.n.bit_length() - 1
+        values: list[float] = []
         for cell in range(self.flow.n):
             residual = self.flow.residuals[cell]
             values.extend(residual[j] if j < 3 else 0.0 for j in range(4))
-        self.vector = QVector(values, fmt=fmt, angle_width=angle_width, name=name)
+        self.vector: QVector = QVector(values, fmt=fmt, angle_width=angle_width, name=name)
 
     @property
-    def state_bank(self):
+    def state_bank(self) -> dict[int, int]:
         """(场, 单元) 状态表：地址 = field·n + cell，字为守恒量定点编码。"""
         banks = self.flow.store.snapshot()
-        table = {}
+        table: dict[int, int] = {}
         for field, key in enumerate(("rho", "momentum", "energy")):
             for address, word in banks[key].items():
                 table[(field << self.cell_width) | address] = word
         return table
 
-    def memories(self, inputs):
+    def memories(self, inputs: RoeQfvmInputs) -> Mapping[str, Sequence[int] | Mapping[int, int]]:
         """导出 QMem 直连数据路径的全部运行时内存表。
 
         Args:
@@ -262,6 +331,13 @@ class RoeQmemData:
         }
 
 
-def qfvm_qmem_rhs(data: RoeQmemData):
-    """残差态制备：QVector 平方范数树 + 符号相位反冲（替代 qram_state_prep+sign 组合）。"""
+def qfvm_qmem_rhs(data: RoeQmemData) -> StatePreparation:
+    """残差态制备：QVector 平方范数树 + 符号相位反冲（替代 qram_state_prep+sign 组合）。
+
+    Args:
+        data: 经典侧流场数据，其残差 QVector 提供幅度与符号信息。
+
+    Returns:
+        StatePreparation: 归一化残差态的制备电路，负分量经相位反冲携带符号。
+    """
     return data.vector.preparation(signed=True)

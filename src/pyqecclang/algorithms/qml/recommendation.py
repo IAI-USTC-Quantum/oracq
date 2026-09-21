@@ -18,21 +18,30 @@ from pyqecclang.algorithms.common.estimation import phase_estimation
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.qdata import QMatrix
 from pyqecclang.infrastructure.builder import Builder, Operation
-from pyqecclang.infrastructure.ir import QRAM, Bits, ValidationError
+from pyqecclang.infrastructure.execution import RegisterState
+from pyqecclang.infrastructure.ir import QRAM, Bits, Ref, ValidationError
 
 
-def sigma_from_phase(value, precision, frobenius):
+def sigma_from_phase(value: int, precision: int, frobenius: float) -> float:
     """相位读数 t → 奇异值估计 σ̂ = ‖A‖_F 乘 cos(π t/2^precision) 的绝对值。
 
     W 的特征值成对出现 e^{±iθ}（同一 σ 的两个旋转方向），镜像相位
     2^precision−t 必须映射到同一奇异值，因此取绝对值。
+
+    Args:
+        value: 相位寄存器读数，取 0..2^precision−1 的整数。
+        precision: 相位寄存器位数。
+        frobenius: 矩阵的 Frobenius 范数 ‖A‖_F。
+
+    Returns:
+        float: 奇异值估计 σ̂。
     """
     if not 0 <= value < 1 << precision:
         raise ValidationError("相位读数越界")
     return frobenius * abs(math.cos(math.pi * value / (1 << precision)))
 
 
-def _reflect_zero(builder, register):
+def _reflect_zero(builder: Builder, register: Ref) -> None:
     """对零基矢的反射（2 倍投影减恒等）：X 全翻 + 多控 Z + X 全翻；单比特即 Z。"""
     if register.width == 1:
         builder.z(register)
@@ -74,7 +83,7 @@ class RecommendationResult:
     sigma: float
     frobenius: float
 
-    def memories(self):
+    def memories(self) -> dict[str, dict[int, int]]:
         """提取电路所需两座 QRAM 角度库的初值。
 
         Returns:
@@ -83,10 +92,19 @@ class RecommendationResult:
         snapshot = self.matrix.snapshot()
         return {"row_angles": snapshot["row_angles"], "root_angles": snapshot["root_angles"]}
 
-    def readout(self, state):
-        """把模拟/执行结果折算为 (成功概率, 条件推荐分布)。"""
+    def readout(self, state: RegisterState) -> tuple[float, dict[int, float]]:
+        """把模拟/执行结果折算为 (成功概率, 条件推荐分布)。
+
+        Args:
+            state: 寄存器级模拟或执行得到的振幅态。
+
+        Returns:
+            tuple[float, dict[int, float]]: flag=1 分支的总概率与该分支上
+            各条目的条件推荐分布。
+        """
         registers = self.operation.module.registers
         index = {r.name: i for i, r in enumerate(registers)}
+        items: dict[int, float]
         success, items = 0.0, {}
         for key, amplitude in state.amplitudes.items():
             probability = abs(amplitude) ** 2
@@ -98,7 +116,7 @@ class RecommendationResult:
         return success, distribution
 
 
-def _walk_unitary(matrix: QMatrix):
+def _walk_unitary(matrix: QMatrix) -> Operation:
     """W = Ũ R₁ Ũ⁻¹ · Ṽ R₀ Ṽ⁻¹；寄存器 row/item，资源与 QMatrix bank 同名。"""
     r, c, aw = matrix.rows, matrix.cols, matrix.angle_width
     b = Builder(
@@ -112,7 +130,9 @@ def _walk_unitary(matrix: QMatrix):
     amp_work = b.local("amp_work", Bits(aw))
     row_work = b.local("row_work", Bits(aw))
 
-    def sandwich(prep, register, work, resource):
+    def sandwich(
+        prep: Operation, register: Ref, work: Ref, resource: dict[str, str]
+    ) -> None:
         """prep 共轭的零基矢反射：伴随先行，反射居中，正向收尾。"""
         with b.adjoint():
             b.call(prep, row=b["row"], item=b["item"], work=work, resources=resource)
@@ -125,8 +145,19 @@ def _walk_unitary(matrix: QMatrix):
     return b.finish()
 
 
-def kp_recommendation(matrix: QMatrix, user: int, config: KPRecommendationConfig | None = None):
-    """对用户 user 生成推荐采样电路；返回含读出契约的 RecommendationResult。"""
+def kp_recommendation(
+    matrix: QMatrix, user: int, config: KPRecommendationConfig | None = None
+) -> RecommendationResult:
+    """对用户 user 生成推荐采样电路；返回含读出契约的 RecommendationResult。
+
+    Args:
+        matrix: sample-and-query 结构的推荐矩阵输入模型。
+        user: 目标用户编号，取 0..行数−1。
+        config: 相位位数与奇异值阈值配置；缺省 4 位相位、阈值 0.5·‖A‖_F。
+
+    Returns:
+        RecommendationResult: 含推荐采样电路、QRAM 角度库初值与读出契约的结果。
+    """
     config = config or KPRecommendationConfig()
     if not isinstance(matrix, QMatrix):
         raise ValidationError("kp_recommendation 需要 QMatrix 输入")

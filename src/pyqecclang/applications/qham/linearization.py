@@ -4,18 +4,22 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 
 from pyqecclang.applications.qham.pde import PolynomialPDE
 from pyqecclang.infrastructure.ir import ValidationError
 
 
-def compositions(total, length):
+def compositions(total: int, length: int) -> Iterator[tuple[int, ...]]:
     """按首分量递增的顺序，惰性枚举和为 ``total`` 的 ``length`` 个非负整数的全部有序拆分。
 
     Args:
         total: 目标和，为非负整数。
         length: 拆分的元数。
+
+    Returns:
+        Iterator[tuple[int, ...]]: 惰性生成器，逐个产出而不物化全部拆分。
 
     Yields:
         tuple[int, ...]: 长度为 ``length`` 且元素之和等于 ``total`` 的有序元组；
@@ -44,7 +48,7 @@ class HomotopyWeight:
     kind: str = "one"
     power: int = 0
 
-    def evaluate(self, eta):
+    def evaluate(self, eta: complex) -> complex:
         """计算权重在同伦参数 ``eta`` 处的取值。
 
         Args:
@@ -65,7 +69,7 @@ class HomotopyWeight:
             return 1 - (1 + eta) ** self.power
         raise ValidationError("未知同伦权重")
 
-    def formula(self):
+    def formula(self) -> str:
         """返回权重的公式文本，同伦参数记作 ``eta``。
 
         Returns:
@@ -93,12 +97,12 @@ class Block:
     orders: tuple[int, ...] = ()
 
     @property
-    def rank(self):
+    def rank(self) -> int:
         """块的张量因子个数；物理块按 1 计，空字常量块为 0。"""
         return 1 if self.kind == "physical" else len(self.orders)
 
     @property
-    def label(self):
+    def label(self) -> str:
         """返回块的可读标签。
 
         物理块为 ``u_sum``，空字常量块为 ``one``，其余张量块为 ``Y_``
@@ -154,27 +158,28 @@ class QHAMPlan:
     order: int
     version: str = "0.1"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验 PDE、截断阶与版本号，非法时抛出 ``ValidationError``。"""
         self.pde.validate()
         if self.version != "0.1" or type(self.order) is not int or self.order < 0:
             raise ValidationError("QHAM 截断阶必须为非负整数")
 
     @property
-    def grade(self):
+    def grade(self) -> int:
         """闭包权重判据的次数缩放 ``p = max(1, D-1)``，``D`` 为 PDE 多项式次数。"""
         return max(1, self.pde.degree - 1)
 
     @property
-    def max_rank(self):
+    def max_rank(self) -> int:
         """闭包权重上限 ``p*m+1``，即张量块允许的最大张量秩。"""
         return self.grade * self.order + 1
 
     @property
-    def has_forcing(self):
+    def has_forcing(self) -> bool:
         """PDE 是否含常量强迫项（即存在端口 ``F``，闭包需要空字常量块）。"""
         return any(port.name == "F" for port in self.pde.ports)
 
-    def weight(self, word):
+    def weight(self, word: Sequence[int]) -> int:
         """计算张量字的闭包权重 ``p*sum(word)+len(word)``。
 
         Args:
@@ -185,7 +190,7 @@ class QHAMPlan:
         """
         return self.grade * sum(word) + len(word)
 
-    def contains(self, block):
+    def contains(self, block: Block) -> bool:
         """判断块是否属于该计划的有限闭包。
 
         物理块须不带阶数；空字张量块仅当存在强迫；其余张量块要求各阶数
@@ -208,7 +213,7 @@ class QHAMPlan:
             and self.weight(block.orders) <= self.max_rank
         )
 
-    def rank_count(self, rank):
+    def rank_count(self, rank: int) -> int:
         """统计给定张量秩的闭包张量块个数。
 
         Args:
@@ -221,13 +226,13 @@ class QHAMPlan:
         return math.comb(limit + rank, rank) if limit >= 0 and rank >= 1 else 0
 
     @property
-    def block_count(self):
+    def block_count(self) -> int:
         """闭包块总数：物理块、可选空字常量块与各秩张量块个数之和。"""
         return (
             1 + int(self.has_forcing) + sum(self.rank_count(k) for k in range(1, self.max_rank + 1))
         )
 
-    def blocks(self, *, max_blocks=None):
+    def blocks(self, *, max_blocks: int | None = None) -> Iterator[Block]:
         """按规范顺序惰性枚举闭包中的全部块。
 
         物理块在前，张量块按秩升序、同秩内按字和升序（同字和按 ``compositions``
@@ -236,6 +241,9 @@ class QHAMPlan:
         Args:
             max_blocks: 显式枚举的块数预算；块总数超过该值时立即报错，
                 提示改用惰性查询。
+
+        Returns:
+            Iterator[Block]: 惰性生成器，逐个产出闭包块而不物化完整块列表。
 
         Yields:
             Block: 闭包中的块。
@@ -254,7 +262,7 @@ class QHAMPlan:
         if self.has_forcing:
             yield Block("tensor")
 
-    def row_terms(self, row):
+    def row_terms(self, row: Block) -> tuple[Coupling, ...]:
         """枚举行块在闭包内的全部线性边。
 
         覆盖三类边：同字的线性边 ``L``；强迫插入边 ``F``（物理行来自空字
@@ -279,7 +287,7 @@ class QHAMPlan:
         ports = self.pde.ports
         linear = any(p.name == "L" for p in ports)
         nonlinear = [p for p in ports if p.arity >= 2]
-        result = []
+        result: list[Coupling] = []
         if row.kind == "physical":
             if linear:
                 result.append(Coupling(row, row, "L", 0, 1))
@@ -325,7 +333,7 @@ class QHAMPlan:
             raise AssertionError("QCL 闭包构造错误")
         return tuple(result)
 
-    def raw_dimension(self, dimension):
+    def raw_dimension(self, dimension: int) -> int:
         """计算闭包线性系统的总维数。
 
         Args:
@@ -341,7 +349,7 @@ class QHAMPlan:
             + int(self.has_forcing)
         )
 
-    def offset(self, block, dimension):
+    def offset(self, block: Block, dimension: int) -> int:
         """返回块内局部坐标 0 在闭包系统中的全局起始索引。
 
         块按 ``blocks`` 的规范顺序展开：物理块在最前，各秩张量块占
@@ -374,7 +382,7 @@ class QHAMPlan:
             remainder -= value
         return offset + before * dimension**rank
 
-    def locate(self, index, dimension):
+    def locate(self, index: int, dimension: int) -> tuple[Block, int]:
         """把全局索引分解为所属块与块内局部索引，为 ``offset`` 的逆。
 
         Args:
@@ -403,7 +411,7 @@ class QHAMPlan:
             while ordinal >= math.comb(total + rank - 1, rank - 1):
                 ordinal -= math.comb(total + rank - 1, rank - 1)
                 total += 1
-            word = []
+            word: list[int] = []
             remaining = total
             for pos in range(rank - 1):
                 slots = rank - pos - 1
@@ -417,7 +425,7 @@ class QHAMPlan:
             return Block("tensor", tuple(word)), local
         return Block("tensor"), 0
 
-    def summary(self):
+    def summary(self) -> dict[str, object]:
         """汇总计划的关键量，供报告与诊断使用。
 
         Returns:
@@ -437,7 +445,7 @@ class QHAMPlan:
             ],
         }
 
-    def dumps(self):
+    def dumps(self) -> str:
         """把计划序列化为规范 JSON 文本。
 
         Returns:
@@ -455,7 +463,7 @@ class QHAMPlan:
         )
 
     @classmethod
-    def loads(cls, text):
+    def loads(cls, text: str) -> QHAMPlan:
         """从 ``dumps`` 输出的 JSON 文本重建计划。
 
         Args:

@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from typing import cast
 
 from pyqecclang.algorithms.common.arithmetic import FixedFormat
 from pyqecclang.algorithms.common.fourier import inverse_qft
@@ -26,6 +28,7 @@ from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import annotate, declare, invoke, resources_for
 from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
+from pyqecclang.infrastructure.mathfunc import MathConfig
 
 
 @dataclass(frozen=True)
@@ -38,11 +41,16 @@ class PhaseOracle(OracleView):
     oracle_kind = "phase_oracle"
     operation: Operation
 
-    def phase_oracle(self):
-        """返回相位 oracle 视图；本类自身即包装相位 oracle，直接返回自身。"""
+    def phase_oracle(self) -> PhaseOracle:
+        """返回相位 oracle 视图；本类自身即包装相位 oracle，直接返回自身。
+
+        Returns:
+            PhaseOracle: 自身引用，保持角色访问器接口一致。
+        """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验 target 签名与 phase_scale 属性声明。"""
         validate_signature(self.operation, ("target",), "PhaseOracle")
         scale = dict(self.operation.module.attributes).get("phase_scale")
         if scale is None:
@@ -50,18 +58,27 @@ class PhaseOracle(OracleView):
         finite_real(scale, "PhaseOracle.phase_scale", minimum=0, strict=True)
 
     @property
-    def width(self):
+    def width(self) -> int:
         """target 寄存器的位宽，即相位 oracle 作用的网格寄存器总宽度。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
-    def phase_scale(self):
+    def phase_scale(self) -> float:
         """oracle 声明的相位缩放因子，即 ``O|x> = exp(2πi·phase_scale·f(x))|x>`` 中的缩放。"""
-        return dict(self.operation.module.attributes)["phase_scale"]
+        return cast("float", dict(self.operation.module.attributes)["phase_scale"])
 
 
-def abstract_phase_oracle(name, width, *, phase_scale):
-    """开放声明一个相位 oracle；相位缩放写入 phase_scale 属性，实现留待 bind。"""
+def abstract_phase_oracle(name: str, width: int, *, phase_scale: float) -> PhaseOracle:
+    """开放声明一个相位 oracle；相位缩放写入 phase_scale 属性，实现留待 bind。
+
+    Args:
+        name: 相位 oracle 槽位的声明模块名。
+        width: target 寄存器位宽，取 1..64。
+        phase_scale: 相位缩放因子，取正实数，随属性声明登记。
+
+    Returns:
+        PhaseOracle: 体为空、由 bind 延迟绑定实现的相位 oracle 槽位句柄。
+    """
     positive_integer(width, "abstract_phase_oracle.width", maximum=64)
     finite_real(phase_scale, "abstract_phase_oracle.phase_scale", minimum=0, strict=True)
     return PhaseOracle(
@@ -74,11 +91,27 @@ def abstract_phase_oracle(name, width, *, phase_scale):
     )
 
 
-def gate_phase_oracle(width, angles, *, phase_scale, name=None):
+def gate_phase_oracle(
+    width: int,
+    angles: Iterable[float],
+    *,
+    phase_scale: float,
+    name: str | None = None,
+) -> PhaseOracle:
     """由显式相位表构造对角相位 oracle，angles[x] 是基态 ``|x>`` 获得的相位弧度。
 
     小尺度见证可直接枚举全部 2**width 个相位；大网格应改用
-    function_phase_oracle 或绑定其他实现。"""
+    function_phase_oracle 或绑定其他实现。
+
+    Args:
+        width: target 寄存器位宽，取 1..64。
+        angles: 各基态的相位弧度表，长度须等于 2**width。
+        phase_scale: 相位缩放因子，取正实数，登记入属性。
+        name: 生成的模块名；缺省按参数自动生成。
+
+    Returns:
+        PhaseOracle: 按相位表逐基态施加对角相位的 oracle 句柄。
+    """
     positive_integer(width, "gate_phase_oracle.width", maximum=64)
     finite_real(phase_scale, "gate_phase_oracle.phase_scale", minimum=0, strict=True)
     angles = tuple(angles)
@@ -105,19 +138,19 @@ def gate_phase_oracle(width, angles, *, phase_scale, name=None):
 
 
 def function_phase_oracle(
-    source,
+    source: str | Callable[..., float],
     *,
-    dimension,
-    grid_bits,
-    fmt=None,
-    scale=None,
-    name=None,
-    constants=None,
-    helpers=None,
-    config=None,
-    max_unroll=128,
-    entry=None,
-):
+    dimension: int,
+    grid_bits: int,
+    fmt: FixedFormat | None = None,
+    scale: float | None = None,
+    name: str | None = None,
+    constants: Mapping[str, bool | int | float | complex] | None = None,
+    helpers: Mapping[str, Callable[..., object]] | None = None,
+    config: MathConfig | None = None,
+    max_unroll: int = 128,
+    entry: str | None = None,
+) -> PhaseOracle:
     """由 mathfunc 算术构造相位 oracle：计算定点 f(x) 后对输出做相位踢回并复原。
 
     Args:
@@ -161,7 +194,7 @@ def function_phase_oracle(
         max_unroll=max_unroll,
         entry=entry,
     )
-    operation = compiled.operation
+    operation = cast("Operation", compiled.operation)
     expected = {f"x{i}" for i in range(dimension)} | {"out", "status"}
     if {r.name for r in operation.module.registers} != expected:
         raise ValidationError("函数必须有 dimension 个实数参数并返回单个实数")
@@ -198,12 +231,14 @@ def function_phase_oracle(
             "phase_oracle",
             phase_scale=scale,
             implementation="mathfunc_kickback",
-            math_function=dict(operation.module.attributes).get("math_function"),
+            math_function=cast("str", dict(operation.module.attributes).get("math_function")),
         )
     )
 
 
-def gradient_estimation(oracle, *, dimension, grid_bits):
+def gradient_estimation(
+    oracle: PhaseOracle | Operation, *, dimension: int, grid_bits: int
+) -> Operation:
     """生成 Jordan 梯度估计电路。
 
     Args:
@@ -265,7 +300,7 @@ def gradient_estimation(oracle, *, dimension, grid_bits):
     return b.finish()
 
 
-def gradient_from_readout(value, *, dimension, grid_bits):
+def gradient_from_readout(value: int, *, dimension: int, grid_bits: int) -> tuple[float, ...]:
     """把 target 的整数读出解码为梯度各分量估计。
 
     Args:

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import math
 from collections import namedtuple
+from collections.abc import Iterable
+from typing import cast
 
 from pyqecclang.algorithms.common.arithmetic import FixedFormat, fixed_arithmetic
 from pyqecclang.algorithms.common.estimation import amplitude_from_phase, phase_estimation
@@ -32,14 +34,20 @@ from pyqecclang.algorithms.input_model.oracles import (
     qram_database,
     resources_for,
 )
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 LoaderBundle = namedtuple("LoaderBundle", ("database", "memory"))
 LoaderBundle.__doc__ = "求和加载器与其模拟内存（gate 绑定时 memory 为空）。"
 
 
-def table_loader(values, data_width=None, *, backend="gate", name=None):
+def table_loader(
+    values: Iterable[int],
+    data_width: int | None = None,
+    *,
+    backend: str = "gate",
+    name: str | None = None,
+) -> LoaderBundle:
     """把非负整数函数表包装成求和加载器。
 
     Args:
@@ -77,12 +85,20 @@ def table_loader(values, data_width=None, *, backend="gate", name=None):
     raise ValidationError("backend 必须是 gate 或 qram")
 
 
-def sum_preparation(database, *, name=None):
+def sum_preparation(database: XorDatabase, *, name: str | None = None) -> Operation:
     """量子求和的态制备：均匀 index + 函数值加载 + 阈值比较，flag=1 概率恰为 E[v]/2**w。
 
     寄存器布局：target = index(n) | threshold(w) | flag(1)，work = value(w)。
     value 字与 index 纠缠留在 work（比较器读出不需要复净它）；flag 由比较器
-    两次调用中的第一次置位，调用方按 flag 标记后应逆调用本制备以复原。"""
+    两次调用中的第一次置位，调用方按 flag 标记后应逆调用本制备以复原。
+
+    Args:
+        database: 函数值加载器；地址位宽为索引数，数据位宽为函数值位宽。
+        name: 生成的制备模块名；缺省按数据库与位宽自动生成。
+
+    Returns:
+        Operation: flag=1 概率恰为 E[v]/2**w 的态制备操作。
+    """
     require_instance(database, XorDatabase, "sum_preparation.database")
     n, w = database.address_width, database.data_width
     compare = fixed_arithmetic("lt", FixedFormat(w, 0, signed=False))
@@ -115,11 +131,18 @@ def sum_preparation(database, *, name=None):
     )
 
 
-def sum_iterate(database):
-    """求和的 Grover 迭代：结构同 grover_iterate，标记由制备 target 的 flag 位驱动。"""
+def sum_iterate(database: XorDatabase) -> Operation:
+    """求和的 Grover 迭代：结构同 grover_iterate，标记由制备 target 的 flag 位驱动。
+
+    Args:
+        database: 函数值加载器，决定迭代作用的索引数与函数值位宽。
+
+    Returns:
+        Operation: 由制备、flag 相位标记与零反射组成的 Grover 迭代操作。
+    """
     prep = sum_preparation(database)
-    n = dict(prep.module.attributes)["index_bits"]
-    w = dict(prep.module.attributes)["value_bits"]
+    n = cast("int", dict(prep.module.attributes)["index_bits"])
+    w = cast("int", dict(prep.module.attributes)["value_bits"])
     marker_b = Builder(
         _name("sum_mark", n, w), {"target": Bits(n + w + 1)}
     )
@@ -139,7 +162,9 @@ def sum_iterate(database):
     return b.finish()
 
 
-def quantum_sum(database, *, precision=4, name=None):
+def quantum_sum(
+    database: XorDatabase, *, precision: int = 4, name: str | None = None
+) -> Operation:
     """Heinrich 量子求和：估计均值 ``E[f] = (1/N) Σ_i f(i)``，f 取 w 位非负整数值。
 
     Args:
@@ -153,8 +178,8 @@ def quantum_sum(database, *, precision=4, name=None):
     require_instance(database, XorDatabase, "quantum_sum.database")
     positive_integer(precision, "quantum_sum.precision", maximum=63)
     prep = sum_preparation(database)
-    n = dict(prep.module.attributes)["index_bits"]
-    w = dict(prep.module.attributes)["value_bits"]
+    n = cast("int", dict(prep.module.attributes)["index_bits"])
+    w = cast("int", dict(prep.module.attributes)["value_bits"])
     iterate = sum_iterate(database)
     qpe = phase_estimation(iterate, precision=precision)
     b = Builder(
@@ -177,15 +202,24 @@ def quantum_sum(database, *, precision=4, name=None):
     return b.finish()
 
 
-def mean_from_phase(value, precision, data_width):
+def mean_from_phase(value: int, precision: int, data_width: int) -> float:
     """把 quantum_sum 的 phase 读出解码为均值估计 ``E[v]`` （整数单位）。
 
-    好状态概率 p = ``E[v]/2**data_width``，故 ``E[v] = amplitude_from_phase * 2**data_width``。"""
+    好状态概率 p = ``E[v]/2**data_width``，故 ``E[v] = amplitude_from_phase * 2**data_width``。
+
+    Args:
+        value: phase 寄存器读出的整数计数。
+        precision: 相位寄存器位数，须与 quantum_sum 的设置一致。
+        data_width: 函数值位宽，取 1..64。
+
+    Returns:
+        float: 以整数值为单位的均值估计 ``E[v]``。
+    """
     positive_integer(data_width, "mean_from_phase.data_width", maximum=64)
     return amplitude_from_phase(value, precision) * (1 << data_width)
 
 
-def heinrich_rate(smoothness, dimension):
+def heinrich_rate(smoothness: float, dimension: int) -> dict[str, float]:
     """函数类数值积分/求和的最优收敛率（误差 ~ M^{-rate}，M 为函数求值次数）。
 
     Args:
@@ -204,12 +238,28 @@ def heinrich_rate(smoothness, dimension):
     }
 
 
-def quantum_integral(database, *, precision=4, interval=1.0, name=None):
+def quantum_integral(
+    database: XorDatabase,
+    *,
+    precision: int = 4,
+    interval: float = 1.0,
+    name: str | None = None,
+) -> Operation:
     """一维数值积分：网格点函数值的量子求和乘以区间长度（复合矩形法则）。
 
     函数值按 v/full_scale 量化为 w 位整数（默认 full_scale = 2**data_width − 1）。
     总误差 = 离散化误差（由网格/光滑性决定，见 heinrich_rate）+ QAE 估计误差。
-    解码用 integral_from_phase。区间长度 interval 必须为正。"""
+    解码用 integral_from_phase。区间长度 interval 必须为正。
+
+    Args:
+        database: 网格点函数值加载器，address=index、data=value。
+        precision: 相位寄存器位数，范围为 1..63；估计误差量级 O(1/2**precision)。
+        interval: 积分区间长度，必须为正实数。
+        name: 生成的模块名；缺省自动生成。
+
+    Returns:
+        Operation: 解码器为 integral_from_phase 的一维积分求和操作。
+    """
     finite_real(interval, "quantum_integral.interval", minimum=0, strict=True)
     operation = quantum_sum(database, precision=precision, name=name)
     attributes = dict(operation.module.attributes)
@@ -228,11 +278,28 @@ def quantum_integral(database, *, precision=4, interval=1.0, name=None):
     )
 
 
-def integral_from_phase(value, precision, data_width, interval=1.0, full_scale=None):
+def integral_from_phase(
+    value: int,
+    precision: int,
+    data_width: int,
+    interval: float = 1.0,
+    full_scale: float | None = None,
+) -> float:
     """把 quantum_integral 的 phase 读出解码为积分估计。
 
     函数值按 v/full_scale 量化（full_scale 缺省取 2**data_width − 1）；
-    积分估计 = ``E[v]/full_scale × interval``。"""
+    积分估计 = ``E[v]/full_scale × interval``。
+
+    Args:
+        value: phase 寄存器读出的整数计数。
+        precision: 相位寄存器位数，须与 quantum_sum 的设置一致。
+        data_width: 函数值位宽，取 1..64。
+        interval: 积分区间长度，必须为正实数。
+        full_scale: 函数值满量程；缺省取 2**data_width − 1。
+
+    Returns:
+        float: 区间上的积分估计值。
+    """
     finite_real(interval, "integral_from_phase.interval", minimum=0, strict=True)
     if full_scale is None:
         full_scale = (1 << data_width) - 1

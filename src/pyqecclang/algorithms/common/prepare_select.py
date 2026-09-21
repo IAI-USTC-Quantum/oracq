@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import cmath
 import math
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from pyqecclang.algorithms.common.arithmetic import FixedFormat, fixed_arithmetic
+from pyqecclang.algorithms.common.hamiltonian import PauliHamiltonian
 from pyqecclang.algorithms.input_model.block_encoding import pauli_word
 from pyqecclang.algorithms.input_model.contracts import positive_integer, require_instance
-from pyqecclang.algorithms.input_model.interfaces import as_state_preparation
+from pyqecclang.algorithms.input_model.interfaces import (
+    StatePreparationProtocol,
+    as_state_preparation,
+)
 from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name, scale
 from pyqecclang.algorithms.input_model.oracles import (
     StatePreparation,
@@ -23,11 +28,13 @@ from pyqecclang.algorithms.input_model.oracles import (
     qram_state_prep,
     resources_for,
 )
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError
 
 
-def _normalized(coefficients):
+def _normalized(
+    coefficients: Iterable[complex],
+) -> tuple[tuple[complex, ...], float, int, list[float]]:
     """校验系数并给出 (系数, alpha=l1 范数, selector 位宽, ``√|c|/√α`` 振幅)。"""
     values = tuple(complex(c) for c in coefficients)
     if len(values) < 2:
@@ -43,7 +50,9 @@ def _normalized(coefficients):
     return values, alpha, width, amplitudes
 
 
-def _pauli_terms(terms):
+def _pauli_terms(
+    terms: Iterable[tuple[complex, str]] | PauliHamiltonian,
+) -> tuple[tuple[complex, str], ...]:
     """接受 (系数, Pauli 字) 序列或 PauliHamiltonian；保留零系数以对齐索引。"""
     from pyqecclang.algorithms.common.hamiltonian import PauliHamiltonian
 
@@ -62,7 +71,10 @@ def _pauli_terms(terms):
     return terms
 
 
-def _prepare_attributes(values, alpha, width):
+def _prepare_attributes(
+    values: Sequence[complex], alpha: float, width: int
+) -> dict[str, int | float]:
+    """汇总 PREPARE 写入模块属性的项数、alpha 与 selector 位宽。"""
     return {
         "prepare_terms": len(values),
         "prepare_alpha": alpha,
@@ -70,11 +82,21 @@ def _prepare_attributes(values, alpha, width):
     }
 
 
-def abstract_prepare(coefficients, *, work_width=0, name=None):
+def abstract_prepare(
+    coefficients: Iterable[complex], *, work_width: int = 0, name: str | None = None
+) -> StatePreparation:
     """PREPARE 的开放声明：系数写入声明属性，体为空，由 bind 延迟绑定实现。
 
     work_width 必须与后续绑定实现的 work 宽度一致（gate 为 0，QRAM 为
     selector 位宽加角度位宽），与 catalog 中 abstract_state_prep 的用法一致。
+
+    Args:
+        coefficients: LCU 复系数序列，至少两项且取值有限，不能全为零。
+        work_width: work 寄存器位宽，取 0..64；须与后续绑定实现的 work 宽度一致。
+        name: 声明模块名；缺省按系数与位宽自动生成。
+
+    Returns:
+        StatePreparation: 包装开放声明 PREPARE 模块的状态制备句柄。
     """
     values, alpha, width, _ = _normalized(coefficients)
     positive_integer(work_width, "abstract_prepare.work_width", minimum=0)
@@ -92,8 +114,18 @@ def abstract_prepare(coefficients, *, work_width=0, name=None):
     )
 
 
-def gate_prepare(coefficients, *, name=None):
-    """门级 PREPARE：振幅 ∝ ``√|c_i|`` 的多路复用 Ry；系数相位按仓库惯例进 SELECT。"""
+def gate_prepare(
+    coefficients: Iterable[complex], *, name: str | None = None
+) -> StatePreparation:
+    """门级 PREPARE：振幅 ∝ ``√|c_i|`` 的多路复用 Ry；系数相位按仓库惯例进 SELECT。
+
+    Args:
+        coefficients: LCU 复系数序列，至少两项且取值有限，不能全为零。
+        name: 生成的状态制备模块名；缺省按系数自动生成。
+
+    Returns:
+        StatePreparation: 门级实现的状态制备操作句柄。
+    """
     values, alpha, width, amplitudes = _normalized(coefficients)
     prep = gate_state_prep(amplitudes, name=name)
     return StatePreparation(
@@ -112,15 +144,27 @@ class QramPreparation:
     """QRAM 版 PREPARE 句柄；角度表在 memory 中提供，不进入 IR。"""
 
     preparation: StatePreparation
-    memory: dict
+    memory: dict[str, dict[int, int]]
 
-    def state_preparation(self):
-        """返回句柄内包装的 ``StatePreparation`` 操作。"""
+    def state_preparation(self) -> StatePreparation:
+        """返回句柄内包装的 ``StatePreparation`` 操作。
+
+        Returns:
+            StatePreparation: 句柄内包装的状态制备操作。
+        """
         return self.preparation
 
 
-def qram_prepare(coefficients, *, angle_width=8):
-    """QRAM 资源版 PREPARE：旋转角度表由调用方作为 QRAM 数据绑定。"""
+def qram_prepare(coefficients: Iterable[complex], *, angle_width: int = 8) -> QramPreparation:
+    """QRAM 资源版 PREPARE：旋转角度表由调用方作为 QRAM 数据绑定。
+
+    Args:
+        coefficients: LCU 复系数序列，至少两项且取值有限，不能全为零。
+        angle_width: 旋转角的量化位宽，取 2..32。
+
+    Returns:
+        QramPreparation: 含 PREPARE 操作与默认角度表 QRAM 数据的句柄。
+    """
     values, alpha, width, amplitudes = _normalized(coefficients)
     positive_integer(angle_width, "qram_prepare.angle_width", minimum=2, maximum=32)
     prep = qram_state_prep(width, angle_width)
@@ -139,15 +183,19 @@ def qram_prepare(coefficients, *, angle_width=8):
 class AliasTable:
     """Babbush et al. alias 采样的经典预处理结果；字打包为 ``keep | (alt << precision)``。"""
 
-    probabilities: tuple
-    keep: tuple
-    alt: tuple
-    quantized: tuple
+    probabilities: tuple[float, ...]
+    keep: tuple[float, ...]
+    alt: tuple[int, ...]
+    quantized: tuple[int, ...]
     precision: int
-    table: dict
+    table: dict[int, int]
 
-    def distribution(self):
-        """量化 keep 与均匀抽取下的经典采样分布。"""
+    def distribution(self) -> tuple[float, ...]:
+        """量化 keep 与均匀抽取下的经典采样分布。
+
+        Returns:
+            tuple[float, ...]: 各槽位的采样概率，长度等于槽总数，总和为一。
+        """
         scale = 1 << self.precision
         size = len(self.keep)
         result = [0] * size
@@ -157,8 +205,16 @@ class AliasTable:
         return tuple(v / (size * scale) for v in result)
 
 
-def alias_table(coefficients, *, precision=8):
-    """Vose alias 预处理：padded 到 2^selector 后按均值分裂 keep/alt；零概率槽也可工作。"""
+def alias_table(coefficients: Iterable[complex], *, precision: int = 8) -> AliasTable:
+    """Vose alias 预处理：padded 到 2^selector 后按均值分裂 keep/alt；零概率槽也可工作。
+
+    Args:
+        coefficients: LCU 复系数序列，至少两项且取值有限，不能全为零。
+        precision: keep 概率的量化位宽，取 2..32；selector 位宽与之的和不得超过 64。
+
+    Returns:
+        AliasTable: 含概率、keep/alt 表、量化字与打包数据表的预处理结果。
+    """
     values, alpha, width, _ = _normalized(coefficients)
     positive_integer(precision, "alias_table.precision", minimum=2, maximum=32)
     size = 1 << width
@@ -190,20 +246,38 @@ class AliasPreparation:
 
     preparation: StatePreparation
     table: AliasTable
-    memory: dict
+    memory: dict[str, dict[int, int]]
 
-    def state_preparation(self):
-        """返回句柄内包装的 ``StatePreparation`` 操作。"""
+    def state_preparation(self) -> StatePreparation:
+        """返回句柄内包装的 ``StatePreparation`` 操作。
+
+        Returns:
+            StatePreparation: 句柄内包装的状态制备操作。
+        """
         return self.preparation
 
 
-def alias_prepare(coefficients, *, precision=8, database=None):
+def alias_prepare(
+    coefficients: Iterable[complex],
+    *,
+    precision: int = 8,
+    database: XorDatabase | None = None,
+) -> AliasPreparation:
     """Babbush et al. alias 采样 PREPARE：均匀态 + (keep,alt) 加载 + 比较器 + 受控交换。
 
     数据表通过 XorDatabase 接口注入（默认 QRAM 资源，也可传 gate_database），
     不嵌入 IR。work 中的数据/比较位与 selector 纠缠，构成 ``Σ√p_i|i>|junk_i>`` 的
     纯化 junk；块编码 (0,0) 块不受 junk 内积影响，junk 由伴随 PREPARE 复净。
     keep 按 precision 位向下取整量化，与精确分布的总变差不超过 2^selector·2^-precision。
+
+    Args:
+        coefficients: LCU 复系数序列，至少两项且取值有限，不能全为零。
+        precision: keep 概率的量化位宽，取 2..32。
+        database: 承载 (keep|alt) 数据表的 XorDatabase 句柄；缺省为 QRAM 资源，
+            地址位宽须等于 selector 位宽、数据位宽等于 precision+selector 位宽。
+
+    Returns:
+        AliasPreparation: 含 PREPARE 操作、经典 alias 表与默认 QRAM 数据的句柄。
     """
     values, alpha, width, _ = _normalized(coefficients)
     positive_integer(precision, "alias_prepare.precision", minimum=2, maximum=32)
@@ -248,11 +322,18 @@ def alias_prepare(coefficients, *, precision=8, database=None):
     return AliasPreparation(StatePreparation(operation), table, memory)
 
 
-def select_pauli(terms):
+def select_pauli(terms: Iterable[tuple[complex, str]] | PauliHamiltonian) -> Operation:
     """SELECT：selector==i 时对 target 施加第 i 个 Pauli 字，并施加系数相位。
 
     控制条件按 selector 的二进制值用 RIR Control 原语表达；需要一元迭代
     （unary iteration）时由后端把多比特控制降级实现，生成阶段不展开。
+
+    Args:
+        terms: (系数, Pauli 字) 序列或 PauliHamiltonian；至少两项，Pauli 字
+            只含 I/X/Y/Z 且等宽。
+
+    Returns:
+        Operation: 按 selector 取值施加对应 Pauli 字与系数相位的 SELECT 操作。
     """
     terms = _pauli_terms(terms)
     if len(terms) < 2:
@@ -279,12 +360,24 @@ def select_pauli(terms):
     )
 
 
-def lcu_prepare_select(terms, *, prepare=None):
+def lcu_prepare_select(
+    terms: Iterable[tuple[complex, str]] | PauliHamiltonian,
+    *,
+    prepare: StatePreparationProtocol | None = None,
+) -> BlockEncoding:
     """标准 PREPARE–SELECT 块编码：(PREPARE†⊗I)·SELECT·(PREPARE⊗I)。
 
     signal 低 selector_width 位是 selector，高位是 PREPARE 的 work（alias 版为
     纯化 junk）；prepare 缺省为 gate_prepare，也可传 abstract/qram/alias 句柄。
     单项退化为 scale。可直接交给 transforms.qubitization_walk。
+
+    Args:
+        terms: (系数, Pauli 字) 序列或 PauliHamiltonian；Pauli 字只含 I/X/Y/Z 且等宽。
+        prepare: PREPARE 句柄，缺省为 gate_prepare；须满足 zero_input 契约且
+            目标宽度等于 selector 位宽。
+
+    Returns:
+        BlockEncoding: 尺度为系数 l1 范数的 (PREPARE†⊗I)·SELECT·(PREPARE⊗I) 块编码。
     """
     terms = _pauli_terms(terms)
     if len(terms) == 1:

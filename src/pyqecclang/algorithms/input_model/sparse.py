@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from functools import lru_cache
 
-from pyqecclang.algorithms.common.arithmetic import BooleanNetwork
+from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, FixedFormat
 from pyqecclang.algorithms.input_model.block_encoding import reflect_zero
 from pyqecclang.algorithms.input_model.operators import BlockEncoding, _name
 from pyqecclang.algorithms.input_model.oracles import (
@@ -17,11 +18,17 @@ from pyqecclang.algorithms.input_model.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
+from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.ir import Bits, Ref, RegType, ValidationError, fuse
 
 
-def reversible_lookup(inputs, outputs, database: XorDatabase, *, name=None):
+def reversible_lookup(
+    inputs: Mapping[str, int],
+    outputs: Mapping[str, int],
+    database: XorDatabase,
+    *,
+    name: str | None = None,
+) -> Operation:
     """把 ``XorDatabase`` 的 address/data 接口适配到命名的输入/输出寄存器组。
 
     输入寄存器按声明顺序融合为地址视图，输出寄存器融合为数据视图，查询语义
@@ -64,7 +71,9 @@ def reversible_lookup(inputs, outputs, database: XorDatabase, *, name=None):
     return annotate(b.finish(), "reversible_function")
 
 
-def word_rotation(value_width, *, scale=None, name=None):
+def word_rotation(
+    value_width: int, *, scale: float | None = None, name: str | None = None
+) -> Operation:
     """把数值字的整数值线性转成 ``amplitude`` 比特上 Ry 角度的可逆转导。
 
     逐位受控叠加后总旋转角为 ``scale * value``（value 取无符号整数）；
@@ -90,8 +99,19 @@ def word_rotation(value_width, *, scale=None, name=None):
     return annotate(b.finish(), "reversible_function", angle_scale=scale)
 
 
-def sparse_block_encoding(access: SparseAccess, transducer=None, *, alpha=None):
-    """历史候选，仅供旧目录描述；正式稀疏适配见 real_symmetric_sparse_encoding。"""
+def sparse_block_encoding(
+    access: SparseAccess, transducer: Operation | None = None, *, alpha: float | None = None
+) -> BlockEncoding:
+    """历史候选，仅供旧目录描述；正式稀疏适配见 real_symmetric_sparse_encoding。
+
+    Args:
+        access: CKS 稀疏访问束。
+        transducer: 值到幅度的转导操作；缺省为开放声明。
+        alpha: 显式覆盖的归一化常数；缺省取稀疏度。
+
+    Returns:
+        BlockEncoding: 遗留转导构造、契约未指定的块编码。
+    """
     n, v = access.width, access.value_width
     lw = next(r.type.width for r in access.location.module.registers if r.name == "work")
     transducer = transducer or declare(
@@ -140,7 +160,7 @@ def sparse_block_encoding(access: SparseAccess, transducer=None, *, alpha=None):
     )
 
 
-def batch_lookup(database, count):
+def batch_lookup(database: XorDatabase, count: int) -> Operation:
     """对同一 XOR 数据库做多路并发查询的批量线路。
 
     Args:
@@ -151,7 +171,7 @@ def batch_lookup(database, count):
         Operation: 寄存器为 ``address{i}`` 与 ``data{i}``，i 从 0 到 count-1，
         位宽分别等于数据库的 address/data 宽度，逐路调用同一数据库操作。
     """
-    registers = {}
+    registers: dict[str, RegType] = {}
     for i in range(count):
         registers[f"address{i}"] = Bits(database.address_width)
         registers[f"data{i}"] = Bits(database.data_width)
@@ -166,7 +186,7 @@ def batch_lookup(database, count):
 
 
 @lru_cache(maxsize=64)
-def compare_words(width, kind="eq"):
+def compare_words(width: int, kind: str = "eq") -> Operation:
     """两个字宽度无符号整数的相等或小于比较网络。
 
     Args:
@@ -190,12 +210,20 @@ def compare_words(width, kind="eq"):
 
 
 @lru_cache(maxsize=64)
-def value_transposition(width):
-    """在 index 中交换 a/b 两个位模式；a、b 保留，适用于量子地址。"""
+def value_transposition(width: int) -> Operation:
+    """在 index 中交换 a/b 两个位模式；a、b 保留，适用于量子地址。
+
+    Args:
+        width: index 与 a、b 寄存器各自的位宽。
+
+    Returns:
+        Operation: 把 index 中等于 a 或 b 的基态互换、其余基态不变的操作。
+    """
     net = BooleanNetwork()
     x, a, c = net.input("index", width), net.input("a", width), net.input("b", width)
 
-    def eq(y):
+    def eq(y: list[int]) -> int:
+        """输出 1 当且仅当 ``y`` 与输入 ``x`` 逐位相等。"""
         return net.inv(net.any([net.xor(v, w) for v, w in zip(x, y, strict=True)]))
 
     net.outputs = {"flag": [net.or_(eq(a), eq(c))]}
@@ -213,7 +241,7 @@ def value_transposition(width):
     return b.finish()
 
 
-def prefix_state(width, count):
+def prefix_state(width: int, count: int) -> Operation:
     """在前 count 个基态上制备均匀叠加态。
 
     Args:
@@ -231,7 +259,8 @@ def prefix_state(width, count):
         raise ValidationError("均匀前缀范围无效")
     b = Builder("uniform_prefix_" + str(width) + "_" + str(count), {"target": Bits(width)})
 
-    def prepare(ref, size):
+    def prepare(ref: Ref, size: int) -> None:
+        """在 ``ref`` 的前 ``size`` 个基态上递归制备均匀叠加。"""
         if not ref.width:
             return
         if size == 1 << ref.width:
@@ -250,11 +279,20 @@ def prefix_state(width, count):
     return b.finish()
 
 
-def magnitude_rotation(fmt, amax):
-    """数值字的小型普通实现；超过 12 位保留显式待绑定 transducer。"""
+def magnitude_rotation(fmt: FixedFormat, amax: float) -> Operation:
+    """数值字的小型普通实现；超过 12 位保留显式待绑定 transducer。
+
+    Args:
+        fmt: 元素值的定点格式。
+        amax: 元素幅值上界，正有限实数。
+
+    Returns:
+        Operation: 幅度 ``sqrt(|value|/amax)`` 的受控 Ry 转导；格式超过
+        12 位时返回待绑定的开放声明。
+    """
     name = _name("sparse_sqrt_rotation", fmt, amax)
     registers = {"value": Bits(fmt.width), "amplitude": Bits(1)}
-    attrs = {
+    attrs: dict[str, str | int | float | bool] = {
         "entry_bound": float(amax),
         "value_fraction": fmt.fraction,
         "amplitude_contract": "good amplitude sqrt(abs(value)/entry_bound)",
@@ -271,8 +309,26 @@ def magnitude_rotation(fmt, amax):
     return b.finish()
 
 
-def real_symmetric_sparse_encoding(access, fmt, amax, *, diagonal_nonnegative=False, rotation=None):
-    """CKS 型 T†ST：实 Hermitian、非负对角；交换两侧坐标及失败旗标。"""
+def real_symmetric_sparse_encoding(
+    access: SparseAccess,
+    fmt: FixedFormat,
+    amax: float,
+    *,
+    diagonal_nonnegative: bool = False,
+    rotation: Operation | None = None,
+) -> BlockEncoding:
+    """CKS 型 T†ST：实 Hermitian、非负对角；交换两侧坐标及失败旗标。
+
+    Args:
+        access: CKS 稀疏访问束。
+        fmt: 元素值的定点格式，位宽须与访问束的值宽一致。
+        amax: 元素幅值上界，正有限实数。
+        diagonal_nonnegative: 须为 True；当前仅支持非负对角的矩阵。
+        rotation: 可选幅度转导操作；缺省由 magnitude_rotation 生成。
+
+    Returns:
+        BlockEncoding: T†ST 型实对称稀疏矩阵的块编码。
+    """
     if not diagonal_nonnegative:
         raise ValidationError("当前对称稀疏适配要求非负对角；一般矩阵请显式 Hermitian dilation")
     if not math.isfinite(amax) or amax <= 0 or fmt.width != access.value_width:
@@ -330,7 +386,7 @@ def real_symmetric_sparse_encoding(access, fmt, amax, *, diagonal_nonnegative=Fa
     )
 
 
-def chebyshev_block(a, degree):
+def chebyshev_block(a: BlockEncoding, degree: int) -> BlockEncoding:
     """Chebyshev 行走幂：零信号块实现缩放矩阵的第 degree 阶 Chebyshev 多项式。
 
     阶数以 Repeat 保存，每步交替信号零态正反射与调用 ``a``；被编码矩阵按

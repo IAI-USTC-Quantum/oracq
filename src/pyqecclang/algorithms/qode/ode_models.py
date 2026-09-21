@@ -24,7 +24,8 @@ class HermitianParts:
     hermitian: BlockEncoding
     h: BlockEncoding
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """把两个分量规范化为块编码并校验宽度一致。"""
         object.__setattr__(self, "hermitian", as_block_encoding(self.hermitian))
         object.__setattr__(self, "h", as_block_encoding(self.h))
         require_instance(self.h, BlockEncoding, "HermitianParts.H")
@@ -32,7 +33,7 @@ class HermitianParts:
             raise ValidationError("Hermitian parts 宽度不匹配")
 
     @classmethod
-    def from_operator(cls, a):
+    def from_operator(cls, a: BlockEncoding) -> HermitianParts:
         """从算子 A 的块编码构造 Hermitian 分解 ``A = L + iH``。
 
         以 ``a`` 与其伴随的 LCU 组合出 ``L = (A + A†)/2`` 与 ``H = (A - A†)/(2i)``。
@@ -61,7 +62,8 @@ class LinearODE:
     initial: StatePreparation
     label: str = "du_dt_equals_minus_A_u"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验 parts 类型、规范化初态并核对宽度一致。"""
         require_instance(self.parts, HermitianParts, "LinearODE.parts")
         object.__setattr__(self, "initial", as_state_preparation(self.initial))
         if self.parts.hermitian.width != self.initial.width:

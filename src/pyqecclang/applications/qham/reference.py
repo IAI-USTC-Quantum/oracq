@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
 from functools import lru_cache
 
-from pyqecclang.applications.qham.linearization import compositions
+from pyqecclang.applications.qham.linearization import QHAMPlan, compositions
+from pyqecclang.applications.qham.pde import Atom, Monomial, OperatorPort, PolynomialPDE
 from pyqecclang.infrastructure.ir import ValidationError
 
 
 @lru_cache(maxsize=32)
-def centered_weights(order):
+def centered_weights(order: int) -> tuple[tuple[int, float], ...]:
     """计算单位步长一维中心差分模板的权重。
 
     在以原点为中心的整数格点上用精确有理数消元求解导数插值条件，
@@ -67,11 +69,12 @@ class Grid:
     shape: tuple[int, ...]
     spacing: tuple[float, ...]
     boundary: str = "periodic"
-    _row_cache: dict = field(
+    _row_cache: dict[tuple[tuple[tuple[str, int], ...], int], tuple[tuple[int, float], ...]] = field(
         default_factory=dict, init=False, compare=False, repr=False, hash=False
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验网格形状、间距与边界类型，非法时抛出 ``ValidationError``。"""
         if (
             not len(self.axes) == len(self.shape) == len(self.spacing)
             or any(type(n) is not int or n < 1 for n in self.shape)
@@ -82,18 +85,18 @@ class Grid:
             raise ValidationError("目前提供周期或零延拓 Dirichlet 差分")
 
     @property
-    def size(self):
+    def size(self) -> int:
         """网格总格点数，即 ``shape`` 各分量之积。"""
         return math.prod(self.shape)
 
     @property
-    def spatial_width(self):
+    def spatial_width(self) -> int:
         """索引空间坐标所需的位宽，至少为 1。
 
         空间存储按 ``1 << spatial_width`` 对齐，可能大于 ``size``。"""
         return max(1, (self.size - 1).bit_length())
 
-    def coordinates(self, index):
+    def coordinates(self, index: int) -> list[int]:
         """把线性格点编号分解为各轴坐标，为 ``address`` 的逆。
 
         Args:
@@ -102,13 +105,13 @@ class Grid:
         Returns:
             list[int]: 各轴坐标，轴 0 为最低位，与 ``shape`` 同长。
         """
-        result = []
+        result: list[int] = []
         for n in self.shape:
             index, value = divmod(index, n)
             result.append(value)
         return result
 
-    def address(self, coords):
+    def address(self, coords: Sequence[int]) -> int:
         """把各轴坐标合成为线性格点编号。
 
         Args:
@@ -123,7 +126,9 @@ class Grid:
             stride *= n
         return result
 
-    def derivative_row(self, derivative, row):
+    def derivative_row(
+        self, derivative: tuple[tuple[str, int], ...], row: int
+    ) -> tuple[tuple[int, float], ...]:
         """计算混合空间导数在给定格点处的稀疏差分行。
 
         逐轴组合一维中心差分模板，权重已除以相应 ``spacing`` 的幂次；
@@ -149,7 +154,7 @@ class Grid:
         for axis, order in derivative:
             position = self.axes.index(axis)
             step = self.spacing[position]
-            following = {}
+            following: dict[int, float] = {}
             for source, value in result.items():
                 origin = self.coordinates(source)
                 for offset, weight in centered_weights(order):
@@ -166,7 +171,7 @@ class Grid:
         return self._row_cache[key]
 
 
-def tensor_values(vectors):
+def tensor_values(vectors: Iterable[Sequence[complex]]) -> list[complex]:
     """计算多个向量的张量积并展平为一维复数列表。
 
     因子 0 占据最低位：第 k 个因子的下标跨度为其前各因子长度之积；
@@ -184,7 +189,7 @@ def tensor_values(vectors):
     return result
 
 
-def digits(value, dimension, count):
+def digits(value: int, dimension: int, count: int) -> tuple[int, ...]:
     """把非负整数按固定进制分解为 ``count`` 个数位，最低位在前。
 
     与 ``pack`` 互为逆运算；``value`` 高于 ``count`` 位的部分被丢弃。
@@ -197,14 +202,14 @@ def digits(value, dimension, count):
     Returns:
         tuple[int, ...]: 长度为 ``count`` 的数位元组。
     """
-    result = []
+    result: list[int] = []
     for _ in range(count):
         value, bit = divmod(value, dimension)
         result.append(bit)
     return tuple(result)
 
 
-def pack(values, dimension):
+def pack(values: Iterable[int], dimension: int) -> int:
     """把低位在前的数位序列按固定进制合成为整数，为 ``digits`` 的逆。
 
     Args:
@@ -241,16 +246,25 @@ class Discretization:
         ValidationError: PDE 未通过验证、PDE 与网格空间轴不同、缺少已知
             数据或已知数据长度不等于网格格点数。
     """
-    def __init__(self, pde, grid, known=None):
+    def __init__(
+        self,
+        pde: PolynomialPDE,
+        grid: Grid,
+        known: Mapping[str, Sequence[complex]] | None = None,
+    ) -> None:
+        """绑定 PDE、网格与已知数据，并初始化派生宽度与缓存。"""
         pde.validate()
         if tuple(pde.axes) != tuple(grid.axes):
             raise ValidationError("PDE 与网格空间轴不同")
-        self.pde, self.grid = pde, grid
-        self.component_width = (len(pde.fields) - 1).bit_length()
-        self.width = grid.spatial_width + self.component_width
-        self.dimension = 1 << self.width
-        self.spatial_storage = 1 << grid.spatial_width
-        self.known = {k: tuple(map(complex, v)) for k, v in (known or {}).items()}
+        self.pde: PolynomialPDE = pde
+        self.grid: Grid = grid
+        self.component_width: int = (len(pde.fields) - 1).bit_length()
+        self.width: int = grid.spatial_width + self.component_width
+        self.dimension: int = 1 << self.width
+        self.spatial_storage: int = 1 << grid.spatial_width
+        self.known: dict[str, tuple[complex, ...]] = {
+            k: tuple(map(complex, v)) for k, v in (known or {}).items()
+        }
         required = {a.name for t in pde.terms for a in t.monomial.known}
         if not required <= self.known.keys():
             raise ValidationError(
@@ -258,10 +272,12 @@ class Discretization:
             )
         if any(len(v) != grid.size for v in self.known.values()):
             raise ValidationError("已知场数据必须覆盖物理网格")
-        self.ports = {port.name: port for port in pde.ports}
-        self._known_cache, self._entry_cache, self._row_entries_cache = {}, {}, {}
+        self.ports: dict[str, OperatorPort] = {port.name: port for port in pde.ports}
+        self._known_cache: dict[tuple[Atom, int], complex] = {}
+        self._entry_cache: dict[tuple[str, int, int], complex] = {}
+        self._row_entries_cache: dict[tuple[str, int], tuple[tuple[int, complex], ...]] = {}
 
-    def known_value(self, atom, row):
+    def known_value(self, atom: Atom, row: int) -> complex:
         """求已知场原子在物理格点处的取值。
 
         对 ``atom.name`` 对应的已知数据施加 ``atom.derivative`` 的差分
@@ -285,7 +301,7 @@ class Discretization:
         self._known_cache[key] = value
         return value
 
-    def known_product(self, monomial, row):
+    def known_product(self, monomial: Monomial, row: int) -> complex:
         """求单项式已知部分在物理格点处的乘积。
 
         Args:
@@ -300,7 +316,7 @@ class Discretization:
             self.known_value(atom, row) for atom in monomial.known
         )
 
-    def entry(self, key, row, column):
+    def entry(self, key: str, row: int, column: int) -> complex:
         """求多线性端口的单个矩阵元。
 
         行是单分量状态索引（分量与空间坐标），列是 ``arity`` 个输入状态
@@ -329,7 +345,7 @@ class Discretization:
             monomial = term.monomial
             if component != self.pde.fields.index(term.output):
                 continue
-            local = []
+            local: list[int] = []
             for atom, index in zip(monomial.fields, coordinates, strict=True):
                 field, coordinate = divmod(index, self.spatial_storage)
                 if field != self.pde.fields.index(atom.name):
@@ -346,8 +362,17 @@ class Discretization:
         self._entry_cache[cache_key] = result
         return result
 
-    def row_entries(self, key, row):
-        """利用基础差分模板枚举行，不扫描 N^arity 个输入坐标。"""
+    def row_entries(self, key: str, row: int) -> tuple[tuple[int, complex], ...]:
+        """利用基础差分模板枚举行，不扫描 N^arity 个输入坐标。
+
+        Args:
+            key: 端口名，如 ``L``、``F`` 或 ``B_i``。
+            row: 输出行索引。
+
+        Returns:
+            tuple: 按列排序的 ``(打包列索引, 权重)`` 对，零权重被剔除；
+            ``row`` 越界时为空元组。结果按 ``(key, row)`` 缓存。
+        """
         import itertools
 
         cache_key = (key, row)
@@ -356,14 +381,14 @@ class Discretization:
         if not 0 <= row < self.dimension:
             return ()
         component, x = divmod(row, self.spatial_storage)
-        result = {}
+        result: dict[int, complex] = {}
         for term in self.ports[key].terms:
             if component != self.pde.fields.index(term.output):
                 continue
             monomial = term.monomial
             for center, outer in self.grid.derivative_row(monomial.outer_derivative, x):
                 prefactor = outer * self.known_product(monomial, center)
-                rows = []
+                rows: list[tuple[tuple[int, float], ...]] = []
                 for atom in monomial.fields:
                     field = self.pde.fields.index(atom.name) * self.spatial_storage
                     rows.append(
@@ -381,7 +406,7 @@ class Discretization:
         )
         return self._row_entries_cache[cache_key]
 
-    def qcl_row(self, plan, eta, row):
+    def qcl_row(self, plan: QHAMPlan, eta: complex, row: int) -> tuple[tuple[int, complex], ...]:
         """枚举 QCL 闭包生成元在全局提升索引下的一行。
 
         先用 ``plan.locate`` 定位行所属块与块内局部索引，再逐条线性边把
@@ -401,7 +426,7 @@ class Discretization:
             return ()
         block, local = plan.locate(row, self.dimension)
         coordinates = digits(local, self.dimension, block.rank)
-        result = {}
+        result: dict[int, complex] = {}
         for term in plan.row_terms(block):
             weight = term.weight.evaluate(eta)
             for column, value in self.row_entries(term.operator, coordinates[term.position]):
@@ -414,19 +439,38 @@ class Discretization:
                 result[index] = result.get(index, 0) + weight * value
         return tuple((column, value) for column, value in sorted(result.items()) if value)
 
-    def qcl_entry(self, plan, eta, row, column):
-        """可用于审阅的经典 entry reference，不冒充可逆量子 oracle。"""
+    def qcl_entry(self, plan: QHAMPlan, eta: complex, row: int, column: int) -> complex:
+        """可用于审阅的经典 entry reference，不冒充可逆量子 oracle。
+
+        Args:
+            plan: ``QHAMPlan`` 闭包计划。
+            eta: 同伦参数。
+            row: 闭包系统内的全局行索引。
+            column: 闭包系统内的全局列索引。
+
+        Returns:
+            complex: 闭包生成元在指定行列处的矩阵元；任一索引越界时为 0。
+        """
         return dict(self.qcl_row(plan, eta, row)).get(column, 0j)
 
-    def apply_port(self, key, vectors):
-        """直接对场求导并相乘，用于独立验证矩阵端口/闭包规则。"""
+    def apply_port(self, key: str, vectors: Sequence[Sequence[complex]]) -> list[complex]:
+        """直接对场求导并相乘，用于独立验证矩阵端口/闭包规则。
+
+        Args:
+            key: 端口名，如 ``L``、``F`` 或 ``B_i``。
+            vectors: 输入状态向量序列，个数须等于端口元数，每个向量长度
+                须为 ``dimension``。
+
+        Returns:
+            list[complex]: 长度为 ``dimension`` 的端口多线性求值结果。
+        """
         port = self.ports[key]
         if len(vectors) != port.arity or any(len(v) != self.dimension for v in vectors):
             raise ValidationError("多线性端口的输入数目/维度不符")
         result = [0j] * self.dimension
         for term in port.terms:
             m = term.monomial
-            values = []
+            values: list[complex] = []
             for row in range(self.grid.size):
                 value = self.known_product(m, row)
                 for atom, vector in zip(m.fields, vectors, strict=True):
@@ -444,7 +488,7 @@ class Discretization:
                 )
         return result
 
-    def ham_rhs(self, values, eta):
+    def ham_rhs(self, values: Sequence[Sequence[complex]], eta: complex) -> list[list[complex]]:
         """按 HAM 递推计算各阶分量 ``Ui'`` 的经典右端。
 
         ``U0' = L U0 + f``；``Ui' = L Ui - eta*sum_l (1+eta)^(i-1-l) C_l``，
@@ -463,7 +507,8 @@ class Discretization:
         """
         size = self.dimension
 
-        def linear(v):
+        def linear(v: Sequence[complex]) -> list[complex]:
+            """线性端口 ``L`` 对单个分量的作用；无 ``L`` 端口时返回零向量。"""
             return self.apply_port("L", [v]) if "L" in self.ports else [0j] * size
 
         forcing = self.apply_port("F", []) if "F" in self.ports else [0j] * size
@@ -481,7 +526,7 @@ class Discretization:
             result.append([a + b for a, b in zip(linear(values[order]), previous, strict=True)])
         return result
 
-    def lift(self, plan, values):
+    def lift(self, plan: QHAMPlan, values: Sequence[Sequence[complex]]) -> list[complex]:
         """把各阶分量提升到闭包系统的块布局。
 
         物理块放各阶分量之和；张量块放各因子按 ``tensor_values`` 的
@@ -505,7 +550,9 @@ class Discretization:
             result[offset : offset + len(data)] = data
         return result
 
-    def chain_rule(self, plan, values, eta):
+    def chain_rule(
+        self, plan: QHAMPlan, values: Sequence[Sequence[complex]], eta: complex
+    ) -> list[complex]:
         """用乘积法则直接计算提升向量对时间的导数。
 
         对 ``lift`` 输出的每个张量因子位置求导并代入 ``ham_rhs`` 得到的
@@ -541,8 +588,19 @@ class Discretization:
             result[offset : offset + len(data)] = data
         return result
 
-    def linear_action(self, plan, eta, values):
-        """逐个块行作用，避免存储 raw_dimension^2 个矩阵元。"""
+    def linear_action(
+        self, plan: QHAMPlan, eta: complex, values: Sequence[complex]
+    ) -> list[complex]:
+        """逐个块行作用，避免存储 raw_dimension^2 个矩阵元。
+
+        Args:
+            plan: ``QHAMPlan`` 闭包计划。
+            eta: 同伦参数。
+            values: 长度为 ``plan.raw_dimension(dimension)`` 的提升向量。
+
+        Returns:
+            list[complex]: 闭包生成元作用后的向量，与输入向量同长度。
+        """
         size = plan.raw_dimension(self.dimension)
         if len(values) != size:
             raise ValidationError("提升向量维数错误")
@@ -569,7 +627,9 @@ class Discretization:
                         )
         return result
 
-    def matrix(self, plan, eta, *, max_dimension=512):
+    def matrix(
+        self, plan: QHAMPlan, eta: complex, *, max_dimension: int = 512
+    ) -> list[list[complex]]:
         """物化闭包生成元的完整方阵。
 
         Args:
@@ -612,7 +672,7 @@ class Discretization:
                         result[offset + local_row][column] += value
         return result
 
-    def encode_fields(self, values):
+    def encode_fields(self, values: Mapping[str, Sequence[complex]]) -> tuple[complex, ...]:
         """把按场分量给出的初始数据打包成单分量状态向量。
 
         Args:

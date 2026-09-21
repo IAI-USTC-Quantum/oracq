@@ -1,10 +1,12 @@
 """三位重复码的相干编码与单错误恢复电路。"""
 
-from pyqecclang.infrastructure.builder import Builder
+from __future__ import annotations
+
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 
-def repetition_encode(*, error="bit"):
+def repetition_encode(*, error: str = "bit") -> Operation:
     """将一位逻辑态编码到三位重复码。
 
     Args:
@@ -28,7 +30,7 @@ def repetition_encode(*, error="bit"):
     return b.finish()
 
 
-def repetition_recover(*, error="bit"):
+def repetition_recover(*, error: str = "bit") -> Operation:
     """相干恢复三位重复码中的单个指定类型错误。
 
     Args:

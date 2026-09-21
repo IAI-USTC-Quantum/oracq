@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+
 from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
 from pyqecclang.algorithms.input_model.block_encoding import lcu
 from pyqecclang.algorithms.input_model.contracts import finite_real, require_instance
@@ -14,10 +16,21 @@ from pyqecclang.algorithms.input_model.oracles import (
     annotate,
 )
 from pyqecclang.algorithms.qode.ode_models import LinearODE
+from pyqecclang.infrastructure.builder import Operation
 from pyqecclang.infrastructure.ir import ValidationError
 
 
-def tagged(operation, algorithm, **metadata):
+def tagged(operation: Operation, algorithm: str, **metadata: str | int | float) -> Operation:
+    """以 ``unitary`` 范式标注演化操作，登记算法名与正确性待验证的元数据。
+
+    Args:
+        operation: 待标注的演化操作。
+        algorithm: 登记到属性中的算法名。
+        **metadata: 追加登记的算法元数据，取值为字符串或数值。
+
+    Returns:
+        Operation: 带 ``unitary`` 范式与 correctness=pending 标注的操作。
+    """
     return annotate(
         operation,
         "unitary",
@@ -28,7 +41,16 @@ def tagged(operation, algorithm, **metadata):
     )
 
 
-def _lcu_dynamics(model, time, nodes, weights, hamiltonian_function, algorithm, **metadata):
+def _lcu_dynamics(
+    model: LinearODE,
+    time: float,
+    nodes: Sequence[float],
+    weights: Sequence[complex],
+    hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding],
+    algorithm: str,
+    **metadata: str,
+) -> StateOracle:
+    """逐节点构造 K=H+kL 的 Hamiltonian 分支，经 LCU 组合并作用到初态。"""
     require_instance(model, LinearODE, algorithm + ".model")
     finite_real(time, algorithm + ".time", minimum=0)
     operator_state_contract(algorithm).check(
@@ -39,7 +61,7 @@ def _lcu_dynamics(model, time, nodes, weights, hamiltonian_function, algorithm, 
     ).require()
     if not callable(hamiltonian_function):
         raise ValidationError("hamiltonian_function 必须可调用")
-    terms = []
+    terms: list[tuple[complex, BlockEncoding]] = []
     for node, weight in zip(nodes, weights, strict=True):
         hk = lcu([(1, model.parts.h), (node, model.parts.hermitian)])
         encoded = hamiltonian_function(hk, time)

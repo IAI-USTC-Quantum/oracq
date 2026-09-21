@@ -1,8 +1,15 @@
 """Grover 搜索、迭代算子与成功子空间的相干振幅放大。"""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+
 from pyqecclang.algorithms.input_model.block_encoding import reflect_zero
 from pyqecclang.algorithms.input_model.contracts import positive_integer, require_instance
-from pyqecclang.algorithms.input_model.interfaces import checked_state_preparation
+from pyqecclang.algorithms.input_model.interfaces import (
+    StatePreparationProtocol,
+    checked_state_preparation,
+)
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import (
     StateOracle,
@@ -12,11 +19,17 @@ from pyqecclang.algorithms.input_model.oracles import (
     resources_for,
     uniform_state,
 )
-from pyqecclang.infrastructure.builder import Builder
+from pyqecclang.infrastructure.builder import Builder, Operation
 from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
 
 
-def grover(phase_oracle, width, *, iterations=1, preparation=None):
+def grover(
+    phase_oracle: Operation,
+    width: int,
+    *,
+    iterations: int = 1,
+    preparation: StatePreparationProtocol | None = None,
+) -> StateOracle:
     """生成带可替换初态的 Grover 搜索电路。
 
     Args:
@@ -62,7 +75,7 @@ def grover(phase_oracle, width, *, iterations=1, preparation=None):
     return StateOracle(b.finish())
 
 
-def phase_from_database(database: XorDatabase):
+def phase_from_database(database: XorDatabase) -> Operation:
     """把一位输出的 XOR database 转换为相位 oracle。
 
     Args:
@@ -89,8 +102,16 @@ def phase_from_database(database: XorDatabase):
     return annotate(b.finish(), "phase_oracle")
 
 
-def grover_iterate(preparation, marked):
-    """返回 Q=A(2|0><0|-I)A†S_good；marked 是目标基态编号集合。"""
+def grover_iterate(preparation: StatePreparationProtocol, marked: Iterable[int]) -> Operation:
+    """返回 Q=A(2|0><0|-I)A†S_good；marked 是目标基态编号集合。
+
+    Args:
+        preparation: 搜索空间的态制备句柄，须支持伴随调用。
+        marked: 目标基态编号集合，取 0..2^宽度−1 内的整数。
+
+    Returns:
+        Operation: 一轮 Grover 放大迭代操作，含 target 与 work 寄存器。
+    """
     from pyqecclang.algorithms.input_model.oracles import phase_marks
 
     prep = checked_state_preparation(preparation, adjoint=True)
@@ -108,7 +129,7 @@ def grover_iterate(preparation, marked):
     return b.finish()
 
 
-def amplify_success(state, *, iterations=1):
+def amplify_success(state: StateOracle, *, iterations: int = 1) -> StateOracle:
     """相干放大态 oracle 的零信号成功子空间。
 
     Args:

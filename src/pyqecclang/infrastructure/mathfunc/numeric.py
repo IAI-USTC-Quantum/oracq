@@ -6,11 +6,16 @@ import json
 import math
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import cast
 
-from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, fixed_arithmetic
+from pyqecclang.algorithms.common.arithmetic import (
+    BooleanNetwork,
+    FixedFormat,
+    fixed_arithmetic,
+)
 from pyqecclang.algorithms.input_model.operators import _name
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Adjoint, Bits, ValidationError
+from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.ir import Adjoint, Bits, Ref, ValidationError
 
 BOUNDS = {
     "sin": (-math.pi, math.pi),
@@ -48,10 +53,11 @@ class MathConfig:
     degree: int = 6
     intervals: tuple[tuple[str, float, float], ...] = ()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验多项式阶数范围与近似区间覆盖表。"""
         if type(self.degree) is not int or not 1 <= self.degree <= 32:
             raise ValidationError("数学核多项式阶数必须为 1..32")
-        seen = set()
+        seen: set[str] = set()
         for kind, lo, hi in self.intervals:
             if (
                 kind not in BOUNDS
@@ -62,7 +68,7 @@ class MathConfig:
                 raise ValidationError("数学核近似区间无效或重复")
             seen.add(kind)
 
-    def bounds(self, kind):
+    def bounds(self, kind: str) -> tuple[float, float]:
         """查询指定数学核的近似区间。
 
         Args:
@@ -88,12 +94,12 @@ class Numeric:
     """
 
     kind: str
-    parts: tuple
-    status: object
+    parts: tuple[Ref, ...]
+    status: Ref
 
 
 @lru_cache(maxsize=128)
-def logic_operation(kind, width=1):
+def logic_operation(kind: str, width: int = 1) -> Operation:
     """构造逐位逻辑/选择运算的布尔网络。
 
     Args:
@@ -139,15 +145,18 @@ class NumericEmitter:
         ValidationError: fmt 不是有符号定点格式。
     """
 
-    def __init__(self, builder, fmt, config):
+    def __init__(self, builder: Builder, fmt: FixedFormat, config: MathConfig) -> None:
+        """绑定构造器、定点格式与数学核配置，初始化常量缓存。"""
         if not fmt.signed:
             raise ValidationError("数学函数编译目前使用有符号定点格式")
-        self.b, self.fmt, self.config = builder, fmt, config
-        self.counter = 0
-        self.constants = {}
-        self.zero_status = self.local(2)
+        self.b: Builder = builder
+        self.fmt: FixedFormat = fmt
+        self.config: MathConfig = config
+        self.counter: int = 0
+        self.constants: dict[tuple[str, bool | int | float | complex], Numeric] = {}
+        self.zero_status: Ref = self.local(2)
 
-    def local(self, width=None):
+    def local(self, width: int | None = None) -> Ref:
         """分配一个数学临时寄存器。
 
         Args:
@@ -161,12 +170,19 @@ class NumericEmitter:
             "math_tmp_" + str(self.counter), Bits(self.fmt.width if width is None else width)
         )
 
-    def invoke(self, op, arguments):
-        """复制重叠的只读参数，满足 RIR 无别名的调用 ABI。"""
-        seen, clones = set(), []
+    def invoke(self, op: Operation, arguments: dict[str, Ref]) -> None:
+        """复制重叠的只读参数，满足 RIR 无别名的调用 ABI。
+
+        Args:
+            op: 待调用的已实现操作。
+            arguments: 形参寄存器名到实参视图的映射；互相重叠的只读视图
+                会被临时复制并在调用后复净。
+        """
+        seen: set[tuple[str, int]] = set()
+        clones: list[tuple[Ref, Ref]] = []
         from pyqecclang.infrastructure.validation import locations
 
-        actual = {}
+        actual: dict[str, Ref] = {}
         for name, ref in arguments.items():
             loc = set(locations(ref))
             if loc & seen:
@@ -177,11 +193,11 @@ class NumericEmitter:
             else:
                 actual[name] = ref
             seen |= loc
-        self.b.call(op, **actual)
+        self.b.call(op, **actual)  # type: ignore[arg-type]
         for ref, clone in reversed(clones):
             self.b.xor(ref, clone)
 
-    def logic(self, kind, *refs, select=None):
+    def logic(self, kind: str, *refs: Ref, select: Ref | None = None) -> Ref:
         """调用逐位逻辑/选择网络并返回结果寄存器。
 
         Args:
@@ -201,7 +217,7 @@ class NumericEmitter:
         self.invoke(operation, {**arguments, "out": out})
         return out
 
-    def flags(self, *refs):
+    def flags(self, *refs: Ref) -> Ref:
         """合并若干 2 位状态寄存器。
 
         全零的 zero_status 不参与合并；没有其他输入时直接返回 zero_status。
@@ -212,7 +228,7 @@ class NumericEmitter:
         Returns:
             Ref: 各输入按位或得到的状态寄存器引用。
         """
-        unique = []
+        unique: list[Ref] = []
         for ref in refs:
             if ref != self.zero_status and ref not in unique:
                 unique.append(ref)
@@ -223,7 +239,7 @@ class NumericEmitter:
             result = self.logic("or", result, ref)
         return result
 
-    def constant(self, value, kind=None):
+    def constant(self, value: bool | int | float | complex, kind: str | None = None) -> Numeric:
         """把生成期数值固化为电路常量并缓存。
 
         复数拆为两个实常量并合并状态；实数超出格式的可表示幅值时置
@@ -249,7 +265,11 @@ class NumericEmitter:
             )
         else:
             width = 1 if kind == "bool" else self.fmt.width
-            raw = int(value) if kind == "bool" else self.fmt.encode(value)
+            raw = (
+                int(cast("bool", value))
+                if kind == "bool"
+                else self.fmt.encode(cast("int | float", value))
+            )
             ref = self.local(width)
             for bit in range(width):
                 if (raw >> bit) & 1:
@@ -263,7 +283,7 @@ class NumericEmitter:
         self.constants[key] = result
         return result
 
-    def as_complex(self, value):
+    def as_complex(self, value: Numeric) -> Numeric:
         """把实数值提升为复数表示。
 
         Args:
@@ -281,7 +301,7 @@ class NumericEmitter:
             raise ValidationError("布尔值不能隐式转换为复数")
         return Numeric("complex", (value.parts[0], self.constant(0).parts[0]), value.status)
 
-    def component(self, value, index):
+    def component(self, value: Numeric, index: int) -> Numeric:
         """取出复数的实部或虚部分量。
 
         Args:
@@ -297,7 +317,7 @@ class NumericEmitter:
             else (value if index == 0 else Numeric("real", self.constant(0).parts, value.status))
         )
 
-    def arithmetic(self, kind, *values):
+    def arithmetic(self, kind: str, *values: Numeric) -> Numeric:
         """调用定点算术网络执行一元或二元运算。
 
         Args:
@@ -318,7 +338,7 @@ class NumericEmitter:
             self.flags(*(v.status for v in values), flag),
         )
 
-    def unary(self, kind, value):
+    def unary(self, kind: str, value: Numeric) -> Numeric:
         """展开一元数值操作。
 
         real/imag 取复数分量，not 按位取反，conj 将虚部取负，复数 abs
@@ -350,7 +370,7 @@ class NumericEmitter:
             return self.complex(*(self.unary(kind, self.component(value, j)) for j in range(2)))
         return self.arithmetic(kind, value)
 
-    def complex(self, re, im):
+    def complex(self, re: Numeric, im: Numeric) -> Numeric:
         """由两个实数值组装复数。
 
         Args:
@@ -367,7 +387,7 @@ class NumericEmitter:
             raise ValidationError("complex(real, imag) 要求两个实数")
         return Numeric("complex", (re.parts[0], im.parts[0]), self.flags(re.status, im.status))
 
-    def binary(self, kind, a, b):
+    def binary(self, kind: str, a: Numeric, b: Numeric) -> Numeric:
         """展开二元运算的定点与复数分解。
 
         布尔逻辑走逐位网络，实数走定点算术；复数按代数关系分解为实数
@@ -405,7 +425,8 @@ class NumericEmitter:
         if kind in {"add", "sub"}:
             return self.complex(self.binary(kind, ar, br), self.binary(kind, ai, bi))
 
-        def mul(x, y):
+        def mul(x: Numeric, y: Numeric) -> Numeric:
+            """两值相乘的简写。"""
             return self.binary("mul", x, y)
 
         if kind == "mul":
@@ -421,7 +442,7 @@ class NumericEmitter:
             )
         raise ValidationError("未知复数二元分解：" + kind)
 
-    def choose(self, test, yes, no):
+    def choose(self, test: Numeric, yes: Numeric, no: Numeric) -> Numeric:
         """按布尔条件逐位选择两分支的电路值。
 
         real 与 complex 混合的分支先统一提升为复数；选择同时作用于状态位。
@@ -443,7 +464,7 @@ class NumericEmitter:
         selected_status = self.logic("select", yes.status, no.status, select=test.parts[0])
         return Numeric(yes.kind, values, self.flags(test.status, selected_status))
 
-    def add_flag(self, value, test, *, domain=False):
+    def add_flag(self, value: Numeric, test: Numeric, *, domain: bool = False) -> Numeric:
         """把一个条件位并入值的状态。
 
         Args:
@@ -458,7 +479,7 @@ class NumericEmitter:
         flag = self.logic("flag" if domain else "range_flag", test.parts[0])
         return Numeric(value.kind, value.parts, self.flags(value.status, test.status, flag))
 
-    def kernel(self, name, value):
+    def kernel(self, name: str, value: Numeric) -> Numeric:
         """调用初等数学核并合并其状态标志。
 
         Args:
@@ -473,7 +494,7 @@ class NumericEmitter:
         self.invoke(op, {"a": value.parts[0], "out": out, "status": flag})
         return Numeric("real", (out,), self.flags(value.status, flag))
 
-    def atan2(self, y, x):
+    def atan2(self, y: Numeric, x: Numeric) -> Numeric:
         """以幅值比与象限选择分解二元反正切。
 
         用 ``|x|``、``|y|`` 中较小者作被除数调用 atan 核，再按大小交换、x 符号
@@ -500,7 +521,7 @@ class NumericEmitter:
         angle = self.choose(self.binary("lt", y, zero), self.unary("neg", angle), angle)
         return self.choose(iszero, zero, angle)
 
-    def integer_power(self, value, exponent):
+    def integer_power(self, value: Numeric, exponent: int) -> Numeric:
         """用平方-乘算法计算整数常量幂。
 
         Args:
@@ -526,7 +547,7 @@ class NumericEmitter:
                 factor = self.binary("mul", factor, factor)
         return self.binary("div", self.constant(1), result) if exponent < 0 else result
 
-    def intrinsic(self, name, args, kind):
+    def intrinsic(self, name: str, args: list[Numeric], kind: str) -> Numeric:
         """展开数学 intrinsic 的实数与复数分解。
 
         rect、phase、atan2、hypot 与双参 log 先行处理；实数路径走
@@ -570,19 +591,24 @@ class NumericEmitter:
         re, im = self.component(z, 0), self.component(z, 1)
         c = self.constant
 
-        def add(a, b):
+        def add(a: Numeric, b: Numeric) -> Numeric:
+            """两值相加的简写。"""
             return self.binary("add", a, b)
 
-        def sub(a, b):
+        def sub(a: Numeric, b: Numeric) -> Numeric:
+            """两值相减的简写。"""
             return self.binary("sub", a, b)
 
-        def mul(a, b):
+        def mul(a: Numeric, b: Numeric) -> Numeric:
+            """两值相乘的简写。"""
             return self.binary("mul", a, b)
 
-        def div(a, b):
+        def div(a: Numeric, b: Numeric) -> Numeric:
+            """两值相除的简写。"""
             return self.binary("div", a, b)
 
-        def fn(k, v):
+        def fn(k: str, v: Numeric) -> Numeric:
+            """以复数路径递归调用 intrinsic 的简写。"""
             return self.intrinsic(k, [v], "complex")
 
         if name == "sqrt":
@@ -640,7 +666,7 @@ class NumericEmitter:
             return mul(c(0.5), sub(fn("log", add(c(1), z)), fn("log", sub(c(1), z))))
         raise ValidationError("缺少复数数学分解：" + name)
 
-    def finish(self, outputs, status):
+    def finish(self, outputs: list[tuple[tuple[Ref, ...], Numeric]], status: Ref) -> Operation:
         """复制输出并反算全部临时寄存器后结束构建。
 
         Args:
@@ -661,7 +687,7 @@ class NumericEmitter:
 
 
 @lru_cache(maxsize=128)
-def elementary_kernel(name, fmt, config):
+def elementary_kernel(name: str, fmt: FixedFormat, config: MathConfig) -> Operation:
     """生成单个初等实函数的 Chebyshev 近似核模块。
 
     在配置区间上取 degree+1 个采样点求 Chebyshev 系数，以 Clenshaw

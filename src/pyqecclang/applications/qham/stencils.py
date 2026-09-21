@@ -1,7 +1,10 @@
 "周期网格上的结构化 PDE 端口：移位 LCU、分量选择和同点收缩。"
 
+from __future__ import annotations
+
 import cmath
 import math
+from collections.abc import Callable, Sequence
 
 from pyqecclang.algorithms.input_model.block_encoding import lcu
 from pyqecclang.algorithms.input_model.operators import (
@@ -21,12 +24,13 @@ from pyqecclang.algorithms.input_model.oracles import (
     resources_for,
 )
 from pyqecclang.algorithms.input_model.qham import PortBinding, QHAMBindings
-from pyqecclang.applications.qham.reference import centered_weights
+from pyqecclang.applications.qham.pde import EquationTerm, Monomial
+from pyqecclang.applications.qham.reference import Discretization, Grid, centered_weights
 from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits, ValidationError, fuse
+from pyqecclang.infrastructure.ir import Bits, Ref, ValidationError, fuse
 
 
-def derivative_encoding(grid, derivative):
+def derivative_encoding(grid: Grid, derivative: tuple[tuple[str, int], ...]) -> BlockEncoding:
     """构造周期网格上空间导数的移位 LCU 块编码。
 
     每个轴的导数按中心差分模板分解为若干循环移位项，项系数为模板权重除以
@@ -53,11 +57,11 @@ def derivative_encoding(grid, derivative):
         axis_width = (length - 1).bit_length()
         order = dict(derivative).get(axis, 0)
         if order:
-            grouped = {}
+            grouped: dict[int, float] = {}
             for offset, coefficient in centered_weights(order):
                 step = (-offset) % length
                 grouped[step] = grouped.get(step, 0) + coefficient / spacing**order
-            terms = []
+            terms: list[tuple[float, BlockEncoding]] = []
             for step, coefficient in grouped.items():
                 if not coefficient:
                     continue
@@ -74,7 +78,9 @@ def derivative_encoding(grid, derivative):
     return result
 
 
-def coefficient_encoding(discretization, monomial, *, max_words=4096):
+def coefficient_encoding(
+    discretization: Discretization, monomial: Monomial, *, max_words: int = 4096
+) -> BlockEncoding:
     """构造已知系数对角乘子的门实现块编码。
 
     逐地址求出已知场（含其空间导数）与单项式系数的乘积值，按地址受控旋转
@@ -119,13 +125,29 @@ def coefficient_encoding(discretization, monomial, *, max_words=4096):
     )
 
 
-def qram_coefficient_encoding(discretization, monomial, *, angle_width=8, max_words=4096):
+def qram_coefficient_encoding(
+    discretization: Discretization,
+    monomial: Monomial,
+    *,
+    angle_width: int = 8,
+    max_words: int = 4096,
+) -> BlockEncoding:
     """已知系数对角线的开放角数据库编码；同一份程序可绑定 gate 或 QRAM 数据库。
 
     与 coefficient_encoding 的合同一致（target 为空间位、alpha 相同），但系数数据
     不烧进门里：对角值 alpha*cos(theta_a/2) 的角度字留在开放的 XOR 数据库槽位中，
     运行时表由 qram_coefficient_memory 单独计算。仅接受实系数数据；
     角度量化引入不超过 alpha*pi/2**angle_width 的幅值误差。
+
+    Args:
+        discretization: 提供网格与已知场数据的 ``Discretization``。
+        monomial: 待编码的单项式；无已知场且网格无填充位时退化为常数缩放。
+        angle_width: 角度字的位宽，决定对角值的量化精度。
+        max_words: 角数据库允许的最大地址数。
+
+    Returns:
+        BlockEncoding: 对角值留在开放 XOR 数据库槽位中的块编码，``alpha``
+        为对角值的最大模，对角值全为零时返回零算子。
     """
     grid = discretization.grid
     width = grid.spatial_width
@@ -146,8 +168,20 @@ def qram_coefficient_encoding(discretization, monomial, *, angle_width=8, max_wo
     return diagonal_block_encoding(db, alpha=alpha)
 
 
-def qram_coefficient_memory(discretization, monomial, *, angle_width=8):
-    """与 qram_coefficient_encoding 对应的运行时角表（地址 -> 角度字）。"""
+def qram_coefficient_memory(
+    discretization: Discretization, monomial: Monomial, *, angle_width: int = 8
+) -> dict[int, int]:
+    """与 qram_coefficient_encoding 对应的运行时角表（地址 -> 角度字）。
+
+    Args:
+        discretization: 提供网格与已知场数据的 ``Discretization``。
+        monomial: 编码时使用的同一单项式，须与编码调用保持一致。
+        angle_width: 角度字的位宽，须与编码调用保持一致。
+
+    Returns:
+        dict[int, int]: 空间地址到角度字的映射；可退化为常数缩放或对角值
+        全为零时返回空表。
+    """
     grid = discretization.grid
     width = grid.spatial_width
     if not monomial.known and grid.size == 1 << width:
@@ -167,7 +201,13 @@ def qram_coefficient_memory(discretization, monomial, *, angle_width=8):
     }
 
 
-def term_encoding(discretization, term, *, max_coefficient_words=4096, coefficient_encoder=coefficient_encoding):
+def term_encoding(
+    discretization: Discretization,
+    term: EquationTerm,
+    *,
+    max_coefficient_words: int = 4096,
+    coefficient_encoder: Callable[..., BlockEncoding] = coefficient_encoding,
+) -> BlockEncoding:
     """为单个 PDE 方程项构造结构化差分端口的多线性块编码。
 
     端口由各因子字段的中心差分导数、已知系数对角乘子、分量选择与外导数
@@ -228,7 +268,7 @@ def term_encoding(discretization, term, *, max_coefficient_words=4096, coefficie
         },
     )
     cursor = 0
-    signal_views = []
+    signal_views: list[Ref] = []
     for op in derivatives:
         signal_views.append(b["signal"][cursor : cursor + op.signal_qubits])
         cursor += op.signal_qubits
@@ -243,7 +283,7 @@ def term_encoding(discretization, term, *, max_coefficient_words=4096, coefficie
             b.x(reject_input)
         b.h(b["target"][:ns])
     else:
-        component_refs = []
+        component_refs: list[Ref] = []
         for i, atom in enumerate(monomial.fields):
             field = discretization.pde.fields.index(atom.name)
             component = b["target"][i * n + ns : (i + 1) * n]
@@ -289,11 +329,30 @@ def term_encoding(discretization, term, *, max_coefficient_words=4096, coefficie
     )
 
 
-def structured_fd_bindings(discretization, initial, *, max_coefficient_words=4096, coefficient_encoder=coefficient_encoding):
-    """基本矩阵从移位与收缩生成，不物化 N^r × N^r 的端口矩阵。"""
+def structured_fd_bindings(
+    discretization: Discretization,
+    initial: Sequence[complex],
+    *,
+    max_coefficient_words: int = 4096,
+    coefficient_encoder: Callable[..., BlockEncoding] = coefficient_encoding,
+) -> QHAMBindings:
+    """基本矩阵从移位与收缩生成，不物化 N^r × N^r 的端口矩阵。
+
+    Args:
+        discretization: 提供网格、分量布局与已知数据的 ``Discretization``。
+        initial: 长度为 ``discretization.dimension`` 的初值向量；范数为零时
+            改用第一个基矢制备。
+        max_coefficient_words: 传给系数编码器的地址数预算。
+        coefficient_encoder: 系数对角乘子的编码函数，合同同
+            ``coefficient_encoding``（如 ``qram_coefficient_encoding``）。
+
+    Returns:
+        QHAMBindings: 各端口绑定到移位 LCU 块编码、并含初值制备与范数的
+        QHAM 绑定集合。
+    """
     if len(initial) != discretization.dimension:
         raise ValidationError("初值需要完整寄存器布局")
-    ports = []
+    ports: list[tuple[str, PortBinding]] = []
     for port in discretization.pde.ports:
         encoded = lcu(
             [

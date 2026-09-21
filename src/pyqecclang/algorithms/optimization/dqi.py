@@ -14,6 +14,7 @@ error 寄存器制备权重 l 的 Dicke 态，施加右端项相位 ``(-1)**(v.y
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import comb
 
@@ -26,6 +27,7 @@ from pyqecclang.algorithms.input_model.contracts import (
 )
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import (
+    StatePreparation,
     annotate,
     declare,
     gate_state_prep,
@@ -51,7 +53,8 @@ class XorSatInstance:
     rhs: tuple[int, ...]
     num_variables: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """规范化并校验约束行、右端项与变量下标的构造期约束。"""
         positive_integer(self.num_variables, "XorSatInstance.num_variables", maximum=64)
         rows = tuple(tuple(row) for row in self.rows)
         rhs = tuple(self.rhs)
@@ -91,12 +94,19 @@ class XorSatInstance:
         object.__setattr__(self, "rhs", rhs)
 
     @property
-    def num_constraints(self):
+    def num_constraints(self) -> int:
         """约束数 m，即 error 寄存器的位宽。"""
         return len(self.rows)
 
-    def satisfied_count(self, assignment):
-        """统计给定整数赋值满足的约束数。"""
+    def satisfied_count(self, assignment: int) -> int:
+        """统计给定整数赋值满足的约束数。
+
+        Args:
+            assignment: 赋值的整数编码，取 0..2^变量数−1，第 j 位是变量 j 的取值。
+
+        Returns:
+            int: 该赋值满足的约束条数。
+        """
         positive_integer(
             assignment,
             "XorSatInstance.assignment",
@@ -121,26 +131,40 @@ class DecoderOracle(OracleView):
     oracle_kind = "reversible_function"
     operation: Operation
 
-    def decoder(self):
-        """译码器角色访问器，返回自身；与其他 ``OracleView`` 的角色方法一致。"""
+    def decoder(self) -> DecoderOracle:
+        """译码器角色访问器，返回自身；与其他 ``OracleView`` 的角色方法一致。
+
+        Returns:
+            DecoderOracle: 自身引用，保持角色访问器接口一致。
+        """
         return self
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验包装操作具有 syndrome 与 error 签名。"""
         validate_signature(self.operation, ("syndrome", "error"), "DecoderOracle")
 
     @property
-    def syndrome_width(self):
+    def syndrome_width(self) -> int:
         """syndrome 寄存器位宽，直接读取 RIR 寄存器签名。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "syndrome")
 
     @property
-    def error_width(self):
+    def error_width(self) -> int:
         """error 寄存器位宽，直接读取 RIR 寄存器签名。"""
         return next(r.type.width for r in self.operation.module.registers if r.name == "error")
 
 
-def abstract_decoder(name, syndrome_width, error_width):
-    """声明译码器槽位；高效经典译码算法经 bind 分批绑定。"""
+def abstract_decoder(name: str, syndrome_width: int, error_width: int) -> DecoderOracle:
+    """声明译码器槽位；高效经典译码算法经 bind 分批绑定。
+
+    Args:
+        name: 译码器槽位的声明模块名。
+        syndrome_width: syndrome 寄存器位宽，取 1..64。
+        error_width: error 寄存器位宽，取 1..64。
+
+    Returns:
+        DecoderOracle: 体为空、由 bind 延迟绑定实现的译码器槽位句柄。
+    """
     positive_integer(syndrome_width, "abstract_decoder.syndrome_width", maximum=64)
     positive_integer(error_width, "abstract_decoder.error_width", maximum=64)
     return DecoderOracle(
@@ -153,7 +177,9 @@ def abstract_decoder(name, syndrome_width, error_width):
     )
 
 
-def table_decoder(syndrome_width, error_width, table, *, name=None):
+def table_decoder(
+    syndrome_width: int, error_width: int, table: Mapping[int, int], *, name: str | None = None
+) -> DecoderOracle:
     """用显式查询表实现译码器的 gate 见证；只译码表中列出的综合征。
 
     Args:
@@ -188,11 +214,21 @@ def table_decoder(syndrome_width, error_width, table, *, name=None):
     )
 
 
-def bruteforce_decoder(instance, *, max_weight=None, name=None):
+def bruteforce_decoder(
+    instance: XorSatInstance, *, max_weight: int | None = None, name: str | None = None
+) -> DecoderOracle:
     """穷举最小权重译码器：为每个综合征给出权重不超过 max_weight 的最轻错误。
 
     枚举全部 2**m 个错误模式，只接受 m <= 16 的小实例；大实例应绑定高效
     译码器的可逆实现。等权重并列时保留枚举序最小的错误模式。
+
+    Args:
+        instance: 被译码的 XOR 实例，约束数不超过 16。
+        max_weight: 错误模式的权重上限，取 0..约束数；缺省为约束数。
+        name: 可选的生成模块名。
+
+    Returns:
+        DecoderOracle: 每个综合征映射到最轻错误模式的显式查表译码器。
     """
     require_instance(instance, XorSatInstance, "bruteforce_decoder.instance")
     m = instance.num_constraints
@@ -208,7 +244,7 @@ def bruteforce_decoder(instance, *, max_weight=None, name=None):
         max_weight = m
     positive_integer(max_weight, "bruteforce_decoder.max_weight", minimum=0, maximum=m)
     row_masks = [sum(1 << j for j in row) for row in instance.rows]
-    best = {}
+    best: dict[int, int] = {}
     for error in range(1 << m):
         weight = error.bit_count()
         if weight > max_weight:
@@ -234,7 +270,7 @@ def bruteforce_decoder(instance, *, max_weight=None, name=None):
     )
 
 
-def dicke_state(m, weight):
+def dicke_state(m: int, weight: int) -> StatePreparation:
     """制备 m 比特、权重 weight 的 Dicke 态 ``|D_l^m>``。
 
     采用显式幅度的多路旋转构造，只接受 m <= 16 的小规模；大规模制备需要
@@ -254,7 +290,7 @@ def dicke_state(m, weight):
     return gate_state_prep(amplitudes, name=f"dicke_{m}_{weight}")
 
 
-def dqi(instance, decoder, *, weight):
+def dqi(instance: XorSatInstance, decoder: DecoderOracle, *, weight: int) -> Operation:
     """组装 DQI 主线路（GF(2)，论文图 4 的单权重版本）。
 
     Args:

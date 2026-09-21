@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import partial
 
@@ -10,7 +11,9 @@ from pyqecclang.algorithms.common.state_preparation import extend_initial, selec
 from pyqecclang.algorithms.input_model.block_encoding import lcu, projector, tensor, truncated_shift
 from pyqecclang.algorithms.input_model.contracts import (
     ContractIssue,
+    ContractReport,
     InputRequirement,
+    ProtocolContract,
     finite_real,
     require_instance,
 )
@@ -39,7 +42,8 @@ class QODEProblem:
     initial_norm: float | None = None
     evidence: str = "caller_declared_unverified"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """把生成元与初态规范化为对应视图，并校验耗散声明、初值范数与说明字段。"""
         object.__setattr__(self, "generator", as_block_encoding(self.generator))
         object.__setattr__(self, "initial", as_state_preparation(self.initial))
         require_instance(self.initial, StatePreparation, "QODEProblem.initial")
@@ -64,10 +68,11 @@ class QODEProtocol:
 
     provides = (StateOracleProtocol,)
     name: str
-    kernel: object
+    kernel: Callable[..., StateOracle]
     requires_dissipative: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """校验协议名非空、内核可调用与耗散前提字段为 bool。"""
         if (
             not self.name
             or not callable(self.kernel)
@@ -76,7 +81,7 @@ class QODEProtocol:
             raise ValidationError("QODEProtocol 需要名称、可调用内核与 bool 前提字段")
 
     @property
-    def contract(self):
+    def contract(self) -> ProtocolContract:
         """返回该协议的算子-态契约。
 
         前提包含自治齐次 ``u'=Gu``；``requires_dissipative`` 为 True 时追加 ``Hermitian(G)<=0`` 的要求，Schrödingerization 协议还追加辅助窗口与恢复区域的验证责任。
@@ -91,7 +96,12 @@ class QODEProtocol:
             assumptions.append("辅助窗口、Fourier 约定与所选恢复区域需要应用层验证")
         return replace(operator_state_contract(self.name), assumptions=tuple(assumptions))
 
-    def check(self, generator, initial=None, time=None):
+    def check(
+        self,
+        generator: BlockEncoding | QODEProblem,
+        initial: StatePreparation | None = None,
+        time: float | None = None,
+    ) -> ContractReport:
         """检查输入是否满足该协议的契约，并把未满足项汇集成报告。
 
         Args:
@@ -132,7 +142,10 @@ class QODEProtocol:
             )
         return replace(report, issues=tuple(issues))
 
-    def _generate(self, generator, initial, time):
+    def _generate(
+        self, generator: BlockEncoding, initial: StatePreparation, time: float
+    ) -> StateOracle:
+        """运行内核生成输出，并核验输出宽度与伴随、受控能力契约。"""
         generator, initial = as_block_encoding(generator), as_state_preparation(initial)
         result = self.kernel(generator, initial, time)
         require_instance(result, StateOracle, self.name + ".output")
@@ -155,13 +168,15 @@ class QODEProtocol:
             raise ContractError(issues)
         return result
 
-    def __call__(self, generator, initial, time):
+    def __call__(
+        self, generator: BlockEncoding, initial: StatePreparation, time: float
+    ) -> StateOracle:
         """兼容入口：数学前提仍由调用者承担；推荐问题级 solve。"""
         self.check(generator, initial, time).require()
         finite_real(time, self.name + ".time", minimum=0)
         return self._generate(generator, initial, time)
 
-    def solve(self, problem, time):
+    def solve(self, problem: QODEProblem, time: float) -> StateOracle:
         """问题级求解入口：检查契约后演化，并把声明来源写入输出属性。
 
         Args:
@@ -194,7 +209,11 @@ class QODEProtocol:
         )
 
 
-def make_euler_history_qode(qlss, *, steps=2):
+def make_euler_history_qode(
+    qlss: Callable[[BlockEncoding, StatePreparation], StateOracle],
+    *,
+    steps: int = 2,
+) -> Callable[[BlockEncoding, StatePreparation, float], StateOracle]:
     """把 QLSS 求解器包装成隐式 Euler 时间离散的 QODE 生成函数。
 
     在历史寄存器上装配一次求解全部时间步的线性系统：矩阵为 ``I - dt*(Q⊗G) - S``（Q 选择全部非零时刻，S 为截断的步进移位），右端把初态放在零号时刻，随后调用 ``qlss`` 求解并选取末时刻子空间。
@@ -212,7 +231,10 @@ def make_euler_history_qode(qlss, *, steps=2):
     if type(steps) is not int or steps < 1:
         raise ValidationError("时间步数必须为正整数")
 
-    def generate(generator: BlockEncoding, initial: StatePreparation, final_time):
+    def generate(
+        generator: BlockEncoding, initial: StatePreparation, final_time: float
+    ) -> StateOracle:
+        """在历史寄存器上求解全部时间步并读出末时刻的态。"""
         if generator.width != initial.width or final_time <= 0:
             raise ValidationError("QODE 输入布局或时间无效")
         nt = steps.bit_length()
@@ -233,8 +255,23 @@ def make_euler_history_qode(qlss, *, steps=2):
     return generate
 
 
-def linear_qode(method, *, hamiltonian_function=taylor_hamiltonian, **options):
-    """通用 u'=Gu 接口，可直接注入既有 QHAM / make_qpde。"""
+def linear_qode(
+    method: str,
+    *,
+    hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
+    **options: object,
+) -> QODEProtocol:
+    """通用 u'=Gu 接口，可直接注入既有 QHAM / make_qpde。
+
+    Args:
+        method: 求解方法，取 ``schrodingerization``、``lchs`` 或 ``cbmd``。
+        hamiltonian_function: 形如 (BE, time) 返回 BlockEncoding 的哈密顿量模拟实现，
+            缺省为截断 Taylor。
+        **options: 方法配置；仅接受 ``plan``，类型须与所选方法匹配。
+
+    Returns:
+        QODEProtocol: 包装所选方法内核的求解协议，lchs/cbmd 路径要求耗散声明。
+    """
 
     if not callable(hamiltonian_function):
         raise ValidationError("hamiltonian_function 必须可调用")
@@ -244,7 +281,12 @@ def linear_qode(method, *, hamiltonian_function=taylor_hamiltonian, **options):
         if options.get("plan") is not None:
             require_instance(options["plan"], SchrodingerPlan, "schrodingerization.plan")
         return QODEProtocol(
-            method, partial(schrodinger_qode, hamiltonian_function=hamiltonian_function, **options)
+            method,
+            partial(
+                schrodinger_qode,
+                hamiltonian_function=hamiltonian_function,
+                **options,  # type: ignore[arg-type]
+            ),
         )
     if method not in {"lchs", "cbmd"}:
         raise ValidationError("未知线性 QODE 方法")
@@ -254,8 +296,14 @@ def linear_qode(method, *, hamiltonian_function=taylor_hamiltonian, **options):
             options["plan"], QuadraturePlan if method == "lchs" else ContourPlan, method + ".plan"
         )
 
-    def generate(generator, initial, time):
+    def generate(generator: BlockEncoding, initial: StatePreparation, time: float) -> StateOracle:
+        """构造 LinearODE 输入模型并调用对应算法内核。"""
         model = LinearODE(HermitianParts.from_operator(scale(-1, generator)), initial)
-        return algorithm(model, time, hamiltonian_function=hamiltonian_function, **options)
+        return algorithm(
+            model,
+            time,
+            hamiltonian_function=hamiltonian_function,
+            **options,  # type: ignore[arg-type]
+        )
 
     return QODEProtocol(method, generate, requires_dissipative=True)

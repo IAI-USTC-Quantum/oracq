@@ -1,5 +1,7 @@
 "0.7 导入路径的集中兼容表；仓内代码只使用规范路径。"
 
+from __future__ import annotations
+
 import importlib
 import sys
 from types import ModuleType
@@ -100,7 +102,12 @@ SPLIT_EXPORTS = {
 }
 
 
-def install():
+def install() -> None:
+    """把 0.7 旧导入路径安装为规范模块并挂载到各自的父包。
+
+    ``ALIASES`` 中的旧路径直接复用对应规范模块对象；``SPLIT_EXPORTS`` 中的旧包
+    按导出清单从各规范属主模块合成转发模块。
+    """
     for old, new in ALIASES.items():
         module = importlib.import_module(new)
         sys.modules[old] = module
@@ -109,9 +116,11 @@ def install():
         module.__package__ = old.rpartition(".")[0]
         for name, (owner, symbol) in exports.items():
             setattr(module, name, getattr(importlib.import_module(owner), symbol))
-        module.__all__ = [n for n in exports if not n.startswith("_")]
+        # typeshed 未把 __all__ 声明为 ModuleType 的可赋值属性，动态合成模块需要它。
+        module.__all__ = [n for n in exports if not n.startswith("_")]  # type: ignore[attr-defined]
         sys.modules[old] = module
     for old in (*ALIASES, *SPLIT_EXPORTS):
         parent, _, leaf = old.rpartition(".")
-        owner = sys.modules.get(parent) or importlib.import_module(parent)
+        # owner 在上方解包循环中绑定为模块路径字符串，此处承载模块对象。
+        owner = sys.modules.get(parent) or importlib.import_module(parent)  # type: ignore[assignment]
         setattr(owner, leaf, sys.modules[old])

@@ -24,11 +24,11 @@ from pyqecclang.algorithms.input_model.contracts import (
 )
 from pyqecclang.algorithms.input_model.operators import _name
 from pyqecclang.algorithms.input_model.oracles import StatePreparation, invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits, ValidationError
+from pyqecclang.infrastructure.builder import Builder, Operation
+from pyqecclang.infrastructure.ir import Bits, Ref, RegType, ValidationError
 
 
-def _pauli_pair_rotation(b, first, second, angle, axis):
+def _pauli_pair_rotation(b: Builder, first: Ref, second: Ref, angle: float, axis: str) -> None:
     """``e^{-i(angle/2)·P⊗P}``，P 由 axis ∈ {x, y, z} 指定；基于奇偶校验的精确分解。"""
     if axis == "x":
         b.h(first)
@@ -52,18 +52,26 @@ def _pauli_pair_rotation(b, first, second, angle, axis):
         b.h(second)
 
 
-def _partial_swap(b, first, second, angle):
+def _partial_swap(b: Builder, first: Ref, second: Ref, angle: float) -> None:
     """``e^{-i·angle·SWAP}``：XX+YY+ZZ = 2·SWAP − I 的精确分解（三轴可交换）。"""
     b.global_phase(-angle / 2)
     for axis in ("z", "x", "y"):
         _pauli_pair_rotation(b, first, second, angle, axis)
 
 
-def _registers_of(operation):
+def _registers_of(operation: Operation) -> dict[str, RegType]:
+    """入口模块的寄存器名到存储类型映射。"""
     return {r.name: r.type for r in operation.module.registers}
 
 
-def density_matrix_exponentiation(preparation, *, time, copies, swap_width=None, name=None):
+def density_matrix_exponentiation(
+    preparation: StatePreparation,
+    *,
+    time: float,
+    copies: int,
+    swap_width: int | None = None,
+    name: str | None = None,
+) -> Operation:
     """LMR 密度矩阵指数化：用 copies 份 ρ 拷贝在系统上近似 ``e^{-iρ·time}``。
 
     Args:
@@ -108,7 +116,15 @@ def density_matrix_exponentiation(preparation, *, time, copies, swap_width=None,
     return b.finish()
 
 
-def qpca(preparation, *, precision, step_time, system=None, swap_width=None, name=None):
+def qpca(
+    preparation: StatePreparation,
+    *,
+    precision: int,
+    step_time: float,
+    system: StatePreparation | None = None,
+    swap_width: int | None = None,
+    name: str | None = None,
+) -> Operation:
     """QPCA 主成分分析：对 ``e^{-iρ·step_time}`` 做相位估计，读出 ρ 的谱。
 
     Args:
@@ -174,11 +190,20 @@ def qpca(preparation, *, precision, step_time, system=None, swap_width=None, nam
     return b.finish()
 
 
-def eigenvalue_from_phase(value, precision, step_time):
+def eigenvalue_from_phase(value: int, precision: int, step_time: float) -> float:
     """把 qpca 的 phase 读出解码为 ρ 的本征值估计。
 
     酉步 ``e^{-iρΔt}`` 的本征相位为 ``φ = -λΔt/(2π) (mod 1)``；本函数按
-    λ ∈ [0, π/Δt) 的分支解码，λ·Δt 超出该范围时发生混叠（调用方责任）。"""
+    λ ∈ [0, π/Δt) 的分支解码，λ·Δt 超出该范围时发生混叠（调用方责任）。
+
+    Args:
+        value: phase 寄存器读数，取 0..2^precision−1 的整数。
+        precision: 相位寄存器位数，取 1..63。
+        step_time: 部分交换步的时长 Δt，取正实数。
+
+    Returns:
+        float: 密度矩阵的本征值估计 λ。
+    """
     positive_integer(precision, "eigenvalue_from_phase.precision", maximum=63)
     positive_integer(value, "eigenvalue_from_phase.value", minimum=0, maximum=(1 << precision) - 1)
     finite_real(step_time, "eigenvalue_from_phase.step_time", minimum=0, strict=True)
