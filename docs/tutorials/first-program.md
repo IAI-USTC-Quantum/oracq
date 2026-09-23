@@ -4,7 +4,7 @@
 
 ## 定义操作
 
-`Bits(2)` 定义一个两位寄存器。我们先让低位进入叠加态，再以它为控制，对高位做 XOR。
+{obj}`Bits(2) <pyqecclang.infrastructure.ir.Bits>` 定义一个两位寄存器。我们先让低位进入叠加态，再以它为控制，对高位做 XOR。
 
 ```{testcode}
 from pyqecclang import Bits, Builder, simulate
@@ -103,6 +103,13 @@ ENDDEF
 m_bell_pair_d029b74cecc4332d414ece8a(q[0], q[1])
 ```
 
-前半段是规范 JSON 的骨架：`Program` 持有模块表，模块的 `body` 里是指令，指令操作数用 `register`、`start` 等字段保留寄存器名与视图；`...` 之外的内容与实际打印逐字一致。后半段是 OriginIR-ext 文本：`QINIT 2` 声明两位量子寄存器，`CREG 0` 表示没有经典寄存器；`DEF m_bell_pair_<指纹>` 定义模块，后缀是由模块内容确定的指纹，同一模块只会导出一份定义；最后一行把入口量子位 `q[0], q[1]` 绑定到模块形参。导出不会先把所有调用复制成一个平坦门列表。
+前半段是规范 JSON 的骨架：{obj}`Program <pyqecclang.infrastructure.ir.Program>` 持有模块表，模块的 `body` 里是指令，指令操作数用 `register`、`start` 等字段保留寄存器名与视图；`...` 之外的内容与实际打印逐字一致。后半段是 OriginIR-ext 文本：`QINIT 2` 声明两位量子寄存器，`CREG 0` 表示没有经典寄存器；`DEF m_bell_pair_<指纹>` 定义模块，后缀是由模块内容确定的指纹，同一模块只会导出一份定义；最后一行把入口量子位 `q[0], q[1]` 绑定到模块形参。导出不会先把所有调用复制成一个平坦门列表。
 
-`simulate` 适合这种小规模检查。需要实际后端时，仍使用同一个 `Program`，改为调用 `run_pysparq` 或 `run_originir`。
+{obj}`simulate <pyqecclang.infrastructure.execution.simulate>` 适合这种小规模检查。需要实际后端时，仍使用同一个 `Program`，改为调用 {obj}`run_pysparq <pyqecclang.infrastructure.backends.pysparq.run_pysparq>` 或 {obj}`run_originir <pyqecclang.infrastructure.backends.originir.run_originir>`。
+
+## 相关页面
+
+- 手册：[核心概念](../manual/concepts.md)、[架构](../manual/architecture.md)、[后端与导出](../manual/backends.md)
+- 规范：[RIR 规范](../reference/rir.md)（JSON 结构与 OriginIR-ext 文法）
+- API 参考：[RIR 对象](../api/infrastructure/ir.rst)、[模块构造器](../api/infrastructure/builder.rst)、[寄存器参考执行器](../api/infrastructure/execution.rst)、[RIR 序列化](../api/infrastructure/serialization.rst)
+- 继续教程：[给算法替换 oracle](oracle-binding.md)、[运行与修改算法展示目录](gallery.md)

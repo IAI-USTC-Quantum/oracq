@@ -84,7 +84,8 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/lchs.py`
+- 源码：`src/pyqecclang/algorithms/qode/lchs.py`
+- 教程：[为同一个线性问题替换 QODE 方法](../../tutorials/differential-equations.md)
 - API 参考：[LCHS](../../api/algorithms/qode/lchs.rst)
-- 相关页：[QODE 问题对象与协议](qode-problem.md) · [Carleman 线性化](carleman.md)（提升后接 LCHS）· [Fokker–Planck 输入模型](fokker-planck.md)
+- 相关页：[QODE 问题对象与协议](qode-problem.md) · [Carleman 线性化](carleman.md)（提升后接 LCHS）· [Fokker–Planck 输入模型](fokker-planck.md) · [CBMD](cbmd.md)、[Schrödingerization](schrodingerization.md)（其他线性路线）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

@@ -42,7 +42,7 @@ qsp_phases(coeffs, imag=None)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qsvt.py`
+- 源码：`src/pyqecclang/algorithms/common/qsvt.py`
 - API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 同族页面：[QSVT 相位序列](qsvt-sequence.md)（相位消费端）、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)（虚部补全的典型用例）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

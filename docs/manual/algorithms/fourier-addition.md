@@ -37,7 +37,7 @@ fourier_add(width)
 ## 相关链接
 
 - 同模块：[量子 Fourier 变换](qft.md)
-- 源码：`src/pyqecclang/algorithms/fourier.py`
+- 源码：`src/pyqecclang/algorithms/common/fourier.py`
 - API 参考：[Fourier 变换与算术](../../api/algorithms/common/fourier.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

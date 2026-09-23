@@ -47,7 +47,7 @@ swap_test(first, second)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/estimation.py`
+- 源码：`src/pyqecclang/algorithms/common/estimation.py`
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[Hadamard 检验](hadamard-test.md)（单酉期望的对应读出）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

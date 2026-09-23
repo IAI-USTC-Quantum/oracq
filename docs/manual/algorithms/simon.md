@@ -45,7 +45,7 @@ simon_nullspace(samples, width)
 ## 相关链接
 
 - 同模块：[Deutsch–Jozsa 查询](deutsch-jozsa.md)、[Bernstein–Vazirani 秘密串读出](bernstein-vazirani.md)
-- 源码：`src/pyqecclang/algorithms/oracle_algorithms.py`
+- 源码：`src/pyqecclang/algorithms/basics/oracle_algorithms.py`
 - API 参考：[Oracle 查询算法](../../api/algorithms/basics/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

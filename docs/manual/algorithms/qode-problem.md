@@ -99,7 +99,8 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/ode.py`
+- 源码：`src/pyqecclang/algorithms/qode/ode.py`
+- 教程：[为同一个线性问题替换 QODE 方法](../../tutorials/differential-equations.md)
 - API 参考：[QODE 组装接口](../../api/algorithms/qode/ode.rst)
 - 同组算法页：[LCHS](lchs.md) · [CBMD](cbmd.md) · [Schrödingerization](schrodingerization.md) · [Carleman 线性化](carleman.md) · [Fokker–Planck 输入模型](fokker-planck.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

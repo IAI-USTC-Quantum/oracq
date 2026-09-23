@@ -45,7 +45,7 @@ repetition_recover(*, error="bit")
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/error_correction.py`
+- 源码：`src/pyqecclang/algorithms/qec/error_correction.py`
 - API 参考：[重复码与错误恢复](../../api/algorithms/qec/error_correction.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

@@ -56,7 +56,7 @@ modular_multiply(multiplier, modulus, *, width=None, max_width=8)
 ## 相关链接
 
 - 同模块：[量子求阶与因子后处理](order-finding.md)
-- 源码：`src/pyqecclang/algorithms/number_theory.py`
+- 源码：`src/pyqecclang/algorithms/basics/number_theory.py`
 - API 参考：[模乘与求阶](../../api/algorithms/basics/number_theory.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

@@ -55,7 +55,7 @@ QRAM 位置实现三步完成原地置换：`work ^= forward[column, index]`、`
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/oracles.py`
+- 源码：`src/pyqecclang/algorithms/input_model/oracles.py`
 - 同组页面：[XOR 数据库](xor-database.md)
 - API 参考：[Oracle 声明与实现](../../api/algorithms/input_model/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

@@ -42,7 +42,7 @@ cycle_walk(width, *, steps=1)
 ## 相关链接
 
 - 图上的行走：[图邻接 oracle](adjacency-oracle.md)、[Szegedy 量子行走](szegedy-walk.md)、[MNRS 量子行走搜索](mnrs-search.md)
-- 源码：`src/pyqecclang/algorithms/walks.py`
+- 源码：`src/pyqecclang/algorithms/common/walks.py`
 - API 参考：[量子行走](../../api/algorithms/common/walks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

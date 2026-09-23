@@ -97,7 +97,8 @@ PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_qham_q
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/applications/qham/`（pde / linearization / reference / stencils）与 `src/pyqecclang/algorithms/qham.py`（量子组装）
+- 源码：`src/pyqecclang/applications/qham/`（pde / linearization / reference / stencils）与 `src/pyqecclang/algorithms/input_model/qham.py`（量子组装）
+- 教程：[从 PDE 表达式生成 QHAM 输入](../../tutorials/qham.md)
 - 用户指南：[一般 QHAM 自动生成](../qham.md)；数学推导：[QHAM 推导](../../reference/qham-derivation.md)
 - API 参考：[QHAM](../../api/algorithms/input_model/qham.rst)、[PDE 模型与适配](../../api/applications/qham/pde.rst)、[结构化差分端口](../../api/applications/qham/stencils.rst)
 - 同组页面：[量子有限体积法](qfvm.md)

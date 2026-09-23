@@ -6,7 +6,7 @@
 2. RIR 保存模块定义、寄存器签名、调用关系和未完成的 oracle。
 3. 后端导出或执行这份描述。
 
-`Builder` 用来构造模块，`Operation` 表示一个模块及其依赖，`Program` 则包含入口可用的完整模块集合。调用 `operation.program()` 会检查结构，不会运行量子算法。
+{obj}`Builder <pyqecclang.infrastructure.builder.Builder>` 用来构造模块，{obj}`Operation <pyqecclang.infrastructure.builder.Operation>` 表示一个模块及其依赖，{obj}`Program <pyqecclang.infrastructure.ir.Program>` 则包含入口可用的完整模块集合。调用 `operation.program()` 会检查结构，不会运行量子算法。
 
 ## 寄存器与视图
 
@@ -18,14 +18,16 @@
 
 ## 模块与未完成的实现
 
-RIR 中的 `Call` 引用共享模块定义；`Repeat` 保存重复次数和主体。它们在保存为 JSON 时不会被展开。
+RIR 中的 {obj}`Call <pyqecclang.infrastructure.ir.Call>` 引用共享模块定义；{obj}`Repeat <pyqecclang.infrastructure.ir.Repeat>` 保存重复次数和主体。它们在保存为 JSON 时不会被展开。
 
 开放 oracle 的 `body=None` 表示尚未提供实现。空的指令列表则表示已经实现的恒等操作。这个区别贯穿验证、绑定和后端导出。
 
-`bind` 根据槽位签名绑定实现，并沿调用链传递新增的 QRAM 资源。寄存器布局或 block encoding 的 alpha 改变时，应重新运行生成函数。
+{obj}`bind <pyqecclang.infrastructure.linking.bind>` 根据槽位签名绑定实现，并沿调用链传递新增的 QRAM 资源。寄存器布局或 block encoding 的 alpha 改变时，应重新运行生成函数。
 
 ## 精度与数学前提
 
 语言检查结构与可用调用能力。数值格式、积分节点、Taylor 阶数和线性化截断由算法生成器决定。矩阵是否 Hermitian、某个态是否满足物理模型，以及近似误差是否足够小，都需要算法层的声明和验证。
 
 这一职责划分使新算法可以逐步扩展自己的 Python 协议，无需改变 RIR。详细约定见[算法输入与输出](contracts.md)。
+
+入门教程见[第一个寄存器程序](../tutorials/first-program.md)；核心对象的完整清单见 [RIR 对象](../api/infrastructure/ir.rst)、[模块构造器](../api/infrastructure/builder.rst) 与 [绑定与能力分析](../api/infrastructure/linking.rst)。

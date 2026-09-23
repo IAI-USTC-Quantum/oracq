@@ -1,6 +1,6 @@
 # 实现 QPDE/QODE：多种输入范式、可替换 oracle 与 protocol
 
-本章说明 QPDE/QODE 的输入适配与算法组装。输入约定见 [算法自己的约定](contracts.md)：输入对象可同时满足多个 Python 协议，算法不依赖排他的全局类型标签。目标是让你能写出自己的 PDE 离散化、替换输入 oracle，再选择 LCHS、Schrödingerization 或 Carleman 组合成程序。完整可运行文件是 [examples/ode_input_models.py](../../examples/ode_input_models.py)；本文中的局部片段用于解释接口，完整脚本包含导入、数据、绑定和导出。
+本章说明 QPDE/QODE 的输入适配与算法组装。输入约定见 [算法自己的约定](contracts.md)：输入对象可同时满足多个 Python 协议，算法不依赖排他的全局类型标签。目标是让你能写出自己的 PDE 离散化、替换输入 oracle，再选择 [LCHS](algorithms/lchs.md)、[Schrödingerization](algorithms/schrodingerization.md) 或 [Carleman](algorithms/carleman.md) 组合成程序。入门教程见[为同一个线性问题替换 QODE 方法](../tutorials/differential-equations.md)；完整可运行文件是 [examples/ode_input_models.py](../../examples/ode_input_models.py)；本文中的局部片段用于解释接口，完整脚本包含导入、数据、绑定和导出。
 
 设计建议是：**问题层保留原始 input paradigm，适配器显式构造算法需要的输入，protocol 在 Python 中生成新的 oracle；RIR 保存生成后的模块及尚未实现的 oracle。** 不必给所有算法强加一种原始输入，也不要把任意两种 input model 当作可以免费互换。
 

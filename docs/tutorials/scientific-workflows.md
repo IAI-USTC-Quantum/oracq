@@ -8,11 +8,11 @@
 
 | 层次 | 决定什么 | 典型对象 |
 |---|---|---|
-| 数学输入与近似 | PDE、离散化、截断阶、初态范数、物理输出窗口 | `PolynomialPDE`、`QHAMPlan`、`PolynomialODE` |
-| 量子算法生成 | 选哪个求解器及内部模拟核，生成哪些模块调用 | `QODESolver`、`linear_qode`、`carleman_qode` |
-| 实现绑定与执行 | 用门表、QRAM 或算术实现开放槽，提供运行期数据 | RIR `Program`、`Binding`、内存快照 |
+| 数学输入与近似 | PDE、离散化、截断阶、初态范数、物理输出窗口 | {obj}`PolynomialPDE <pyqecclang.applications.qham.pde.PolynomialPDE>`、{obj}`QHAMPlan <pyqecclang.applications.qham.linearization.QHAMPlan>`、{obj}`PolynomialODE <pyqecclang.algorithms.qnlss.carleman.PolynomialODE>` |
+| 量子算法生成 | 选哪个求解器及内部模拟核，生成哪些模块调用 | {obj}`QODESolver <pyqecclang.algorithms.qode.ode.QODESolver>`、{obj}`linear_qode <pyqecclang.algorithms.qode.ode.linear_qode>`、{obj}`carleman_qode <pyqecclang.algorithms.qnlss.carleman.carleman_qode>` |
+| 实现绑定与执行 | 用门表、QRAM 或算术实现开放槽，提供运行期数据 | RIR {obj}`Program <pyqecclang.infrastructure.ir.Program>`、{obj}`Binding <pyqecclang.infrastructure.linking.Binding>`、内存快照 |
 
-替换求解器通常需要重新生成程序；给既有槽换一个兼容实现可以使用 `bind`。
+替换求解器通常需要重新生成程序；给既有槽换一个兼容实现可以使用 {obj}`bind <pyqecclang.infrastructure.linking.bind>`。
 改变公开位宽或已用于组装的 alpha 不能只替换标签。数学条件相同与接口兼容
 也是两件事：一个生成元能提供 BE，并不意味着它满足所有 QODE 方法的条件。
 
@@ -29,16 +29,16 @@
 
 按对象的生命周期理解这段代码：
 
-1. `Field` 与 `Known` 构造未知场及按名字引用的强迫项。表达式描述待求场，
+1. {obj}`Field <pyqecclang.applications.qham.pde.Field>` 与 {obj}`Known <pyqecclang.applications.qham.pde.Known>` 构造未知场及按名字引用的强迫项。表达式描述待求场，
    不是把一个普通数值函数直接作用到量子振幅上。
-2. `QHAMPlan(pde, order=2)` 确定有限 HAM 截断与量子适配线性化规则。
+2. {obj}`QHAMPlan(pde, order=2) <pyqecclang.applications.qham.linearization.QHAMPlan>` 确定有限 HAM 截断与量子适配线性化规则。
    计划可保存、恢复和按行查询，不会立即物化完整提升矩阵。
-3. `Grid` 与 `Discretization` 决定周期网格、导数和已知数据。边界条件属于
+3. {obj}`Grid <pyqecclang.applications.qham.reference.Grid>` 与 {obj}`Discretization <pyqecclang.applications.qham.reference.Discretization>` 决定周期网格、导数和已知数据。边界条件属于
    这一层，不由求解器猜测。
-4. `structured_fd_bindings` 用移位、局部系数和多线性收缩构造端口 BE；
-   `qham_input_model` 再组装提升生成元和初态。提升初态各张量块的相对范数
+4. {obj}`structured_fd_bindings <pyqecclang.applications.qham.stencils.structured_fd_bindings>` 用移位、局部系数和多线性收缩构造端口 BE；
+   {obj}`qham_input_model <pyqecclang.algorithms.input_model.qham.qham_input_model>` 再组装提升生成元和初态。提升初态各张量块的相对范数
    必须保留，不能逐块独立归一化。
-5. `linear_qode` 选择线性演化方法；`partial(taylor_hamiltonian, degree=1)`
+5. {obj}`linear_qode <pyqecclang.algorithms.qode.ode.linear_qode>` 选择线性演化方法；{obj}`partial(taylor_hamiltonian, degree=1) <pyqecclang.algorithms.common.hamiltonian.taylor_hamiltonian>`
    显式指定本例的近似模拟核。`solve` 生成带信号和恢复信息的态 oracle，
    并不直接返回一个已认证收敛的经典 PDE 解。
 6. `dissipative_shift` 显式改变生成元以满足另一种方法的前提。相应增长
@@ -86,7 +86,7 @@ LCHS 的配置包含求积计划与 Hermitian 分支的模拟核。示例中的 
 :caption: 不改调用方，只改变角数据库和初态制备的绑定。
 ```
 
-`DiagonalAngles` 存储的是旋转角字，`diagonal_block_encoding` 把它解释为
+`DiagonalAngles` 存储的是旋转角字，{obj}`diagonal_block_encoding <pyqecclang.algorithms.input_model.oracles.diagonal_block_encoding>` 把它解释为
 矩阵系数。`Initial` 是独立的初态制备槽。两个 `write` 调用接收同一个开放
 `state`，但分别选择门表与 QRAM 实现；后者还必须提供 `memory` 中的两个表。
 

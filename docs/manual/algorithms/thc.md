@@ -53,7 +53,7 @@ thc_encoding(thc)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/lowrank.py`
+- 源码：`src/pyqecclang/algorithms/input_model/lowrank.py`
 - 同模块算法：[双因子分解块编码](double-factorization.md)
 - API 参考：[化学低秩分解块编码](../../api/algorithms/input_model/lowrank.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

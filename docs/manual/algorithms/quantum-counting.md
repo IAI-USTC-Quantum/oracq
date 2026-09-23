@@ -44,9 +44,9 @@ operation = amplitude_estimation(uniform_state(n), marked, precision=p)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/estimation.py`（电路）、`src/pyqecclang/applications/gallery.py`（展示条目）
+- 源码：`src/pyqecclang/algorithms/common/estimation.py`（电路）、`src/pyqecclang/applications/gallery.py`（展示条目）
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
-- 同组页面：[振幅估计](qae.md)、[Grover 搜索](grover.md)
+- 同组页面：[振幅估计](qae.md)、[Grover 搜索](grover.md)、[量子相位估计](qpe.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

@@ -51,8 +51,8 @@ real_symmetric_sparse_encoding(access, fmt, amax, *, diagonal_nonnegative=False,
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/sparse.py`
-- 同族页面：[块编码组合代数](block-encoding-algebra.md)、[CKS Chebyshev 求解器](cks.md)、[Costa 行走求解器](costa-walk.md)
+- 源码：`src/pyqecclang/algorithms/input_model/sparse.py`
+- 同族页面：[块编码组合代数](block-encoding-algebra.md)、[CKS Chebyshev 求解器](cks.md)、[Costa 行走求解器](costa-walk.md)、[稀疏矩阵访问](sparse-access.md)、[Select-Swap QROM](select-swap.md)、[VTAA-CKS 变时求解器](vtaa-cks.md)
 - API 参考：[稀疏访问适配](../../api/algorithms/input_model/sparse.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

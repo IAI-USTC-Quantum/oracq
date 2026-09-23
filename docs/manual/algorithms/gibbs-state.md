@@ -57,7 +57,7 @@ gibbs_purification(hamiltonian, beta, *, error=0.01)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/density.py`
+- 源码：`src/pyqecclang/algorithms/input_model/density.py`
 - 同模块算法：[纯化访问](purification.md)
 - API 参考：[密度矩阵输入模型与 Gibbs 态](../../api/algorithms/input_model/density.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

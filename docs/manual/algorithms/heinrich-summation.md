@@ -48,7 +48,8 @@ quantum_sum(database, *, precision=4, name=None)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/integration.py`
+- 源码：`src/pyqecclang/algorithms/common/integration.py`
+- 同族页面：[Heinrich 量子积分](heinrich-integration.md)
 - API 参考：[量子求和与积分](../../api/algorithms/common/integration.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

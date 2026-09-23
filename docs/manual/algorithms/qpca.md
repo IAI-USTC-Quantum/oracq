@@ -56,7 +56,7 @@ qpca(preparation, *, precision, step_time, system=None, swap_width=None, name=No
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qpca.py`
+- 源码：`src/pyqecclang/algorithms/qml/qpca.py`
 - 同模块页面：[密度矩阵指数化](density-matrix-exponentiation.md)
 - API 参考：[QPCA 量子主成分分析](../../api/algorithms/qml/qpca.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

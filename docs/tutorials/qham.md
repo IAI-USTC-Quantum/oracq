@@ -20,9 +20,9 @@ assert any(port.arity == 2 for port in pde.ports)
 8 3 2
 ```
 
-打印结果显示：PDE 分解成一个线性端口 `L` 和一个二阶多线性端口 `B_1`；计划只记录 `8` 个张量块、最大秩 `3` 和截断阶 `2`，没有展开任何块，也没有构造完整矩阵。PDE 的非线性项被表示为多线性端口。选定网格和边界后，`structured_fd_bindings` 可以通过移位、系数乘子和同点收缩生成这些端口的 BE；也可以先声明开放端口，等待数据访问实现。
+打印结果显示：PDE 分解成一个线性端口 `L` 和一个二阶多线性端口 `B_1`；计划只记录 `8` 个张量块、最大秩 `3` 和截断阶 `2`，没有展开任何块，也没有构造完整矩阵。PDE 的非线性项被表示为多线性端口。选定网格和边界后，{obj}`structured_fd_bindings <pyqecclang.applications.qham.stencils.structured_fd_bindings>` 可以通过移位、系数乘子和同点收缩生成这些端口的 BE；也可以先声明开放端口，等待数据访问实现。
 
-量子组装入口 `pyqecclang.algorithms.input_model.qham.qham_input_model` 生成 QODE 所需的提升算子和初态。此后可以替换线性求解方法，并选择表示 HAM 各阶之和的物理输出通道。
+量子组装入口 {obj}`qham_input_model <pyqecclang.algorithms.input_model.qham.qham_input_model>` 生成 QODE 所需的提升算子和初态。此后可以替换线性求解方法，并选择表示 HAM 各阶之和的物理输出通道。
 
 运行完整示例：
 
@@ -35,3 +35,10 @@ uv run python -m pyqecclang.applications.qham --example burgers --order 2 --eta=
 
 完整脚本及其逐步解释见[科学计算工作流](scientific-workflows.md)，其中也对照了
 Carleman、LCHS 和 CBMD 的输入、求解器选择与绑定边界。
+
+## 相关页面
+
+- 手册：[一般 QHAM 自动生成](../manual/qham.md)
+- 规范：[QHAM 数学推导](../reference/qham-derivation.md)
+- 算法页：[QHAM](../manual/algorithms/qham.md)、[QODE 问题对象与协议](../manual/algorithms/qode-problem.md)
+- API 参考：[QHAM](../api/algorithms/input_model/qham.rst)、[PDE 模型与适配](../api/applications/qham/pde.rst)、[QHAM 有限闭包](../api/applications/qham/linearization.rst)、[结构化差分端口](../api/applications/qham/stencils.rst)

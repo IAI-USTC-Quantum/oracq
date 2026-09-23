@@ -47,7 +47,7 @@ pauli_measurement(preparation, word)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/variational.py`
+- 源码：`src/pyqecclang/algorithms/optimization/variational.py`
 - 同模块页面：[MaxCut QAOA](qaoa-maxcut.md)、[硬件高效拟设](variational-ansatz.md)
 - API 参考：[变分算法电路](../../api/algorithms/optimization/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

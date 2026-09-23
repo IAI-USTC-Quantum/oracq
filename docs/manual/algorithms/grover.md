@@ -50,7 +50,8 @@ grover(phase_oracle, width, *, iterations=1, preparation=None)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/search.py`
+- 源码：`src/pyqecclang/algorithms/common/search.py`
+- 教程：[搜索一个元素，并估计成功概率](../../tutorials/search-and-estimation.md)
 - API 参考：[搜索与振幅放大](../../api/algorithms/common/search.rst)
 - 同组页面：[振幅放大](amplitude-amplification.md)、[振幅估计](qae.md)、[量子计数](quantum-counting.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

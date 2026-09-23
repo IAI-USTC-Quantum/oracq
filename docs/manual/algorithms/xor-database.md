@@ -56,8 +56,9 @@ gate 版对每个非零表字在地址控制下逐位施加 X，门数随表规�
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/oracles.py`
-- 同组页面：[QROM 查找](qrom-lookup.md)、[Select-Swap QROM](select-swap.md)、[稀疏访问](sparse-access.md)、[态制备 Oracle](state-preparation.md)
+- 源码：`src/pyqecclang/algorithms/input_model/oracles.py`
+- 教程：[给算法替换 oracle](../../tutorials/oracle-binding.md)
+- 同组页面：[QROM 查找](qrom-lookup.md)、[Select-Swap QROM](select-swap.md)、[稀疏访问](sparse-access.md)、[态制备 Oracle](state-preparation.md)、[PREPARE–SELECT 分解](prepare-select.md)
 - API 参考：[Oracle 声明与实现](../../api/algorithms/input_model/oracles.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

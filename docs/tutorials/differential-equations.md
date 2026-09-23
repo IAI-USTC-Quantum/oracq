@@ -1,6 +1,6 @@
 # 为同一个线性问题替换 QODE 方法
 
-本例考虑 `u'=-u`。我们用 `-I` 的 BE 表示生成元，用一个 X 门制备初态，再分别选择 LCHS 和 Schrödingerization。
+本例考虑 `u'=-u`。我们用 `-I` 的 BE 表示生成元，用一个 X 门制备初态，再分别选择 [LCHS](../manual/algorithms/lchs.md) 和 [Schrödingerization](../manual/algorithms/schrodingerization.md)。
 
 ```{testcode}
 from pyqecclang import Bits, Builder, QODEProblem, identity, scale
@@ -36,7 +36,7 @@ assert first.width == second.width == 1
 
 ## 从 PDE 开始
 
-线性 PDE 先经过空间离散化，形成 `DiscretePDE(generator, initial)`，再交给 `make_qpde(qode)`。非线性多项式 PDE 可以形成 `PolynomialODE`，由 Carleman 生成提升系统，再调用同一三参数线性求解协议。
+线性 PDE 先经过空间离散化，形成 {obj}`DiscretePDE(generator, initial) <pyqecclang.algorithms.qpde.pde.DiscretePDE>`，再交给 {obj}`make_qpde(qode) <pyqecclang.algorithms.qpde.pde.make_qpde>`。非线性多项式 PDE 可以形成 {obj}`PolynomialODE <pyqecclang.algorithms.qnlss.carleman.PolynomialODE>`，由 [Carleman](../manual/algorithms/carleman.md) 生成提升系统，再调用同一三参数线性求解协议。
 
 完整的热方程、Burgers 方程与多种 given-oracle 示例位于：
 
@@ -44,6 +44,9 @@ assert first.width == second.width == 1
 uv run python examples/ode_input_models.py
 ```
 
-各方法的符号、尺度和适用前提见[微分方程完整文档](../manual/differential-equations.md)。
+## 相关页面
 
-从开放系数、分批绑定到不同数据路径的完整讲解见[科学计算工作流](scientific-workflows.md)。
+- 手册：[微分方程完整文档](../manual/differential-equations.md)（各方法的符号、尺度和适用前提）
+- 算法页：[QODE 问题对象与协议](../manual/algorithms/qode-problem.md)、[LCHS](../manual/algorithms/lchs.md)、[Schrödingerization](../manual/algorithms/schrodingerization.md)、[Carleman 线性化](../manual/algorithms/carleman.md)
+- API 参考：[QODE 组装接口](../api/algorithms/qode/ode.rst)、[PDE 模型与适配](../api/algorithms/qpde/pde.rst)、[Carleman 线性化](../api/algorithms/qnlss/carleman.rst)
+- 继续教程：[科学计算工作流](scientific-workflows.md)（从开放系数、分批绑定到不同数据路径的完整讲解）

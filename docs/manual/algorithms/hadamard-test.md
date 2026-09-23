@@ -46,7 +46,7 @@ hadamard_test(unitary, preparation=None, *, component="real")
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/estimation.py`
+- 源码：`src/pyqecclang/algorithms/common/estimation.py`
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[SWAP 检验](swap-test.md)（两态重叠的对应读出）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

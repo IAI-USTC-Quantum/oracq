@@ -43,7 +43,7 @@ deutsch_jozsa(function: XorDatabase)
 ## 相关链接
 
 - 同模块：[Bernstein–Vazirani 秘密串读出](bernstein-vazirani.md)、[Simon 采样](simon.md)
-- 源码：`src/pyqecclang/algorithms/oracle_algorithms.py`
+- 源码：`src/pyqecclang/algorithms/basics/oracle_algorithms.py`
 - API 参考：[Oracle 查询算法](../../api/algorithms/basics/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

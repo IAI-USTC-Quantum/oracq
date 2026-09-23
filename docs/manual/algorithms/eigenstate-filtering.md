@@ -55,7 +55,7 @@ $f$ 在 $x = 0$ 饱和但 $|f(\pm 1)| = 1/T_d(r) < 1$ 端点未饱和，需借�
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qsvt.py`
+- 源码：`src/pyqecclang/algorithms/common/qsvt.py`
 - API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

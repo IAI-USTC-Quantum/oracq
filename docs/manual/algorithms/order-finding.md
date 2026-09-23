@@ -46,7 +46,7 @@ factors_from_phase(value, precision, multiplier, modulus)
 ## 相关链接
 
 - 同模块：[模乘置换](modular-multiplication.md)
-- 源码：`src/pyqecclang/algorithms/number_theory.py`
+- 源码：`src/pyqecclang/algorithms/basics/number_theory.py`
 - API 参考：[模乘与求阶](../../api/algorithms/basics/number_theory.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

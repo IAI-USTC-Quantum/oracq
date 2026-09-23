@@ -53,9 +53,9 @@ BE 归一化不经属性传播；谱变量 $x$ 相对输入归一化 $\alpha$ �
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/transforms.py`
+- 源码：`src/pyqecclang/algorithms/common/transforms.py`
 - API 参考：[矩阵变换序列](../../api/algorithms/common/transforms.rst)
-- 同族页面：[量子化行走](qubitization-walk.md)、[Oblivious 振幅放大](oblivious-amplification.md)、[QSP 相位合成](qsp-phase-synthesis.md)
+- 同族页面：[量子化行走](qubitization-walk.md)、[Oblivious 振幅放大](oblivious-amplification.md)、[QSP 相位合成](qsp-phase-synthesis.md)、[定点搜索](fixed-point-search.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

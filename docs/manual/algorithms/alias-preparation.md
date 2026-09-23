@@ -47,7 +47,7 @@ alias 三绑定一致性（gate / QRAM 当前缺独立场景）：统一的参�
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/prepare_select.py`
+- 源码：`src/pyqecclang/algorithms/common/prepare_select.py`
 - 同组页面：[PREPARE–SELECT 分解](prepare-select.md)、[态制备 Oracle](state-preparation.md)、[XOR 数据库](xor-database.md)
 - API 参考：[PREPARE-SELECT 分解](../../api/algorithms/common/prepare_select.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

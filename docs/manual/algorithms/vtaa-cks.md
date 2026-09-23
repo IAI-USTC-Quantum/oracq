@@ -53,7 +53,7 @@ tunable_rounds(stage_amplitudes, thresholds=None)  # Low–Su 式 (52)–(53) �
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/vtaa_cks.py`
+- 源码：`src/pyqecclang/algorithms/qlss/vtaa_cks.py`
 - 论文：[CKS arXiv:1511.02306](https://arxiv.org/abs/1511.02306) §5、[Ambainis arXiv:1010.4458](https://arxiv.org/abs/1010.4458)、[Low–Su arXiv:2410.18178](https://arxiv.org/abs/2410.18178)
 - 同族页面：[CKS Chebyshev 求解器](cks.md)、[Costa 行走求解器](costa-walk.md)、[稀疏矩阵块编码](sparse-block-encoding.md)、[定点搜索](fixed-point-search.md)
 - API 参考：[VTAA-CKS 变时线性系统求解器](../../api/algorithms/qlss/vtaa_cks.rst)

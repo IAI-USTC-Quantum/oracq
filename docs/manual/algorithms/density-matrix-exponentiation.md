@@ -51,7 +51,7 @@ density_matrix_exponentiation(preparation, *, time, copies, swap_width=None, nam
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qpca.py`
+- 源码：`src/pyqecclang/algorithms/qml/qpca.py`
 - 同模块页面：[QPCA 主成分分析](qpca.md)
 - API 参考：[QPCA 量子主成分分析](../../api/algorithms/qml/qpca.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

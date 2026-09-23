@@ -57,9 +57,10 @@ amplitude_from_phase(value, precision)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/estimation.py`
+- 源码：`src/pyqecclang/algorithms/common/estimation.py`
+- 教程：[搜索一个元素，并估计成功概率](../../tutorials/search-and-estimation.md)
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
-- 同组页面：[量子相位估计](qpe.md)、[量子计数](quantum-counting.md)、[Grover 搜索](grover.md)、[振幅放大](amplitude-amplification.md)
+- 同组页面：[量子相位估计](qpe.md)、[量子计数](quantum-counting.md)、[Grover 搜索](grover.md)、[振幅放大](amplitude-amplification.md)、[Hadamard 检验](hadamard-test.md)、[SWAP 检验](swap-test.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

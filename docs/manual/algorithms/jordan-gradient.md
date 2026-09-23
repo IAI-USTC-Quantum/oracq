@@ -55,7 +55,7 @@ oracle 的三个构造入口：`abstract_phase_oracle(name, width, *, phase_scal
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/gradient.py`
+- 源码：`src/pyqecclang/algorithms/optimization/gradient.py`
 - API 参考：[量子梯度估计](../../api/algorithms/optimization/gradient.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

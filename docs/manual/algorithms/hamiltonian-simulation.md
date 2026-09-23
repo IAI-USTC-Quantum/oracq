@@ -48,7 +48,8 @@ Trotter 阶数误差率扫描缺失（阶段 V2 收敛性扫描框架，validati
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/hamiltonian.py`
+- 源码：`src/pyqecclang/algorithms/common/hamiltonian.py`
+- 教程：[提供自己的 Hamiltonian 分解](../../tutorials/hamiltonian.md)
 - 同族页面：[Trotter 乘积公式模拟](trotter.md)、[截断 Taylor 块编码](taylor-block-encoding.md)
 - API 参考：[Hamiltonian 演化](../../api/algorithms/common/hamiltonian.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

@@ -44,7 +44,8 @@ affine_boolean_oracle(width, secret, *, bias=0)
 ## 相关链接
 
 - 同模块：[Deutsch–Jozsa 查询](deutsch-jozsa.md)、[Simon 采样](simon.md)
-- 源码：`src/pyqecclang/algorithms/oracle_algorithms.py`
+- 源码：`src/pyqecclang/algorithms/basics/oracle_algorithms.py`
+- 教程：[给算法替换 oracle](../../tutorials/oracle-binding.md)
 - API 参考：[Oracle 查询算法](../../api/algorithms/basics/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

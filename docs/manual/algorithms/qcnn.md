@@ -49,3 +49,10 @@ qcnn_sampled_layer(x, kernel, spec, *, samples, eta, seed)  # 采样驱动（Eq.
 - 幅度估计的寄存器编码（AE + 中值提纯）未落成线路——当前 Y 恢复走量化镜像（与电路语义一致），条件旋转与幅度放大按分布建模。落成后 `qcnn_sampled_layer` 的镜像部分应替换为寄存器读出。
 - 反向传播（论文 §6）未实现。
 - 行数/列数要求 2 的幂（小规模验证约束；一般形状经填充可达）。
+
+## 相关链接
+
+- 源码：`src/pyqecclang/algorithms/qml/qcnn.py`（整体流程）与 `src/pyqecclang/algorithms/qml/qcnn_layer.py`（量子构件）
+- API 参考：[量子卷积神经网络](../../api/algorithms/qml/qcnn.rst)、[量子卷积神经网络的量子构件](../../api/algorithms/qml/qcnn_layer.rst)
+- 使用手册：[QCNN 逐步指南](../qcnn-walkthrough.md)
+- 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

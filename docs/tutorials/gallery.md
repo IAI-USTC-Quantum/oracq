@@ -56,7 +56,7 @@ vqe_pauli_measurement
 
 打印出的 22 个名字就是展示库当前覆盖的全部案例，横跨搜索、估计、算术、行走、纠错和变分类；增删案例时这行输出要与 `len(cases) == 22` 断言一起同步更新。
 
-需要添加应用例子时，可以在自己的脚本里调用对应算法文件。若要扩展公开展示目录，则为 `GalleryCase` 提供操作和具体读出说明，并增加独立的数学见证。
+需要添加应用例子时，可以在自己的脚本里调用对应算法文件。若要扩展公开展示目录，则为 {obj}`GalleryCase <pyqecclang.applications.gallery.GalleryCase>` 提供操作和具体读出说明，并增加独立的数学见证。
 
 ## 真实后端对拍
 
@@ -65,3 +65,9 @@ PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 ```
 
 脚本逐项比较参考执行器、PySparQ 和 OriginIR 的复幅度，超出容差立即退出。它验证同一线路在各后端中的语义一致；某个参数是否适合真实问题，仍需要应用层分析。
+
+## 相关页面
+
+- 手册：[算法手册](../manual/algorithms/index.md)（展示库覆盖的多数算法都有词条页）、[后端与导出](../manual/backends.md)
+- API 参考：[算法展示目录](../api/applications/gallery.rst)
+- 继续教程：[搜索一个元素，并估计成功概率](search-and-estimation.md)、[提供自己的 Hamiltonian 分解](hamiltonian.md)

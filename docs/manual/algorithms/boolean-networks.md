@@ -49,7 +49,7 @@ arithmetic_native_registry(program, *, cache_dir="out/native-cache")
 ## 相关链接
 
 - 同模块：[可逆定点算术](fixed-point-arithmetic.md)
-- 源码：`src/pyqecclang/algorithms/arithmetic.py`
+- 源码：`src/pyqecclang/algorithms/common/arithmetic.py`
 - API 参考：[可逆算术](../../api/algorithms/common/arithmetic.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

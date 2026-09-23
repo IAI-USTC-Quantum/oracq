@@ -16,6 +16,20 @@ MyST 的 `testcode` 块会由 Sphinx doctest builder 执行。优先用断言检
 uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
 ```
 
+## 交叉链接
+
+正文首次提到公开 API 对象时，用 MyST 的 `{obj}` 角色链接到 API 参考，目标写全限定路径（与 `docs/api/toplevel.rst` 的 `:obj:` 一致），例如 `` {obj}`Builder <pyqecclang.infrastructure.builder.Builder>` ``。不要用根包短路径（如 `pyqecclang.Builder`）；同一对象只链第一次出现；代码块内一律不加链接。
+
+页面之间的链接沿用相对 markdown 链接：教程和手册用 `[量子线性系统](../../api/algorithms/qlss/qlss.rst)` 这样的真实路径指向 API 页，用 `[核心概念](concepts.md)` 指向手册页，可用 `#标题锚点` 深链（`myst_heading_anchors = 4`）。算法页「相关链接」中的同族/同组链接必须对称：A 链接 B，B 也要链接 A。有教程演示该算法时，「相关链接」加一行教程回链，格式如下：
+
+```markdown
+- 教程：[为同一个线性问题替换 QODE 方法](../../tutorials/differential-equations.md)
+```
+
+教程页尾固定一个「相关页面」小节，列出相关手册章节、参考页、算法页与 API 页。
+
+所有 `{obj}` 目标与相对链接由 `tests/docs/test_xrefs.py` 校验（目标可导入/文件存在），构建配置中的 `suppress_warnings = ["ref.python"]` 使失效的 py-domain 引用不会在 `-W` 构建中报错，必须依赖该测试兜底。
+
 ## API 页面
 
 公开模块按分类列在 `docs/api/`。新增模块后运行：

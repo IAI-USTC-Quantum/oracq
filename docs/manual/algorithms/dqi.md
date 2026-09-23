@@ -55,7 +55,7 @@ dicke_state(m, weight)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/dqi.py`
+- 源码：`src/pyqecclang/algorithms/optimization/dqi.py`
 - API 参考：[DQI 解码量子干涉优化](../../api/algorithms/optimization/dqi.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

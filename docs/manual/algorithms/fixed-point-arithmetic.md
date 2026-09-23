@@ -58,7 +58,7 @@ fixed_arithmetic(kind, fmt=DEFAULT_FIXED_FORMAT)
 
 ## 相关链接
 
-- 同模块：[布尔网络](boolean-networks.md)
-- 源码：`src/pyqecclang/algorithms/arithmetic.py`
+- 同模块：[布尔网络](boolean-networks.md)、[Fourier 加法](fourier-addition.md)
+- 源码：`src/pyqecclang/algorithms/common/arithmetic.py`
 - API 参考：[可逆算术](../../api/algorithms/common/arithmetic.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

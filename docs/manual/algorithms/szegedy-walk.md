@@ -50,8 +50,8 @@ szegedy_setup(adjacency, *, name=None)
 
 ## 相关链接
 
-- 同模块：[图邻接 oracle](adjacency-oracle.md)、[MNRS 量子行走搜索](mnrs-search.md)
-- 源码：`src/pyqecclang/algorithms/graph_walks.py`
+- 同模块：[图邻接 oracle](adjacency-oracle.md)、[MNRS 量子行走搜索](mnrs-search.md)、[周期格点硬币行走](coined-cycle-walk.md)
+- 源码：`src/pyqecclang/algorithms/input_model/graph_walks.py`
 - API 参考：[图行走搜索](../../api/algorithms/input_model/graph_walks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

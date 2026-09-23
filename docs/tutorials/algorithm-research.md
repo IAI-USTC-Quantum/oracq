@@ -59,3 +59,11 @@ PYTHONPATH=src /path/to/backend/python examples/research_workflow.py \
 编译后的 Roe 公式、稀疏访问和两种 QLSS 生成器。该脚本提供开放/闭合成本、
 数据与程序指纹；数值验证继续使用 `tests/verification/verify_qham_qfvm.py`
 和 `verify_mathfunc.py`，分别报告实现误差与方法误差。
+
+## 相关页面
+
+- 手册：[资源估计](../manual/resource-estimation.md)（成本台账口径）、[契约](../manual/contracts.md)
+- 规范：[开放 IR](../reference/open-ir.md)（开放声明与分批绑定）
+- 算法页：[XOR 数据库视图](../manual/algorithms/xor-database.md)（门表/QRAM 两种实现的视图基础）
+- API 参考：[Oracle 实现比较](../api/applications/oracle_study.rst)、[资源估计](../api/infrastructure/estimate.rst)、[绑定与能力分析](../api/infrastructure/linking.rst)
+- 继续教程：[科学计算工作流](scientific-workflows.md)（QHAM/Carleman/LCHS/CBMD 的完整链路）

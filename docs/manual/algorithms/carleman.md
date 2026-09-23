@@ -92,7 +92,8 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/carleman.py`
+- 源码：`src/pyqecclang/algorithms/qnlss/carleman.py`
+- 教程：[为同一个线性问题替换 QODE 方法](../../tutorials/differential-equations.md)
 - API 参考：[Carleman 线性化](../../api/algorithms/qnlss/carleman.rst)
-- 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md) · [Schrödingerization](schrodingerization.md)（典型组合 Carleman → 线性求解器）
+- 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md) · [Schrödingerization](schrodingerization.md)（典型组合 Carleman → 线性求解器） · [CBMD](cbmd.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

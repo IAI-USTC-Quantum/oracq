@@ -56,7 +56,8 @@ qsvt_matrix_inversion(a, kappa, *, error=0.05)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qsvt.py`
+- 源码：`src/pyqecclang/algorithms/common/qsvt.py`
+- 同族页面：[特征态过滤](eigenstate-filtering.md)、[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 哈密顿模拟](qsvt-hamiltonian-simulation.md)、[块编码组合代数](block-encoding-algebra.md)（BE 组合入口）
 - API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

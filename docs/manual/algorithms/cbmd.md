@@ -87,7 +87,7 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/cbmd.py`
+- 源码：`src/pyqecclang/algorithms/qode/cbmd.py`
 - API 参考：[CBMD](../../api/algorithms/qode/cbmd.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md)（同一输入面与组装骨架）· [Carleman 线性化](carleman.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

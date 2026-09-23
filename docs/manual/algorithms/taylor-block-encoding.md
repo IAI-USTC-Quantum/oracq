@@ -51,7 +51,7 @@ taylor_hamiltonian(hamiltonian, time, *, degree=2)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/hamiltonian.py`
+- 源码：`src/pyqecclang/algorithms/common/hamiltonian.py`
 - 同族页面：[哈密顿量模拟协议](hamiltonian-simulation.md)、[Trotter 乘积公式模拟](trotter.md)、[块编码组合代数](block-encoding-algebra.md)
 - API 参考：[Hamiltonian 演化](../../api/algorithms/common/hamiltonian.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

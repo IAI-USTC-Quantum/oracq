@@ -47,6 +47,14 @@ assert abs(probability - 1) < 1e-12
 
 ## 换成 QRAM
 
-同一开放槽可以绑定 `qram_database(3,1)`。使用 `Binding(..., {"table": "truth"})` 将其资源映射到入口，运行时再提供 `truth` 表。
+同一开放槽可以绑定 {obj}`qram_database(3,1) <pyqecclang.algorithms.input_model.oracles.qram_database>`。使用 {obj}`Binding(..., {"table": "truth"}) <pyqecclang.infrastructure.linking.Binding>` 将其资源映射到入口，运行时再提供 `truth` 表。
 
-门实现和 QRAM 实现必须兑现同一 XOR 语义。`bind` 检查接口与能力，函数的数学形式仍由应用负责。
+门实现和 QRAM 实现必须兑现同一 XOR 语义。{obj}`bind <pyqecclang.infrastructure.linking.bind>` 检查接口与能力，函数的数学形式仍由应用负责。
+
+## 相关页面
+
+- 手册：[输入与算子](../manual/operators.md)（oracle 范式与视图）
+- 规范：[开放 IR](../reference/open-ir.md)（开放声明、分批绑定与资源捕获）
+- 算法页：[Bernstein–Vazirani](../manual/algorithms/bernstein-vazirani.md)、[XOR 数据库视图](../manual/algorithms/xor-database.md)
+- API 参考：[Oracle 声明与实现](../api/algorithms/input_model/oracles.rst)、[绑定与能力分析](../api/infrastructure/linking.rst)
+- 继续教程：[从论文访问模型到实现比较](algorithm-research.md)

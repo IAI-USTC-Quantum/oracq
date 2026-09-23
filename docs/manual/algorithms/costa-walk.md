@@ -48,8 +48,8 @@ make_costa_qlss(config=None)                       # → QLSSProtocol（input_mo
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qlss.py`
-- 同族页面：[CKS Chebyshev 求解器](cks.md)、[稀疏矩阵块编码](sparse-block-encoding.md)
+- 源码：`src/pyqecclang/algorithms/qlss/qlss.py`
+- 同族页面：[CKS Chebyshev 求解器](cks.md)、[稀疏矩阵块编码](sparse-block-encoding.md)、[VTAA-CKS 变时求解器](vtaa-cks.md)
 - API 参考：[量子线性系统](../../api/algorithms/qlss/qlss.rst)
 - 输入模型审查：[QFVM 输入模型审查](../../reference/qfvm-input-models.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

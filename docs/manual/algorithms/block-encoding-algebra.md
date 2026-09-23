@@ -57,8 +57,8 @@ reflect_zero(builder, register, *, positive=False)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/block_encoding.py`（组合子）与 `src/pyqecclang/algorithms/operators.py`（`BlockEncoding` 类型与二元基元）
-- 同族页面：[稀疏矩阵块编码](sparse-block-encoding.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
+- 源码：`src/pyqecclang/algorithms/input_model/block_encoding.py`（组合子）与 `src/pyqecclang/algorithms/input_model/operators.py`（`BlockEncoding` 类型与二元基元）
+- 同族页面：[稀疏矩阵块编码](sparse-block-encoding.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)、[截断 Taylor 块编码](taylor-block-encoding.md)
 - API 参考：[Block encoding 组合](../../api/algorithms/input_model/block_encoding.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

@@ -50,7 +50,7 @@ t_count 在 λ = 4 处取谷（测试 `test_cost_model_matches_formulas_and_trad
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/data_loading.py`
+- 源码：`src/pyqecclang/algorithms/input_model/data_loading.py`
 - 同组页面：[QROM 查找](qrom-lookup.md)、[XOR 数据库](xor-database.md)
 - API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/input_model/data_loading.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

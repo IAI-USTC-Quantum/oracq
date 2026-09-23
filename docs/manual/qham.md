@@ -1,6 +1,6 @@
 # 一般 QHAM 自动生成：PDE → HAM → QCL → QODE
 
-QHAM 生成器将规则化 PDE、有限阶 HAM 推导和量子适配线性化连接到 QODE 输入。先阅读[数学推导](../reference/qham-derivation.md)，再按本章提供网格、系数与初态。构造依据是 [QHAM 论文](https://arxiv.org/html/2411.06759v2)。
+QHAM 生成器将规则化 PDE、有限阶 HAM 推导和量子适配线性化连接到 QODE 输入。先阅读[数学推导](../reference/qham-derivation.md)，再按本章提供网格、系数与初态；最小可运行示例见[教程：从 PDE 表达式生成 QHAM 输入](../tutorials/qham.md)。构造依据是 [QHAM 论文](https://arxiv.org/html/2411.06759v2)。
 
 这里的“二次线性化”是 secondary linearization，即对 HAM 变形方程再做一次量子适配线性化。程序同时支持规则内的二次、三次及更高有限次数，不先把高次非线性截成二次项。
 
