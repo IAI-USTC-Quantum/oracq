@@ -21,6 +21,8 @@ operation = b.finish()
 program = operation.program()
 # 用无依赖的参考执行器模拟，返回稀疏振幅。
 state = simulate(program)
+# 打印执行结果，下面的输出块会逐字复现这行打印。
+print(state.amplitudes)
 
 # 振幅键是入口寄存器按声明顺序拼接出的整数元组；(0,) 即 00，(3,) 即 11。
 assert set(state.amplitudes) == {(0,), (3,)}
@@ -29,7 +31,11 @@ assert abs(state.amplitudes[(0,)] - 2**-0.5) < 1e-12
 assert abs(state.amplitudes[(3,)] - 2**-0.5) < 1e-12
 ```
 
-结果用入口寄存器的整数值组成元组作为键。`0` 表示 `00`，`3` 表示 `11`；它们的幅度都是 `1/√2`。
+```{testoutput}
+{(0,): (0.7071067811865475+0j), (3,): (0.7071067811865475+0j)}
+```
+
+打印出的字典就是执行结果：键是入口寄存器的整数值组成的元组，`0` 表示 `00`，`3` 表示 `11`；`0.7071067811865475` 是 `1/√2` 的双精度表示。
 
 ## 保存和导出
 
@@ -38,6 +44,8 @@ from pyqecclang import dumps, loads, export_originir
 
 # 序列化为规范 JSON：按键排序、两空格缩进，模块与指令结构原样保留。
 text = dumps(program)
+# 打印全文；输出块里用 ... 省略了重复的中段。
+print(text)
 # 反序列化回 Program 对象；解码是严格的，并会重新跑语义校验。
 restored = loads(text)
 # 往返应逐字节等价：寄存器名、视图和模块结构都不丢失。
@@ -46,8 +54,55 @@ assert restored == program
 artifact = export_originir(restored)
 # 文本里应出现 DEF 模块定义：导出不会内联调用、不会展开成平坦门列表。
 assert "DEF" in artifact.text
+# 打印 OriginIR-ext 文本；文本自带结尾换行，故 end=""。
+print(artifact.text, end="")
 ```
 
-JSON 保存的是寄存器和模块结构。OriginIR-ext 输出包含模块定义；导出不会先把所有调用复制成一个平坦门列表。
+```{testoutput}
+{
+  "entry": "bell_pair",
+  "modules": [
+    {
+      "attributes": [],
+      "body": [
+        {
+          "angle": null,
+          "op": "h",
+          "operands": [
+            {
+              "parts": [
+                {
+                  "register": "pair",
+                  "start": 0,
+                  ...
+                }
+              ],
+              ...
+            }
+          ],
+          "tag": "Primitive",
+          "value": null
+        },
+        ...
+      ],
+      "locals": [],
+      "name": "bell_pair",
+      ...
+    }
+  ],
+  "tag": "Program",
+  "version": "0.3"
+}
+
+QINIT 2
+CREG 0
+DEF m_bell_pair_d029b74cecc4332d414ece8a(v_pair[2])
+H v_pair[0]
+CNOT v_pair[0], v_pair[1]
+ENDDEF
+m_bell_pair_d029b74cecc4332d414ece8a(q[0], q[1])
+```
+
+前半段是规范 JSON 的骨架：`Program` 持有模块表，模块的 `body` 里是指令，指令操作数用 `register`、`start` 等字段保留寄存器名与视图；`...` 之外的内容与实际打印逐字一致。后半段是 OriginIR-ext 文本：`QINIT 2` 声明两位量子寄存器，`CREG 0` 表示没有经典寄存器；`DEF m_bell_pair_<指纹>` 定义模块，后缀是由模块内容确定的指纹，同一模块只会导出一份定义；最后一行把入口量子位 `q[0], q[1]` 绑定到模块形参。导出不会先把所有调用复制成一个平坦门列表。
 
 `simulate` 适合这种小规模检查。需要实际后端时，仍使用同一个 `Program`，改为调用 `run_pysparq` 或 `run_originir`。

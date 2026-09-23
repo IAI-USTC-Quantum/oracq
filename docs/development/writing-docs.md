@@ -10,7 +10,7 @@
 
 ## 可执行教程
 
-MyST 的 `testcode` 块会由 Sphinx doctest builder 执行。优先用断言检查稳定的数学结果，避免依赖随机采样或格式不稳定的打印输出。
+MyST 的 `testcode` 块会由 Sphinx doctest builder 执行。优先用断言检查稳定的数学结果，避免依赖随机采样或格式不稳定的打印输出。输出确定时，可在 `testcode` 后配一个 `testoutput` 块展示执行结果，构建会逐字校验；长输出可用 `...`（ELLIPSIS）省略中段。
 
 ```bash
 uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
