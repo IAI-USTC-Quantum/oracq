@@ -20,10 +20,17 @@ assert lchs.check(problem, time=0.05).ok
 assert schrodinger.check(problem, time=0.05).ok
 first = lchs.solve(problem, 0.05)
 second = schrodinger.solve(problem, 0.05)
+print(first.width, second.width)
+print(len(first.operation.program().modules), len(second.operation.program().modules))
 assert first.width == second.width == 1
 ```
 
-两个生成器都返回目标宽度为一位的态 oracle，但内部辅助寄存器、近似方式和恢复条件不同。这个例子检查的是组装接口；有限一阶 Taylor 并不代表已经得到任意精度的微分方程解。
+```{testoutput}
+1 1
+31 28
+```
+
+打印结果显示：两个生成器给出同样的 target 宽度 `1`，但内部模块数不同（LCHS 为 31，Schrödingerization 为 28），对应不同的辅助寄存器、近似方式和恢复条件。这个例子检查的是组装接口；有限一阶 Taylor 并不代表已经得到任意精度的微分方程解。
 
 `dissipative=True` 是问题声明。LCHS 的问题级入口要求它明确存在；Schrödingerization 使用其他数学条件，尤其需要选择合适的辅助窗口和恢复通道。
 

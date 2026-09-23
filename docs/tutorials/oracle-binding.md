@@ -11,10 +11,15 @@ from pyqecclang import unresolved
 
 given = abstract_database("BooleanFunction", 3, 1)
 opened = bernstein_vazirani(given).program()
+print([item.name for item in unresolved(opened)])
 assert [item.name for item in unresolved(opened)] == ["BooleanFunction"]
 ```
 
-该声明提供三位地址和一位 XOR 结果。算法假设函数具有 `f(x)=s·x XOR c` 的形式；声明本身不证明这个前提。
+```{testoutput}
+['BooleanFunction']
+```
+
+打印出的列表就是尚未绑定的开放槽名字：算法本体已经完整，缺的只是名为 `BooleanFunction` 的输入实现。该声明提供三位地址和一位 XOR 结果。算法假设函数具有 `f(x)=s·x XOR c` 的形式；声明本身不证明这个前提。
 
 ## 绑定门实现
 
@@ -28,10 +33,17 @@ assert not unresolved(closed)
 
 state = simulate(closed)
 probability = sum(abs(a)**2 for key, a in state.amplitudes.items() if key[0] == 5)
+print(state.amplitudes)
+print(probability)
 assert abs(probability - 1) < 1e-12
 ```
 
-读取 input 得到 `5`，即低位在前解释的秘密位串。仿射偏置改变了相位，但不影响该结果。
+```{testoutput}
+{(5, 0): (-0.7071067811865471+0j), (5, 1): (0.7071067811865471+0j)}
+0.9999999999999989
+```
+
+打印出的振幅只在 input 读数为 `5` 的分支上非零；value 位上的 `±1/√2` 相位差来自仿射偏置，第二行的总概率约等于 `1`。读取 input 得到 `5`，即低位在前解释的秘密位串。仿射偏置改变了相位，但不影响该结果。
 
 ## 换成 QRAM
 

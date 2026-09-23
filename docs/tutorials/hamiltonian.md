@@ -18,10 +18,17 @@ class MyHamiltonian:
 evolution = hamiltonian_simulation(MyHamiltonian(), time=0.4, steps=3)
 state = simulate(evolution.operation.program())
 expected = cmath.exp(-0.12j) * math.cos(0.28)
+print(state.amplitudes)
+print(evolution.alpha)
 assert abs(state.amplitudes[(0, 0)] - expected) < 1e-12
 ```
 
-这里两个项对易，因此可以直接使用解析结果检查幅度。`evolution.alpha=1`，因为生成的是完整酉演化。
+```{testoutput}
+{(0, 0): (0.9541441386892553-0.11505006784720223j), (1, 0): (-0.03308314468637069-0.274368274461448j)}
+1.0
+```
+
+打印出的 `(0, 0)` 幅度就是解析值 `exp(-0.12j)·cos(0.28)` 的浮点形式，`X` 项把剩余概率转到 `(1, 0)` 上。这里两个项对易，因此可以直接使用解析结果检查幅度。`evolution.alpha=1`，因为生成的是完整酉演化。
 
 对于非对易项，Trotter 的步数控制乘积公式近似。只有 Hermitian 声明还不够：每一项需要提供可调用的演化实现。若选择 QSP 路径，则应提供它需要的 BE 访问和实际 QSP 内核。
 

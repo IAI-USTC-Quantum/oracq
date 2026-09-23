@@ -19,6 +19,8 @@ from pyqecclang.applications.gallery import algorithm_gallery
 
 # 构造全部展示案例，并按名字建索引方便查询。
 cases = {case.name: case for case in algorithm_gallery()}
+# 打印当前展示库覆盖的全部案例名。
+print("\n".join(sorted(cases)))
 # 确认 QAOA 最大割案例存在（展示库覆盖变分类）。
 assert "qaoa_maxcut" in cases
 # 每个案例带族标签：序数查找属于 number_theory 族。
@@ -26,6 +28,33 @@ assert cases["order_finding"].family == "number_theory"
 # 展示库共 22 个案例，增删案例时这行断言会提醒同步更新。
 assert len(cases) == 22
 ```
+
+```{testoutput}
+amplitude_amplification
+amplitude_estimation
+ansatz
+bernstein_vazirani
+cycle_walk
+deutsch_jozsa
+fourier_add
+grover
+hadamard_imag
+hadamard_real
+hamiltonian_trotter
+modular_multiply
+order_finding
+phase_estimation
+qaoa_maxcut
+qft
+quantum_counting
+repetition_bit
+repetition_phase
+simon
+swap_test
+vqe_pauli_measurement
+```
+
+打印出的 22 个名字就是展示库当前覆盖的全部案例，横跨搜索、估计、算术、行走、纠错和变分类；增删案例时这行输出要与 `len(cases) == 22` 断言一起同步更新。
 
 需要添加应用例子时，可以在自己的脚本里调用对应算法文件。若要扩展公开展示目录，则为 `GalleryCase` 提供操作和具体读出说明，并增加独立的数学见证。
 
