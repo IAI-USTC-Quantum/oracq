@@ -12,5 +12,6 @@ search-and-estimation
 hamiltonian
 differential-equations
 qham
+scientific-workflows
 gallery
 ```

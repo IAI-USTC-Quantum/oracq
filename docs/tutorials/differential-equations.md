@@ -38,3 +38,5 @@ uv run python examples/ode_input_models.py
 ```
 
 各方法的符号、尺度和适用前提见[微分方程完整文档](../manual/differential-equations.md)。
+
+从开放系数、分批绑定到不同数据路径的完整讲解见[科学计算工作流](scientific-workflows.md)。
