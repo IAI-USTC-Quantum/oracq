@@ -29,22 +29,22 @@ from harness import (
     tvd,
 )
 
-from pyqecclang import Bits, Builder, UInt
-from pyqecclang.algorithms.common.estimation import (
+from oracq import Bits, Builder, UInt
+from oracq.algorithms.common.estimation import (
     amplitude_estimation,
     hadamard_test,
     phase_estimation,
     swap_test,
 )
-from pyqecclang.algorithms.common.fourier import qft
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep, uniform_state
-from pyqecclang.algorithms.optimization.gradient import (
+from oracq.algorithms.common.fourier import qft
+from oracq.algorithms.input_model.oracles import gate_state_prep, uniform_state
+from oracq.algorithms.optimization.gradient import (
     function_phase_oracle,
     gate_phase_oracle,
     gradient_estimation,
     gradient_from_readout,
 )
-from pyqecclang.infrastructure.layout import workspace_table
+from oracq.infrastructure.layout import workspace_table
 
 # ---------------------------------------------------------------------------
 # 通用辅助
@@ -409,7 +409,7 @@ def verify_hadamard(report):
     # 单比特相位门作用于 |1>：期望 e^{iθ}
     for angle in (0.6, -1.1):
         unitary = _phase_unitary(angle / (2 * math.pi))
-        from pyqecclang.algorithms.input_model.oracles import basis_state
+        from oracq.algorithms.input_model.oracles import basis_state
 
         for component, expected in (
             ("real", math.cos(angle)),

@@ -5,9 +5,9 @@
 ## 先声明输入
 
 ```{testcode}
-from pyqecclang.algorithms.input_model.oracles import abstract_database
-from pyqecclang.algorithms.basics.oracle_algorithms import bernstein_vazirani
-from pyqecclang import unresolved
+from oracq.algorithms.input_model.oracles import abstract_database
+from oracq.algorithms.basics.oracle_algorithms import bernstein_vazirani
+from oracq import unresolved
 
 given = abstract_database("BooleanFunction", 3, 1)
 opened = bernstein_vazirani(given).program()
@@ -19,13 +19,13 @@ assert [item.name for item in unresolved(opened)] == ["BooleanFunction"]
 ['BooleanFunction']
 ```
 
-打印出的列表就是尚未绑定的开放槽名字：算法本体已经完整，缺的只是名为 `BooleanFunction` 的输入实现。该声明提供三位地址和一位 XOR 结果。算法假设函数具有 `f(x)=s·x XOR c` 的形式；声明本身不证明这个前提。
+{obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>` 声明一个尚无实现的抽象数据库，{obj}`bernstein_vazirani <oracq.algorithms.basics.oracle_algorithms.bernstein_vazirani>` 在它上面组装算法。打印出的列表就是 {obj}`unresolved <oracq.infrastructure.linking.unresolved>` 找到的尚未绑定开放槽名字：算法本体已经完整，缺的只是名为 `BooleanFunction` 的输入实现。该声明提供三位地址和一位 XOR 结果。算法假设函数具有 `f(x)=s·x XOR c` 的形式；声明本身不证明这个前提。
 
 ## 绑定门实现
 
 ```{testcode}
-from pyqecclang.algorithms.basics.oracle_algorithms import affine_boolean_oracle
-from pyqecclang import bind, simulate
+from oracq.algorithms.basics.oracle_algorithms import affine_boolean_oracle
+from oracq import bind, simulate
 
 implementation = affine_boolean_oracle(3, secret=5, bias=1)
 closed = bind(opened, {"BooleanFunction": implementation.operation})
@@ -43,13 +43,13 @@ assert abs(probability - 1) < 1e-12
 0.9999999999999989
 ```
 
-打印出的振幅只在 input 读数为 `5` 的分支上非零；value 位上的 `±1/√2` 相位差来自仿射偏置，第二行的总概率约等于 `1`。读取 input 得到 `5`，即低位在前解释的秘密位串。仿射偏置改变了相位，但不影响该结果。
+门实现由 {obj}`affine_boolean_oracle <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>` 用普通可逆门给出；打印出的振幅只在 input 读数为 `5` 的分支上非零；value 位上的 `±1/√2` 相位差来自仿射偏置，第二行的总概率约等于 `1`。读取 input 得到 `5`，即低位在前解释的秘密位串。仿射偏置改变了相位，但不影响该结果。
 
 ## 换成 QRAM
 
-同一开放槽可以绑定 {obj}`qram_database(3,1) <pyqecclang.algorithms.input_model.oracles.qram_database>`。使用 {obj}`Binding(..., {"table": "truth"}) <pyqecclang.infrastructure.linking.Binding>` 将其资源映射到入口，运行时再提供 `truth` 表。
+同一开放槽可以绑定 {obj}`qram_database(3,1) <oracq.algorithms.input_model.oracles.qram_database>`。使用 {obj}`Binding(..., {"table": "truth"}) <oracq.infrastructure.linking.Binding>` 将其资源映射到入口，运行时再提供 `truth` 表。
 
-门实现和 QRAM 实现必须兑现同一 XOR 语义。{obj}`bind <pyqecclang.infrastructure.linking.bind>` 检查接口与能力，函数的数学形式仍由应用负责。
+门实现和 QRAM 实现必须兑现同一 XOR 语义。{obj}`bind <oracq.infrastructure.linking.bind>` 检查接口与能力，函数的数学形式仍由应用负责。
 
 ## 相关页面
 

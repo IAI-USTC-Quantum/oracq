@@ -4,10 +4,10 @@
 
 ## 定义操作
 
-{obj}`Bits(2) <pyqecclang.infrastructure.ir.Bits>` 定义一个两位寄存器。我们先让低位进入叠加态，再以它为控制，对高位做 XOR。
+{obj}`Bits(2) <oracq.infrastructure.ir.Bits>` 定义一个两位寄存器。我们先让低位进入叠加态，再以它为控制，对高位做 XOR。
 
 ```{testcode}
-from pyqecclang import Bits, Builder, simulate
+from oracq import Bits, Builder, simulate
 
 # 声明一个名为 bell_pair 的模块，公开接口是一个名为 pair 的两位 bits 寄存器。
 b = Builder("bell_pair", {"pair": Bits(2)})
@@ -35,14 +35,14 @@ assert abs(state.amplitudes[(3,)] - 2**-0.5) < 1e-12
 {(0,): (0.7071067811865475+0j), (3,): (0.7071067811865475+0j)}
 ```
 
-打印出的字典就是执行结果：键是入口寄存器的整数值组成的元组，`0` 表示 `00`，`3` 表示 `11`；`0.7071067811865475` 是 `1/√2` 的双精度表示。
+{obj}`Builder <oracq.infrastructure.builder.Builder>` 逐条收集上面的调用，`finish()` 返回不可变的 {obj}`Operation <oracq.infrastructure.builder.Operation>`。打印出的字典就是执行结果：键是入口寄存器的整数值组成的元组，`0` 表示 `00`，`3` 表示 `11`；`0.7071067811865475` 是 `1/√2` 的双精度表示。
 
 ## 保存和导出
 
 ```{testcode}
-from pyqecclang import dumps, loads, export_originir
+from oracq import dumps, loads, export_originir
 
-# 序列化为规范 JSON：按键排序、两空格缩进，模块与指令结构原样保留。
+# 序列化为规范 YAML：按键排序、两空格缩进，模块与指令结构原样保留。
 text = dumps(program)
 # 打印全文；输出块里用 ... 省略了重复的中段。
 print(text)
@@ -59,40 +59,26 @@ print(artifact.text, end="")
 ```
 
 ```{testoutput}
-{
-  "entry": "bell_pair",
-  "modules": [
-    {
-      "attributes": [],
-      "body": [
-        {
-          "angle": null,
-          "op": "h",
-          "operands": [
-            {
-              "parts": [
-                {
-                  "register": "pair",
-                  "start": 0,
-                  ...
-                }
-              ],
+entry: bell_pair
+modules:
+  - attributes: []
+    body:
+      - angle: null
+        op: h
+        operands:
+          - parts:
+              - register: pair
+                start: 0
+                ...
               ...
-            }
-          ],
-          "tag": "Primitive",
-          "value": null
-        },
-        ...
-      ],
-      "locals": [],
-      "name": "bell_pair",
+        tag: Primitive
+        value: null
       ...
-    }
-  ],
-  "tag": "Program",
-  "version": "0.3"
-}
+    locals: []
+    name: bell_pair
+    ...
+tag: Program
+version: '0.3'
 
 QINIT 2
 CREG 0
@@ -103,9 +89,9 @@ ENDDEF
 m_bell_pair_d029b74cecc4332d414ece8a(q[0], q[1])
 ```
 
-前半段是规范 JSON 的骨架：{obj}`Program <pyqecclang.infrastructure.ir.Program>` 持有模块表，模块的 `body` 里是指令，指令操作数用 `register`、`start` 等字段保留寄存器名与视图；`...` 之外的内容与实际打印逐字一致。后半段是 OriginIR-ext 文本：`QINIT 2` 声明两位量子寄存器，`CREG 0` 表示没有经典寄存器；`DEF m_bell_pair_<指纹>` 定义模块，后缀是由模块内容确定的指纹，同一模块只会导出一份定义；最后一行把入口量子位 `q[0], q[1]` 绑定到模块形参。导出不会先把所有调用复制成一个平坦门列表。
+{obj}`dumps <oracq.infrastructure.serialization.dumps>` 生成前半段的文本，{obj}`loads <oracq.infrastructure.serialization.loads>` 解码时会重新执行 {obj}`validate <oracq.infrastructure.validation.validate>` 的语义校验；{obj}`export_originir <oracq.infrastructure.backends.originir.export_originir>` 返回的 {obj}`OriginIRArtifact <oracq.infrastructure.backends.originir.OriginIRArtifact>` 携带后半段的文本。前半段是规范 YAML 的骨架：{obj}`Program <oracq.infrastructure.ir.Program>` 持有模块表，模块的 `body` 里是指令，指令操作数用 `register`、`start` 等字段保留寄存器名与视图；`...` 之外的内容与实际打印逐字一致。后半段是 OriginIR-ext 文本：`QINIT 2` 声明两位量子寄存器，`CREG 0` 表示没有经典寄存器；`DEF m_bell_pair_<指纹>` 定义模块，后缀是由模块内容确定的指纹，同一模块只会导出一份定义；最后一行把入口量子位 `q[0], q[1]` 绑定到模块形参。导出不会先把所有调用复制成一个平坦门列表。
 
-{obj}`simulate <pyqecclang.infrastructure.execution.simulate>` 适合这种小规模检查。需要实际后端时，仍使用同一个 `Program`，改为调用 {obj}`run_pysparq <pyqecclang.infrastructure.backends.pysparq.run_pysparq>` 或 {obj}`run_originir <pyqecclang.infrastructure.backends.originir.run_originir>`。
+{obj}`simulate <oracq.infrastructure.execution.simulate>` 适合这种小规模检查。需要实际后端时，仍使用同一个 {obj}`Program <oracq.infrastructure.ir.Program>`，改为调用 {obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` 或 {obj}`run_originir <oracq.infrastructure.backends.originir.run_originir>`。
 
 ## 相关页面
 

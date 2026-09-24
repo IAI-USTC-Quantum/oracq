@@ -9,7 +9,7 @@ uv sync --locked --extra dev --extra docs
 uv run python examples/algorithm_gallery.py
 ```
 
-第二条命令会生成一组小型算法的 RIR、OriginIR-ext 和验证摘要，输出位于 `out/algorithm-gallery/`。
+第二条命令会生成一组小型算法的 RIR、OriginIR-ext 和验证摘要，输出位于 `out/algorithm-gallery/`。展示案例的使用与修改见[运行与修改算法展示目录](../tutorials/gallery.md)。
 
 如果只需要从源码调用核心接口，可以将 `src` 加入 Python 路径：
 
@@ -25,7 +25,7 @@ PYTHONPATH=src python examples/algorithm_gallery.py
 PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 ```
 
-`--native` 会比较参考执行器、PySparQ 和 OriginIR 后端的完整复幅度。它不只是检查导出文本能否解析。
+`--native` 会比较参考执行器、PySparQ 和 OriginIR 后端的完整复幅度。它不只是检查导出文本能否解析。环境就绪后的常用命令行用法见[命令行](cli.md)。
 
 ## 构建文档
 
@@ -34,4 +34,4 @@ uv run sphinx-build -W --keep-going -b html docs out/docs/html
 uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
 ```
 
-打开 `out/docs/html/index.html` 即可浏览本站。HTML 构建失败或教程断言失败都会返回非零退出码。
+打开 `out/docs/html/index.html` 即可浏览本站。HTML 构建失败或教程断言失败都会返回非零退出码。构建配置与写作规范（含交叉链接约定）见[编写文档](../development/writing-docs.md)。

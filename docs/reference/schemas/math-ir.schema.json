@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:pyqecclang:mir:0.1",
-  "title": "pyqecclang mathematical IR 0.1",
+  "$id": "urn:oracq:mir:0.1",
+  "title": "oracq mathematical IR 0.1",
   "type": "object",
   "additionalProperties": false,
   "required": [

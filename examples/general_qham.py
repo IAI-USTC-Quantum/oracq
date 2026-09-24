@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from functools import partial
 
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.applications.qham import (
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.applications.qham import (
     Discretization,
     Field,
     Grid,

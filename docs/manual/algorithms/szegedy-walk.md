@@ -1,6 +1,6 @@
 # Szegedy 量子行走（Szegedy Walk）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.input_model.graph_walks` · 阶段 V3
+> 类别 C1 · 模块 [`oracq.algorithms.input_model.graph_walks`](../../api/algorithms/input_model/graph_walks.rst) · 阶段 V3
 
 ## 概述
 
@@ -19,8 +19,10 @@ szegedy_walk(adjacency, *, name=None)
 szegedy_setup(adjacency, *, name=None)
 ```
 
-- `adjacency`：[图邻接 oracle](adjacency-oracle.md)（`AdjacencyOracle` 或经 `as_adjacency` 适配的裸操作），input model 为 FO。
-- `szegedy_walk` 返回行走步 `Operation`，寄存器为 `current: Bits(v)`、`peer: Bits(v)`、`index: Bits(g)`。属性：
+API 入口：{obj}`szegedy_walk <oracq.algorithms.input_model.graph_walks.szegedy_walk>`、{obj}`szegedy_setup <oracq.algorithms.input_model.graph_walks.szegedy_setup>`
+
+- `adjacency`：[图邻接 oracle](adjacency-oracle.md)（{obj}`AdjacencyOracle <oracq.algorithms.input_model.graph_walks.AdjacencyOracle>` 或经 {obj}`as_adjacency <oracq.algorithms.input_model.graph_walks.as_adjacency>` 适配的裸操作），input model 为 FO。
+- {obj}`szegedy_walk <oracq.algorithms.input_model.graph_walks.szegedy_walk>` 返回行走步 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `current: Bits(v)`、`peer: Bits(v)`、`index: Bits(g)`。属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -28,13 +30,13 @@ szegedy_setup(adjacency, *, name=None)
 | `vertex_bits` / `degree_bits` | 顶点与下标位宽 |
 | `composition` | `"R_B.R_A"` |
 
-- `szegedy_setup` 返回 `StatePreparation`，制备初态 $\frac{1}{\sqrt N}\sum_v A|v\rangle$：`target: Bits(2v+g)`（低位到高位依次为 current、peer、index）、`work: Bits(0)`；标注 `state_prep_isometry`、`zero_input=True`、`clean_work=True`、`implementation="uniform_vertex_plus_neighbor"`。
+- {obj}`szegedy_setup <oracq.algorithms.input_model.graph_walks.szegedy_setup>` 返回 {obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>`，制备初态 $\frac{1}{\sqrt N}\sum_v A|v\rangle$：`target: Bits(2v+g)`（低位到高位依次为 current、peer、index）、`work: Bits(0)`；标注 `state_prep_isometry`、`zero_input=True`、`clean_work=True`、`implementation="uniform_vertex_plus_neighbor"`。
 
 ## 实现要点
 
-每个反射按 Adj → H → `reflect_zero`（$2|0\rangle\langle 0| - I$）→ H → Adj 的顺序组装：`Adj` 自逆且 $A$ 整体酉，该序列恰实现 $R = A(2|0\rangle\langle 0| - I)A^\dagger$；`index` 寄存器留在行走空间内，不作为工作区复净。$R_B$ 复用同一子程序、把 current/peer 角色对调。图不必正则：非正则时的有效转移由邻居表补齐方式决定（见邻接 oracle 页）。
+每个反射按 Adj → H → {obj}`reflect_zero <oracq.algorithms.input_model.block_encoding.reflect_zero>`（$2|0\rangle\langle 0| - I$）→ H → Adj 的顺序组装：`Adj` 自逆且 $A$ 整体酉，该序列恰实现 $R = A(2|0\rangle\langle 0| - I)A^\dagger$；`index` 寄存器留在行走空间内，不作为工作区复净。$R_B$ 复用同一子程序、把 current/peer 角色对调。图不必正则：非正则时的有效转移由邻居表补齐方式决定（见邻接 oracle 页）。
 
-`szegedy_setup` 的 `target` 布局与 `szegedy_walk` 的寄存器声明顺序一致，`quantum_walk_search` 据此把行走寄存器映射到 `target` 的连续切片。适用边界：本模块只提供单步算符与初态制备，检测 marked 顶点需要 MNRS 骨架。
+`szegedy_setup` 的 `target` 布局与 `szegedy_walk` 的寄存器声明顺序一致，{obj}`quantum_walk_search <oracq.algorithms.input_model.graph_walks.quantum_walk_search>` 据此把行走寄存器映射到 `target` 的连续切片。适用边界：本模块只提供单步算符与初态制备，检测 marked 顶点需要 MNRS 骨架。
 
 ## 验证方案
 
@@ -51,7 +53,7 @@ szegedy_setup(adjacency, *, name=None)
 ## 相关链接
 
 - 同模块：[图邻接 oracle](adjacency-oracle.md)、[MNRS 量子行走搜索](mnrs-search.md)、[周期格点硬币行走](coined-cycle-walk.md)
-- 源码：`src/pyqecclang/algorithms/input_model/graph_walks.py`
+- 源码：`src/oracq/algorithms/input_model/graph_walks.py`
 - API 参考：[图行走搜索](../../api/algorithms/input_model/graph_walks.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

@@ -12,7 +12,7 @@ import json
 import math
 from pathlib import Path
 
-from pyqecclang import (
+from oracq import (
     QRAM,
     Bits,
     Builder,
@@ -20,19 +20,19 @@ from pyqecclang import (
     UInt,
     estimate_resources,
 )
-from pyqecclang.algorithms.common.arithmetic import fixed_arithmetic
-from pyqecclang.algorithms.common.estimation import phase_estimation
-from pyqecclang.algorithms.common.fourier import qft
-from pyqecclang.algorithms.common.search import grover
-from pyqecclang.algorithms.input_model.data_loading import qrom_lookup
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.common.arithmetic import fixed_arithmetic
+from oracq.algorithms.common.estimation import phase_estimation
+from oracq.algorithms.common.fourier import qft
+from oracq.algorithms.common.search import grover
+from oracq.algorithms.input_model.data_loading import qrom_lookup
+from oracq.algorithms.input_model.oracles import (
     diagonal_block_encoding,
     gate_database,
     gate_state_prep,
     qram_database,
 )
-from pyqecclang.applications.roe_formulas import frozen_roe_face
-from pyqecclang.infrastructure.mathfunc import Index, MathConfig, compile_function
+from oracq.applications.roe_formulas import frozen_roe_face
+from oracq.infrastructure.mathfunc import Index, MathConfig, compile_function
 
 
 def _prog(obj):

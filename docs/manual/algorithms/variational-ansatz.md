@@ -1,6 +1,6 @@
 # 硬件高效拟设（Hardware-Efficient Ansatz）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.optimization.variational` · 阶段 V3
+> 类别 C4 · 模块 [`oracq.algorithms.optimization.variational`](../../api/algorithms/optimization/variational.rst) · 阶段 V3
 
 ## 概述
 
@@ -12,10 +12,12 @@
 hardware_efficient_ansatz(width, layers)
 ```
 
+API 入口：{obj}`hardware_efficient_ansatz <oracq.algorithms.optimization.variational.hardware_efficient_ansatz>`
+
 - `width`：target 位宽，范围 1..64。
 - `layers`：角度张量，形状为 `[layer][qubit][Ry, Rz]`——非空、每层恰有 width 个角度对、每对恰有两个有限实数角度（弧度）。
 
-变分角度是经典数据直接参数化，input model 为 CP。返回 `Operation`，寄存器只有 `target`（width 位）。模块属性：
+变分角度是经典数据直接参数化，input model 为 CP。返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器只有 `target`（width 位）。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -24,7 +26,7 @@ hardware_efficient_ansatz(width, layers)
 
 ## 实现要点
 
-每层按"先旋转、后纠缠"两段生成：对每个比特依次施加 `Ry(θ)` 与 `Rz(φ)`，然后对相邻比特对 (i, i+1) 逐个施加 CNOT（线路原语为 XOR）。纠缠结构固定为线性链，没有层间重排或纠缠策略开关；非链式连通的硬件由后端降低阶段插入交换。参数形状违例（层数为零、每层长度不等于 width、角度对长度不是 2、非有限角度）在生成期抛 `ValidationError`。
+每层按"先旋转、后纠缠"两段生成：对每个比特依次施加 `Ry(θ)` 与 `Rz(φ)`，然后对相邻比特对 (i, i+1) 逐个施加 CNOT（线路原语为 XOR）。纠缠结构固定为线性链，没有层间重排或纠缠策略开关；非链式连通的硬件由后端降低阶段插入交换。参数形状违例（层数为零、每层长度不等于 width、角度对长度不是 2、非有限角度）在生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 
 零角度时整条电路为恒等，这是当前数值见证的锚点。适用边界：拟设只负责生成电路；表达力与可训练性（如 barren plateau）不在验证范围，也没有内置参数初始化策略。
 
@@ -42,7 +44,7 @@ hardware_efficient_ansatz(width, layers)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/optimization/variational.py`
+- 源码：`src/oracq/algorithms/optimization/variational.py`
 - 同模块页面：[MaxCut QAOA](qaoa-maxcut.md)、[VQE 测量电路](vqe.md)
 - API 参考：[变分算法电路](../../api/algorithms/optimization/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

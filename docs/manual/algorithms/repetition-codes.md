@@ -1,6 +1,6 @@
 # 三位重复码（Repetition Codes）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.qec.error_correction` · 阶段 V1
+> 类别 C1 · 模块 [`oracq.algorithms.qec.error_correction`](../../api/algorithms/qec/error_correction.rst) · 阶段 V1
 
 ## 概述
 
@@ -13,7 +13,9 @@ repetition_encode(*, error="bit")
 repetition_recover(*, error="bit")
 ```
 
-- `error`：`"bit"` 或 `"phase"`，编码器与恢复器必须取同一值；其他取值在生成期抛出 `ValidationError`。
+API 入口：{obj}`repetition_encode <oracq.algorithms.qec.error_correction.repetition_encode>`、{obj}`repetition_recover <oracq.algorithms.qec.error_correction.repetition_recover>`
+
+- `error`：`"bit"` 或 `"phase"`，编码器与恢复器必须取同一值；其他取值在生成期抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 - 输入模型为 CP：没有 oracle 输入，错误类型与码结构都以经典参数给出。
 - 两个入口的寄存器相同：`target: Bits(1)`（逻辑位）与 `syndrome: Bits(2)`；编码要求 `syndrome` 输入为零。三个物理位按 `target`、`syndrome[0]`、`syndrome[1]` 排列。
 
@@ -35,7 +37,7 @@ repetition_recover(*, error="bit")
 
 类别 C1（精确离散语义，判定准则见 `../../development/validation-plan.md` §2）：编码—错误—恢复的复合作用须与恒等算子在任意逻辑幅度上逐点相等。证据：
 
-- 结构：`tests/core/test_algorithm_expansion.py:AlgorithmExpansionTests` 的构造与属性断言；`test_bad_inputs_fail_at_generation` 覆盖 `repetition_encode(error="unknown")` 的生成期违例。
+- 结构：`tests/core/test_algorithm_expansion.py:AlgorithmExpansionTests` 的构造与属性断言；`test_bad_inputs_fail_at_generation` 覆盖 {obj}`repetition_encode(error="unknown") <oracq.algorithms.qec.error_correction.repetition_encode>` 的生成期违例。
 - 数值：`AlgorithmExpansionTests.test_repetition_codes_preserve_arbitrary_logical_amplitudes`——对两种 `error` × 三个物理位置，用 Ry(0.73)/Rz(0.29) 制备任意逻辑态，插入单错误并恢复后，`target` 幅度精确复原为 $e^{-0.145j}\cos 0.365$ 与 $e^{0.145j}\sin 0.365$（places = 10），且 syndrome 收敛到单一确定值。
 - 绑定：本算法无独立绑定见证（无开放声明入口）。
 
@@ -45,7 +47,7 @@ repetition_recover(*, error="bit")
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qec/error_correction.py`
+- 源码：`src/oracq/algorithms/qec/error_correction.py`
 - API 参考：[重复码与错误恢复](../../api/algorithms/qec/error_correction.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

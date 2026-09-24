@@ -1,4 +1,4 @@
-"""表达力基准 T4：LCHS 装配 u'=Gu 的 pyqecclang 路径。
+"""表达力基准 T4：LCHS 装配 u'=Gu 的 oracq 路径。
 
 任务：G=[[-1,0.5],[-0.5,-1]]（耗散+反对称），t=0.05，u0=[1,0]；
 linear_qode("lchs", QuadraturePlan.cauchy(cutoff=1, spacing=1.0),
@@ -14,13 +14,13 @@ from pathlib import Path
 import numpy as np
 import scipy.linalg
 
-import pyqecclang
-from pyqecclang import simulate
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan
-from pyqecclang.algorithms.qode.ode import linear_qode
+import oracq
+from oracq import simulate
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from oracq.algorithms.input_model.oracles import gate_state_prep
+from oracq.algorithms.qode.lchs import QuadraturePlan
+from oracq.algorithms.qode.ode import linear_qode
 
 G = [[-1.0, 0.5], [-0.5, -1.0]]
 TIME = 0.05
@@ -31,9 +31,9 @@ DEGREE = 1
 
 def package_version():
     try:
-        return version("pyqecclang")
+        return version("oracq")
     except PackageNotFoundError:
-        pkg_info = Path(pyqecclang.__file__).parent.parent / "pyqecclang.egg-info" / "PKG-INFO"
+        pkg_info = Path(oracq.__file__).parent.parent / "oracq.egg-info" / "PKG-INFO"
         for line in pkg_info.read_text(encoding="utf-8").splitlines():
             if line.startswith("Version:"):
                 return line.split(":", 1)[1].strip()
@@ -72,7 +72,7 @@ def module_attribute(program, key):
 
 
 def main():
-    print(f"pyqecclang {package_version()} / numpy {version('numpy')} / scipy {version('scipy')}")
+    print(f"oracq {package_version()} / numpy {version('numpy')} / scipy {version('scipy')}")
     solver = linear_qode(
         "lchs", plan=PLAN, hamiltonian_function=partial(taylor_hamiltonian, degree=DEGREE)
     )
@@ -96,7 +96,7 @@ def main():
     print(f"direction_error_vs_expm={direction:.3e}")
     print(f"method_amplitude_error={method_amplitude:.3e} (有限求积+Taylor 余项)")
     ok = impl < 1e-9 and direction < 1e-2
-    print(f"T4 pyqecclang LCHS: {'PASS' if ok else 'FAIL'} (threshold: impl<1e-9, direction<1e-2)")
+    print(f"T4 oracq LCHS: {'PASS' if ok else 'FAIL'} (threshold: impl<1e-9, direction<1e-2)")
     return 0 if ok else 1
 
 

@@ -1,6 +1,6 @@
 # 量子卷积神经网络（QCNN）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.qml.qcnn` 与 `pyqecclang.algorithms.qml.qcnn_layer` · 论文 arXiv:1911.01117（ICLR 2020）
+> 类别 C4 · 模块 [`oracq.algorithms.qml.qcnn`](../../api/algorithms/qml/qcnn.rst) 与 [`oracq.algorithms.qml.qcnn_layer`](../../api/algorithms/qml/qcnn_layer.rst) · 论文 arXiv:1911.01117（ICLR 2020）
 
 ## 概述
 
@@ -25,13 +25,15 @@ quantized_prepared_state(vector, aw)          # 角度量化镜像（电路语�
 qcnn_sampled_layer(x, kernel, spec, *, samples, eta, seed)  # 采样驱动（Eq. 34–39）
 ```
 
+API 入口：{obj}`ConvSpec <oracq.algorithms.qml.qcnn.ConvSpec>`、{obj}`im2col <oracq.algorithms.qml.qcnn.im2col>`、{obj}`kernel_columns <oracq.algorithms.qml.qcnn.kernel_columns>`、{obj}`cap_relu <oracq.algorithms.qml.qcnn.cap_relu>`
+
 ## 实现要点
 
-**行/列制备（`qcnn_vector_prep`）**：多路旋转树的每个节点由 QRAM 角度 bank 驱动——地址为 fuse(node, index)（bank 键 `(index<<width)|node`），查询、按位加权合成受控 RY（角度 2π·2^k/2^aw）、反查询三步；负分量经符号 bank 的 Z 反冲写入相位。换数据只换内存表，线路不变（QRAM 语义）。深度 d 的节点数为 2^d，总查询 2·width 次。
+**行/列制备（{obj}`qcnn_vector_prep <oracq.algorithms.qml.qcnn_layer.qcnn_vector_prep>`）**：多路旋转树的每个节点由 QRAM 角度 bank 驱动——地址为 {obj}`fuse(node, index) <oracq.infrastructure.ir.fuse>`（bank 键 `(index<<width)|node`），查询、按位加权合成受控 RY（角度 2π·2^k/2^aw）、反查询三步；负分量经符号 bank 的 Z 反冲写入相位。换数据只换内存表，线路不变（QRAM 语义）。深度 d 的节点数为 2^d，总查询 2·width 次。
 
-**Hadamard 内积（`qcnn_inner_product`）**：p、q、flag 三寄存器均匀叠加，flag=0 分支装载行向量、flag=1 分支装载列向量（两套受控制备），最后对 flag 施加 Hadamard。测量 (p,q,flag=0) 的概率为 (1+⟨A_p|F_q⟩)/(2·行数·列数)——Eq. 20 的精确复现；内积可正可负，概率恒正。
+**Hadamard 内积（{obj}`qcnn_inner_product <oracq.algorithms.qml.qcnn_layer.qcnn_inner_product>`）**：p、q、flag 三寄存器均匀叠加，flag=0 分支装载行向量、flag=1 分支装载列向量（两套受控制备），最后对 flag 施加 Hadamard。测量 (p,q,flag=0) 的概率为 (1+⟨A_p|F_q⟩)/(2·行数·列数)——Eq. 20 的精确复现；内积可正可负，概率恒正。
 
-**采样驱动（`qcnn_sampled_layer`）**：先经量化镜像恢复全部 Y_pq=(2P_pq−1)‖A_p‖‖F_q‖ 与 capReLU 值，再按 f²/Σf² 采样（Eq. 34 的分布）；每次采样得三元组 (p,q,f(Y))，f<η 的像素视为未采样置零（Eq. 36）；按 Eq. 39 映射进池化区域后以 QRAM 覆写规则（max 保高、average 均摊）聚合。
+**采样驱动（{obj}`qcnn_sampled_layer <oracq.algorithms.qml.qcnn_layer.qcnn_sampled_layer>`）**：先经量化镜像恢复全部 Y_pq=(2P_pq−1)‖A_p‖‖F_q‖ 与 capReLU 值，再按 f²/Σf² 采样（Eq. 34 的分布）；每次采样得三元组 (p,q,f(Y))，f<η 的像素视为未采样置零（Eq. 36）；按 Eq. 39 映射进池化区域后以 QRAM 覆写规则（max 保高、average 均摊）聚合。
 
 ## 验证
 
@@ -52,7 +54,7 @@ qcnn_sampled_layer(x, kernel, spec, *, samples, eta, seed)  # 采样驱动（Eq.
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qml/qcnn.py`（整体流程）与 `src/pyqecclang/algorithms/qml/qcnn_layer.py`（量子构件）
+- 源码：`src/oracq/algorithms/qml/qcnn.py`（整体流程）与 `src/oracq/algorithms/qml/qcnn_layer.py`（量子构件）
 - API 参考：[量子卷积神经网络](../../api/algorithms/qml/qcnn.rst)、[量子卷积神经网络的量子构件](../../api/algorithms/qml/qcnn_layer.rst)
 - 使用手册：[QCNN 逐步指南](../qcnn-walkthrough.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

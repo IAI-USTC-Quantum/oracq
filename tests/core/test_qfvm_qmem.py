@@ -7,11 +7,11 @@
 
 import unittest
 
-from pyqecclang import QRAM, Builder, simulate
-from pyqecclang.algorithms.common.arithmetic import FixedFormat
-from pyqecclang.algorithms.input_model.oracles import invoke
-from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.qfvm import (
+from oracq import QRAM, Builder, simulate
+from oracq.algorithms.common.arithmetic import FixedFormat
+from oracq.algorithms.input_model.oracles import invoke
+from oracq.applications.flow_data import RoeFlowData
+from oracq.applications.qfvm import (
     bind_qfvm,
     geometry_cells,
     qfvm_sparse_access,
@@ -19,14 +19,14 @@ from pyqecclang.applications.qfvm import (
     roe_entry,
     roe_qfvm_inputs,
 )
-from pyqecclang.applications.qfvm_qmem import (
+from oracq.applications.qfvm_qmem import (
     RoeQmemData,
     qfvm_qmem_location,
     qfvm_qmem_physical,
     qfvm_qmem_rhs,
 )
-from pyqecclang.infrastructure.ir import Bits, fuse
-from pyqecclang.infrastructure.qmem import QMem
+from oracq.infrastructure.ir import Bits, fuse
+from oracq.infrastructure.qmem import QMem
 
 FMT = FixedFormat(5, 2)
 DELTA = 0.5

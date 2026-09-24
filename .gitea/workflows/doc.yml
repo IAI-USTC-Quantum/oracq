@@ -27,5 +27,5 @@ jobs:
         # 分支名中的 / 替换为 -，保证 topic 是合法的 URL 标签；
         # 同名 topic 原地更新，预览 30 天未更新自动过期
         run: |
-          TOPIC="pyqecclang-docs-$(echo "${{ github.ref_name }}" | tr '/' '-')"
+          TOPIC="oracq-docs-$(echo "${{ github.ref_name }}" | tr '/' '-')"
           uv run --frozen --with html-previewer==0.1.1 preview-publish out/docs/html "$TOPIC" 30

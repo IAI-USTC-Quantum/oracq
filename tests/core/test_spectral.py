@@ -4,9 +4,9 @@ import cmath
 import math
 import unittest
 
-from pyqecclang import Builder, estimate_resources, simulate
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep
-from pyqecclang.algorithms.input_model.spectral import (
+from oracq import Builder, estimate_resources, simulate
+from oracq.algorithms.input_model.oracles import gate_state_prep
+from oracq.algorithms.input_model.spectral import (
     fourier_phase,
     fourier_phase_encoding,
     frequency_amplitudes,
@@ -118,7 +118,7 @@ class SpectralStatePrepTests(unittest.TestCase):
 
 class InterfaceTests(unittest.TestCase):
     def test_rejects_disjoint_band(self):
-        from pyqecclang.infrastructure.ir import ValidationError
+        from oracq.infrastructure.ir import ValidationError
 
         with self.assertRaises(ValidationError):
             spectral_diagonal({0: 1.0, 5: 0.5}, 3)

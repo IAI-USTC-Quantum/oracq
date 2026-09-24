@@ -7,7 +7,7 @@
 
 import random
 
-from pyqecclang import ValidationError, bind, simulate, unresolved
+from oracq import ValidationError, bind, simulate, unresolved
 
 # simulate 会丢弃 |a| < 1e-15 的幅度，复净检查用更宽松的阈值判零。
 _ZERO_AMPLITUDE = 1e-9

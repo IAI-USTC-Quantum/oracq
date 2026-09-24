@@ -14,8 +14,8 @@
   偏迹（numpy 独立实现）与目标密度矩阵的迹距离。
 
 已知后端问题（绕行说明）：PySparQ RIR 解释器（pysparq 0.1.2.dev16）对 add_const 作用
-于寄存器切片 reinterpret 视图（RIR JSON 中 Span 操作数）执行结果错误——最小复现见
-backend-rir-sliced-add-const 案例；pyqecclang 的序列化、参考执行器、PySparQ 事件适配器
+于寄存器切片 reinterpret 视图（RIR 文本中 Span 操作数）执行结果错误——最小复现见
+backend-rir-sliced-add-const 案例；oracq 的序列化、参考执行器、PySparQ 事件适配器
 与 OriginIR-ext 均给出正确结果。因此 qram_state_prep 系列案例的正确性判据建立在
 reference / adapter-pysparq / originir-ext 三条相互独立的路径上，rir-pysparq 的偏差
 作为信息性指标记录（metrics.rir_deviation），不参与判据。
@@ -44,21 +44,21 @@ from harness import (
     tvd,
 )
 
-from pyqecclang import Bits, Builder
-from pyqecclang.algorithms.common.prepare_select import alias_prepare, alias_table
-from pyqecclang.algorithms.common.state_preparation import (
+from oracq import Bits, Builder
+from oracq.algorithms.common.prepare_select import alias_prepare, alias_table
+from oracq.algorithms.common.state_preparation import (
     apply_be_to_state,
     extend_initial,
     select_subspace,
 )
-from pyqecclang.algorithms.input_model.block_encoding import pauli_word
-from pyqecclang.algorithms.input_model.data_loading import qrom_cost, qrom_lookup, select_swap_qrom
-from pyqecclang.algorithms.input_model.density import (
+from oracq.algorithms.input_model.block_encoding import pauli_word
+from oracq.algorithms.input_model.data_loading import qrom_cost, qrom_lookup, select_swap_qrom
+from oracq.algorithms.input_model.density import (
     PurificationAccess,
     gate_purification,
     maximally_mixed_purification,
 )
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.input_model.oracles import (
     diagonal_block_encoding,
     gate_database,
     gate_state_prep,
@@ -66,7 +66,7 @@ from pyqecclang.algorithms.input_model.oracles import (
     qram_state_angles,
     qram_state_prep,
 )
-from pyqecclang.infrastructure.layout import workspace_table
+from oracq.infrastructure.layout import workspace_table
 
 ORIGINIR_QUBIT_BUDGET = 24
 TABLE16 = (3, 0, 5, 2, 7, 1, 6, 4, 0, 2, 1, 7, 5, 3, 6, 4)
@@ -480,7 +480,7 @@ def verify_qram_state_prep(report):
 def verify_backend_rir_sliced_add_const(report):
     """已知后端问题的最小复现：add_const 作用于切片 reinterpret 视图。
 
-    RIR JSON 中操作数为 Span(register=work, start=0, width=2)、值 1 与 3；
+    RIR 文本中操作数为 Span(register=work, start=0, width=2)、值 1 与 3；
     参考执行器、PySparQ 事件适配器均正确复净到 |0>，而 PySparQ RIR 解释器把
     常量加在错误的位偏移上（work = 4）。该问题影响 qram_state_prep 的地址
     簿记，故 qram-state-prep 案例的判据不含 rir-pysparq 路径。

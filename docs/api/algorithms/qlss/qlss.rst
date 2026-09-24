@@ -1,9 +1,9 @@
 量子线性系统
 ============
 
-``pyqecclang.algorithms.qlss.qlss``
+``oracq.algorithms.qlss.qlss``
 
-.. automodule:: pyqecclang.algorithms.qlss.qlss
+.. automodule:: oracq.algorithms.qlss.qlss
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,6 +1,6 @@
 include README.md LICENSE AGENTS.md CONTRIBUTING.md backend-revisions.json uv.lock
 recursive-include docs *.md *.json *.rst *.py *.css
-recursive-include examples *.py *.json *.originir
+recursive-include examples *.py *.json *.yaml *.originir
 recursive-include tests *.py
 recursive-include tools *.py
-include src/pyqecclang/py.typed
+include src/oracq/py.typed

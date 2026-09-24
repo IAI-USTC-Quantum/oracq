@@ -1,6 +1,6 @@
 # 量子算法实现验证计划（审阅稿）
 
-本文档系统规划 pyqecclang 的算法验证体系：先按"正确的判定方式"对全部算法分类，再为每一类规定标准见证技术，最后给出全算法验证矩阵与实施路线。审阅重点：第 2 节的分类是否完整、第 4 节的横切机制是否值得作为基础设施投入、第 5 节的阶段划分与优先级。
+本文档系统规划 oracq 的算法验证体系：先按"正确的判定方式"对全部算法分类，再为每一类规定标准见证技术，最后给出全算法验证矩阵与实施路线。审阅重点：第 2 节的分类是否完整、第 4 节的横切机制是否值得作为基础设施投入、第 5 节的阶段划分与优先级。
 
 ## 1. 验证总原则
 
@@ -30,7 +30,7 @@
 | 模块 | 内容 | 状态 | 缺口与计划 |
 |---|---|---|---|
 | oracles.py | XorDatabase、StatePreparation、SparseAccess、BlockEncoding 三层 | ✅ | 补"三绑定一致性"参数化测试（同一声明逐绑定对拍），目前各绑定独立见证 |
-| data_loading.py | QROM / Select-Swap | ✅ | 资源公式已对拍；建议把 `qrom_cost` 纳入目录报告属性 |
+| data_loading.py | QROM / Select-Swap | ✅ | 资源公式已对拍；建议把 {obj}`qrom_cost <oracq.algorithms.input_model.data_loading.qrom_cost>` 纳入目录报告属性 |
 | mathfunc/ | 经典函数→可逆线路 | ✅ | 补定点量化误差界的显式见证 |
 | prepare_select.py | PREPARE/SELECT、alias | ✅ | alias 的 clean_work=False 已诚实标注；补 alias 三绑定一致性 |
 

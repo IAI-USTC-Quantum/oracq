@@ -20,9 +20,9 @@ RIR 本体维持 0.3；数学图是新增的生成层表示，必须能独立 JS
 
 F1–F5 已完成当前阶段的范式交付。数学正确性继续标为 pending，不以这些测试推导全域精度。
 
-- 数学图与前端：src/pyqecclang/mathfunc/{graph,frontend}.py。
-- 分解与自动量子模块：src/pyqecclang/mathfunc/{numeric,lowering}.py。
-- QFVM 普通公式：src/pyqecclang/mathfunc/roe_formulas.py；原 roe_face 接口转接自动编译结果。
+- 数学图与前端：src/oracq/mathfunc/{graph,frontend}.py。
+- 分解与自动量子模块：src/oracq/mathfunc/{numeric,lowering}.py。
+- QFVM 普通公式：src/oracq/mathfunc/roe_formulas.py；原 roe_face 接口转接自动编译结果。
 - 七组产物：out/math-functions/；三个描述通过真实 OriginIR 解析，自动 Roe 的 QRAM 矩阵元路径通过真实 PySparQ 执行。
 - 验证：75 项核心/Schema、21 项真实后端测试通过；MIR 约束补充后的 11 项定向检查通过。
 

@@ -1,6 +1,6 @@
 # 密度矩阵指数化（Density Matrix Exponentiation）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.qml.qpca` · 阶段 V1
+> 类别 C3 · 模块 [`oracq.algorithms.qml.qpca`](../../api/algorithms/qml/qpca.rst) · 阶段 V1
 
 ## 概述
 
@@ -14,12 +14,14 @@
 density_matrix_exponentiation(preparation, *, time, copies, swap_width=None, name=None)
 ```
 
-- `preparation`：$\rho$ 拷贝的态制备（`StatePreparation`），input model 为 SP + QRAM：纯态用 `gate_state_prep(amplitudes)`，混合态经 `density.gate_purification(rho)` 的 `PurificationAccess.as_state_preparation()` 适配（target = system ⊕ environment，零 work）；制备必须零 work，非零 work 在生成期抛 `ValidationError`。
+API 入口：{obj}`density_matrix_exponentiation <oracq.algorithms.qml.qpca.density_matrix_exponentiation>`
+
+- `preparation`：$\rho$ 拷贝的态制备（{obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>`），input model 为 SP + QRAM：纯态用 {obj}`gate_state_prep(amplitudes) <oracq.algorithms.input_model.oracles.gate_state_prep>`，混合态经 `density.gate_purification(rho)` 的 `PurificationAccess.as_state_preparation()` 适配（target = system ⊕ environment，零 work）；制备必须零 work，非零 work 在生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 - `time`：总演化时间 $t$，必须为正的有限实数。
 - `copies`：拷贝数，范围 1..63；每步 $\Delta t = t/\mathrm{copies}$。
 - `swap_width`：参与交换的前缀位宽，缺省为制备的整个 target；纯化场景应取 $\rho$ 的系统位宽，环境位留在拷贝中不参与交换（效果等同于取偏迹）。
 
-返回 `Operation`，寄存器为 `system`（swap_width 位）与 `copies`（copies × 制备宽度）。系统的输入态由调用方准备；拷贝寄存器从全零由制备 oracle 填充。模块属性：
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `system`（swap_width 位）与 `copies`（copies × 制备宽度）。系统的输入态由调用方准备；拷贝寄存器从全零由制备 oracle 填充。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -43,7 +45,7 @@ density_matrix_exponentiation(preparation, *, time, copies, swap_width=None, nam
 
 - 结构：`tests/core/test_qpca.py:QpcaTests.test_invalid_inputs_fail_at_generation` 覆盖指数化入口的 `time = 0`、`copies = 0`、非 `StatePreparation` 输入等生成期违例。
 - 数值：`test_small_step_first_order_accurate`——$\rho = |+\rangle\langle+|$、单步 $\Delta t = 0.05$ 作用在 $|0\rangle$ 上，丢弃拷贝后与精确 $e^{-it\,|+\rangle\langle+|}$ 作用的迹距离 $< 0.6\cdot\Delta t^2$（$\Delta t$ 一阶收敛率，实测系数约 0.53）；`test_error_halves_with_copies`——固定总时间 $t = 0.4$、copies = 1, 2, 4，迹距离逐级下降且每级 $< 0.6\times$ 前级（copies 翻倍即 $\Delta t$ 减半，误差近似减半）。
-- 绑定：混合态的 DM 输入经 `gate_purification(...).as_state_preparation()` 适配为 SP 进入电路，由 `QpcaTests.test_mixed_state_eigenvalue_via_purification` 见证（见 [QPCA 主成分分析](qpca.md)）。
+- 绑定：混合态的 DM 输入经 {obj}`gate_purification(...).as_state_preparation() <oracq.algorithms.input_model.density.gate_purification>` 适配为 SP 进入电路，由 `QpcaTests.test_mixed_state_eigenvalue_via_purification` 见证（见 [QPCA 主成分分析](qpca.md)）。
 
 ## 已知缺口与计划阶段
 
@@ -51,7 +53,7 @@ density_matrix_exponentiation(preparation, *, time, copies, swap_width=None, nam
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qml/qpca.py`
+- 源码：`src/oracq/algorithms/qml/qpca.py`
 - 同模块页面：[QPCA 主成分分析](qpca.md)
 - API 参考：[QPCA 量子主成分分析](../../api/algorithms/qml/qpca.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

@@ -1,9 +1,9 @@
 RIR 对象
 ============
 
-``pyqecclang.infrastructure.ir``
+``oracq.infrastructure.ir``
 
-.. automodule:: pyqecclang.infrastructure.ir
+.. automodule:: oracq.infrastructure.ir
    :members:
    :undoc-members:
    :show-inheritance:

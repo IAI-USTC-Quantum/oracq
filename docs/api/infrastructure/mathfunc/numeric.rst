@@ -1,9 +1,9 @@
 数学核生成
 ============
 
-``pyqecclang.infrastructure.mathfunc.numeric``
+``oracq.infrastructure.mathfunc.numeric``
 
-.. automodule:: pyqecclang.infrastructure.mathfunc.numeric
+.. automodule:: oracq.infrastructure.mathfunc.numeric
    :members:
    :undoc-members:
    :show-inheritance:

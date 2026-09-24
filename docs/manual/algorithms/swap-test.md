@@ -1,6 +1,6 @@
 # SWAP 检验（Swap Test）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.common.estimation` · 阶段 V2
+> 类别 C3 · 模块 [`oracq.algorithms.common.estimation`](../../api/algorithms/common/estimation.rst) · 阶段 V2
 
 ## 概述
 
@@ -18,9 +18,11 @@ $$
 swap_test(first, second)
 ```
 
-- `first` / `second`：两个同宽态的制备（SP），要求零输入与干净工作区（`checked_state_preparation` 契约，生成期检查）。宽度不一致抛 `ValidationError`。
+API 入口：{obj}`swap_test <oracq.algorithms.common.estimation.swap_test>`
 
-返回 `Operation`，寄存器为 `left`、`right`、`left_work`、`right_work`、`probe`。模块属性：
+- `first` / `second`：两个同宽态的制备（SP），要求零输入与干净工作区（{obj}`checked_state_preparation <oracq.algorithms.input_model.interfaces.checked_state_preparation>` 契约，生成期检查）。宽度不一致抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
+
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `left`、`right`、`left_work`、`right_work`、`probe`。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -36,7 +38,7 @@ swap_test(first, second)
 类别 C3（判定准则见 `docs/development/validation-plan.md` §2：输出分布等于闭式期望）。三层证据与 `docs/development/validation-coverage.md` 的 `estimation.py` 行一致：
 
 - 结构：`tests/core/test_algorithm_expansion.py:AlgorithmExpansionTests`，其中 `test_measurement_algorithms_require_clean_preparation` 覆盖脏制备拒绝路径（`clean_work=False` 抛 `ValidationError`）。
-- 数值：`AlgorithmExpansionTests.test_swap_test_overlap`——`basis_state(1, 0)` 与 `basis_state(1, 1)` 两两组合：同一基态（$F=1$）时 $P(\text{probe}=0)=1$，正交基态（$F=0$）时为 $1/2$，places=10。
+- 数值：`AlgorithmExpansionTests.test_swap_test_overlap`——{obj}`basis_state(1, 0) <oracq.algorithms.input_model.oracles.basis_state>` 与 `basis_state(1, 1)` 两两组合：同一基态（$F=1$）时 $P(\text{probe}=0)=1$，正交基态（$F=0$）时为 $1/2$，places=10。
 - 绑定：模块行登记为"—"。
 
 见证技术为精确态矢量模拟取 probe 边际分布后对拍闭式，无采样断言。
@@ -47,7 +49,7 @@ swap_test(first, second)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/estimation.py`
+- 源码：`src/oracq/algorithms/common/estimation.py`
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[Hadamard 检验](hadamard-test.md)（单酉期望的对应读出）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
@@ -56,7 +58,7 @@ swap_test(first, second)
 
 `tests/verification/verify_estimation.py` 在真实后端上对本接口做概率级数值验证（共 4 个案例，全部通过）。实验设计：
 
-- 实例：`gate_state_prep` 制备的纯态对，覆盖 $F=1$（同态）、$F\approx 0$（正交）、$F=0.36$（部分重叠）与双比特态 $F=0.125$；重叠 $F=|\langle a|c\rangle|^2$ 由 numpy 对输入幅度向量独立计算。
+- 实例：{obj}`gate_state_prep <oracq.algorithms.input_model.oracles.gate_state_prep>` 制备的纯态对，覆盖 $F=1$（同态）、$F\approx 0$（正交）、$F=0.36$（部分重叠）与双比特态 $F=0.125$；重叠 $F=|\langle a|c\rangle|^2$ 由 numpy 对输入幅度向量独立计算。
 - 后端路径：reference、rir-pysparq、adapter-pysparq、originir-ext 四条；$P(\text{probe}=0)$ 对照 $(1+F)/2$。
 
 | 案例 | 规模 | 路径 | 指标值 |

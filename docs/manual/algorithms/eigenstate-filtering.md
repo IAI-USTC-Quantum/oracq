@@ -1,6 +1,6 @@
 # 特征态过滤（Eigenstate Filtering）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.common.qsvt` · 阶段 V2
+> 类别 C2 · 模块 [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · 阶段 V2
 
 ## 概述
 
@@ -20,7 +20,9 @@ $$
 eigenstate_filter(a, gap, degree, *, center=0.0)
 ```
 
-- `a`：`BlockEncoding`，被过滤矩阵的块编码（input model 为 BE；谱变量 $x = \lambda/\alpha$，厄米情形即归一化本征值）。
+API 入口：{obj}`eigenstate_filter <oracq.algorithms.common.qsvt.eigenstate_filter>`
+
+- `a`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，被过滤矩阵的块编码（input model 为 BE；谱变量 $x = \lambda/\alpha$，厄米情形即归一化本征值）。
 - `gap`：过滤宽度 $\Delta$，必须在 $(0, 1)$ 内。
 - `degree`：Chebyshev 度数 $d$，必须是正整数（浮点被拒绝）。
 - `center`：过滤中心，必须在 $(-1, 1)$ 内；非零时先平移谱（见下）。
@@ -37,7 +39,7 @@ eigenstate_filter(a, gap, degree, *, center=0.0)
 
 ## 实现要点
 
-合成度数为 $2d$（$f$ 是 $x^2$ 的 $d$ 次 Chebyshev 组合，单项式度数 $2d$），受合成上限 40 约束（即 $d \le 20$），超限抛 `ValidationError`。`center` 非零时先经 BE 线性组合 `linear_combination(1.0, a, -center, identity(a.width))` 平移谱：构造 $A - \text{center}\cdot I$ 的块编码（归一化变为 $\alpha + |\text{center}|$），过滤作用在平移后的谱变量 $x' = (\lambda - \text{center})/(\alpha + |\text{center}|)$ 上，`gap` 以该变量计量。
+合成度数为 $2d$（$f$ 是 $x^2$ 的 $d$ 次 Chebyshev 组合，单项式度数 $2d$），受合成上限 40 约束（即 $d \le 20$），超限抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。`center` 非零时先经 BE 线性组合 {obj}`linear_combination(1.0, a, -center, identity(a.width)) <oracq.algorithms.input_model.operators.linear_combination>` 平移谱：构造 $A - \text{center}\cdot I$ 的块编码（归一化变为 $\alpha + |\text{center}|$），过滤作用在平移后的谱变量 $x' = (\lambda - \text{center})/(\alpha + |\text{center}|)$ 上，`gap` 以该变量计量。
 
 $f$ 在 $x = 0$ 饱和但 $|f(\pm 1)| = 1/T_d(r) < 1$ 端点未饱和，需借助虚部补全 $h = \text{sat}\cdot x^2$（$\text{sat} = \sqrt{1 - f(1)^2}$）才能合成相位；合成后经 $(U_\Phi + U_{-\Phi})/2$ 提取实部（机制见 [QSP 相位合成](qsp-phase-synthesis.md)）。适用边界：输入必须是块编码；平移后谱值应落在 $[-1, 1]$ 内，超出部分失去上界保证。
 
@@ -55,7 +57,7 @@ $f$ 在 $x = 0$ 饱和但 $|f(\pm 1)| = 1/T_d(r) < 1$ 端点未饱和，需借�
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/qsvt.py`
+- 源码：`src/oracq/algorithms/common/qsvt.py`
 - API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

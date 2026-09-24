@@ -3,21 +3,21 @@
 import unittest
 from functools import partial
 
-from pyqecclang import dumps, loads
-from pyqecclang.algorithms.common.arithmetic import FixedFormat
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
-from pyqecclang.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
-from pyqecclang.algorithms.qode.cbmd import ContourPlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.qfvm import (
+from oracq import dumps, loads
+from oracq.algorithms.common.arithmetic import FixedFormat
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
+from oracq.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
+from oracq.algorithms.qode.cbmd import ContourPlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.applications.flow_data import RoeFlowData
+from oracq.applications.qfvm import (
     bind_qfvm,
     geometry_cells,
     roe_qfvm_block_encoding,
     roe_qfvm_inputs,
 )
-from pyqecclang.infrastructure.linking import unresolved
+from oracq.infrastructure.linking import unresolved
 
 
 class DifferentialStructureTests(unittest.TestCase):

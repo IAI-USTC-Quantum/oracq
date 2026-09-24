@@ -22,6 +22,7 @@
    mathfunc/numeric
    native
    qmem
+   qram_schema
    readout
    serialization
    validation

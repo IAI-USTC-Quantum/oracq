@@ -1,9 +1,9 @@
 模乘与求阶
 ============
 
-``pyqecclang.algorithms.basics.number_theory``
+``oracq.algorithms.basics.number_theory``
 
-.. automodule:: pyqecclang.algorithms.basics.number_theory
+.. automodule:: oracq.algorithms.basics.number_theory
    :members:
    :undoc-members:
    :show-inheritance:

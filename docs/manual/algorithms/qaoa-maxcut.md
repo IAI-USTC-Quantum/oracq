@@ -1,6 +1,6 @@
 # MaxCut QAOA（QAOA for MaxCut）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.optimization.variational` · 阶段 V3
+> 类别 C4 · 模块 [`oracq.algorithms.optimization.variational`](../../api/algorithms/optimization/variational.rst) · 阶段 V3
 
 ## 概述
 
@@ -18,11 +18,13 @@ $$
 qaoa_maxcut(width, edges, gammas, betas)
 ```
 
+API 入口：{obj}`qaoa_maxcut <oracq.algorithms.optimization.variational.qaoa_maxcut>`
+
 - `width`：图的顶点数，也是 target 位宽，范围 1..64。
 - `edges`：`(u, v, weight)` 三元组；`u`、`v` 必须落在 `[0, width)`，权重为非负有限实数，不接受自环。
 - `gammas` / `betas`：各层 cost / mixer 演化角，两个列表非空且等长，角度须为有限实数。
 
-图的边表与变分角度都是经典数据直接参数化，input model 为 CP。返回 `Operation`，寄存器只有 `target`（width 位），无工作位。模块属性：
+图的边表与变分角度都是经典数据直接参数化，input model 为 CP。返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器只有 `target`（width 位），无工作位。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -36,7 +38,7 @@ qaoa_maxcut(width, edges, gammas, betas)
 - cost 层逐边施加 XOR–`Rz(-gamma·weight)`–XOR 共轭，把相位写到 $Z_u Z_v$ 分量上，配合全局相位 $-\gamma w/2$，单边门恰为 $e^{-i\gamma w(1-Z_uZ_v)/2}$；各边的 ZZ 门相互可交换，整层实现 $e^{-i\gamma C}$。
 - mixer 层对每个比特施加 `rx(2·beta)`。
 
-寄存器布局：顶点 i 对应 `target` 第 i 位。参数在生成期全部校验（宽度上限、自环、负权重、gamma/beta 长度不一致或为空均抛 `ValidationError`）。适用边界：只生成给定角度的电路，角度初始化、期望割值评估与外层优化循环由调用方组织；本模块不含经典优化器。
+寄存器布局：顶点 i 对应 `target` 第 i 位。参数在生成期全部校验（宽度上限、自环、负权重、gamma/beta 长度不一致或为空均抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`）。适用边界：只生成给定角度的电路，角度初始化、期望割值评估与外层优化循环由调用方组织；本模块不含经典优化器。
 
 ## 验证方案
 
@@ -52,7 +54,7 @@ qaoa_maxcut(width, edges, gammas, betas)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/optimization/variational.py`
+- 源码：`src/oracq/algorithms/optimization/variational.py`
 - 同模块页面：[硬件高效拟设](variational-ansatz.md)、[VQE 测量电路](vqe.md)
 - API 参考：[变分算法电路](../../api/algorithms/optimization/variational.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

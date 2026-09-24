@@ -1,12 +1,12 @@
 # 运行与修改算法展示目录
 
-展示目录把不同类别的算法放在统一的运行流程中，便于比较它们的输入、寄存器和读出方式。
+展示目录把不同类别的算法放在统一的运行流程中，便于比较它们的输入、寄存器和读出方式。全部案例由 {obj}`algorithm_gallery <oracq.applications.gallery.algorithm_gallery>` 统一构造。
 
 ```bash
 uv run python examples/algorithm_gallery.py
 ```
 
-每个子目录包含 `closed.rir.json`、`modular.originir` 和 `toffoli_u3_cz.originir`。Bernstein–Vazirani 还保存绑定前的开放描述。`index.json` 记录类别、模块数量和读出说明。
+每个子目录包含 `closed.rir.yaml`、`modular.originir` 和 `toffoli_u3_cz.originir`。Bernstein–Vazirani 还保存绑定前的开放描述。`index.json` 记录类别、模块数量和读出说明。
 
 ## 选择要检查的结果
 
@@ -15,7 +15,7 @@ uv run python examples/algorithm_gallery.py
 用以下代码查找案例：
 
 ```{testcode}
-from pyqecclang.applications.gallery import algorithm_gallery
+from oracq.applications.gallery import algorithm_gallery
 
 # 构造全部展示案例，并按名字建索引方便查询。
 cases = {case.name: case for case in algorithm_gallery()}
@@ -56,7 +56,7 @@ vqe_pauli_measurement
 
 打印出的 22 个名字就是展示库当前覆盖的全部案例，横跨搜索、估计、算术、行走、纠错和变分类；增删案例时这行输出要与 `len(cases) == 22` 断言一起同步更新。
 
-需要添加应用例子时，可以在自己的脚本里调用对应算法文件。若要扩展公开展示目录，则为 {obj}`GalleryCase <pyqecclang.applications.gallery.GalleryCase>` 提供操作和具体读出说明，并增加独立的数学见证。
+需要添加应用例子时，可以在自己的脚本里调用对应算法文件。若要扩展公开展示目录，则为 {obj}`GalleryCase <oracq.applications.gallery.GalleryCase>` 提供操作和具体读出说明，并增加独立的数学见证。
 
 ## 真实后端对拍
 

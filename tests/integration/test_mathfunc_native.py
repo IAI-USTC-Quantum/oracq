@@ -2,7 +2,7 @@
 
 import unittest
 
-from pyqecclang import (
+from oracq import (
     Builder,
     FixedFormat,
     arithmetic_native_registry,
@@ -10,7 +10,7 @@ from pyqecclang import (
     run_pysparq,
     simulate,
 )
-from pyqecclang.infrastructure.mathfunc import MathConfig, compile_function
+from oracq.infrastructure.mathfunc import MathConfig, compile_function
 
 
 class MathFunctionNativeTests(unittest.TestCase):

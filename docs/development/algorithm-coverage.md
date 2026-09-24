@@ -1,6 +1,6 @@
 # 量子算法覆盖工作板
 
-本文档跟踪 pyqecclang 相对开源生态的量子算法实现覆盖面，按"input model 自由度优先"的原则安排实现顺序。核心原则：算法与输入模型解耦，一个算法定义通过开放声明与分批绑定服务多种 input model（abstract / gate / qram 三层）。
+本文档跟踪 oracq 相对开源生态的量子算法实现覆盖面，按"input model 自由度优先"的原则安排实现顺序。核心原则：算法与输入模型解耦，一个算法定义通过开放声明与分批绑定服务多种 input model（abstract / gate / qram 三层）。
 
 ## Input model 词汇表
 
@@ -40,7 +40,7 @@
 | B2 | 量子 SDP / 凸优化（Brandão–Svore、van Apeldoorn–Gilyén） | DM/BE | ✅ | 实现于 `algorithms/qsdp.py`：迹估计探针电路 + MMW 驱动 + 逐轮量子子程序生成 |
 | B3 | Heinrich 量子求和/积分 | FO + QRAM | ✅ | 实现于 `algorithms/integration.py`：比较器线性读出 + QAE，三层绑定对拍 |
 | B4 | Jordan 梯度估计 | FO（概率 oracle） | ✅ | 实现于 `algorithms/gradient.py`：相位 oracle 三层 + 单查询 d 分量读出 |
-| B5 | Alias sampling 态制备、Select-Swap QROM | CP→SP / QRAM | ✅ | alias 见 `prepare_select.py`；Select-Swap 实现于 `algorithms/data_loading.py`（含 `qrom_cost` 资源对拍） |
+| B5 | Alias sampling 态制备、Select-Swap QROM | CP→SP / QRAM | ✅ | alias 见 `prepare_select.py`；Select-Swap 实现于 `algorithms/data_loading.py`（含 {obj}`qrom_cost <oracq.algorithms.input_model.data_loading.qrom_cost>` 资源对拍） |
 
 ### C 类：抽象层次能更正确地重写的算法
 

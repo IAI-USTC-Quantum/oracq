@@ -12,7 +12,7 @@ import argparse
 import json
 from pathlib import Path
 
-from pyqecclang import estimate_resources, loads
+from oracq import estimate_resources, loads
 
 CASES = Path("out/input-models")
 OUT = Path("out/resource-estimates")
@@ -32,7 +32,7 @@ def main():
         raise SystemExit(f"缺少 {args.cases} 产物，请先运行 examples/input_models.py")
     records = []
     for folder in sorted(args.cases.iterdir()):
-        closed = folder / "closed.rir.json"
+        closed = folder / "closed.rir.yaml"
         if not closed.is_file():
             continue
         program = loads(closed.read_text(encoding="utf-8"))

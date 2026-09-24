@@ -1,6 +1,6 @@
 # 量子计数（Quantum Counting）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.common.estimation` · 阶段 V2
+> 类别 C3 · 模块 [`oracq.algorithms.common.estimation`](../../api/algorithms/common/estimation.rst) · 阶段 V2
 
 ## 概述
 
@@ -10,7 +10,7 @@ $$
 \hat t = N\cdot\hat a.
 $$
 
-本仓库将其登记为展示目录条目（`applications/gallery.py` 的 `quantum_counting`），复用 `amplitude_estimation` 入口。
+本仓库将其登记为展示目录条目（`applications/gallery.py` 的 `quantum_counting`），复用 {obj}`amplitude_estimation <oracq.algorithms.common.estimation.amplitude_estimation>` 入口。
 
 ## 接口与输入模型
 
@@ -20,11 +20,11 @@ $$
 operation = amplitude_estimation(uniform_state(n), marked, precision=p)
 ```
 
-- `uniform_state(n)`：均匀态制备（SP），使 $a=t/N$。
+- {obj}`uniform_state(n) <oracq.algorithms.input_model.oracles.uniform_state>`：均匀态制备（SP），使 $a=t/N$。
 - `marked`：被标记基态的整数编号集合，$t=|M|$。
 - `precision`：相位寄存器位数，范围 1..63。
 
-返回对象的寄存器与属性同[振幅估计](qae.md)（`target`/`work`/`phase`，`decoder` 为 `"sin(pi*phase/2**precision)**2"`）：读出 `phase` 后经 `amplitude_from_phase` 解码、再乘 $2^n$ 得 $\hat t$。展示实例取 $n=2$、`marked=(3,)`、`precision=4`（$t=1$，$a=1/4$）。
+返回对象的寄存器与属性同[振幅估计](qae.md)（`target`/`work`/`phase`，`decoder` 为 `"sin(pi*phase/2**precision)**2"`）：读出 `phase` 后经 {obj}`amplitude_from_phase <oracq.algorithms.common.estimation.amplitude_from_phase>` 解码、再乘 $2^n$ 得 $\hat t$。展示实例取 $n=2$、`marked=(3,)`、`precision=4`（$t=1$，$a=1/4$）。
 
 ## 实现要点
 
@@ -44,7 +44,7 @@ operation = amplitude_estimation(uniform_state(n), marked, precision=p)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/estimation.py`（电路）、`src/pyqecclang/applications/gallery.py`（展示条目）
+- 源码：`src/oracq/algorithms/common/estimation.py`（电路）、`src/oracq/applications/gallery.py`（展示条目）
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[振幅估计](qae.md)、[Grover 搜索](grover.md)、[量子相位估计](qpe.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

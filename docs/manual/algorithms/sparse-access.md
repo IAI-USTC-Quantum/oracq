@@ -1,6 +1,6 @@
 # 稀疏矩阵访问（Sparse Access）
 
-> 类别 C5 · 模块 `pyqecclang.algorithms.input_model.oracles` · 阶段 V4
+> 类别 C5 · 模块 [`oracq.algorithms.input_model.oracles`](../../api/algorithms/input_model/oracles.rst) · 阶段 V4
 
 ## 概述
 
@@ -20,18 +20,20 @@ sparse_location_qram(width)
 sparse_entry(database, width)
 ```
 
-- `abstract_sparse_access`：开放声明，产出 `name_position` / `name_entry` 两个操作；位置操作带 `sparsity` 与 `full_permutation_extension=True` 属性；`work_width` 缺省取 `width`。
-- `sparse_location_gate`：`permutations` 按列给出 $2^w \times 2^w$ 的完整置换表。
-- `sparse_location_qram`：声明 `forward` / `inverse` 两张 `QRAM(2*width, width)` 表。
-- `sparse_entry`：由 `XorDatabase` 适配，要求 `address_width == 2*width`（`row|column` 拼接寻址）。
+API 入口：{obj}`abstract_sparse_access <oracq.algorithms.input_model.oracles.abstract_sparse_access>`、{obj}`sparse_location_gate <oracq.algorithms.input_model.oracles.sparse_location_gate>`、{obj}`sparse_location_qram <oracq.algorithms.input_model.oracles.sparse_location_qram>`、{obj}`sparse_entry <oracq.algorithms.input_model.oracles.sparse_entry>`
 
-`SparseAccess(location, entry, width, value_width, sparsity)` 为 frozen dataclass，约束 $1 \le \text{width} \le 64$、$1 \le \text{value\_width} \le 64$、$1 \le \text{sparsity} \le 2^{\text{width}}$，位置签名 `("column", "index", "work")`、元素签名 `("row", "column", "data")`。属性：
+- {obj}`abstract_sparse_access <oracq.algorithms.input_model.oracles.abstract_sparse_access>`：开放声明，产出 `name_position` / `name_entry` 两个操作；位置操作带 `sparsity` 与 `full_permutation_extension=True` 属性；`work_width` 缺省取 `width`。
+- {obj}`sparse_location_gate <oracq.algorithms.input_model.oracles.sparse_location_gate>`：`permutations` 按列给出 $2^w \times 2^w$ 的完整置换表。
+- {obj}`sparse_location_qram <oracq.algorithms.input_model.oracles.sparse_location_qram>`：声明 `forward` / `inverse` 两张 {obj}`QRAM(2*width, width) <oracq.infrastructure.ir.QRAM>` 表。
+- {obj}`sparse_entry <oracq.algorithms.input_model.oracles.sparse_entry>`：由 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>` 适配，要求 `address_width == 2*width`（`row|column` 拼接寻址）。
+
+{obj}`SparseAccess(location, entry, width, value_width, sparsity) <oracq.algorithms.input_model.oracles.SparseAccess>` 为 frozen dataclass，约束 $1 \le \text{width} \le 64$、$1 \le \text{value\_width} \le 64$、$1 \le \text{sparsity} \le 2^{\text{width}}$，位置签名 `("column", "index", "work")`、元素签名 `("row", "column", "data")`。属性：
 
 | 属性 | 含义 |
 |---|---|
-| `location` / `entry` | 两个底层 `Operation` |
+| `location` / `entry` | 两个底层 {obj}`Operation <oracq.infrastructure.builder.Operation>` |
 | `width` / `value_width` / `sparsity` | 维度位数、值字宽、稀疏度 |
-| `describe()` | `OracleSpec`（类型 `cks_sparse`、`anc_qubit=None`、position / entry 组件描述、sparsity 参数） |
+| `describe()` | {obj}`OracleSpec <oracq.algorithms.input_model.contracts.OracleSpec>`（类型 `cks_sparse`、`anc_qubit=None`、position / entry 组件描述、sparsity 参数） |
 
 ## 实现要点
 
@@ -55,9 +57,10 @@ QRAM 位置实现三步完成原地置换：`work ^= forward[column, index]`、`
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/input_model/oracles.py`
+- 源码：`src/oracq/algorithms/input_model/oracles.py`
 - 同组页面：[XOR 数据库](xor-database.md)
 - API 参考：[Oracle 声明与实现](../../api/algorithms/input_model/oracles.rst)
+- 概念：[Oracle 与算子表示](../operators.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证
@@ -69,7 +72,7 @@ QRAM 位置实现三步完成原地置换：`work ^= forward[column, index]`、`
 1. 位置 oracle `sparse_location_gate`：全部 16 个 (column, index) 基态输入逐一读出，对照经典置换表，work 须复净为 0；
 2. 元素 oracle `sparse_entry`：全部 16 个 (row, column) × 两种 data 初值（0 与非零 5）验证 XOR 语义 $d \oplus A_{rc}$；
 3. QRAM 位置实现 `sparse_location_qram`：正/反两张表作为 memory 数据绑定，逐基态验证复净语义，reference 与 rir-pysparq 两后端逐振幅一致；
-4. 访问层辅助：`reversible_lookup` 融合地址/数据视图 128 组输入、`batch_lookup` 并发三路、`compare_words`（eq/lt，位宽 1–4 全输入穷举）、`value_transposition`（3 位全 512 组输入）、`prefix_state` 前缀均匀叠加、`word_rotation` / `magnitude_rotation` 的解析概率语义。
+4. 访问层辅助：{obj}`reversible_lookup <oracq.algorithms.input_model.sparse.reversible_lookup>` 融合地址/数据视图 128 组输入、{obj}`batch_lookup <oracq.algorithms.input_model.sparse.batch_lookup>` 并发三路、{obj}`compare_words <oracq.algorithms.input_model.sparse.compare_words>`（eq/lt，位宽 1–4 全输入穷举）、{obj}`value_transposition <oracq.algorithms.input_model.sparse.value_transposition>`（3 位全 512 组输入）、{obj}`prefix_state <oracq.algorithms.input_model.sparse.prefix_state>` 前缀均匀叠加、{obj}`word_rotation <oracq.algorithms.input_model.sparse.word_rotation>` / {obj}`magnitude_rotation <oracq.algorithms.input_model.sparse.magnitude_rotation>` 的解析概率语义。
 
 | 案例 | 规模 | 后端路径 | 指标 | 数值 |
 |---|---|---|---|---|

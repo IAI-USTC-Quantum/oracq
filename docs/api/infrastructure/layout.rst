@@ -1,9 +1,9 @@
 寄存器布局
 ============
 
-``pyqecclang.infrastructure.layout``
+``oracq.infrastructure.layout``
 
-.. automodule:: pyqecclang.infrastructure.layout
+.. automodule:: oracq.infrastructure.layout
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,11 +1,11 @@
 # 为同一个线性问题替换 QODE 方法
 
-本例考虑 `u'=-u`。我们用 `-I` 的 BE 表示生成元，用一个 X 门制备初态，再分别选择 [LCHS](../manual/algorithms/lchs.md) 和 [Schrödingerization](../manual/algorithms/schrodingerization.md)。
+本例考虑 `u'=-u`。我们用 `-I` 的 BE 表示生成元，用一个 X 门制备初态，再分别选择 [LCHS](../manual/algorithms/lchs.md) 和 [Schrödingerization](../manual/algorithms/schrodingerization.md)。生成元写成 {obj}`scale <oracq.algorithms.input_model.operators.scale>` 缩放 {obj}`identity <oracq.algorithms.input_model.operators.identity>`，问题连同初态一起装进 {obj}`QODEProblem <oracq.algorithms.qode.ode.QODEProblem>`。
 
 ```{testcode}
-from pyqecclang import Bits, Builder, QODEProblem, identity, scale
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq import Bits, Builder, QODEProblem, identity, scale
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
 from functools import partial
 
 b = Builder("initial_one", {"q": Bits(1)})
@@ -30,13 +30,13 @@ assert first.width == second.width == 1
 31 28
 ```
 
-打印结果显示：两个生成器给出同样的 target 宽度 `1`，但内部模块数不同（LCHS 为 31，Schrödingerization 为 28），对应不同的辅助寄存器、近似方式和恢复条件。这个例子检查的是组装接口；有限一阶 Taylor 并不代表已经得到任意精度的微分方程解。
+两个入口都由 {obj}`linear_qode <oracq.algorithms.qode.ode.linear_qode>` 按方法名生成，共用 {obj}`taylor_hamiltonian <oracq.algorithms.common.hamiltonian.taylor_hamiltonian>` 充当近似模拟核。打印结果显示：两个生成器给出同样的 target 宽度 `1`，但内部模块数不同（LCHS 为 31，Schrödingerization 为 28），对应不同的辅助寄存器、近似方式和恢复条件。这个例子检查的是组装接口；有限一阶 Taylor 并不代表已经得到任意精度的微分方程解。
 
 `dissipative=True` 是问题声明。LCHS 的问题级入口要求它明确存在；Schrödingerization 使用其他数学条件，尤其需要选择合适的辅助窗口和恢复通道。
 
 ## 从 PDE 开始
 
-线性 PDE 先经过空间离散化，形成 {obj}`DiscretePDE(generator, initial) <pyqecclang.algorithms.qpde.pde.DiscretePDE>`，再交给 {obj}`make_qpde(qode) <pyqecclang.algorithms.qpde.pde.make_qpde>`。非线性多项式 PDE 可以形成 {obj}`PolynomialODE <pyqecclang.algorithms.qnlss.carleman.PolynomialODE>`，由 [Carleman](../manual/algorithms/carleman.md) 生成提升系统，再调用同一三参数线性求解协议。
+线性 PDE 先经过空间离散化，形成 {obj}`DiscretePDE(generator, initial) <oracq.algorithms.qpde.pde.DiscretePDE>`，再交给 {obj}`make_qpde(qode) <oracq.algorithms.qpde.pde.make_qpde>`。非线性多项式 PDE 可以形成 {obj}`PolynomialODE <oracq.algorithms.qnlss.carleman.PolynomialODE>`，由 [Carleman](../manual/algorithms/carleman.md) 生成提升系统，再调用同一三参数线性求解协议。
 
 完整的热方程、Burgers 方程与多种 given-oracle 示例位于：
 

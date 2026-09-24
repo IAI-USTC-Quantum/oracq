@@ -1,6 +1,6 @@
 # Heinrich 量子积分（Heinrich Quantum Integration）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.common.integration` · 阶段 V1
+> 类别 C3 · 模块 [`oracq.algorithms.common.integration`](../../api/algorithms/common/integration.rst) · 阶段 V1
 
 ## 概述
 
@@ -14,11 +14,13 @@
 quantum_integral(database, *, precision=4, interval=1.0, name=None)
 ```
 
-- `database`：函数值加载器（`XorDatabase`，address = index、data = value），input model 为 FO + QRAM；通常由 `table_loader(values, data_width=None, backend="gate"|"qram")` 构造，函数值按 `v/full_scale` 量化（`full_scale` 缺省取 $2^w - 1$）。
+API 入口：{obj}`quantum_integral <oracq.algorithms.common.integration.quantum_integral>`
+
+- `database`：函数值加载器（{obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`，address = index、data = value），input model 为 FO + QRAM；通常由 {obj}`table_loader(values, data_width=None, backend="gate"|"qram") <oracq.algorithms.common.integration.table_loader>` 构造，函数值按 `v/full_scale` 量化（`full_scale` 缺省取 $2^w - 1$）。
 - `precision`：相位寄存器位数，范围 1..63；QAE 估计误差量级 $O(1/2^{\text{precision}})$。
 - `interval`：区间长度 $L$，必须为正的有限实数。
 
-返回 `Operation`，寄存器为 `target`、`work`、`phase`（与 `quantum_sum` 相同）。读出 `phase` 后用 `integral_from_phase(value, precision, data_width, interval=1.0, full_scale=None)` 解码：积分估计 $= E[v]/\text{full\_scale} \times L$。模块属性：
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `target`、`work`、`phase`（与 {obj}`quantum_sum <oracq.algorithms.common.integration.quantum_sum>` 相同）。读出 `phase` 后用 {obj}`integral_from_phase(value, precision, data_width, interval=1.0, full_scale=None) <oracq.algorithms.common.integration.integral_from_phase>` 解码：积分估计 $= E[v]/\text{full\_scale} \times L$。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -28,15 +30,15 @@ quantum_integral(database, *, precision=4, interval=1.0, name=None)
 | `value_bits` / `index_bits` | 值字宽 $w$ 与下标位数 $n$ |
 | `query_complexity` / `classical_query_complexity` | `O(1/epsilon)` / `O(1/epsilon**2)` |
 
-相关入口：`heinrich_rate(smoothness, dimension)` 给出函数类最优收敛率（确定性 $s/d$、随机化 $s/d + 1/2$、量子 $s/d + 1$），用于按网格规模估计离散化误差。
+相关入口：{obj}`heinrich_rate(smoothness, dimension) <oracq.algorithms.common.integration.heinrich_rate>` 给出函数类最优收敛率（确定性 $s/d$、随机化 $s/d + 1/2$、量子 $s/d + 1$），用于按网格规模估计离散化误差。
 
 ## 实现要点
 
-`quantum_integral` 不生成新电路：它调用 `quantum_sum` 得到同一模块，仅把 `algorithm`、`decoder` 改写为积分版本并追加 `interval` 属性（经 `dataclasses.replace` 重建模块属性表）。因此生成链、寄存器布局（`target = index(n) | threshold(w) | flag(1)`，`work = value(w)`）与 Grover 迭代结构与求和完全一致。
+{obj}`quantum_integral <oracq.algorithms.common.integration.quantum_integral>` 不生成新电路：它调用 `quantum_sum` 得到同一模块，仅把 `algorithm`、`decoder` 改写为积分版本并追加 `interval` 属性（经 `dataclasses.replace` 重建模块属性表）。因此生成链、寄存器布局（`target = index(n) | threshold(w) | flag(1)`，`work = value(w)`）与 Grover 迭代结构与求和完全一致。
 
 设计决策：区间长度不进电路而只进解码器，避免在 IR 中引入浮点缩放；量化尺度 `full_scale` 同理留给 `integral_from_phase`，使同一电路可服务不同区间与量程的重解释。总误差 = 离散化误差（由网格密度与光滑性决定，收敛率见 `heinrich_rate`）+ QAE 估计误差（由 `precision` 决定）。
 
-适用边界：仅一维、均匀网格、非负量化函数值；多维积分与自适应网格未实现。`interval` 必须为正，非正值在生成期抛 `ValidationError`。
+适用边界：仅一维、均匀网格、非负量化函数值；多维积分与自适应网格未实现。`interval` 必须为正，非正值在生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 
 ## 验证方案
 
@@ -52,7 +54,7 @@ quantum_integral(database, *, precision=4, interval=1.0, name=None)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/integration.py`
+- 源码：`src/oracq/algorithms/common/integration.py`
 - 同模块页面：[Heinrich 量子求和](heinrich-summation.md)
 - API 参考：[量子求和与积分](../../api/algorithms/common/integration.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

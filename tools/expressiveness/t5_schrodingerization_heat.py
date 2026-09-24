@@ -1,11 +1,11 @@
-"""表达力基准 T5：Schrödingerization 求解 1D 热方程（pyqecclang 侧）。
+"""表达力基准 T5：Schrödingerization 求解 1D 热方程（oracq 侧）。
 
 规格（benchmarks/t5/SPEC.md）：u_t = u_xx，4 点周期网格，二阶差分生成元
 G = S + S^T - 2I（谱半径 4），t = 0.05，u0 = [1, 0.5, 0, -0.5]/‖·‖；
 参考解为 scipy.linalg.expm(G t) u0。度量：后选择物理通道 × 恢复因子后的
 L2 相对误差。
 
-运行：cd ~/projects/qcfd-dev/pyqecclang && PYTHONPATH=src <python> \
+运行：cd ~/projects/qcfd-dev/oracq && PYTHONPATH=src <python> \
 tools/expressiveness/t5_schrodingerization_heat.py
 """
 
@@ -18,20 +18,20 @@ from functools import partial
 import numpy as np
 import scipy.linalg
 
-from pyqecclang import simulate
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding, tensor
-from pyqecclang.algorithms.input_model.operators import identity
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.ode_models import HermitianParts
-from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan, fourier_momentum
+from oracq import simulate
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding, tensor
+from oracq.algorithms.input_model.operators import identity
+from oracq.algorithms.input_model.oracles import gate_state_prep
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qode.ode_models import HermitianParts
+from oracq.algorithms.qode.schrodingerization import SchrodingerPlan, fourier_momentum
 
 TIME, DEGREE = 0.05, 2
 
 
 def main():
-    print(f"pyqecclang {importlib.metadata.version('pyqecclang')} python {sys.version.split()[0]}")
+    print(f"oracq {importlib.metadata.version('oracq')} python {sys.version.split()[0]}")
     print(f"numpy {np.__version__} scipy {scipy.__version__}")
 
     shift = np.roll(np.eye(4), 1, axis=1)

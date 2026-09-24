@@ -1,6 +1,6 @@
 # CBMD 轮廓分解（CBMD）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.qode.cbmd` · 阶段 V2
+> 类别 C2 · 模块 [`oracq.algorithms.qode.cbmd`](../../api/algorithms/qode/cbmd.rst) · 阶段 V2
 
 ## 概述
 
@@ -16,12 +16,14 @@ ContourPlan(a=1.0, cutoff=2, poles=(2j, -1 + 1j, 1j, 1 + 1j))
 cbmd_function(a, nodes, residue_weights, hermitian_function)
 ```
 
-- `model`：`LinearODE(HermitianParts(L, H), initial)`，input model 为 ODE（与 LCHS 相同的输入面）。
-- `ContourPlan`：`a > 0` 的轮廓参数、`cutoff >= 0` 的截断、有限互异非实且避开 $-i$ 的辅助极点。派生量：主级数节点 $q_k=k/a$（$k=-J..J$）、节点权重与辅助极点系数。
-- `cbmd_qode` 的 `hamiltonian_function` 与 `time` 约定同 LCHS。
-- `cbmd_function(a, nodes, residue_weights, hermitian_function)`：通用 $f(A)$ 组装点，`a` 为算子 BE，节点/留数权重由调用方按轮廓恒等式提供。
+API 入口：{obj}`cbmd_qode <oracq.algorithms.qode.cbmd.cbmd_qode>`、{obj}`ContourPlan <oracq.algorithms.qode.cbmd.ContourPlan>`、{obj}`cbmd_function <oracq.algorithms.qode.cbmd.cbmd_function>`
 
-`cbmd_qode` 返回 `StateOracle`（`target`/`signal`），模块属性：
+- `model`：{obj}`LinearODE(HermitianParts(L, H), initial) <oracq.algorithms.qode.ode_models.LinearODE>`，input model 为 ODE（与 LCHS 相同的输入面）。
+- {obj}`ContourPlan <oracq.algorithms.qode.cbmd.ContourPlan>`：`a > 0` 的轮廓参数、`cutoff >= 0` 的截断、有限互异非实且避开 $-i$ 的辅助极点。派生量：主级数节点 $q_k=k/a$（$k=-J..J$）、节点权重与辅助极点系数。
+- {obj}`cbmd_qode <oracq.algorithms.qode.cbmd.cbmd_qode>` 的 `hamiltonian_function` 与 `time` 约定同 LCHS。
+- {obj}`cbmd_function(a, nodes, residue_weights, hermitian_function) <oracq.algorithms.qode.cbmd.cbmd_function>`：通用 $f(A)$ 组装点，`a` 为算子 BE，节点/留数权重由调用方按轮廓恒等式提供。
+
+`cbmd_qode` 返回 {obj}`StateOracle <oracq.algorithms.input_model.oracles.StateOracle>`（`target`/`signal`），模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -31,7 +33,7 @@ cbmd_function(a, nodes, residue_weights, hermitian_function)
 | `remainder` | `"auxiliary pole contribution and truncation pending"` |
 | `input_assumption` | `"L>=0; autonomous; homogeneous"` |
 
-`cbmd_function` 返回 `BlockEncoding`，属性 `algorithm="cbmd_matrix_function"`、`correctness="pending"`、`residue_sign_convention="caller supplies target-side weights from contour identity"`。
+`cbmd_function` 返回 {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，属性 `algorithm="cbmd_matrix_function"`、`correctness="pending"`、`residue_sign_convention="caller supplies target-side weights from contour identity"`。
 
 ## 实现要点
 
@@ -41,9 +43,9 @@ $$
 w_k=\frac{e^{-2\pi a}-1}{a\cdot 2\pi i\,(q_k+i)\prod_{p}\frac{q_k-p}{-i-p}}
 $$
 
-给出，辅助极点系数同理（分母换为 $(e^{-2\pi i p a}-1)\prod_{p'\neq p}\frac{p-p'}{-i-p'}$）。`cbmd_qode` 的生成与 LCHS 共用 `_lcu_dynamics`：逐节点 $K_k=H+q_kL$、可替换 `hamiltonian_function`、LCU 组合、`apply_be_to_state` 作用到初态；差异仅在计划类型与记录的元数据。
+给出，辅助极点系数同理（分母换为 $(e^{-2\pi i p a}-1)\prod_{p'\neq p}\frac{p-p'}{-i-p'}$）。`cbmd_qode` 的生成与 LCHS 共用 `_lcu_dynamics`：逐节点 $K_k=H+q_kL$、可替换 `hamiltonian_function`、LCU 组合、{obj}`apply_be_to_state <oracq.algorithms.common.state_preparation.apply_be_to_state>` 作用到初态；差异仅在计划类型与记录的元数据。
 
-`cbmd_function` 的分支组合顺序为 `lcu([(node, parts.h), (1, parts.hermitian)])`，即 $qH+L$（与 `cbmd_qode` 的 $H+qL$ 约定不同）；它保持 Hermitian-function protocol 开放，不偷换为矩阵求逆，也不宣称完成了留数符号方向的验证。
+`cbmd_function` 的分支组合顺序为 {obj}`lcu([(node, parts.h), (1, parts.hermitian)]) <oracq.algorithms.input_model.block_encoding.lcu>`，即 $qH+L$（与 `cbmd_qode` 的 $H+qL$ 约定不同）；它保持 Hermitian-function protocol 开放，不偷换为矩阵求逆，也不宣称完成了留数符号方向的验证。
 
 适用边界：除 LCHS 的耗散/自治/齐次声明外，还需轮廓前提 $\lVert\int L\,dt\rVert\le 2\pi a$；省略的辅助极点分支与无穷级数尾意味着当前输出只是主级数的有限部分，不是完整的 $e^{-At}$ 近似。
 
@@ -87,7 +89,7 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qode/cbmd.py`
+- 源码：`src/oracq/algorithms/qode/cbmd.py`
 - API 参考：[CBMD](../../api/algorithms/qode/cbmd.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md)（同一输入面与组装骨架）· [Carleman 线性化](carleman.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

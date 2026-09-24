@@ -1,6 +1,6 @@
 # 截断 Taylor 块编码（Truncated Taylor Block Encoding）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.common.hamiltonian` · 阶段 V2
+> 类别 C2 · 模块 [`oracq.algorithms.common.hamiltonian`](../../api/algorithms/common/hamiltonian.rst) · 阶段 V2
 
 ## 概述
 
@@ -18,7 +18,9 @@ $$
 taylor_hamiltonian(hamiltonian, time, *, degree=2)
 ```
 
-- `hamiltonian`：`BlockEncoding`，演化生成元的块编码（input model 为 BE）；数学语义（如厄米性）由调用方负责。
+API 入口：{obj}`taylor_hamiltonian <oracq.algorithms.common.hamiltonian.taylor_hamiltonian>`
+
+- `hamiltonian`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，演化生成元的块编码（input model 为 BE）；数学语义（如厄米性）由调用方负责。
 - `time`：演化时间，有限实数。
 - `degree`：截断阶数 $d$，非负整数，默认 2。
 
@@ -33,7 +35,7 @@ taylor_hamiltonian(hamiltonian, time, *, degree=2)
 
 ## 实现要点
 
-幂序列迭代生成：从 $(1, I)$ 出发，`product(hamiltonian, current)` 逐次右乘得到 $H^k$，系数解析取 $(-it)^k / k!$，随后整体经 `lcu(powers)` 组合。寄存器布局由 LCU 决定：`target = Bits(width)`，`signal` 为 selector（$\lceil\log_2(d+1)\rceil$ 位）与各项信号空间的拼接；复数系数的相位经全局相位门实现。
+幂序列迭代生成：从 $(1, I)$ 出发，{obj}`product(hamiltonian, current) <oracq.algorithms.input_model.operators.product>` 逐次右乘得到 $H^k$，系数解析取 $(-it)^k / k!$，随后整体经 {obj}`lcu(powers) <oracq.algorithms.input_model.block_encoding.lcu>` 组合。寄存器布局由 LCU 决定：`target = Bits(width)`，`signal` 为 selector（$\lceil\log_2(d+1)\rceil$ 位）与各项信号空间的拼接；复数系数的相位经全局相位门实现。
 
 适用边界：门数随 $d$ 线性放大（深幂链），本函数不做截断误差界分析，误差由调用方按 $\lVert H\rVert t$ 与 $d$ 自行评估；生成期校验 `degree` 为非负整数、`time` 为有限实数。
 
@@ -51,16 +53,17 @@ taylor_hamiltonian(hamiltonian, time, *, degree=2)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/hamiltonian.py`
+- 源码：`src/oracq/algorithms/common/hamiltonian.py`
 - 同族页面：[哈密顿量模拟协议](hamiltonian-simulation.md)、[Trotter 乘积公式模拟](trotter.md)、[块编码组合代数](block-encoding-algebra.md)
 - API 参考：[Hamiltonian 演化](../../api/algorithms/common/hamiltonian.rst)
+- 概念：[Oracle 与算子表示](../operators.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证
 
 论文级数值验证脚本：`tests/verification/verify_blockencoding.py`（真实后端执行，无 mock、无 skip；2026-09-16 共 73 个案例全部通过），产物 `out/verification/blockencoding.json`。本页对应 `taylor-block-encoding-d{1,2,3,4}` 共 4 个案例，补上"截断精度本身的误差 vs 阶数直接对拍缺失"的登记缺口。
 
-实验设计：输入生成元为 2×2 厄米矩阵 $H=\begin{pmatrix}1.0&0.4\\0.4&-0.6\end{pmatrix}$（经 `matrix_pauli_encoding` 编码，$\alpha_{\rm in}=1.4$），演化时间 $t=0.7$，阶数 $d=1..4$。块语义为 $\big(\sum_{k\le d}(-itH)^k/k!\big)/\alpha$，$\alpha=\sum_{k\le d}(\alpha_{\rm in}t)^k/k!$。两类误差分离报告：**实现误差**——reference 逐列提取的零信号块对照同阶截断级数（numpy 独立计算）；**方法误差**——块对照 $e^{-iHt}/\alpha$（numpy 特征分解独立计算）；另对照 `be_alpha` 与级数闭式，并以 rir-pysparq / adapter-pysparq 逐列交叉。
+实验设计：输入生成元为 2×2 厄米矩阵 $H=\begin{pmatrix}1.0&0.4\\0.4&-0.6\end{pmatrix}$（经 {obj}`matrix_pauli_encoding <oracq.algorithms.input_model.block_encoding.matrix_pauli_encoding>` 编码，$\alpha_{\rm in}=1.4$），演化时间 $t=0.7$，阶数 $d=1..4$。块语义为 $\big(\sum_{k\le d}(-itH)^k/k!\big)/\alpha$，$\alpha=\sum_{k\le d}(\alpha_{\rm in}t)^k/k!$。两类误差分离报告：**实现误差**——reference 逐列提取的零信号块对照同阶截断级数（numpy 独立计算）；**方法误差**——块对照 $e^{-iHt}/\alpha$（numpy 特征分解独立计算）；另对照 `be_alpha` 与级数闭式，并以 rir-pysparq / adapter-pysparq 逐列交叉。
 
 | 案例 | 阶数 | 实现误差 | 方法误差（信息性） | $\alpha$ 偏差 | 后端交叉 |
 |---|---|---|---|---|---|

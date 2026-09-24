@@ -1,9 +1,9 @@
 原生实现注册
 ============
 
-``pyqecclang.infrastructure.native``
+``oracq.infrastructure.native``
 
-.. automodule:: pyqecclang.infrastructure.native
+.. automodule:: oracq.infrastructure.native
    :members:
    :undoc-members:
    :show-inheritance:

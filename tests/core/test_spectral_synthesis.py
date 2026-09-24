@@ -7,16 +7,16 @@ alpha*corner，子归一化 alpha 本身按合并代数收紧。
 
 import unittest
 
-from pyqecclang import Builder, estimate_resources, simulate
-from pyqecclang.algorithms.common.spectral_synthesis import (
+from oracq import Builder, estimate_resources, simulate
+from oracq.algorithms.common.spectral_synthesis import (
     fanout_spectral_diagonal,
     merge_similar,
     uniformly_controlled_prep,
 )
-from pyqecclang.algorithms.input_model.block_encoding import lcu
-from pyqecclang.algorithms.input_model.operators import identity
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep
-from pyqecclang.algorithms.input_model.spectral import spectral_diagonal
+from oracq.algorithms.input_model.block_encoding import lcu
+from oracq.algorithms.input_model.operators import identity
+from oracq.algorithms.input_model.oracles import gate_state_prep
+from oracq.algorithms.input_model.spectral import spectral_diagonal
 
 
 def applied(operation, initial):
@@ -96,7 +96,7 @@ class FanoutSpectralDiagonalTests(unittest.TestCase):
 
     def test_removes_controlled_rotations(self):
         """fan-out 形式的 RIR 中不存在包裹旋转门的 Control 节点（结构断言）。"""
-        from pyqecclang.infrastructure.ir import Control, Primitive
+        from oracq.infrastructure.ir import Control, Primitive
 
         def controlled_rotations(body):
             rotations = {"ry", "rx", "rz", "phase"}

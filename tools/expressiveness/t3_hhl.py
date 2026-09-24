@@ -1,7 +1,7 @@
-"""表达力基准 T3：HHL 2×2 的 pyqecclang QLSS 路径。
+"""表达力基准 T3：HHL 2×2 的 oracq QLSS 路径。
 
 任务：A=[[1,-1/3],[-1/3,1]]，b=[1,0]；用 CKS Chebyshev 求解器
-（pyqecclang.algorithms.qlss.cks_chebyshev，稀疏访问输入模型）求条件解态，
+（oracq.algorithms.qlss.cks_chebyshev，稀疏访问输入模型）求条件解态，
 见证为恢复向量方向对 numpy.linalg.solve 独立参考的误差
 （Chebyshev 截断方法误差 + 定点量化误差，阈值见 benchmarks/t3/SPEC.md）。
 """
@@ -12,16 +12,16 @@ from pathlib import Path
 
 import numpy as np
 
-import pyqecclang
-from pyqecclang import FixedFormat, simulate
-from pyqecclang.algorithms.input_model.oracles import (
+import oracq
+from oracq import FixedFormat, simulate
+from oracq.algorithms.input_model.oracles import (
     SparseAccess,
     basis_state,
     gate_database,
     sparse_entry,
     sparse_location_gate,
 )
-from pyqecclang.algorithms.qlss.qlss import CKSConfig, SparseSystem, SpectralPromise, cks_chebyshev
+from oracq.algorithms.qlss.qlss import CKSConfig, SparseSystem, SpectralPromise, cks_chebyshev
 
 ORDER = 40
 FRACTION = 8
@@ -29,9 +29,9 @@ FRACTION = 8
 
 def package_version():
     try:
-        return version("pyqecclang")
+        return version("oracq")
     except PackageNotFoundError:
-        pkg_info = Path(pyqecclang.__file__).parent.parent / "pyqecclang.egg-info" / "PKG-INFO"
+        pkg_info = Path(oracq.__file__).parent.parent / "oracq.egg-info" / "PKG-INFO"
         for line in pkg_info.read_text(encoding="utf-8").splitlines():
             if line.startswith("Version:"):
                 return line.split(":", 1)[1].strip()
@@ -71,7 +71,7 @@ def direction_error(vector, reference):
 
 
 def main():
-    print(f"pyqecclang {package_version()} / numpy {version('numpy')}")
+    print(f"oracq {package_version()} / numpy {version('numpy')}")
     matrix = [[1.0, -1 / 3], [-1 / 3, 1.0]]
     b = np.array([1.0, 0.0])
     fmt = FixedFormat(FRACTION + 2, FRACTION)
@@ -116,7 +116,7 @@ def main():
     print(f"method_direction_error_vs_solve(A_quantized)={method:.3e}")
     print(f"task_direction_error_vs_solve(A)={task:.3e}")
     ok = impl < 1e-8 and task < 1e-2
-    print(f"T3 pyqecclang QLSS: {'PASS' if ok else 'FAIL'} (threshold: impl<1e-8, direction<1e-2)")
+    print(f"T3 oracq QLSS: {'PASS' if ok else 'FAIL'} (threshold: impl<1e-8, direction<1e-2)")
     return 0 if ok else 1
 
 

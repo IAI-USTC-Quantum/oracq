@@ -1,6 +1,6 @@
 # QSVT 矩阵求逆（QSVT Matrix Inversion）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.common.qsvt` · 阶段 V2
+> 类别 C2 · 模块 [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · 阶段 V2
 
 ## 概述
 
@@ -18,7 +18,9 @@ $$
 qsvt_matrix_inversion(a, kappa, *, error=0.05)
 ```
 
-- `a`：`BlockEncoding`，被求逆矩阵的块编码（input model 为 BE）。
+API 入口：{obj}`qsvt_matrix_inversion <oracq.algorithms.common.qsvt.qsvt_matrix_inversion>`
+
+- `a`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，被求逆矩阵的块编码（input model 为 BE）。
 - `kappa`：条件数 $\kappa$，必须是不小于 1 的有限数。
 - `error`：相对近似误差，必须在 $(0, 1)$ 内。
 
@@ -34,9 +36,9 @@ qsvt_matrix_inversion(a, kappa, *, error=0.05)
 
 ## 实现要点
 
-度数由 $\kappa$ 与 `error` 闭式推出：$b = \max\!\bigl(1,\ \lceil \log(1/\varepsilon) / -\log(1 - 1/\kappa^2) \rceil\bigr)$，$\kappa = 1$ 时 $b = 1$；所需度数超过合成上限 40 时抛出 `ValidationError`，调用方需放宽 `error`。
+度数由 $\kappa$ 与 `error` 闭式推出：$b = \max\!\bigl(1,\ \lceil \log(1/\varepsilon) / -\log(1 - 1/\kappa^2) \rceil\bigr)$，$\kappa = 1$ 时 $b = 1$；所需度数超过合成上限 40 时抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`，调用方需放宽 `error`。
 
-目标多项式 $f$ 端点未饱和（$|f(\pm 1)| < 1$），必须借助非零虚部补全 $h$ 才能合成相位（见模块 docstring 的可实现条件）。合成后用 $(U_\Phi + U_{-\Phi})/2$ 的 LCU 组合提取实部——$-Φ$ 恰好实现共轭多项式 $\bar{P}$——所得块编码即 $f(A/\alpha)$。相位合成采用补多项式求根加逐层剥离（layer stripping），每次合成后经 `qsp_response` 往返自检，病态输入直接拒绝。
+目标多项式 $f$ 端点未饱和（$|f(\pm 1)| < 1$），必须借助非零虚部补全 $h$ 才能合成相位（见模块 docstring 的可实现条件）。合成后用 $(U_\Phi + U_{-\Phi})/2$ 的 LCU 组合提取实部——$-Φ$ 恰好实现共轭多项式 $\bar{P}$——所得块编码即 $f(A/\alpha)$。相位合成采用补多项式求根加逐层剥离（layer stripping），每次合成后经 {obj}`qsp_response <oracq.algorithms.common.qsvt.qsp_response>` 往返自检，病态输入直接拒绝。
 
 适用边界：输入必须是块编码而非稀疏 oracle 或 QRAM；矩阵未先块编码时需先经 `block_encoding.py` / `sparse.py` / `lowrank.py` 等适配。合成度数受 40 上限约束，$\kappa$ 大且 `error` 小的组合会在生成期报错而非静默降级。
 
@@ -56,7 +58,7 @@ qsvt_matrix_inversion(a, kappa, *, error=0.05)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/qsvt.py`
+- 源码：`src/oracq/algorithms/common/qsvt.py`
 - 同族页面：[特征态过滤](eigenstate-filtering.md)、[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 哈密顿模拟](qsvt-hamiltonian-simulation.md)、[块编码组合代数](block-encoding-algebra.md)（BE 组合入口）
 - API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

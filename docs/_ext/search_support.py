@@ -21,7 +21,7 @@ def split_terms(text):
 
 
 class MixedSearchLanguage(SearchLanguage):
-    lang = "pyqecclang"
+    lang = "oracq"
     language_name = "Chinese and Python identifiers"
     js_stemmer_code = (
         "var Stemmer = function () { this.stemWord = function (w) { return w.toLowerCase(); }; };"

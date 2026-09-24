@@ -1,9 +1,9 @@
 算法展示目录
 ============
 
-``pyqecclang.applications.gallery``
+``oracq.applications.gallery``
 
-.. automodule:: pyqecclang.applications.gallery
+.. automodule:: oracq.applications.gallery
    :members:
    :undoc-members:
    :show-inheritance:

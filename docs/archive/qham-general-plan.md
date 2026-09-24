@@ -23,6 +23,6 @@ H1–H5 已完成本轮范围。通用递推和闭包见 [数学推导](../refer
 - pde.py / linearization.py：规则化 PDE、惰性 QCL plan 与逐行耦合。
 - quantum.py / stencils.py：矩形 BE、移位/收缩端口、初态权重与 QODE 接入。
 - reference.py：独立 HAM 求值、链式法则和逐块线性作用。
-- python -m pyqecclang.applications.qham：从 PDE JSON 自动导出推导和 QODE manifest。
+- python -m oracq.applications.qham：从 PDE JSON 自动导出推导和 QODE manifest。
 - 五组案例包含 m=3 KdV 和 35,968 维二维向量系统；全部生成开放/闭合 RIR。
 - 数学与结构测试、真实后端均通过；收敛与量子求解精度不在完成声明中。

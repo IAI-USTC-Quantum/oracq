@@ -4,7 +4,7 @@
 
 QFVM 的当前输入模型与 QLSS 替换契约已更新，见 [独立审查与修正记录](../manual/qfvm.md)。本文中旧的 QFVM 组装描述保留为阶段历史，不代表当前问题级入口。
 
-所有例子由 pyqecclang.applications.catalog.build_case 生成。tools/build_catalog.py 保存开放、部分绑定、闭合 IR、绑定清单、内存输入和 OriginIR-ext。输出位于被 Git 忽略的 out/catalog，源码和计划文件保留在仓库中。
+所有例子由 oracq.applications.catalog.build_case 生成。tools/build_catalog.py 保存开放、部分绑定、闭合 IR、绑定清单、内存输入和 OriginIR-ext。输出位于被 Git 忽略的 out/catalog，源码和计划文件保留在仓库中。
 
 ## Costa QLSS 与 filtering
 

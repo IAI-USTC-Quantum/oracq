@@ -1,6 +1,6 @@
 # Bernstein–Vazirani 秘密串读出（Bernstein–Vazirani）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.basics.oracle_algorithms` · 阶段 V1
+> 类别 C1 · 模块 [`oracq.algorithms.basics.oracle_algorithms`](../../api/algorithms/basics/oracle_algorithms.rst) · 阶段 V1
 
 ## 概述
 
@@ -13,10 +13,12 @@ bernstein_vazirani(function)
 affine_boolean_oracle(width, secret, *, bias=0)
 ```
 
-- `bernstein_vazirani(function)`：`function` 为单结果位 XOR database（input model 为 FO：仿射布尔函数真值表），内部先经 `deutsch_jozsa` 校验 `data_width == 1`；仿射承诺由调用者承担。oracle 可以保留为开放声明（`abstract_database`），生成后再绑定 gate 或 QRAM 实现。
-- `affine_boolean_oracle(width, secret, *, bias=0)`：构造 $f(x) = s \cdot x \oplus c$ 的门级 oracle，返回 `XorDatabase`。`width` 范围 1..64，`secret` 范围 $0 .. 2^{\text{width}}-1$，`bias` 取 0 或 1；`secret` 的第 $i$ 位对应地址第 $i$ 位（little endian）。
+API 入口：{obj}`bernstein_vazirani <oracq.algorithms.basics.oracle_algorithms.bernstein_vazirani>`、{obj}`affine_boolean_oracle <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>`
 
-`bernstein_vazirani` 返回 `Operation`，寄存器与 DJ 相同：`input: Bits(address_width)` 与 `answer: Bits(1)`。模块属性：
+- {obj}`bernstein_vazirani(function) <oracq.algorithms.basics.oracle_algorithms.bernstein_vazirani>`：`function` 为单结果位 XOR database（input model 为 FO：仿射布尔函数真值表），内部先经 {obj}`deutsch_jozsa <oracq.algorithms.basics.oracle_algorithms.deutsch_jozsa>` 校验 `data_width == 1`；仿射承诺由调用者承担。oracle 可以保留为开放声明（{obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>`），生成后再绑定 gate 或 QRAM 实现。
+- {obj}`affine_boolean_oracle(width, secret, *, bias=0) <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>`：构造 $f(x) = s \cdot x \oplus c$ 的门级 oracle，返回 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`。`width` 范围 1..64，`secret` 范围 $0 .. 2^{\text{width}}-1$，`bias` 取 0 或 1；`secret` 的第 $i$ 位对应地址第 $i$ 位（little endian）。
+
+`bernstein_vazirani` 返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器与 DJ 相同：`input: Bits(address_width)` 与 `answer: Bits(1)`。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -27,7 +29,7 @@ affine_boolean_oracle(width, secret, *, bias=0)
 
 ## 实现要点
 
-实现复用 DJ 电路：调用 `deutsch_jozsa(function)` 后，仅以 `dataclasses.replace` 重标注模块名与属性（`algorithm` / `input_promise`），依赖与电路结构完全不变。读出满足承诺时 `input` 精确等于 $s$；对非仿射函数输出不作保证。oracle 保留为模块调用；开放声明路线（`abstract_database` → `bind`）在运行展示目录中有端到端示例：先以 `bernstein_vazirani(abstract_database(...))` 生成含未绑定槽位的程序，再用具体 oracle 的 `operation` 绑定。
+实现复用 DJ 电路：调用 `deutsch_jozsa(function)` 后，仅以 `dataclasses.replace` 重标注模块名与属性（`algorithm` / `input_promise`），依赖与电路结构完全不变。读出满足承诺时 `input` 精确等于 $s$；对非仿射函数输出不作保证。oracle 保留为模块调用；开放声明路线（`abstract_database` → {obj}`bind <oracq.infrastructure.linking.bind>`）在运行展示目录中有端到端示例：先以 `bernstein_vazirani(abstract_database(...))` 生成含未绑定槽位的程序，再用具体 oracle 的 `operation` 绑定。
 
 ## 验证方案
 
@@ -44,7 +46,7 @@ affine_boolean_oracle(width, secret, *, bias=0)
 ## 相关链接
 
 - 同模块：[Deutsch–Jozsa 查询](deutsch-jozsa.md)、[Simon 采样](simon.md)
-- 源码：`src/pyqecclang/algorithms/basics/oracle_algorithms.py`
+- 源码：`src/oracq/algorithms/basics/oracle_algorithms.py`
 - 教程：[给算法替换 oracle](../../tutorials/oracle-binding.md)
 - API 参考：[Oracle 查询算法](../../api/algorithms/basics/oracle_algorithms.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

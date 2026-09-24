@@ -4,11 +4,11 @@
 
 ## OriginIR-ext 的优点与边界
 
-OriginIR-ext 支持 QRAMDECL、DEF/ENDDEF、标量参数、named registers、受控和伴随结构。它适合作为 pyqecclang 的第一个线路交换后端。
+OriginIR-ext 支持 QRAMDECL、DEF/ENDDEF、标量参数、named registers、受控和伴随结构。它适合作为 oracq 的第一个线路交换后端。oracq 侧的适配器见 API 参考[OriginIR-ext 后端](../api/infrastructure/backends/originir.rst)。
 
 然而，DEF 和命名寄存器在当前实现中主要属于文本书写面。OriginIR_BaseParser._expand_def_call 会把调用内联，Circuit 的常用内部形式是 opcode_list。命名寄存器也在解析后映射为全局物理量子位。因此它不能直接承担本语言的模块化 register-level IR。
 
-| 检查项 | 实际行为 | pyqecclang 的处理 |
+| 检查项 | 实际行为 | oracq 的处理 |
 |---|---|---|
 | DEF 参数 | 可以声明多个固定宽度寄存器。 | 每个 RIR 模块生成一个或多个 DEF。 |
 | 嵌套 DEF | 可以展开，但内部调用必须正确重映射实参。 | 所有调用使用显式逐比特实参。 |
@@ -18,7 +18,7 @@ OriginIR-ext 支持 QRAMDECL、DEF/ENDDEF、标量参数、named registers、受
 | QRAM 查询 | 地址不变，数据目标执行 XOR。最低位按列表首元素解释。 | 接口和对拍覆盖非零目标及叠加态地址。 |
 | QRAM 的模块形参 | DEF 没有资源句柄形式参数。 | 根据实际全局 QRAM 名称特化模块定义。 |
 | 重复结构 | 当前静态子集没有保留任意 Repeat 的执行 IR。 | 导出对数大小的辅助 DEF 调用图。 |
-| 回读与再导出 | Circuit 再导出会输出扁平线路。 | pyqecclang JSON 才是结构往返的依据。 |
+| 回读与再导出 | Circuit 再导出会输出扁平线路。 | oracq 序列化文本（YAML/JSON）才是结构往返的依据。 |
 
 审阅位置包括：
 - UnifiedQuantum/uniqc/circuit_builder/originir_ext_spec.py。
@@ -39,7 +39,7 @@ Simulator.simulate_preprocess 创建 QRAM 对象。适配器填入 qram_objects 
 
 ## PySparQ 的寄存器模型
 
-PySparQ 使用命名寄存器与全局注册表，每个基态保存寄存器的整数值。AddRegister 的 C++ 构造器拒绝超过 64 位的寄存器。这个限制不约束全系统总位数，也不能被解释为最多 64 个寄存器。
+PySparQ 使用命名寄存器与全局注册表，每个基态保存寄存器的整数值。AddRegister 的 C++ 构造器拒绝超过 64 位的寄存器。这个限制不约束全系统总位数，也不能被解释为最多 64 个寄存器。oracq 侧的适配器见 API 参考[PySparQ 后端](../api/infrastructure/backends/pysparq.rst)。
 
 RIR 的 Bits、UInt、SInt、Rational 分别对应 General、UnsignedInteger、SignedInteger、Rational 存储解释。Rational 表示无符号字除以 2^width，并不等于任意精度的 QFixed 类型。当前位操作处理原始位模式，add_const 只作用于 UInt，语义为模 2^width 加法。
 
@@ -82,4 +82,4 @@ BaseParser 不识别 RESET，动态解析器虽支持 RESET 却不接收 DEF。�
 
 ## 2026-09-09 自定义算子路径
 
-补充审阅 dynamic_operator/{compiler,operator_wrapper}.py 与 SparQ/include/basic_components.h。动态算子的控制通过 split_systems/combine_systems 接线；生成的 C++ 直接访问实例 registers 存储，避免动态共享库的静态名字注册表与 Python 核心分离。不是 CACHED_REGISTER_SIZE 的固定容量问题。真实受控调用、逆、视图、私有工作区和 Roe 算术已运行。QRAM 逻辑 patch 由 pyqecclang 管理，当前原生 QRAM bank 更新采用重新物化。细节见 [第二阶段说明](../manual/backends.md)。
+补充审阅 dynamic_operator/{compiler,operator_wrapper}.py 与 SparQ/include/basic_components.h。动态算子的控制通过 split_systems/combine_systems 接线；生成的 C++ 直接访问实例 registers 存储，避免动态共享库的静态名字注册表与 Python 核心分离。不是 CACHED_REGISTER_SIZE 的固定容量问题。真实受控调用、逆、视图、私有工作区和 Roe 算术已运行。QRAM 逻辑 patch 由 oracq 管理，当前原生 QRAM bank 更新采用重新物化。细节见 [第二阶段说明](../manual/backends.md)。

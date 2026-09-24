@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from pyqecclang import (
+from oracq import (
     dumps,
     export_originir,
     export_toffoli_u3_cz,
@@ -14,7 +14,7 @@ from pyqecclang import (
     run_pysparq,
     simulate,
 )
-from pyqecclang.applications.gallery import algorithm_gallery
+from oracq.applications.gallery import algorithm_gallery
 
 
 def main() -> None:
@@ -28,9 +28,9 @@ def main() -> None:
         directory = args.output / case.name
         directory.mkdir(parents=True, exist_ok=True)
         program = case.operation.program()
-        (directory / "closed.rir.json").write_text(dumps(program), encoding="utf-8")
+        (directory / "closed.rir.yaml").write_text(dumps(program), encoding="utf-8")
         if case.opened is not None:
-            (directory / "open.rir.json").write_text(dumps(case.opened.program()), encoding="utf-8")
+            (directory / "open.rir.yaml").write_text(dumps(case.opened.program()), encoding="utf-8")
         (directory / "modular.originir").write_text(export_originir(program).text, encoding="utf-8")
         (directory / "toffoli_u3_cz.originir").write_text(
             export_toffoli_u3_cz(program).text, encoding="utf-8"

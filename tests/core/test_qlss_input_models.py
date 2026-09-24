@@ -3,8 +3,8 @@
 import math
 import unittest
 
-from pyqecclang import FixedFormat, ValidationError, simulate, unresolved
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq import FixedFormat, ValidationError, simulate, unresolved
+from oracq.algorithms.input_model.oracles import (
     SparseAccess,
     basis_state,
     gate_database,
@@ -13,8 +13,8 @@ from pyqecclang.algorithms.input_model.oracles import (
     sparse_entry,
     sparse_location_gate,
 )
-from pyqecclang.algorithms.input_model.sparse import chebyshev_block
-from pyqecclang.algorithms.qlss.qlss import (
+from oracq.algorithms.input_model.sparse import chebyshev_block
+from oracq.algorithms.qlss.qlss import (
     BlockSystem,
     CKSConfig,
     CostaConfig,
@@ -24,10 +24,10 @@ from pyqecclang.algorithms.qlss.qlss import (
     make_cks_qlss,
     make_costa_qlss,
 )
-from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem, roe_qfvm_step
-from pyqecclang.infrastructure.execution import events
-from pyqecclang.infrastructure.ir import Load
+from oracq.applications.flow_data import RoeFlowData
+from oracq.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem, roe_qfvm_step
+from oracq.infrastructure.execution import events
+from oracq.infrastructure.ir import Load
 
 
 def small_problem():
@@ -101,9 +101,9 @@ class QLSSInputTests(unittest.TestCase):
         self.assertFalse(unresolved(b.operation.program()))
 
     def test_costa_rhs_reflection_is_independent_of_unitary_extension(self):
-        from pyqecclang import Bits, Builder, identity
-        from pyqecclang.algorithms.input_model.oracles import StatePreparation, annotate
-        from pyqecclang.algorithms.qlss.qlss import costa_walk
+        from oracq import Bits, Builder, identity
+        from oracq.algorithms.input_model.oracles import StatePreparation, annotate
+        from oracq.algorithms.qlss.qlss import costa_walk
 
         first = basis_state(1, work_width=1)
         builder = Builder("alternate_rhs_extension", {"target": Bits(1), "work": Bits(1)})

@@ -1,9 +1,9 @@
 数学函数编译入口
 ================
 
-``pyqecclang.infrastructure.mathfunc``
+``oracq.infrastructure.mathfunc``
 
-.. automodule:: pyqecclang.infrastructure.mathfunc
+.. automodule:: oracq.infrastructure.mathfunc
    :members:
    :undoc-members:
    :show-inheritance:

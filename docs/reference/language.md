@@ -1,12 +1,12 @@
 # 语言与算法库约定
 
-本规范对应 pyqecclang 0.8。它定义 Python 生成层与 RIR 之间的边界。RIR 对象及指令语义见 [RIR 0.3](rir.md)，数学函数图见 [MIR 0.1](math-ir.md)。
+本规范对应 oracq 0.8。它定义 Python 生成层与 RIR 之间的边界。RIR 对象及指令语义见 [RIR 0.3](rir.md)，数学函数图见 [MIR 0.1](math-ir.md)。生成阶段的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md)。
 
 ## Python 生成层
 
-Python 是算法的书写环境。生成函数可以使用普通参数、函数、闭包和类来选择实现。生成结束后，量子程序由 `Operation` 和 `Program` 表示；其中不能保留任意 Python 回调作为未定义的量子指令。
+Python 是算法的书写环境。生成函数可以使用普通参数、函数、闭包和类来选择实现。生成结束后，量子程序由 {obj}`Operation <oracq.infrastructure.builder.Operation>` 和 {obj}`Program <oracq.infrastructure.ir.Program>` 表示；其中不能保留任意 Python 回调作为未定义的量子指令。
 
-普通 Builder 流程不解析 Python 语法树。`compile_function` 是独立的受限数学函数前端，用于将纯数学计算降低成可逆 XOR 操作。它的可接受语法、数值格式和近似配置由数学函数文档规定。
+普通 {obj}`Builder <oracq.infrastructure.builder.Builder>` 流程不解析 Python 语法树。{obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 是独立的受限数学函数前端，用于将纯数学计算降低成可逆 XOR 操作。它的可接受语法、数值格式和近似配置由数学函数文档规定。
 
 生成参数决定具体结构，例如寄存器位宽、重复次数、积分节点、截断阶和旋转角度。RIR 中没有通用的符号形状求解机制。
 
@@ -22,9 +22,9 @@ Python 是算法的书写环境。生成函数可以使用普通参数、函数�
 
 算法库可以使用 Python 结构协议描述所需方法。一个对象可以同时满足多个协议，算法不得仅凭一个排他的字符串标签推断所有能力。
 
-常见方法包括 `unitary()`、`state_preparation()`、`block_encoding()`、`sparse_access()` 和 `trotter_list()`。新增算法可以在自己的模块中定义协议，无需扩展 RIR。
+常见方法包括 `unitary()`、`state_preparation()`、{obj}`block_encoding() <oracq.algorithms.input_model.operators.block_encoding>`、`sparse_access()` 和 `trotter_list()`。新增算法可以在自己的模块中定义协议，无需扩展 RIR。
 
-`requires` 检查对象是否提供协议接口。具体算法调用相应方法后，还应检查返回值、布局、归一化常数和所需调用能力。方法存在不构成数学正确性的证明。
+{obj}`requires <oracq.algorithms.input_model.contracts.requires>` 检查对象是否提供协议接口。具体算法调用相应方法后，还应检查返回值、布局、归一化常数和所需调用能力。方法存在不构成数学正确性的证明。
 
 算法生成器的结果同样可以满足协议。例如 QLSS 返回对象提供 `state_oracle()`；Hamiltonian 演化实现可以返回 BE。带成功信号的态 oracle 不自动等同于无后选择的干净态制备。
 
@@ -56,7 +56,7 @@ Hermitian、耗散、谱界、稀疏度和复净等数学性质由算法及实�
 
 ## 序列化与后端
 
-RIR JSON 只能包含规定的记录与标量属性。序列化保持模块、调用、Repeat、Control 和 Adjoint，不以始终展开的门列表作为中间表示。
+RIR 文本（YAML 或 JSON）只能包含规定的记录与标量属性。序列化保持模块、调用、Repeat、Control 和 Adjoint，不以始终展开的门列表作为中间表示。
 
 OriginIR-ext 导出保留 DEF 与 QRAMDECL；严格门集降低在模块内生成 Toffoli、U3 和 CZ。PySparQ 可以在寄存器和模块边界执行。可选原生实现不进入 RIR，也不使一个没有门级主体的模块自动获得门级导出能力。
 

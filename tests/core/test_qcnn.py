@@ -10,8 +10,8 @@ import math
 import random
 import unittest
 
-from pyqecclang import Builder, simulate
-from pyqecclang.algorithms.qml.qcnn import (
+from oracq import Builder, simulate
+from oracq.algorithms.qml.qcnn import (
     QCNNQRAM,
     ConvSpec,
     cap_relu,
@@ -19,7 +19,7 @@ from pyqecclang.algorithms.qml.qcnn import (
     im2col,
     kernel_columns,
 )
-from pyqecclang.algorithms.qml.qcnn_layer import (
+from oracq.algorithms.qml.qcnn_layer import (
     qcnn_inner_product,
     qcnn_sampled_layer,
     qcnn_vector_prep,

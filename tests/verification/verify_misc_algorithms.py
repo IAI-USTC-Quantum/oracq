@@ -40,29 +40,29 @@ from harness import (
     tvd,
 )
 
-from pyqecclang import Bits, Builder, bind
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.input_model.density import gate_purification, gibbs_purification
-from pyqecclang.algorithms.input_model.oracles import StatePreparation, gate_state_prep
-from pyqecclang.algorithms.optimization.dqi import (
+from oracq import Bits, Builder, bind
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from oracq.algorithms.input_model.density import gate_purification, gibbs_purification
+from oracq.algorithms.input_model.oracles import StatePreparation, gate_state_prep
+from oracq.algorithms.optimization.dqi import (
     XorSatInstance,
     abstract_decoder,
     bruteforce_decoder,
     dicke_state,
     dqi,
 )
-from pyqecclang.algorithms.optimization.variational import (
+from oracq.algorithms.optimization.variational import (
     hardware_efficient_ansatz,
     qaoa_maxcut,
     vqe_measurements,
 )
-from pyqecclang.algorithms.qec.error_correction import repetition_encode, repetition_recover
-from pyqecclang.algorithms.qml.qpca import (
+from oracq.algorithms.qec.error_correction import repetition_encode, repetition_recover
+from oracq.algorithms.qml.qpca import (
     density_matrix_exponentiation,
     eigenvalue_from_phase,
     qpca,
 )
-from pyqecclang.algorithms.qml.qsdp import (
+from oracq.algorithms.qml.qsdp import (
     SdpInstance,
     classical_estimator,
     iteration_circuits,
@@ -72,7 +72,7 @@ from pyqecclang.algorithms.qml.qsdp import (
     trace_from_joint,
     trace_from_probe,
 )
-from pyqecclang.infrastructure.layout import workspace_table
+from oracq.infrastructure.layout import workspace_table
 
 # ---------------------------------------------------------------------------
 # 独立经典工具（numpy 稠密线性代数与闭式公式）

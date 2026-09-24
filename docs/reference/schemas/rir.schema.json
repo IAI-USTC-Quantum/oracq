@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:pyqecclang:rir:0.3",
-  "title": "pyqecclang register-level IR 0.3",
+  "$id": "urn:oracq:rir:0.3",
+  "title": "oracq register-level IR 0.3",
   "$ref": "#/$defs/Program",
   "$defs": {
     "RegType": {

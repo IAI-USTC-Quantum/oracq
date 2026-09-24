@@ -1,9 +1,9 @@
 量子行走
 ============
 
-``pyqecclang.algorithms.common.walks``
+``oracq.algorithms.common.walks``
 
-.. automodule:: pyqecclang.algorithms.common.walks
+.. automodule:: oracq.algorithms.common.walks
    :members:
    :undoc-members:
    :show-inheritance:

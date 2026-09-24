@@ -1,6 +1,6 @@
 # 量子化行走（Qubitization Walk）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.common.transforms` · 阶段 V1
+> 类别 C2 · 模块 [`oracq.algorithms.common.transforms`](../../api/algorithms/common/transforms.rst) · 阶段 V1
 
 ## 概述
 
@@ -18,9 +18,11 @@ $$
 qubitization_walk(a)
 ```
 
-- `a`：`BlockEncoding`，被行走矩阵的块编码（input model 为 BE）。
+API 入口：{obj}`qubitization_walk <oracq.algorithms.common.transforms.qubitization_walk>`
 
-返回 `Operation`，寄存器为 `target`（宽度 `a.width`）与 `signal`（宽度 `a.signal_qubits`）。模块属性：
+- `a`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，被行走矩阵的块编码（input model 为 BE）。
+
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `target`（宽度 `a.width`）与 `signal`（宽度 `a.signal_qubits`）。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -30,7 +32,7 @@ qubitization_walk(a)
 
 ## 实现要点
 
-生成策略为两次结构调用：`invoke` 把输入 BE 挂到 `target | signal` 上，随后 `reflect_zero(b, signal, positive=True)` 实现 $2\Pi - I$（`positive=True` 使 $|0\rangle_{\text{signal}}$ 分支取 $+1$、其余分支取 $-1$）。重复调用由调用方（如 `qsvt_sequence` 或低秩分解流水线）编排，本函数不内置 Repeat 结构。
+生成策略为两次结构调用：{obj}`invoke <oracq.algorithms.input_model.oracles.invoke>` 把输入 BE 挂到 `target | signal` 上，随后 {obj}`reflect_zero(b, signal, positive=True) <oracq.algorithms.input_model.block_encoding.reflect_zero>` 实现 $2\Pi - I$（`positive=True` 使 $|0\rangle_{\text{signal}}$ 分支取 $+1$、其余分支取 $-1$）。重复调用由调用方（如 {obj}`qsvt_sequence <oracq.algorithms.common.transforms.qsvt_sequence>` 或低秩分解流水线）编排，本函数不内置 {obj}`Repeat <oracq.infrastructure.ir.Repeat>` 结构。
 
 适用边界：输入必须是块编码；稀疏 oracle 或低秩分解产物需先经 `sparse.py` / `lowrank.py` 等适配为 BE。行走算子本身不施加任何多项式变换，其谱性质只在配合相位序列或投影测量时显现。
 
@@ -39,7 +41,7 @@ qubitization_walk(a)
 类别 C2（近似连续语义，判定准则见 `../../development/validation-plan.md` §2）。当前证据（与验证覆盖矩阵 `transforms.py` 行一致）：
 
 - 结构：`tests/core/test_algorithm_protocols.py:AlgorithmProtocolTests.test_trotter_protocol_keeps_phase_and_repeat` 与 `test_trotter_only_input_does_not_need_block_encoding` 覆盖同模块组装链的协议与寄存器契约。
-- 数值：`tests/core/test_qsvt.py:PhaseSynthesisTests.test_convention_matches_qsvt_sequence` 在随机相位下钉死同一信号/反射约定的电路零信号块与 `qsp_response` 逐点一致（delta = 1e-10），行走步所嵌入的序列骨架由此间接见证。
+- 数值：`tests/core/test_qsvt.py:PhaseSynthesisTests.test_convention_matches_qsvt_sequence` 在随机相位下钉死同一信号/反射约定的电路零信号块与 {obj}`qsp_response <oracq.algorithms.common.qsvt.qsp_response>` 逐点一致（delta = 1e-10），行走步所嵌入的序列骨架由此间接见证。
 - 绑定：无独立绑定见证（输入已要求具体 BE）。
 
 ## 已知缺口与计划阶段
@@ -48,14 +50,14 @@ qubitization_walk(a)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/transforms.py`
+- 源码：`src/oracq/algorithms/common/transforms.py`
 - API 参考：[矩阵变换序列](../../api/algorithms/common/transforms.rst)
 - 同族页面：[QSVT 相位序列](qsvt-sequence.md)、[Oblivious 振幅放大](oblivious-amplification.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证
 
-论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。输入 BE 用 gate 级绑定小实例：`matrix_pauli_encoding` 编码 1 比特厄米矩阵 $A = \begin{pmatrix} 0.5 & 0.3 \\ 0.3 & -0.1 \end{pmatrix}$（独立显式 Pauli 展开得 $\alpha = 0.8$，谱值 $\lambda/\alpha \approx 0.780, -0.280$）。行走算子全幺正经 OriginIR-ext + UniQC `to_matrix` 取出，与 $(2\Pi - I)U$ 逐元素对比，其中 $U$ 为同一 BE 程序的全幺正（并与 reference 路径逐基态列组装的幺正交叉对拍）；谱性质独立检验：行走幺正本征角须落入 $\{\pm\arccos(\lambda/\alpha)\} \cup \{0, \pi\}$，零信号块须等于 $A/\alpha$。
+论文级数值实验见 `tests/verification/verify_fourier.py`（真实后端执行，无模拟替身）。输入 BE 用 gate 级绑定小实例：{obj}`matrix_pauli_encoding <oracq.algorithms.input_model.block_encoding.matrix_pauli_encoding>` 编码 1 比特厄米矩阵 $A = \begin{pmatrix} 0.5 & 0.3 \\ 0.3 & -0.1 \end{pmatrix}$（独立显式 Pauli 展开得 $\alpha = 0.8$，谱值 $\lambda/\alpha \approx 0.780, -0.280$）。行走算子全幺正经 OriginIR-ext + UniQC `to_matrix` 取出，与 $(2\Pi - I)U$ 逐元素对比，其中 $U$ 为同一 BE 程序的全幺正（并与 reference 路径逐基态列组装的幺正交叉对拍）；谱性质独立检验：行走幺正本征角须落入 $\{\pm\arccos(\lambda/\alpha)\} \cup \{0, \pi\}$，零信号块须等于 $A/\alpha$。
 
 | 案例 | 规模 | 后端路径 | 指标 | 数值 |
 |---|---|---|---|---|

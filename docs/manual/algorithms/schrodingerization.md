@@ -1,6 +1,6 @@
 # Schrödingerization 非酉演化模拟（Schrödingerization）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.qode.schrodingerization` · 阶段 V2
+> 类别 C2 · 模块 [`oracq.algorithms.qode.schrodingerization`](../../api/algorithms/qode/schrodingerization.rst) · 阶段 V2
 
 ## 概述
 
@@ -21,13 +21,15 @@ SchrodingerPlan(auxiliary_width=2, period=8.0, selected_index=1)
 fourier_momentum(width, period)
 ```
 
-- `generator`：$G$ 的 `BlockEncoding`（input model 为 BE），$H_1=(G+G^\dagger)/2$、$H_2=(G-G^\dagger)/(2i)$ 由 `HermitianParts.from_operator` 生成。
-- `initial`：`StatePreparation`（SP），作用在物理寄存器。
-- `SchrodingerPlan`：辅助寄存器位数 `auxiliary_width`（1..63）、周期 `period` 与选中通道 `selected_index`（$0..2^p-1$）。
-- `hamiltonian_function`：`(K, t) -> BlockEncoding`，默认 `taylor_hamiltonian`。
-- `fourier_momentum(width, period)`：频率对角算子 $P$ 的独立构造入口。
+API 入口：{obj}`schrodinger_qode <oracq.algorithms.qode.schrodingerization.schrodinger_qode>`、{obj}`SchrodingerPlan <oracq.algorithms.qode.schrodingerization.SchrodingerPlan>`、{obj}`fourier_momentum <oracq.algorithms.qode.schrodingerization.fourier_momentum>`
 
-返回 `StateOracle`（`target`/`signal`），模块属性：
+- `generator`：$G$ 的 {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`（input model 为 BE），$H_1=(G+G^\dagger)/2$、$H_2=(G-G^\dagger)/(2i)$ 由 `HermitianParts.from_operator` 生成。
+- `initial`：{obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>`（SP），作用在物理寄存器。
+- {obj}`SchrodingerPlan <oracq.algorithms.qode.schrodingerization.SchrodingerPlan>`：辅助寄存器位数 `auxiliary_width`（1..63）、周期 `period` 与选中通道 `selected_index`（$0..2^p-1$）。
+- `hamiltonian_function`：`(K, t) -> BlockEncoding`，默认 {obj}`taylor_hamiltonian <oracq.algorithms.common.hamiltonian.taylor_hamiltonian>`。
+- {obj}`fourier_momentum(width, period) <oracq.algorithms.qode.schrodingerization.fourier_momentum>`：频率对角算子 $P$ 的独立构造入口。
+
+返回 {obj}`StateOracle <oracq.algorithms.input_model.oracles.StateOracle>`（`target`/`signal`），模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -40,9 +42,9 @@ fourier_momentum(width, period)
 
 $P$ 用 `fourier_momentum` 逐位构造：每位一个投影 BE（alpha 为 1），系数 $(2^b)\cdot 2\pi/\text{period}$，最高位取负以实现二补码负频率，再 LCU 求和，避免稠密矩阵。寄存器布局为 `target = 物理 n 位（低）+ 辅助 p 位（高）`，`work` 承载初态制备的工作位。
 
-生成流程：初态作用在 `target[:n]`；辅助位制备归一化的 $e^{-|p_j|}$（`gate_state_prep`）后做 QFT；对 $K=P\otimes H_1-I\otimes H_2$ 调用 `hamiltonian_function`；逆 QFT 后用 `select_subspace` 选辅助寄存器等于 `selected_index` 的通道，选择条件并入 signal。辅助网格按编码顺序 $p_j=(j$ 若 $j<2^{p-1}$ 否则 $j-2^p)\cdot\text{period}/2^p$；默认配置 $p=2$、period 8、index 1 对应网格 $[0,2,-4,-2]$、选中 $p=2$。
+生成流程：初态作用在 `target[:n]`；辅助位制备归一化的 $e^{-|p_j|}$（{obj}`gate_state_prep <oracq.algorithms.input_model.oracles.gate_state_prep>`）后做 QFT；对 $K=P\otimes H_1-I\otimes H_2$ 调用 `hamiltonian_function`；逆 QFT 后用 {obj}`select_subspace <oracq.algorithms.common.state_preparation.select_subspace>` 选辅助寄存器等于 `selected_index` 的通道，选择条件并入 signal。辅助网格按编码顺序 $p_j=(j$ 若 $j<2^{p-1}$ 否则 $j-2^p)\cdot\text{period}/2^p$；默认配置 $p=2$、period 8、index 1 对应网格 $[0,2,-4,-2]$、选中 $p=2$。
 
-适用边界：实现不自动检验所选通道位于恢复区，也不保证周期窗口足够大（需按 $H_1$ 的传播速度、时间与周期边界选择窗口与通道，不能仅以 $p>0$ 为充分条件）。`recovery_scale` 只记录 warp 的一个因子；理想恢复关系下成功块约为 $e^{-p_j}|u(t)\rangle/(rZ\alpha_E)$（$r$ 为初值范数、$Z$ 为离散 warp 范数、$\alpha_E$ 为演化 BE 归一化），完整范数恢复接口尚未提供，这些量需宿主自行保存。入口处先执行 `operator_state_contract("schrodingerization")` 的能力检查。
+适用边界：实现不自动检验所选通道位于恢复区，也不保证周期窗口足够大（需按 $H_1$ 的传播速度、时间与周期边界选择窗口与通道，不能仅以 $p>0$ 为充分条件）。`recovery_scale` 只记录 warp 的一个因子；理想恢复关系下成功块约为 $e^{-p_j}|u(t)\rangle/(rZ\alpha_E)$（$r$ 为初值范数、$Z$ 为离散 warp 范数、$\alpha_E$ 为演化 BE 归一化），完整范数恢复接口尚未提供，这些量需宿主自行保存。入口处先执行 {obj}`operator_state_contract("schrodingerization") <oracq.algorithms.input_model.interfaces.operator_state_contract>` 的能力检查。
 
 ## 验证方案
 
@@ -87,7 +89,7 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qode/schrodingerization.py`
+- 源码：`src/oracq/algorithms/qode/schrodingerization.py`
 - 教程：[为同一个线性问题替换 QODE 方法](../../tutorials/differential-equations.md)
 - API 参考：[Schrödingerization](../../api/algorithms/qode/schrodingerization.rst)
 - 相关页：[QODE 问题对象与协议](qode-problem.md) · [LCHS](lchs.md)（另一条线性路线）· [Carleman 线性化](carleman.md)（提升后接本方法）

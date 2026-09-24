@@ -1,9 +1,9 @@
 可逆算术
 ============
 
-``pyqecclang.algorithms.common.arithmetic``
+``oracq.algorithms.common.arithmetic``
 
-.. automodule:: pyqecclang.algorithms.common.arithmetic
+.. automodule:: oracq.algorithms.common.arithmetic
    :members:
    :undoc-members:
    :show-inheritance:

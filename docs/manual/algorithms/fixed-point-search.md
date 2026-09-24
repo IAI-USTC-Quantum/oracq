@@ -1,6 +1,6 @@
 # 定点搜索（Fixed-Point Search）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.common.qsvt` · 阶段 V2
+> 类别 C2 · 模块 [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · 阶段 V2
 
 ## 概述
 
@@ -19,8 +19,10 @@ fixed_point_search_phases(delta, degree)
 fixed_point_search(a, delta, degree)
 ```
 
-- `fixed_point_search_phases`：纯数值例程，无 input model。`delta` 为误差 $\delta \in (0, 1)$；`degree` 为 $L$，必须是正奇数且不超过 20。返回时间正序相位元组（长度 $L + 1$）。
-- `fixed_point_search`：`a` 为 `BlockEncoding`（input model 为 BE），`delta` / `degree` 同上。返回 `BlockEncoding`，零信号块为复多项式 $P(A/\alpha)$，成功概率 $|P(x)|^2$ 满足上述 YLC 保证。
+API 入口：{obj}`fixed_point_search_phases <oracq.algorithms.common.qsvt.fixed_point_search_phases>`、{obj}`fixed_point_search <oracq.algorithms.common.qsvt.fixed_point_search>`
+
+- {obj}`fixed_point_search_phases <oracq.algorithms.common.qsvt.fixed_point_search_phases>`：纯数值例程，无 input model。`delta` 为误差 $\delta \in (0, 1)$；`degree` 为 $L$，必须是正奇数且不超过 20。返回时间正序相位元组（长度 $L + 1$）。
+- {obj}`fixed_point_search <oracq.algorithms.common.qsvt.fixed_point_search>`：`a` 为 {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`（input model 为 BE），`delta` / `degree` 同上。返回 `BlockEncoding`，零信号块为复多项式 $P(A/\alpha)$，成功概率 $|P(x)|^2$ 满足上述 YLC 保证。
 
 模块属性（`fixed_point_search`）：
 
@@ -33,7 +35,7 @@ fixed_point_search(a, delta, degree)
 
 ## 实现要点
 
-$Q$ 由 Chebyshev 奇次系数加 $(1 - x^2)$ 幂解析展开；$P$ 的谱分解用 Durand–Kerner 求根、重根聚类与共轭-反号四元组因子，因子计数自检 $1 + 2\times(\text{因子数}) = L$；随后 layer stripping 恢复相位（管线同 [QSP 相位合成](qsp-phase-synthesis.md)），自检 $|P(x)|^2$ 与 $1 - (1 - x^2)Q(x)^2$ 在 512 点网格逐点一致（误差超过 1e-5 抛 `ValidationError`）。
+$Q$ 由 Chebyshev 奇次系数加 $(1 - x^2)$ 幂解析展开；$P$ 的谱分解用 Durand–Kerner 求根、重根聚类与共轭-反号四元组因子，因子计数自检 $1 + 2\times(\text{因子数}) = L$；随后 layer stripping 恢复相位（管线同 [QSP 相位合成](qsp-phase-synthesis.md)），自检 $|P(x)|^2$ 与 $1 - (1 - x^2)Q(x)^2$ 在 512 点网格逐点一致（误差超过 1e-5 抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`）。
 
 本算法不做实部提取：$P$ 本身即目标（$|P| \le 1$ 保证块编码有效）。度数上限 20（合成管线 40 上限的一半）。适用边界：与 `search.py` 中作用于 marked oracle 的 Grover / 振幅放大不同，本入口作用于块编码的奇异值结构，谱变量需落在 $[-1, 1]$ 内。
 
@@ -51,14 +53,14 @@ $Q$ 由 Chebyshev 奇次系数加 $(1 - x^2)$ 幂解析展开；$P$ 的谱分解
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/qsvt.py`
+- 源码：`src/oracq/algorithms/common/qsvt.py`
 - API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 相位序列](qsvt-sequence.md)、[VTAA-CKS 变时求解器](vtaa-cks.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证
 
-实验设计：取 $\delta=0.3$、$L=5$（阈值 $\sqrt{1-1/c^2}\approx0.3582$），用对角块编码把标量 $x$ 编码进零信号块（`diagonal_block_encoding`，两基态对角元均为 $x$），对 `fixed_point_search` 的输出 BE 在四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）上测零信号成功概率，对照 YLC 闭式 $P_S(x)=1-\delta^2 T_L^2(c\sqrt{1-x^2})$。两个谱点分别位于阈值两侧：$x=\cos(\pi/6)\approx0.8660$（阈值上，应满足 $P_S\ge1-\delta^2=0.91$）与 $x=0.3$（阈值下）。
+实验设计：取 $\delta=0.3$、$L=5$（阈值 $\sqrt{1-1/c^2}\approx0.3582$），用对角块编码把标量 $x$ 编码进零信号块（{obj}`diagonal_block_encoding <oracq.algorithms.input_model.oracles.diagonal_block_encoding>`，两基态对角元均为 $x$），对 `fixed_point_search` 的输出 BE 在四条后端路径（reference、rir-pysparq、adapter-pysparq、originir-ext）上测零信号成功概率，对照 YLC 闭式 $P_S(x)=1-\delta^2 T_L^2(c\sqrt{1-x^2})$。两个谱点分别位于阈值两侧：$x=\cos(\pi/6)\approx0.8660$（阈值上，应满足 $P_S\ge1-\delta^2=0.91$）与 $x=0.3$（阈值下）。
 
 | 案例 | 规模 | 路径 | 指标 | 数值 |
 |---|---|---|---|---|

@@ -1,6 +1,6 @@
 # QSVT 哈密顿模拟（QSVT Hamiltonian Simulation）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.common.qsvt` · 阶段 V2
+> 类别 C2 · 模块 [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · 阶段 V2
 
 ## 概述
 
@@ -12,7 +12,9 @@
 qsvt_hamiltonian_simulation(a, t, *, error=0.01)
 ```
 
-- `a`：`BlockEncoding`，被模拟哈密顿量的块编码（input model 为 BE）。
+API 入口：{obj}`qsvt_hamiltonian_simulation <oracq.algorithms.common.qsvt.qsvt_hamiltonian_simulation>`
+
+- `a`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，被模拟哈密顿量的块编码（input model 为 BE）。
 - `t`：演化时间，必须是非零有限实数。
 - `error`：多项式近似误差，必须在 $(0, 1)$ 内。
 
@@ -28,7 +30,7 @@ qsvt_hamiltonian_simulation(a, t, *, error=0.01)
 
 ## 实现要点
 
-截断度数自适应：$J_k(t)$ 用幂级数（纯 Python）计算，$K$ 取 Bessel 尾项绝对值之和不超过 `error`/4 的最小度数，上界封顶 40。两支统一缩放 $s = 1.5\max(\lVert f_c\rVert_\infty, \lVert f_s\rVert_\infty, 10^{-3})$，为虚部补全留出余量，$\text{sim\_scale} = 2s$。奇偶性校验（cos 支为偶函数、sin 支为奇函数）违例抛 `ValidationError`；虚部补全候选族（cos 支为常数加单偶次幂、sin 支为单奇次幂）逐个尝试，取首个可合成的候选。
+截断度数自适应：$J_k(t)$ 用幂级数（纯 Python）计算，$K$ 取 Bessel 尾项绝对值之和不超过 `error`/4 的最小度数，上界封顶 40。两支统一缩放 $s = 1.5\max(\lVert f_c\rVert_\infty, \lVert f_s\rVert_\infty, 10^{-3})$，为虚部补全留出余量，$\text{sim\_scale} = 2s$。奇偶性校验（cos 支为偶函数、sin 支为奇函数）违例抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`；虚部补全候选族（cos 支为常数加单偶次幂、sin 支为单奇次幂）逐个尝试，取首个可合成的候选。
 
 适用边界：$t = 0$ 被拒绝（平凡情形）；$|t|$ 很大时所需截断度数会先于误差条件触及 40 上限，此时 `error` 界可能不被满足而不报错，调用方需自行核对。输出以 `sim_scale` 缩放，读出后需除回。
 
@@ -46,14 +48,14 @@ qsvt_hamiltonian_simulation(a, t, *, error=0.01)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/qsvt.py`
+- 源码：`src/oracq/algorithms/common/qsvt.py`
 - API 参考：[QSVT 标准变换](../../api/algorithms/common/qsvt.rst)
 - 同族页面：[QSP 相位合成](qsp-phase-synthesis.md)、[QSVT 矩阵求逆](qsvt-matrix-inversion.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证
 
-论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身）。实验设计：输入 BE 为 `matrix_pauli_encoding` 编码的非对角厄米矩阵 $A = \begin{pmatrix} 0.5 & 0.2 \\ 0.2 & -0.3 \end{pmatrix}$（$\alpha = 0.7$），$t \in \{0.7, 2.0\}$、`error = 0.01`；在 reference / rir-pysparq / originir-ext 三条路径上逐列读出完整 $2\times2$ 零信号块，与 `scipy.linalg.expm` 计算的 $e^{itA/\alpha}/\text{sim\_scale}$ 对拍。实现误差（电路块 vs $e^{itx}$ 参考）与方法误差（Jacobi–Anger 截断尾部上界 $2\sum_{j>K}|J_j(t)|$，由 `scipy.special.jv` 独立求值）分列报告。
+论文级数值实验见 `tests/verification/verify_hamiltonian.py`（真实后端执行，无模拟替身）。实验设计：输入 BE 为 {obj}`matrix_pauli_encoding <oracq.algorithms.input_model.block_encoding.matrix_pauli_encoding>` 编码的非对角厄米矩阵 $A = \begin{pmatrix} 0.5 & 0.2 \\ 0.2 & -0.3 \end{pmatrix}$（$\alpha = 0.7$），$t \in \{0.7, 2.0\}$、`error = 0.01`；在 reference / rir-pysparq / originir-ext 三条路径上逐列读出完整 $2\times2$ 零信号块，与 `scipy.linalg.expm` 计算的 $e^{itA/\alpha}/\text{sim\_scale}$ 对拍。实现误差（电路块 vs $e^{itx}$ 参考）与方法误差（Jacobi–Anger 截断尾部上界 $2\sum_{j>K}|J_j(t)|$，由 `scipy.special.jv` 独立求值）分列报告。
 
 | 案例 | 规模 | 后端路径 | 指标 | 数值 |
 |---|---|---|---|---|

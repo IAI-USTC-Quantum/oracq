@@ -17,7 +17,7 @@ QHAM 生成器将规则化 PDE、有限阶 HAM 推导和量子适配线性化连
 例如：
 
 ```python
-from pyqecclang.applications.qham import Field, Known, PolynomialPDE, QHAMPlan
+from oracq.applications.qham import Field, Known, PolynomialPDE, QHAMPlan
 
 # 声明两个未知场 u、v：各自是一个单项式原子，参与多项式运算。
 u, v = Field("u"), Field("v")
@@ -65,7 +65,7 @@ max(1,D-1)*sum(a_j)+len(a) <= max(1,D-1)*m+1.
 
 闭包中的张量秩有限，非线性替换使 HAM 阶数和严格下降。它精确表示**截断后的 HAM 系统**，没有再做一次 Carleman 高阶截断。高次 PDE 使用规范闭包超集，可能包含冗余但闭合的变量。
 
-QHAMPlan 是惰性对象：只保存 PDE 和 m。二次无强迫、m=20 时可描述 2^21 个函数块，而无需把这些块全部写入 JSON。row_terms、offset 和 locate 可单独查询。显式导出超过预算时，计划仍然有效，不会被伪装成已经展开完成的线路。
+{obj}`QHAMPlan <oracq.applications.qham.linearization.QHAMPlan>` 是惰性对象：只保存 PDE 和 m。二次无强迫、m=20 时可描述 2^21 个函数块，而无需把这些块全部写入序列化文本。row_terms、offset 和 locate 可单独查询。显式导出超过预算时，计划仍然有效，不会被伪装成已经展开完成的线路。
 
 ## 3. 两层可序列化表示
 
@@ -86,11 +86,11 @@ flowchart LR
 |---|---|---|
 | PDE 0.1 | 字段、空间轴、单项式、已知系数和内外导数 | 否 |
 | QCL plan 0.1 | PDE＋HAM 阶数，以及确定的有限闭包规则 | 否 |
-| RIR 0.3 | 实际寄存器、Call、控制、矩形窗口、工作位和 BE 组合 | 是，模块调用继续保留 |
+| RIR 0.3 | 实际寄存器、{obj}`Call <oracq.infrastructure.ir.Call>`、控制、矩形窗口、工作位和 BE 组合 | 是，模块调用继续保留 |
 
 格式见 [PDE Schema](../reference/schemas/pde.schema.json) 和 [QCL Schema](../reference/schemas/qcl-plan.schema.json)。PDE/QCL 没有 Python callback；可从 JSON 重建。只在显式请求时生成 rows.json 或量子模块。
 
-“数学函数自动量子编译”和这里的 PDE 构造面有不同对象：compile_function 对基态寄存器中的数值做可逆计算；Field 表达式描述的是待求场及其幅度编码。不能把一个 out-of-place 数值函数电路直接当作对量子振幅施加非线性 PDE。QHAM 通过扩大线性状态空间处理后者。
+“数学函数自动量子编译”和这里的 PDE 构造面有不同对象：compile_function 对基态寄存器中的数值做可逆计算；{obj}`Field <oracq.applications.qham.pde.Field>` 表达式描述的是待求场及其幅度编码。不能把一个 out-of-place 数值函数电路直接当作对量子振幅施加非线性 PDE。QHAM 通过扩大线性状态空间处理后者。
 
 ## 4. 如何降低到 register-level 量子模块
 
@@ -116,12 +116,12 @@ flowchart LR
 - 外导数在收缩之后作用；
 - 已知系数使用对角乘法 BE，当前普通门版本有显式词数预算。
 
-这条路径不物化 N^r×N^r 的基础端口矩阵，更不物化整个提升矩阵。另有 gate_bindings，专门把很小的基础端口物化后用于对照；它不是一般路径。
+这条路径不物化 N^r×N^r 的基础端口矩阵，更不物化整个提升矩阵。另有 {obj}`gate_bindings <oracq.algorithms.input_model.qham.gate_bindings>`，专门把很小的基础端口物化后用于对照；它不是一般路径。
 
 例子：
 
 ```python
-from pyqecclang.applications.qham import Grid, Discretization, structured_fd_bindings, qham_input_model
+from oracq.applications.qham import Grid, Discretization, structured_fd_bindings, qham_input_model
 
 # 一维周期网格：4 个格点、间距 1.0；地址宽 2 位，导数用中心差分加周期回绕。
 grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
@@ -153,7 +153,7 @@ initial weights:  r, r, r^2, ..., r^K, [1 if forcing].
 
 程序先按这些范数准备分支标签，在相应目标区间调用初始态制备 oracle，再从地址区间反算标签。调用的都是可重复、可受控的制备操作，不是复制一个只给定一次的未知量子态。初值 oracle 的相干相位也必须与所表示的经典向量一致。
 
-每次对已知零输入的制备都复净其 work，因此同一段工作寄存器可以顺序复用。标签与其他工作位在成功制备后为零，公共 StatePreparation 接口仍是 target/work。初始整体范数以 log_initial_norm 记录，生成时使用缩放后的权重避免直接对大幂求和。
+每次对已知零输入的制备都复净其 work，因此同一段工作寄存器可以顺序复用。标签与其他工作位在成功制备后为零，公共 {obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>` 接口仍是 target/work。初始整体范数以 log_initial_norm 记录，生成时使用缩放后的权重避免直接对大幂求和。
 
 若 u_in=0 且有强迫，初态只需 one 分量。若没有强迫，零初态对应零解，不存在需要制备的非零归一化向量。
 
@@ -161,7 +161,7 @@ initial weights:  r, r, r^2, ..., r^K, [1 if forcing].
 
 ## 6. 进入 QODE 的 input model
 
-QHAMInputModel 包含生成元 BE、提升初态制备、原始状态宽度、同伦参数、初始范数和物理输出窗口。求解对象是
+{obj}`QHAMInputModel <oracq.algorithms.input_model.qham.QHAMInputModel>` 包含生成元 BE、提升初态制备、原始状态宽度、同伦参数、初始范数和物理输出窗口。求解对象是
 
 ```text
 Y' = G Y,   Y(0) = Y_in,
@@ -171,8 +171,8 @@ Y' = G Y,   Y(0) = Y_in,
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
 
 # 按名字选择求解器族（schrodingerization），并把 Hermitian 分支模拟核
 # 作为普通参数注入：partial 固定 degree=1 的截断 Taylor 核。
@@ -192,7 +192,7 @@ program = solution.operation.program()
 
 ### LCHS / CBMD 的额外前提
 
-提升后的 G 通常非 Hermitian、非正规，强迫增广还会产生零模。不能直接假设它满足 LCHS/CBMD 的耗散前提。
+提升后的 G 通常非 Hermitian、非正规，强迫增广还会产生零模。不能直接假设它满足 [LCHS](algorithms/lchs.md)/[CBMD](algorithms/cbmd.md) 的耗散前提。
 
 实现提供显式整体移位：
 
@@ -205,7 +205,7 @@ Y_shift(t) = exp(-mu*t) Y(t).
 
 ### 稀疏输入不是从 BE 自动恢复的
 
-QCL 的惰性行规则可以配合基础差分模板查询行和元素。Discretization.qcl_row/qcl_entry 是可审阅的经典参考，不是已经完成的可逆 quantum oracle。它们没有通过扫描整张矩阵获得结果。
+QCL 的惰性行规则可以配合基础差分模板查询行和元素。{obj}`Discretization <oracq.applications.qham.reference.Discretization>`.qcl_row/qcl_entry 是可审阅的经典参考，不是已经完成的可逆 quantum oracle。它们没有通过扫描整张矩阵获得结果。
 
 如果选择稀疏输入型 QODE solver，需要另外提供满足其约定的基础稀疏访问及对应可逆实现。尤其强迫注入可产生稠密列；“行规则很稀疏”并不保证满足 CKS 的双边稀疏假设。这与 [QFVM 的输入模型审查](qfvm.md) 是同一条设计原则。
 
@@ -213,8 +213,8 @@ QCL 的惰性行规则可以配合基础差分模板查询行和元素。Discret
 
 有两种开放层级：
 
-1. 用 QHAMBindings.declare 声明 L、F、B_tau、初始态等基础 oracle，再生成 G 和整个 QODE 调用。它们可以逐个绑定。
-2. 用 open_qham_input 保留整个 G 的 BE 为未完成模块，同时在属性中保存完整 QCL plan。初态仍可结构化生成。
+1. 用 {obj}`QHAMBindings <oracq.algorithms.input_model.qham.QHAMBindings>`.declare 声明 L、F、B_tau、初始态等基础 oracle，再生成 G 和整个 QODE 调用。它们可以逐个绑定。
+2. 用 {obj}`open_qham_input <oracq.algorithms.input_model.qham.open_qham_input>` 保留整个 G 的 BE 为未完成模块，同时在属性中保存完整 QCL plan。初态仍可结构化生成。
 
 第二种形式适合还没有高效全局 oracle 实现或超出显式块预算的情况。body=None 明确表示未完成，不会用空线路冒充实现。alpha、信号位和具体形状仍须实例化。
 
@@ -224,15 +224,15 @@ QCL 的惰性行规则可以配合基础差分模板查询行和元素。Discret
 
 ```bash
 # 内置案例
-python -m pyqecclang.applications.qham --example burgers --order 3 \
+python -m oracq.applications.qham --example burgers --order 3 \
   --eta=-0.4 --state-width 2 -o out/qham-general/my-derivation
 
 # 任意符合 PDE 0.1 Schema 的输入
-python -m pyqecclang.applications.qham my-pde.json --order 4 \
+python -m oracq.applications.qham my-pde.json --order 4 \
   --eta=-0.6 --state-width 3 -o out/my-qham
 
 # 大阶数只查询一个块行，不枚举整个系统
-python -m pyqecclang.applications.qham my-pde.json --order 20 \
+python -m oracq.applications.qham my-pde.json --order 20 \
   --row 0,1 --max-blocks 0 -o out/my-qham-row
 
 # 重建本文五组完整案例
@@ -273,7 +273,7 @@ PYTHONPATH=src .venv/bin/python tools/build_general_qham.py
 
 ## 11. QRAM 数据路径逐行讲解
 
-本节针对第 4 节的已知系数项（`Known` 数据），逐行讲清同一条 open 程序如何在"系数烧进门里"与"系数留在 QRAM 角表"两种实现之间切换。源码：`applications/qham/stencils.py`；端到端示例：`examples/input_models.py` 的 QHAM 行。
+本节针对第 4 节的已知系数项（{obj}`Known <oracq.applications.qham.pde.Known>` 数据），逐行讲清同一条 open 程序如何在"系数烧进门里"与"系数留在 QRAM 角表"两种实现之间切换。源码：`applications/qham/stencils.py`；端到端示例：`examples/input_models.py` 的 QHAM 行。
 
 ### 11.1 门实现：`coefficient_encoding`
 
@@ -301,7 +301,7 @@ db = abstract_database(_name("coefficient_angles", values), width, angle_width)
 return diagonal_block_encoding(db, alpha=alpha)
 ```
 
-与门版本共用同一合同（target 为空间位、alpha 相同），差别只有两步：**开放**一个"地址宽 = 空间位宽、数据宽 = angle_width"的 XOR 数据库槽，再由 `diagonal_block_encoding` 把它组装成对角 BE（内部：查角字 → 按位受控 RY 合成，机制与第 4 节结构化端口一致）。数据不进门：程序此时仍是 open 的，槽位名里带值表的内容哈希（`_name`），闭合前后 α 声明不变。代价是两条明确的约束：只接受**实系数**（复相位没有对应编码），以及角量化引入不超过 `alpha·pi/2**angle_width` 的幅值误差。
+与门版本共用同一合同（target 为空间位、alpha 相同），差别只有两步：**开放**一个"地址宽 = 空间位宽、数据宽 = angle_width"的 XOR 数据库槽，再由 {obj}`diagonal_block_encoding <oracq.algorithms.input_model.oracles.diagonal_block_encoding>` 把它组装成对角 BE（内部：查角字 → 按位受控 RY 合成，机制与第 4 节结构化端口一致）。数据不进门：程序此时仍是 open 的，槽位名里带值表的内容哈希（`_name`），闭合前后 α 声明不变。代价是两条明确的约束：只接受**实系数**（复相位没有对应编码），以及角量化引入不超过 `alpha·pi/2**angle_width` 的幅值误差。
 
 ### 11.3 运行时角表：`qram_coefficient_memory`
 
@@ -318,7 +318,7 @@ return {
 
 ### 11.4 提升初态：`qram_state_angles`
 
-初态角树与 QFVM 的 RHS 符号残差树是**同一机制**（同一 `qram_state_prep` 电路：每层查一个内部节点角字、按位合成 RY、反查询复净，共 `2·width` 次查询）。差别只在权重：这里的分支权重是各提升块的相对范数（第 5 节的 r, r, r², …），同样要求非负实幅度：
+初态角树与 QFVM 的 RHS 符号残差树是**同一机制**（同一 {obj}`qram_state_prep <oracq.algorithms.input_model.oracles.qram_state_prep>` 电路：每层查一个内部节点角字、按位合成 RY、反查询复净，共 `2·width` 次查询）。差别只在权重：这里的分支权重是各提升块的相对范数（第 5 节的 r, r, r², …），同样要求非负实幅度：
 
 ```python
 qram_state_angles(profile, 8)   # {树节点: 角字}，编址 (1<<depth)-1+prefix
@@ -364,5 +364,5 @@ word_table = [angle_words.get(address, 0) for address in range(4)]
 三个要点：
 
 1. **两种闭合编码同一批数据**。门真值表存的就是 QRAM 表里那些角字，所以两条路径逐位一致（第 10 节验证）；相对精确系数的唯一近似是角量化。
-2. **α 随数据走**。`qram_coefficient_memory` 的 α 与编码器声明同源；改数据表必须同步 α、谱声明与初始范数，否则闭合检查会拒绝。
-3. **接口约束如实记录**。非负实幅度是当前 QRAM 态制备/角表实现的接口约束，不是数学限制；带符号数据要像 QFVM 那样配独立符号库（对照其 `rhs_sign` 的 Z 反冲），属于另一条实现路径。
+2. **α 随数据走**。{obj}`qram_coefficient_memory <oracq.applications.qham.stencils.qram_coefficient_memory>` 的 α 与编码器声明同源；改数据表必须同步 α、谱声明与初始范数，否则闭合检查会拒绝。
+3. **接口约束如实记录**。非负实幅度是当前 QRAM 态制备/角表实现的接口约束，不是数学限制；带符号数据要像 [QFVM](qfvm.md) 那样配独立符号库（对照其 `rhs_sign` 的 Z 反冲），属于另一条实现路径。

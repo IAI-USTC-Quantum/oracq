@@ -4,23 +4,24 @@ import hashlib
 import json
 from pathlib import Path
 
-from pyqecclang import (
+from oracq import (
     FixedFormat,
+    dump_qram_yaml,
     dumps,
     estimate_resources,
     export_originir,
     export_toffoli_u3_cz,
     unresolved,
 )
-from pyqecclang.algorithms.qlss.qlss import (
+from oracq.algorithms.qlss.qlss import (
     CKSConfig,
     CostaConfig,
     SpectralPromise,
     make_cks_qlss,
     make_costa_qlss,
 )
-from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.qfvm import bind_qfvm, qfvm_memories, roe_qfvm_inputs, roe_qfvm_problem
+from oracq.applications.flow_data import RoeFlowData
+from oracq.applications.qfvm import bind_qfvm, qfvm_memories, roe_qfvm_inputs, roe_qfvm_problem
 
 
 def main():
@@ -43,22 +44,21 @@ def main():
         path.mkdir(exist_ok=True)
         opened = result.operation.program()
         closed = bind_qfvm(opened, inputs)
-        (path / "open.rir.json").write_text(dumps(opened))
-        (path / "closed.rir.json").write_text(dumps(closed))
+        (path / "open.rir.yaml").write_text(dumps(opened))
+        (path / "closed.rir.yaml").write_text(dumps(closed))
         (path / "modular.originir").write_text(export_originir(closed).text)
         (path / "toffoli_u3_cz.originir").write_text(export_toffoli_u3_cz(closed).text)
         probe = bind_qfvm(result.norm_probe.operation.program(), inputs)
-        (path / "norm-probe.rir.json").write_text(dumps(probe))
-        (path / "memory.json").write_text(
-            json.dumps({r.name: memory[r.name] for r in closed.main.resources}, indent=2) + "\n"
-        )
+        (path / "norm-probe.rir.yaml").write_text(dumps(probe))
+        memory_text = dump_qram_yaml(closed, {r.name: memory[r.name] for r in closed.main.resources})
+        (path / "memory.qram.yaml").write_text(memory_text, encoding="utf-8")
         reports.append(
             {
                 "solver": protocol.name,
                 "open_cost": estimate_resources(opened, require_closed=False).to_dict(),
                 "closed_cost": estimate_resources(closed).to_dict(),
                 "program_sha256": hashlib.sha256(dumps(closed).encode()).hexdigest(),
-                "memory_sha256": hashlib.sha256(json.dumps(memory, sort_keys=True).encode()).hexdigest(),
+                "memory_sha256": hashlib.sha256(memory_text.encode()).hexdigest(),
                 "scope": "输入适配、绑定和资源分析；本脚本不认证求解精度与成功概率",
                 "input_model": protocol.input_model,
                 "adapter_trace": result.adapter_trace,

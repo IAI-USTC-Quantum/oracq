@@ -7,6 +7,7 @@
 
 language
 rir
+qram-memory
 open-ir
 math-ir
 qham-derivation

@@ -1,6 +1,6 @@
 # 图邻接 oracle（Adjacency Oracle）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.input_model.graph_walks` · 阶段 V3
+> 类别 C1 · 模块 [`oracq.algorithms.input_model.graph_walks`](../../api/algorithms/input_model/graph_walks.rst) · 阶段 V3
 
 ## 概述
 
@@ -14,7 +14,7 @@ $$
 
 ## 接口与输入模型
 
-核心类型 `AdjacencyOracle`（冻结 dataclass，`OracleView` 子类）封装一个 `(vertex, index, neighbor)` 签名的操作并复用 `database_xor` 范式，构造时校验签名及 `vertex`/`neighbor` 等宽。三个构造入口：
+核心类型 {obj}`AdjacencyOracle <oracq.algorithms.input_model.graph_walks.AdjacencyOracle>`（冻结 dataclass，{obj}`OracleView <oracq.algorithms.input_model.contracts.OracleView>` 子类）封装一个 `(vertex, index, neighbor)` 签名的操作并复用 `database_xor` 范式，构造时校验签名及 `vertex`/`neighbor` 等宽。三个构造入口：
 
 ```python
 abstract_adjacency(vertex_bits, degree_bits, *, name=None)   # 开放声明
@@ -22,10 +22,12 @@ gate_adjacency(neighbors, *, name=None)                      # 门级受控 X �
 qram_adjacency(vertex_bits, degree_bits, *, name=None)       # QRAM 表
 ```
 
-- `abstract_adjacency`：体为空的开放声明，`vertex_bits` 至多 32、`degree_bits` 取 0..32，可经 `bind` 绑定 gate/QRAM 实现。
-- `gate_adjacency`：小规模邻居表的门级实现；表必须是非空矩形且每项为合法顶点编号，位宽由表规模自动推出。
-- `qram_adjacency`：QRAM 实现，表项按地址 `vertex | (index << vertex_bits)` 寻址。
-- `as_adjacency(value)` 把裸 `Operation` 适配为 `AdjacencyOracle`。
+API 入口：{obj}`abstract_adjacency <oracq.algorithms.input_model.graph_walks.abstract_adjacency>`、{obj}`gate_adjacency <oracq.algorithms.input_model.graph_walks.gate_adjacency>`、{obj}`qram_adjacency <oracq.algorithms.input_model.graph_walks.qram_adjacency>`
+
+- {obj}`abstract_adjacency <oracq.algorithms.input_model.graph_walks.abstract_adjacency>`：体为空的开放声明，`vertex_bits` 至多 32、`degree_bits` 取 0..32，可经 {obj}`bind <oracq.infrastructure.linking.bind>` 绑定 gate/QRAM 实现。
+- {obj}`gate_adjacency <oracq.algorithms.input_model.graph_walks.gate_adjacency>`：小规模邻居表的门级实现；表必须是非空矩形且每项为合法顶点编号，位宽由表规模自动推出。
+- {obj}`qram_adjacency <oracq.algorithms.input_model.graph_walks.qram_adjacency>`：QRAM 实现，表项按地址 `vertex | (index << vertex_bits)` 寻址。
+- {obj}`as_adjacency(value) <oracq.algorithms.input_model.graph_walks.as_adjacency>` 把裸 {obj}`Operation <oracq.infrastructure.builder.Operation>` 适配为 `AdjacencyOracle`。
 
 `AdjacencyOracle` 的属性：
 
@@ -33,7 +35,7 @@ qram_adjacency(vertex_bits, degree_bits, *, name=None)       # QRAM 表
 |---|---|
 | `vertex_bits` / `degree_bits` | 顶点与出边下标位宽 $v$ / $g$ |
 | `vertices` / `degree` | $2^v$ 与 $2^g$ |
-| `xor_database()` | 适配为 `XorDatabase`：`address = vertex‖index`（宽 $v+g$）、`data = neighbor` |
+| `xor_database()` | 适配为 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`：`address = vertex‖index`（宽 $v+g$）、`data = neighbor` |
 
 ## 实现要点
 
@@ -56,8 +58,9 @@ qram_adjacency(vertex_bits, degree_bits, *, name=None)       # QRAM 表
 ## 相关链接
 
 - 同模块：[Szegedy 量子行走](szegedy-walk.md)、[MNRS 量子行走搜索](mnrs-search.md)、[周期格点硬币行走](coined-cycle-walk.md)
-- 源码：`src/pyqecclang/algorithms/input_model/graph_walks.py`
+- 源码：`src/oracq/algorithms/input_model/graph_walks.py`
 - API 参考：[图行走搜索](../../api/algorithms/input_model/graph_walks.rst)
+- 概念：[Oracle 与算子表示](../operators.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

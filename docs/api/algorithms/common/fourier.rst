@@ -1,9 +1,9 @@
 Fourier 变换与算术
 ==========================
 
-``pyqecclang.algorithms.common.fourier``
+``oracq.algorithms.common.fourier``
 
-.. automodule:: pyqecclang.algorithms.common.fourier
+.. automodule:: oracq.algorithms.common.fourier
    :members:
    :undoc-members:
    :show-inheritance:

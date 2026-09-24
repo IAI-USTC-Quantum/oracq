@@ -26,29 +26,29 @@ flowchart TD
 
 LCHS 和 Schrödingerization 是线性演化的两条实现路线。Carleman 负责把多项式非线性 ODE 提升成线性 ODE，因此通常组合成 `Carleman → LCHS` 或 `Carleman → Schrödingerization`，并不与后两者处在同一替换位置。
 
-QPDE 比 QODE 多一个空间输入构造层。它负责网格编号、分量布局、边界条件、离散导数、系数、初值和强迫项；QODE 接收这些构造形成的有限维算子。量子地址寄存器中的网格编号与幅度中的未知场值不同：不能直接把幅度 `u_j` 当作 `compile_function` 的数值输入寄存器。
+QPDE 比 QODE 多一个空间输入构造层。它负责网格编号、分量布局、边界条件、离散导数、系数、初值和强迫项；QODE 接收这些构造形成的有限维算子。量子地址寄存器中的网格编号与幅度中的未知场值不同：不能直接把幅度 `u_j` 当作 {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 的数值输入寄存器。
 
 ## 2. 三种对象、三个替换位置
 
 | 对象 | 代码形态 | 替换方式 |
 |---|---|---|
-| Oracle paradigm | `BlockEncoding`、`SparseAccess`、`XorDatabase`、`StatePreparation` | 数学接口与寄存器约定；不同范式之间需要适配器 |
-| Oracle implementation | `Operation`，可有门/QRAM 主体或 `body=None` | 同签名、同组装常量时使用 `bind` |
+| Oracle paradigm | {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`、{obj}`SparseAccess <oracq.algorithms.input_model.oracles.SparseAccess>`、{obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`、{obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>` | 数学接口与寄存器约定；不同范式之间需要适配器 |
+| Oracle implementation | {obj}`Operation <oracq.infrastructure.builder.Operation>`，可有门/QRAM 主体或 `body=None` | 同签名、同组装常量时使用 {obj}`bind <oracq.infrastructure.linking.bind>` |
 | Protocol | Python 函数、`partial`、闭包或可调用对象 | 换函数，然后重新生成上层算法 |
 
-例如 `linear_qode("lchs", ...)` 是 protocol，`solver(G, initial, T)` 返回的 `StateOracle` 是一项具体算法操作。它内部的 `G` 可以还没有实现。未完成的是操作主体；寄存器位宽、BE 的 alpha、调用能力必须已经确定。
+例如 {obj}`linear_qode("lchs", ...) <oracq.algorithms.qode.ode.linear_qode>` 是 protocol，`solver(G, initial, T)` 返回的 {obj}`StateOracle <oracq.algorithms.input_model.oracles.StateOracle>` 是一项具体算法操作。它内部的 `G` 可以还没有实现。未完成的是操作主体；寄存器位宽、BE 的 alpha、调用能力必须已经确定。
 
 当前可直接使用的接口如下：
 
 | 入口 | 输入与输出 | 使用位置 |
 |---|---|---|
 | `linear_qode(method, **config)` | 返回 `(G, initial, time) -> StateOracle` | 对应 `u'=Gu`，method 为 `lchs` / `schrodingerization` / `cbmd` |
-| `lchs_qode(model, time, ...)` | `LinearODE(HermitianParts(L,H), initial)` | 对应 `u'=-(L+iH)u` |
-| `schrodinger_qode(G, initial, time, ...)` | BE、态制备 → 输出态 oracle | 对应 `u'=Gu` |
-| `carleman_qode(problem, time, linear_solver, cutoff=...)` | `PolynomialODE` → 输出态 oracle | 注入上述三参数线性 protocol |
+| {obj}`lchs_qode(model, time, ...) <oracq.algorithms.qode.lchs.lchs_qode>` | {obj}`LinearODE(HermitianParts(L,H), initial) <oracq.algorithms.qode.ode_models.LinearODE>` | 对应 `u'=-(L+iH)u` |
+| {obj}`schrodinger_qode(G, initial, time, ...) <oracq.algorithms.qode.schrodingerization.schrodinger_qode>` | BE、态制备 → 输出态 oracle | 对应 `u'=Gu` |
+| {obj}`carleman_qode(problem, time, linear_solver, cutoff=...) <oracq.algorithms.qnlss.carleman.carleman_qode>` | {obj}`PolynomialODE <oracq.algorithms.qnlss.carleman.PolynomialODE>` → 输出态 oracle | 注入上述三参数线性 protocol |
 | `hamiltonian_function(K, time)` | `BlockEncoding -> BlockEncoding` | 返回对 `exp(-iKt)` 的具体近似编码 |
-| `make_qpde(qode, discretizer=...)` | `(problem, time) -> StateOracle` | discretizer 返回具有 `.generator/.initial` 的对象，如 `DiscretePDE` |
-| `qpde_solver(qode, spatial_discretizer=...)` | `(problem, time) -> StateOracle` | discretizer 返回单个 model，再调用 `qode(model,time)`；适合 `PolynomialODE` |
+| {obj}`make_qpde(qode, discretizer=...) <oracq.algorithms.qpde.pde.make_qpde>` | `(problem, time) -> StateOracle` | discretizer 返回具有 `.generator/.initial` 的对象，如 {obj}`DiscretePDE <oracq.algorithms.qpde.pde.DiscretePDE>` |
+| {obj}`qpde_solver(qode, spatial_discretizer=...) <oracq.algorithms.qpde.pde.qpde_solver>` | `(problem, time) -> StateOracle` | discretizer 返回单个 model，再调用 `qode(model,time)`；适合 `PolynomialODE` |
 
 两个 QPDE 工厂的调用约定不同。两个工厂都在 [pde.py](../api/algorithms/qpde/pde.rst)，通用线性求解入口在 [ode.py](../api/algorithms/qode/ode.rst)，具体方法在对应算法文件中。不要直接把三参数 `linear_qode(...)` 传给默认的 `qpde_solver`。
 
@@ -56,8 +56,8 @@ QPDE 比 QODE 多一个空间输入构造层。它负责网格编号、分量布
 
 ```python
 from typing import Protocol
-from pyqecclang import BlockEncoding
-from pyqecclang.algorithms.input_model.oracles import StateOracle, StatePreparation
+from oracq import BlockEncoding
+from oracq.algorithms.input_model.oracles import StateOracle, StatePreparation
 
 class LinearSolver(Protocol):
     def __call__(self, generator: BlockEncoding,
@@ -68,7 +68,7 @@ class HamiltonianFunction(Protocol):
                  time: float) -> BlockEncoding: ...
 ```
 
-`LinearSolver` 在此用于说明调用形式。库中的 `QODEProtocol` 提供 contract/check，`QODEProblem` 提供问题入口。已有 QLSS 的 `LinearSystem/QLSSProtocol/SolveResult` 是另一套接口，QODE 的输入适配由各算法协议决定，完整范数恢复对象仍未提供。
+`LinearSolver` 在此用于说明调用形式。库中的 {obj}`QODEProtocol <oracq.algorithms.qode.ode.QODEProtocol>` 提供 contract/check，{obj}`QODEProblem <oracq.algorithms.qode.ode.QODEProblem>` 提供问题入口。已有 QLSS 的 `LinearSystem/QLSSProtocol/SolveResult` 是另一套接口，QODE 的输入适配由各算法协议决定，完整范数恢复对象仍未提供。
 
 ## 3. Given oracle 应当允许哪些 input paradigm
 
@@ -79,7 +79,7 @@ class HamiltonianFunction(Protocol):
 | 整体算子 BE | `target:n`、`signal:a`、`alpha`、矩阵解释、adjoint/controlled 能力 | 直接交给 `linear_qode`；必要时从 `G/G†` 构造 Hermitian parts |
 | 分别给定 Hermitian parts | `L,H` 的 BE，`A=L+iH`，以及 `L>=0` 声明 | 直接交给 `lchs_qode`；避免先合并再分解 |
 | CKS sparse position + entry | 原地位置置换、任意行列的数值 XOR、稀疏度、数值格式、元素界 | 用满足前提的 sparse→BE 构造；当前普通适配只覆盖实对称且非负对角 |
-| XOR database | 可逆查询 `|j,z>→|j,z XOR d_j>`，明确数据字的含义 | 对角角表可用 `diagonal_block_encoding`；一般矩阵还需位置/制备/数值到幅度适配 |
+| XOR database | 可逆查询 `|j,z>→|j,z XOR d_j>`，明确数据字的含义 | 对角角表可用 {obj}`diagonal_block_encoding <oracq.algorithms.input_model.oracles.diagonal_block_encoding>`；一般矩阵还需位置/制备/数值到幅度适配 |
 | 可逆数值计算 oracle | 地址/物理参数保留，输出矩阵元数值字，附带状态位 | 与空间结构一起构造 entry oracle，再接数值到幅度转换；`compile_function` 可生成计算模块 |
 | 结构化算子 | 移位、投影、Pauli 项、导数、对角系数、张量/分量选择 | 用 `lcu/product/tensor` 直接构造 BE，不必物化矩阵 |
 | 多线性系数端口 | `F_p: C^(d^p)→C^d` 的矩形补齐 BE | 构造 `PolynomialODE`，再走 Carleman；不是把非线性映射本身当作 unitary |
@@ -97,9 +97,9 @@ $$
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.input_model.oracles import abstract_block_encoding, abstract_state_prep
 
 G = abstract_block_encoding("Generator", width=2, signal_width=3, alpha=4.0)
 initial = abstract_state_prep("Initial", width=2, work_width=0)
@@ -109,7 +109,7 @@ state = solver(G, initial, 0.05)
 program = state.operation.program()  # 合法、仍包含 Generator/Initial 的开放 RIR
 ```
 
-如果已给 `A=L+iH`，可以直接构造 `LinearODE(HermitianParts(L,H),initial)`。`HermitianParts.hermitian` 存的是 `L`，字段 `.h` 存的是 `H`；两者都应是 Hermitian，类型本身只检查宽度。给 Schrödingerization 时，现有入口要求 `G`，可显式用 `lcu([(-1,L),(-1j,H)])` 构造。当前没有直接消费 parts 的 Schrödingerization 优化入口。
+如果已给 `A=L+iH`，可以直接构造 `LinearODE(HermitianParts(L,H),initial)`。`HermitianParts.hermitian` 存的是 `L`，字段 `.h` 存的是 `H`；两者都应是 Hermitian，类型本身只检查宽度。给 Schrödingerization 时，现有入口要求 `G`，可显式用 {obj}`lcu([(-1,L),(-1j,H)]) <oracq.algorithms.input_model.block_encoding.lcu>` 构造。当前没有直接消费 parts 的 Schrödingerization 优化入口。
 
 ### 3.2 XOR database 不是幅度访问
 
@@ -124,8 +124,8 @@ $$
 教程用 2 位角度字、默认 `s=2π/4` 和表 `[0,1]`，得到 `A=diag(1,cos(π/4))`，再用 `G=-A` 接 LCHS。同一个开放数据库可以绑定 gate 表，也可以绑定 QRAM：
 
 ```python
-from pyqecclang import Binding, bind
-from pyqecclang.algorithms.input_model.oracles import abstract_database, diagonal_block_encoding, qram_database
+from oracq import Binding, bind
+from oracq.algorithms.input_model.oracles import abstract_database, diagonal_block_encoding, qram_database
 
 angles = abstract_database("DiagonalAngles", 1, 2)
 A = diagonal_block_encoding(angles, alpha=1.0)
@@ -141,9 +141,9 @@ memory = {"diagonal_angles": [0, 1]}
 ### 3.3 稀疏位置与矩阵元分别开放
 
 ```python
-from pyqecclang import FixedFormat
-from pyqecclang.algorithms.input_model.oracles import abstract_sparse_access
-from pyqecclang.algorithms.input_model.sparse import real_symmetric_sparse_encoding
+from oracq import FixedFormat
+from oracq.algorithms.input_model.oracles import abstract_sparse_access
+from oracq.algorithms.input_model.sparse import real_symmetric_sparse_encoding
 
 fmt = FixedFormat(4, 1)
 access = abstract_sparse_access("SparseA", width=1, value_width=4, sparsity=2)
@@ -153,7 +153,7 @@ A = real_symmetric_sparse_encoding(access, fmt, amax=1.0,
 
 这时未完成的是 `SparseA_position` 和 `SparseA_entry`，其余稀疏制备与 BE 模块已生成。当前位置接口以 `column` 保留、`index` 原地置换、`work` 复净为契约；前 `s` 个槽覆盖该列的非零位置。XOR 位置表不能直接替代完整置换。QRAM 普通实现使用正向、逆向两张表实现该接口。
 
-entry 接口保留 `row,column`，将 `FixedFormat` 编码的值 XOR 到 `data`；必须定义任意行列输入，包括零元素。由 `sparse_entry(db,n)` 包装时，数据库地址是 `row + (column << n)`。示例矩阵 `[[1,-0.5],[-0.5,1]]` 的谱为 `{0.5,1.5}`，同时满足当前稀疏适配和 LCHS 的前提，`alpha_A=s*amax=2`。
+entry 接口保留 `row,column`，将 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>` 编码的值 XOR 到 `data`；必须定义任意行列输入，包括零元素。由 {obj}`sparse_entry(db,n) <oracq.algorithms.input_model.oracles.sparse_entry>` 包装时，数据库地址是 `row + (column << n)`。示例矩阵 `[[1,-0.5],[-0.5,1]]` 的谱为 `{0.5,1.5}`，同时满足当前稀疏适配和 LCHS 的前提，`alpha_A=s*amax=2`。
 
 当前 sparse→BE 构造是 `T†ST`，涉及 `sqrt(abs(value)/amax)` 的幅度转换与符号相位。数值字超过 12 位时默认转换模块保持开放，可用参数 `rotation=` 注入实现。`diagonal_nonnegative=True` 是调用者声明，不是对称性、界或半正定性的证明。非负对角也不意味着矩阵半正定。
 
@@ -161,7 +161,7 @@ entry 接口保留 `row,column`，将 `FixedFormat` 编码的值 XOR 到 `data`�
 
 ### 3.4 初态也有独立的 input paradigm
 
-`gate_state_prep(values)` 给出完整酉扩张的门实现，自动归一化；`qram_state_prep(n,b)` 查询专用制备角表，其 work 宽度是 `max(1,n)+b`，角表可由 `qram_state_angles(values,b)` 构造。当前 QRAM 辅助函数只接受非负实幅度；带符号或复相位需另行实现，不能据此宣称已有相应数据库制备。它的资源 `angles` 不是原始幅度值表。
+{obj}`gate_state_prep(values) <oracq.algorithms.input_model.oracles.gate_state_prep>` 给出完整酉扩张的门实现，自动归一化；{obj}`qram_state_prep(n,b) <oracq.algorithms.input_model.oracles.qram_state_prep>` 查询专用制备角表，其 work 宽度是 `max(1,n)+b`，角表可由 {obj}`qram_state_angles(values,b) <oracq.algorithms.input_model.oracles.qram_state_angles>` 构造。当前 QRAM 辅助函数只接受非负实幅度；带符号或复相位需另行实现，不能据此宣称已有相应数据库制备。它的资源 `angles` 不是原始幅度值表。
 
 开放初态槽应明确需要 inverse/controlled；若使用 LCU、反射或受控张量制备，这些能力不可缺失。Carleman 还必须接收原始 `initial_norm`。多次制备张量幂是重复调用初态 oracle，需要一致的相干相位约定；并非复制一份未知量子态。
 
@@ -192,8 +192,8 @@ $$
 核心组装本身很短，下面是可供自定义 protocol 采用的已有 API 组合：
 
 ```python
-from pyqecclang.algorithms.input_model.block_encoding import lcu
-from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
+from oracq.algorithms.input_model.block_encoding import lcu
+from oracq.algorithms.common.state_preparation import apply_be_to_state
 
 def assemble_lchs(model, time, plan, hamiltonian_function):
     terms = []
@@ -207,7 +207,7 @@ def assemble_lchs(model, time, plan, hamiltonian_function):
 
 正式入口 `lchs_qode` 还会记录节点、核与演化 alpha 等元数据。`QuadraturePlan.cauchy(cutoff=J,spacing=h)` 生成 `k=-Jh,...,Jh` 和 `w=h/[π(1+k²)]`。这是有限求和候选，不做尾积分保证；不要把权重强行归一化后仍称为同一个近似算子。
 
-当前 `taylor_hamiltonian(K,t,degree=r)` 返回
+当前 {obj}`taylor_hamiltonian(K,t,degree=r) <oracq.algorithms.common.hamiltonian.taylor_hamiltonian>` 返回
 
 $$
 \widetilde E=\sum_{\ell=0}^r\frac{(-it)^\ell}{\ell!}K^\ell,
@@ -220,9 +220,9 @@ $$
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.qode.lchs import QuadraturePlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
 
 config = QuadraturePlan.cauchy(cutoff=1, spacing=1.0)
 solver1 = linear_qode("lchs", plan=config,
@@ -254,16 +254,16 @@ $$
 已有生成器逐步完成：
 
 1. 从 `G/G†` 得到 `H₁,H₂`。
-2. 用 `fourier_momentum` 的按位投影 LCU 构造频率对角算子 `P`，再构造 `K` 的 BE。
+2. 用 {obj}`fourier_momentum <oracq.algorithms.qode.schrodingerization.fourier_momentum>` 的按位投影 LCU 构造频率对角算子 `P`，再构造 `K` 的 BE。
 3. 在 `target[:n]` 调用原始初态，在 `target[n:]` 制备归一化的 `exp(-|p_j|)`，对辅助寄存器做 QFT。
 4. 调用同一个 `hamiltonian_function(K,t)` protocol。
 5. 对辅助寄存器做逆 QFT，选择一个 `p` 通道，将该通道选择并入返回的 signal。
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.qode.schrodingerization import SchrodingerPlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
 
 solver = linear_qode(
     "schrodingerization",
@@ -330,7 +330,7 @@ $$
 中心差分后 `F₁=0.1D₂`。若低位 factor 0 对应 `u`、高位 factor 1 对应 `u_x`，则 `F₂[j,i₀+d*i₁]=-δ[j,i₀]D₁[j,i₁]`，即 `F₂=-C(D₁⊗I)`，其中同点收缩 `C` 只保留两个输入坐标相同的分量。已有结构化实现通过移位 LCU、坐标 XOR、条件旗标和系数乘子生成这些模块。
 
 ```python
-from pyqecclang.applications.qham import Discretization, Field, Grid, PolynomialPDE, structured_fd_bindings
+from oracq.applications.qham import Discretization, Field, Grid, PolynomialPDE, structured_fd_bindings
 
 u = Field("u")
 pde = PolynomialPDE.from_equations({"u": 0.1*u.d("x", 2) - u*u.d("x")})
@@ -344,8 +344,8 @@ ports = structured_fd_bindings(space, initial_values)
 
 ```python
 from collections import defaultdict
-from pyqecclang.algorithms.input_model.block_encoding import lcu
-from pyqecclang.algorithms.qnlss.carleman import PolynomialODE
+from oracq.algorithms.input_model.block_encoding import lcu
+from oracq.algorithms.qnlss.carleman import PolynomialODE
 
 def polynomial_from_bindings(bindings):
     grouped = defaultdict(list)
@@ -363,10 +363,10 @@ def polynomial_from_bindings(bindings):
 
 ```python
 from functools import partial
-from pyqecclang.algorithms.qpde.pde import PDEInput, qpde_solver
-from pyqecclang.algorithms.qnlss.carleman import carleman_qode
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.qpde.pde import PDEInput, qpde_solver
+from oracq.algorithms.qnlss.carleman import carleman_qode
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
 
 problem = polynomial_from_bindings(ports)  # ports 来自前面的 Burgers 离散化
 linear_solver = linear_qode("schrodingerization",
@@ -376,11 +376,11 @@ qpde = qpde_solver(nonlinear_solver)
 solution = qpde(PDEInput(problem, "burgers"), 0.05)
 ```
 
-当前结构化差分绑定要求各轴长度为二次幂、周期边界；已知变系数有门表规模上限，默认 4096 个字。其他边界、数据结构与系数 oracle 可以写自己的端口实现，不能把 `Grid` 支持某个经典边界理解为量子 lowering 已覆盖该边界。
+当前结构化差分绑定要求各轴长度为二次幂、周期边界；已知变系数有门表规模上限，默认 4096 个字。其他边界、数据结构与系数 oracle 可以写自己的端口实现，不能把 {obj}`Grid <oracq.applications.qham.reference.Grid>` 支持某个经典边界理解为量子 lowering 已覆盖该边界。
 
 ### 6.3 初态、输出与替换线性 solver
 
-`carleman_initial` 制备的归一化提升向量是
+{obj}`carleman_initial <oracq.algorithms.qnlss.carleman.carleman_initial>` 制备的归一化提升向量是
 
 $$
 \frac{(1,u_0,u_0^{\otimes2},...,u_0^{\otimes K})}
@@ -405,11 +405,11 @@ $$
 对于周期热方程 `u_t=νu_xx`，可以直接构造空间离散化 BE：
 
 ```python
-from pyqecclang import scale
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep
-from pyqecclang.applications.qham import Grid
-from pyqecclang.applications.qham.stencils import derivative_encoding
-from pyqecclang.algorithms.qpde.pde import DiscretePDE, make_qpde
+from oracq import scale
+from oracq.algorithms.input_model.oracles import gate_state_prep
+from oracq.applications.qham import Grid
+from oracq.applications.qham.stencils import derivative_encoding
+from oracq.algorithms.qpde.pde import DiscretePDE, make_qpde
 
 grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
 G = scale(0.1, derivative_encoding(grid, (("x", 2),)))
@@ -417,7 +417,7 @@ problem = DiscretePDE(G, gate_state_prep([1, 0, 0, 0]), "periodic_heat")
 # result = make_qpde(linear_solver)(problem, 0.05)
 ```
 
-`derivative_encoding` 由有限差分位移构成 `S+S†-2I` 的 LCU。此例的 `G` 为负半定，因此 LCHS 的 `A=-G` 前提成立。把 `linear_solver` 从 LCHS 换成 Schrödingerization 后，空间输入不变；重新生成量子程序即可。
+{obj}`derivative_encoding <oracq.applications.qham.stencils.derivative_encoding>` 由有限差分位移构成 `S+S†-2I` 的 LCU。此例的 `G` 为负半定，因此 LCHS 的 `A=-G` 前提成立。把 `linear_solver` 从 LCHS 换成 Schrödingerization 后，空间输入不变；重新生成量子程序即可。
 
 更一般的 `discretizer(problem)` 可以返回由 sparse、QRAM 或可逆数值计算适配得到的 `DiscretePDE`。建议问题对象中保存边界、网格、量纲、物理维度、补齐布局、初始范数和原始访问类型。**只在明确的算法适配边界提取 BE**，使以后能替换成直接消费 sparse 或 Hamiltonian 项列表的 solver。
 
@@ -448,8 +448,8 @@ qram_bindings = {
 |---|---|
 | 同一槽位、同种范式、同寄存器类型/宽度、同 alpha、兼容能力 | `bind`，保留原有调用结构 |
 | 实现需要 QRAM 资源 | 用 `Binding.resources` 映射到入口逻辑资源，链接器沿调用链提升资源参数 |
-| 实现内部还有新开放槽 | 允许部分绑定，继续保存 RIR；`unresolved` 会报告后续缺口 |
-| alpha、signal/work/target 宽度或 input paradigm 改变 | 重新运行适配器及上层 protocol；不要直接改 JSON 属性 |
+| 实现内部还有新开放槽 | 允许部分绑定，继续保存 RIR；{obj}`unresolved <oracq.infrastructure.linking.unresolved>` 会报告后续缺口 |
+| alpha、signal/work/target 宽度或 input paradigm 改变 | 重新运行适配器及上层 protocol；不要直接改序列化文本属性 |
 | 积分节点、Taylor 阶数、Carleman 截断、辅助网格改变 | 重新生成相应算法及调用它的上层模块 |
 | 完全换 LCHS / Schrödingerization / 内部 HamSim 算法 | 更换 Python protocol，重建输出布局；数值前提重新评估 |
 
@@ -499,9 +499,9 @@ PYTHONPATH=src /path/to/backend/python examples/ode_input_models.py --native-par
 | `burgers_carleman_shifted_lchs` | 相同 F₁/F₂，Carleman 后显式移位并接 LCHS |
 | `heat_lchs_taylor2` | 替换内部 Hamiltonian-function 配置 |
 
-每个目录包含 `open.rir.json`、`closed.rir.json`、`modular.originir`、`toffoli_u3_cz.originir`、`memory.json` 和 `report.json`；有绑定的案例还保存第一次绑定后的 `partial.rir.json`。无开放槽的案例，其 open/closed 描述相同。统一索引为 `index.json`。
+每个目录包含 `open.rir.yaml`、`closed.rir.yaml`、`modular.originir`、`toffoli_u3_cz.originir`、`memory.qram.yaml` 和 `report.json`；有绑定的案例还保存第一次绑定后的 `partial.rir.yaml`。无开放槽的案例，其 open/closed 描述相同。统一索引为 `index.json`。
 
-随项目提供的 11 个案例均通过 RIR 序列化往返、闭合检查、两种 OriginIR 导出，并用真实 `OriginIR_BaseParser` 解析严格门集产物。此验证确认描述可消费，不证明有限 Taylor、积分截断、Fourier 恢复或 Carleman 的数值求解正确性。原始模块调用在 pyqecclang RIR 和导出的 DEF 中保留；下游解析器内部仍会展开 DEF。
+随项目提供的 11 个案例均通过 RIR 序列化往返、闭合检查、两种 OriginIR 导出，并用真实 `OriginIR_BaseParser` 解析严格门集产物。此验证确认描述可消费，不证明有限 Taylor、积分截断、Fourier 恢复或 Carleman 的数值求解正确性。原始模块调用在 oracq RIR 和导出的 DEF 中保留；下游解析器内部仍会展开 DEF。
 
 `--native-bindings` 只比较 `given_xor_gate_lchs` 与 `given_xor_qram_lchs` 的完整复幅度，记录为 `binding-validation.json`。其他案例并不因此获得量子态正确性结论。稀疏 gate-LCHS 案例展开后有 1,936,453 个执行事件，超过 PySparQ 适配器默认一百万步预算；该案例已完成描述与解析验证，没有通过扩大模拟范围来代替算法验证。
 

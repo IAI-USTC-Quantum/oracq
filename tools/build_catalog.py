@@ -7,9 +7,9 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from pyqecclang import bind, dumps, unresolved
-from pyqecclang.applications.catalog import CASES, build_case
-from pyqecclang.infrastructure.linking import Binding
+from oracq import bind, dumps, unresolved
+from oracq.applications.catalog import CASES, build_case
+from oracq.infrastructure.linking import Binding
 
 
 def main():
@@ -30,18 +30,18 @@ def main():
         remaining = unresolved(closed)
         if remaining:
             raise RuntimeError(f"{name} 的具体实例仍有未绑定槽：{remaining}")
-        (directory / "open.rir.json").write_text(dumps(case.program))
-        (directory / "closed.rir.json").write_text(dumps(closed))
+        (directory / "open.rir.yaml").write_text(dumps(case.program))
+        (directory / "closed.rir.yaml").write_text(dumps(closed))
         partial_keys = sorted(case.bindings)[: len(case.bindings) // 2]
         partial = bind(case.program, {key: case.bindings[key] for key in partial_keys})
-        (directory / "partial.rir.json").write_text(dumps(partial))
+        (directory / "partial.rir.yaml").write_text(dumps(partial))
         artifact = case.artifact()
         (directory / "program.originir").write_text(artifact.text)
         (directory / "memory.json").write_text(json.dumps(case.memory, indent=2) + "\n")
         manifest = {}
         for slot, value in sorted(case.bindings.items()):
             item = value if isinstance(value, Binding) else Binding(value)
-            path = "bindings/" + slot + ".rir.json"
+            path = "bindings/" + slot + ".rir.yaml"
             (directory / "bindings").mkdir(exist_ok=True)
             (directory / path).write_text(dumps(item.operation.program()))
             manifest[slot] = {"program": path, "resources": item.resources or {}}
@@ -58,7 +58,7 @@ def main():
             if case.readout:
                 from uniqc.circuit_builder.classical_program import parse_originir_ext_dynamic
 
-                from pyqecclang.infrastructure.readout import export_with_readout
+                from oracq.infrastructure.readout import export_with_readout
 
                 execution = export_with_readout(closed, case.readout)
                 parse_originir_ext_dynamic(execution.text)

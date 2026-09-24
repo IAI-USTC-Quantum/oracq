@@ -4,7 +4,7 @@ import json
 import unittest
 from dataclasses import replace
 
-from pyqecclang import (
+from oracq import (
     Bits,
     BlockSystem,
     Builder,
@@ -26,12 +26,12 @@ from pyqecclang import (
     scale,
     simulate,
 )
-from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
-from pyqecclang.algorithms.input_model.interfaces import (
+from oracq.algorithms.common.state_preparation import apply_be_to_state
+from oracq.algorithms.input_model.interfaces import (
     BlockEncodingProtocol,
     StatePreparationProtocol,
 )
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.input_model.oracles import (
     StateOracle,
     StatePreparation,
     abstract_block_encoding,
@@ -42,12 +42,12 @@ from pyqecclang.algorithms.input_model.oracles import (
     basis_state,
     declare,
 )
-from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
-from pyqecclang.algorithms.qnlss.carleman import PolynomialODE
-from pyqecclang.algorithms.qode.cbmd import ContourPlan
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
+from oracq.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
+from oracq.algorithms.qnlss.carleman import PolynomialODE
+from oracq.algorithms.qode.cbmd import ContourPlan
+from oracq.algorithms.qode.lchs import QuadraturePlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qode.schrodingerization import SchrodingerPlan
 
 
 class OracleContractTests(unittest.TestCase):

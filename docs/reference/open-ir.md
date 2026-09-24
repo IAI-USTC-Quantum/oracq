@@ -1,6 +1,6 @@
 # 开放声明、能力与绑定
 
-本章定义 RIR 0.3 中开放声明的行为。开放主体自 0.2 引入，0.3 保留同一语义。
+本章定义 RIR 0.3 中开放声明的行为。开放主体自 0.2 引入，0.3 保留同一语义。算法协议与契约视角的背景见手册[算法自己的约定：从一个 gate 开始](../manual/contracts.md)。
 
 ## 开放声明不是恒等操作
 
@@ -13,7 +13,7 @@ Module.body 有两种形式：
 
 开放声明必须有字符串属性 oracle_paradigm。寄存器、资源与标量属性依然必须明确。声明可以出现在模块调用、Control、Adjoint 和 Repeat 中，并参与正常的类型与别名检查。
 
-Program 可以保存部分实现。生成、验证和 JSON 序列化不要求所有声明已绑定。执行与后端导出要求入口可达的 oracle 已闭合，否则报告槽名、范式与调用路径。未被入口调用的开放声明不阻止该入口导出。
+Program 可以保存部分实现。生成、验证和文本序列化不要求所有声明已绑定。执行与后端导出要求入口可达的 oracle 已闭合，否则报告槽名、范式与调用路径。未被入口调用的开放声明不阻止该入口导出。
 
 所有调用目标仍然必须存在。因此开放调用引用的是明确声明，不是拼写错误或未知符号。
 
@@ -27,7 +27,7 @@ zero_input 是库契约。当前阶段不证明调用位置上的量子态为零
 
 ## 绑定
 
-bind(program, mapping) 返回新的 Program，不修改输入。mapping 的键必须是开放声明的名字，值为 Operation 或 Binding。
+{obj}`bind(program, mapping) <oracq.infrastructure.linking.bind>` 返回新的 Program，不修改输入。mapping 的键必须是开放声明的名字，值为 {obj}`Operation <oracq.infrastructure.builder.Operation>` 或 {obj}`Binding <oracq.infrastructure.linking.Binding>`。
 
 实现的寄存器参数按位置匹配声明的 kind 和 width。实现可以使用不同的局部参数名。明确声明的范式、能力和 be_alpha 必须兼容。绑定的实现自身可以包含新的开放依赖，因此绑定不等于全程序立即闭合。
 
@@ -42,13 +42,13 @@ bind(program, mapping) 返回新的 Program，不修改输入。mapping 的键�
 `zero_input` 或 `clean_work` 时拒绝绑定。缺少这些承诺的历史实现仍可绑定，
 因此绑定成功表示结构兼容，不表示已经验证零输入或复净。
 
-`bind_with_report(program, mapping)` 只执行一次链接，返回 `BindingResult`。
+{obj}`bind_with_report(program, mapping) <oracq.infrastructure.linking.bind_with_report>` 只执行一次链接，返回 {obj}`BindingResult <oracq.infrastructure.linking.BindingResult>`。
 `result.require()` 取得程序；`result.report.to_dict()` 输出输入和输出程序的
 SHA-256、显式资源映射、剩余依赖和结构化错误。错误含槽位调用路径、期望和
 实际值。部分绑定可以成功且仍有剩余依赖。报告不保存 Python 回调，也不包含
 QRAM 数据内容；运行实验须另行记录内存快照的指纹。
 
-同名但不同定义、循环依赖、错误参数数量或不兼容类型都会被拒绝。这些属于组装结构错误，不是算法数值正确性的判定。
+同名但不同定义、循环依赖、错误参数数量或不兼容类型都会被拒绝。这些属于组装结构错误，不是算法数值正确性的判定。端到端绑定操作示例见教程[给算法替换 oracle](../tutorials/oracle-binding.md)。
 
 ## QRAM 捕获
 
@@ -65,7 +65,7 @@ bound = bind(open_program, {
 资源捕获只绑定句柄身份，不把数据表嵌入 IR。运行时仍然单独提供内存内容。分批绑定时，已提升的资源会保留。
 
 新生成的捕获使用 `binding_captures` 属性保存来源；独立绑定顺序变化时，
-新增资源及对应调用实参按逻辑名排列。JSON 往返后继续绑定同一 bank 会复用
+新增资源及对应调用实参按逻辑名排列。序列化往返后继续绑定同一 bank 会复用
 已有捕获。属性格式与跨节点检查见 [RIR 规范](rir.md)。
 
 ## 开放程度的边界

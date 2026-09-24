@@ -1,4 +1,4 @@
-"""MIR/RIR JSON 形状与语义约束。"""
+"""MIR JSON 形状与语义约束；MIR 文本格式保持 JSON。"""
 
 import json
 import unittest
@@ -6,8 +6,8 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from pyqecclang import ValidationError
-from pyqecclang.infrastructure.mathfunc import MathProgram, compile_function
+from oracq import ValidationError
+from oracq.infrastructure.mathfunc import MathProgram, compile_function
 
 
 class MathSchemaTests(unittest.TestCase):

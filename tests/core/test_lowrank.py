@@ -5,10 +5,10 @@ import unittest
 
 from witness import assert_block_equals, block_column
 
-from pyqecclang import ValidationError, simulate, unresolved
-from pyqecclang.algorithms.common.transforms import qubitization_walk
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.input_model.lowrank import (
+from oracq import ValidationError, simulate, unresolved
+from oracq.algorithms.common.transforms import qubitization_walk
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from oracq.algorithms.input_model.lowrank import (
     DoubleFactorization,
     THCDecomposition,
     diagonalize_symmetric,

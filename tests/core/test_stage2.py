@@ -3,12 +3,12 @@
 import unittest
 from dataclasses import replace
 
-from pyqecclang import Bits, Builder, dumps, loads
-from pyqecclang.algorithms.common.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
-from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
-from pyqecclang.infrastructure.execution import simulate
-from pyqecclang.infrastructure.ir import ValidationError
-from pyqecclang.infrastructure.layout import workspace_table
+from oracq import Bits, Builder, dumps, loads
+from oracq.algorithms.common.arithmetic import BooleanNetwork, FixedFormat, fixed_arithmetic
+from oracq.infrastructure.backends.basis import export_toffoli_u3_cz
+from oracq.infrastructure.execution import simulate
+from oracq.infrastructure.ir import ValidationError
+from oracq.infrastructure.layout import workspace_table
 
 
 class Stage2StructureTests(unittest.TestCase):

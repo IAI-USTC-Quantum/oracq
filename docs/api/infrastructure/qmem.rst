@@ -1,9 +1,9 @@
 QRAM 指针式读写
 ====================
 
-``pyqecclang.infrastructure.qmem``
+``oracq.infrastructure.qmem``
 
-.. automodule:: pyqecclang.infrastructure.qmem
+.. automodule:: oracq.infrastructure.qmem
    :members:
    :undoc-members:
    :show-inheritance:

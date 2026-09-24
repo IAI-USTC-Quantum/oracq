@@ -1,9 +1,9 @@
 寄存器参考执行器
 ================
 
-``pyqecclang.infrastructure.execution``
+``oracq.infrastructure.execution``
 
-.. automodule:: pyqecclang.infrastructure.execution
+.. automodule:: oracq.infrastructure.execution
    :members:
    :undoc-members:
    :show-inheritance:

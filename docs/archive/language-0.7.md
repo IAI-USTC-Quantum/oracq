@@ -1,19 +1,19 @@
-# pyqecclang 完整规范
+# oracq 完整规范
 
 | 项 | 值 |
 | --- | --- |
 | 包版本 | 0.6.0（`pyproject.toml`） |
-| RIR 版本 | 0.3（`pyqecclang.infrastructure.ir.VERSION`，兼容读写 0.1/0.2） |
+| RIR 版本 | 0.3（`oracq.infrastructure.ir.VERSION`，兼容读写 0.1/0.2） |
 | MIR 版本 | 0.1（数学函数图） |
 | PDE / QCL plan 版本 | 0.1 / 0.1（QHAM 生成层） |
 | 规范日期 | 2026-09-09 |
 | 适用对象 | Python API、序列化器、参考执行器、后端适配器、CLI |
 
-本文档是 pyqecclang 的统一总规范，把分散在各专题文档中的规范性内容合并为一份完整描述，覆盖语言核心、四层生成性中间表示、算法组装层与全部后端契约。各专题文档（[rir-spec.md](rir.md)、[open-ir.md](open-ir.md)、[math-ir-spec.md](math-ir.md)、[oracle-paradigms.md](../archive/oracle-paradigms.md)、[backend-review.md](backend-compatibility.md) 等）仍然是各自领域的详细规范；当本文档与专题文档出现出入时，以更接近代码现状的专题文档为准，并应当修订本文档。使用导向的教程与案例集见 [pyqecclang-guide.md](../archive/guide-0.6.md)。
+本文档是 oracq 的统一总规范，把分散在各专题文档中的规范性内容合并为一份完整描述，覆盖语言核心、四层生成性中间表示、算法组装层与全部后端契约。各专题文档（[rir-spec.md](rir.md)、[open-ir.md](open-ir.md)、[math-ir-spec.md](math-ir.md)、[oracle-paradigms.md](../archive/oracle-paradigms.md)、[backend-review.md](backend-compatibility.md) 等）仍然是各自领域的详细规范；当本文档与专题文档出现出入时，以更接近代码现状的专题文档为准，并应当修订本文档。使用导向的教程与案例集见 [oracq-guide.md](../archive/guide-0.6.md)。
 
 ## 1. 语言定位与设计原则
 
-pyqecclang 是一门基于 Python 的量子操作生成语言。开发者编写普通的 Python 函数，这些函数在生成阶段执行，产出由模块定义、模块调用、静态重复、相干控制和伴随块组成的**寄存器级中间表示（Register-level IR，下称 RIR）**。RIR 保存模块结构而不展开成量子位门列表，这一点是整个设计的中心约束：宽度在生成期具体化，但被调模块的主体不会被复制进调用方。
+oracq 是一门基于 Python 的量子操作生成语言。开发者编写普通的 Python 函数，这些函数在生成阶段执行，产出由模块定义、模块调用、静态重复、相干控制和伴随块组成的**寄存器级中间表示（Register-level IR，下称 RIR）**。RIR 保存模块结构而不展开成量子位门列表，这一点是整个设计的中心约束：宽度在生成期具体化，但被调模块的主体不会被复制进调用方。
 
 本语言独立于 QECC.Lang，不继承其文本语法，也不受其扁平 CLIR 约束。它与后者的关系仅在案例层面：[coverage.md](../archive/coverage.md) 记录了 QECC.Lang spec-tests 的 61 个正例与 16 个负例如何映射到本语言的范式（该映射证明存在表达路径，不证明源码或 golden 等价）。
 
@@ -31,7 +31,7 @@ pyqecclang 是一门基于 Python 的量子操作生成语言。开发者编写�
 
 ## 2. 总体架构与五层表示
 
-一个 pyqecclang 程序从书写到执行经过五种表示形态，各层职责如下表。
+一个 oracq 程序从书写到执行经过五种表示形态，各层职责如下表。
 
 | 层 | 表示 | 是否可序列化 | 所在模块 |
 | --- | --- | --- | --- |
@@ -43,7 +43,7 @@ pyqecclang 是一门基于 Python 的量子操作生成语言。开发者编写�
 
 生成性中间表示是可选的：直接用 Builder 手写模块时不存在 MIR 或 PDE；只有调用 `compile_function`（产生 MIR）或 QHAM 生成器（产生 PDE 与 QCL plan）时才会出现。它们的共同特征是不含量子门，只描述数学结构，且必须在降低到 RIR 之前完成自身的一致性检查。
 
-后端的锁定关系记录在仓库根的 [backend-revisions.json](../../backend-revisions.json)：UnifiedQuantum 审阅提交 `5555b2c`（OriginIR-ext 解析与 uniqc 模拟器），QRAM-Simulator 审阅提交 `111630a`（pysparq System、动态算子编译）。pyqecclang 不通过包索引安装或更换这两个后端；集成测试要求解释器环境真实提供它们，不以缺少后端为理由跳过。
+后端的锁定关系记录在仓库根的 [backend-revisions.json](../../backend-revisions.json)：UnifiedQuantum 审阅提交 `5555b2c`（OriginIR-ext 解析与 uniqc 模拟器），QRAM-Simulator 审阅提交 `111630a`（pysparq System、动态算子编译）。oracq 不通过包索引安装或更换这两个后端；集成测试要求解释器环境真实提供它们，不以缺少后端为理由跳过。
 
 [architecture.md](../archive/architecture.md) 提供同一架构的图示索引；本章与该文档冲突时以本章为准并修订该文档。
 
@@ -356,7 +356,7 @@ QFVM 路径（`qfvm.py`、`qfvm_sparse.py`、`roe.py`、`flow_data.py`）实现�
 
 实现边界有两级：`QHAMBindings.declare` 逐个声明 L/F/B_tau/初态等基础端口再生成 G 与 QODE 调用，可以逐个绑定；`open_qham_input` 把整个生成元保留为未完成模块（属性携带完整 QCL plan），适合没有高效全局端口或超出显式块预算的场合。更换端口算法若改变 alpha 或辅助位宽度，应从同一数学计划重新生成上层 RIR；只有保持实例化签名与 alpha 时才适合在已有 IR 上晚绑定。稀疏输入不是从块编码自动恢复的：`qcl_row/qcl_entry` 是可审阅的经典参考，选择稀疏输入型求解器需要另行提供满足约定的稀疏访问（强迫注入可产生稠密列，行稀疏不保证 CKS 双边稀疏假设成立）。
 
-CLI `python -m pyqecclang.applications.qham` 与 `report.export_derivation`（pde.json、qcl-plan.json、rows.json、qode-input.json、derivation.md 五件套）见第 18 章。验证边界：链式法则见证残差约 1e-16（检验代数生成的正确性，不是原 PDE 的收敛误差）；HAM 收敛、量子求解精度、时间依赖适配、IQHAM 外层重启与完整范数估计仍是待办。
+CLI `python -m oracq.applications.qham` 与 `report.export_derivation`（pde.json、qcl-plan.json、rows.json、qode-input.json、derivation.md 五件套）见第 18 章。验证边界：链式法则见证残差约 1e-16（检验代数生成的正确性，不是原 PDE 的收敛误差）；HAM 收敛、量子求解精度、时间依赖适配、IQHAM 外层重启与完整范数估计仍是待办。
 
 ## 17. 后端契约
 
@@ -364,7 +364,7 @@ CLI `python -m pyqecclang.applications.qham` 与 `report.export_derivation`（pd
 
 `export_originir(program)` 要求程序闭合，产出 `OriginIRArtifact(text, registers, resources, workspace_qubits)`。文本结构是：每个 QRAM 一行 `QRAMDECL ram_名 aw,dw`、`QINIT 总量子位数`、`CREG 0`、按缓存去重的 `DEF` 定义序列、末尾一条对入口模块的调用。每个模块（及重复体）编译为 `DEF m_模块名_哈希 … ENDDEF`，形参是 `v_寄存器[宽]`（跳过零宽）、`pw_work[工作区宽]` 与 `pc_control[n]`（模块级控制经附加形参传递，不展开）。入口寄存器连续映射到 `q[i]`，私有工作区追加其后。
 
-降低规则：`xor` 降为逐位 CNOT，`swap` 降为逐位 SWAP，`add_const` 降为按置位位的 X 级联（高位 X 受低位区间控制），无控制 `gphase` 用一对 U1 与 X 门精确表达全局相位。控制用逐门 `controlled_by` 后缀表达并合并去重，零值控制位用 X 共轭。`Repeat` 采用对数规模的二分策略（count 为 1 时内联，否则半量 DEF 调用两次、奇数补一次），2^40 次重复产出不到 45 个 DEF。同一模块按不同的 QRAM 资源绑定特化为不同 DEF，同绑定复用同一定义。QRAM 按全局名特化是应对 OriginIR DEF 无资源形参的既定策略；UnifiedQuantum 解析器会把 DEF 内联展开，这一限制影响它的执行阶段，不影响 pyqecclang 保存与导出的模块化结构。
+降低规则：`xor` 降为逐位 CNOT，`swap` 降为逐位 SWAP，`add_const` 降为按置位位的 X 级联（高位 X 受低位区间控制），无控制 `gphase` 用一对 U1 与 X 门精确表达全局相位。控制用逐门 `controlled_by` 后缀表达并合并去重，零值控制位用 X 共轭。`Repeat` 采用对数规模的二分策略（count 为 1 时内联，否则半量 DEF 调用两次、奇数补一次），2^40 次重复产出不到 45 个 DEF。同一模块按不同的 QRAM 资源绑定特化为不同 DEF，同绑定复用同一定义。QRAM 按全局名特化是应对 OriginIR DEF 无资源形参的既定策略；UnifiedQuantum 解析器会把 DEF 内联展开，这一限制影响它的执行阶段，不影响 oracq 保存与导出的模块化结构。
 
 ### 17.2 严格门集
 
@@ -388,17 +388,17 @@ CLI `python -m pyqecclang.applications.qham` 与 `report.export_derivation`（pd
 
 ## 18. CLI 规范
 
-入口 `pyqecclang`（`python -m pyqecclang` 同义），错误统一以退出码 2 与 `pyqecclang: 消息` 报告。
+入口 `oracq`（`python -m oracq` 同义），错误统一以退出码 2 与 `oracq: 消息` 报告。
 
-- `pyqecclang validate input.rir.json`：打印版本、模块数与开放槽计数。
-- `pyqecclang canonicalize input`：输出规范 JSON（`dumps`）。
-- `pyqecclang emit input [-o out.originir] [--basis {default,toffoli-u3-cz}]`：导出 OriginIR-ext 文本，或严格门集文本。
-- `pyqecclang run input --memory memory.json [--backend {reference,originir,pysparq}] [--native-arithmetic] [--native-cache dir]`：执行。memory 是资源名到字序列或稀疏字典的 JSON；originir 后端按量子位索引输出幅度，reference/pysparq 按寄存器基矢输出；`--native-arithmetic` 仅限 pysparq，构造算术原生注册表并输出报告。
-- `pyqecclang requirements input`：输出 `unresolved` 的 JSON 数组（槽名、范式、路径、寄存器、属性）。
-- `pyqecclang bind input --bindings bindings.json -o out.rir.json`：bindings 是 `{槽名: {"program": 路径, "resources": {…}}}` 的清单，实现程序以 entry 为模块。
-- `pyqecclang compile-function source.py --function 名 [--width 12] [--fraction 6] [--degree 6] [--constants json] [--inputs json] [--mir-output mir.json] -o out.rir.json`：把源文件中的纯数学函数编译为 RIR。`--inputs` 接受 `{名: 宽}`（Index）或 `{名: {"index": 宽}}` 形式的类型映射。
+- `oracq validate input.rir.json`：打印版本、模块数与开放槽计数。
+- `oracq canonicalize input`：输出规范 JSON（`dumps`）。
+- `oracq emit input [-o out.originir] [--basis {default,toffoli-u3-cz}]`：导出 OriginIR-ext 文本，或严格门集文本。
+- `oracq run input --memory memory.json [--backend {reference,originir,pysparq}] [--native-arithmetic] [--native-cache dir]`：执行。memory 是资源名到字序列或稀疏字典的 JSON；originir 后端按量子位索引输出幅度，reference/pysparq 按寄存器基矢输出；`--native-arithmetic` 仅限 pysparq，构造算术原生注册表并输出报告。
+- `oracq requirements input`：输出 `unresolved` 的 JSON 数组（槽名、范式、路径、寄存器、属性）。
+- `oracq bind input --bindings bindings.json -o out.rir.json`：bindings 是 `{槽名: {"program": 路径, "resources": {…}}}` 的清单，实现程序以 entry 为模块。
+- `oracq compile-function source.py --function 名 [--width 12] [--fraction 6] [--degree 6] [--constants json] [--inputs json] [--mir-output mir.json] -o out.rir.json`：把源文件中的纯数学函数编译为 RIR。`--inputs` 接受 `{名: 宽}`（Index）或 `{名: {"index": 宽}}` 形式的类型映射。
 
-QHAM 子命令 `python -m pyqecclang.applications.qham [input.json] [--example {burgers,kdv,reaction,coupled,vector_burgers_2d}] [--order 2] [--eta -0.4] [--state-width 2] [--max-blocks 256] [--row physical|one|0,1] [-o 目录]`：从 PDE JSON 或内置案例生成推导五件套并输出 manifest。
+QHAM 子命令 `python -m oracq.applications.qham [input.json] [--example {burgers,kdv,reaction,coupled,vector_burgers_2d}] [--order 2] [--eta -0.4] [--state-width 2] [--max-blocks 256] [--row physical|one|0,1] [-o 目录]`：从 PDE JSON 或内置案例生成推导五件套并输出 manifest。
 
 ## 19. 一致性分级与非保证
 
@@ -414,7 +414,7 @@ QHAM 子命令 `python -m pyqecclang.applications.qham [input.json] [--example {
 
 ## 附录 A：公共 API 总表
 
-顶层 `pyqecclang`（`__init__.py`）导出以下名字。
+顶层 `oracq`（`__init__.py`）导出以下名字。
 
 | 分组 | 名字 |
 | --- | --- |
@@ -431,7 +431,7 @@ QHAM 子命令 `python -m pyqecclang.applications.qham [input.json] [--example {
 | 数学函数编译 | `CompiledFunction, FunctionCompileError, Index, MathConfig, MathProgram, compile_function, lower_math_ir` |
 | QLSS 契约 | `SpectralPromise, SparseSystem, BlockSystem, LinearSystem, SolveResult, QLSSProtocol` |
 
-主要子模块入口：`pyqecclang.algorithms.input_model.oracles`（范式工厂与包装类型）、`pyqecclang.algorithms.input_model.block_encoding`（算法层组合子）、`pyqecclang.algorithms.input_model.sparse`（适配层）、`pyqecclang.algorithms.elementary/cks/costa/differential/solvers`（算法原型）、`pyqecclang.applications.legacy`（QFVM 玩具负载与 m=1 QHAM，阶段历史）、`pyqecclang.applications.catalog`（目录案例）、`pyqecclang.applications.qfvm/qfvm_sparse/roe/flow_data/sparse_models`（QFVM 路径）、`pyqecclang.applications.qham`（一般 QHAM：`Field, Known, PolynomialPDE, QHAMPlan, Grid, Discretization, structured_fd_bindings, qham_input_model, open_qham_input` 等）、`pyqecclang.infrastructure.readout`（ReadoutAction）。
+主要子模块入口：`oracq.algorithms.input_model.oracles`（范式工厂与包装类型）、`oracq.algorithms.input_model.block_encoding`（算法层组合子）、`oracq.algorithms.input_model.sparse`（适配层）、`oracq.algorithms.elementary/cks/costa/differential/solvers`（算法原型）、`oracq.applications.legacy`（QFVM 玩具负载与 m=1 QHAM，阶段历史）、`oracq.applications.catalog`（目录案例）、`oracq.applications.qfvm/qfvm_sparse/roe/flow_data/sparse_models`（QFVM 路径）、`oracq.applications.qham`（一般 QHAM：`Field, Known, PolynomialPDE, QHAMPlan, Grid, Discretization, structured_fd_bindings, qham_input_model, open_qham_input` 等）、`oracq.infrastructure.readout`（ReadoutAction）。
 
 ## 附录 B：硬限制总表
 
@@ -455,7 +455,7 @@ QHAM 子命令 `python -m pyqecclang.applications.qham [input.json] [--example {
 
 | 术语 | 含义 |
 | --- | --- |
-| RIR | 寄存器级中间表示，pyqecclang 的架构中心 |
+| RIR | 寄存器级中间表示，oracq 的架构中心 |
 | 开放声明 / 槽 | `body=None` 的模块；带签名、待实现 |
 | 绑定 | 用具体实现模块替换开放槽的链接操作 |
 | QRAM 捕获 | 绑定时把实现私需资源提升为入口资源并贯通调用链 |

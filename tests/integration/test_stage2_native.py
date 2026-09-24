@@ -3,15 +3,15 @@
 import math
 import unittest
 
-from pyqecclang import Bits, Builder, ValidationError, export_originir, run_pysparq, simulate
-from pyqecclang.algorithms.common.arithmetic import (
+from oracq import Bits, Builder, ValidationError, export_originir, run_pysparq, simulate
+from oracq.algorithms.common.arithmetic import (
     FixedFormat,
     arithmetic_native_registry,
     fixed_arithmetic,
 )
-from pyqecclang.algorithms.input_model.oracles import declare
-from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
-from pyqecclang.infrastructure.native import DynamicCppFactory, NativeRegistry
+from oracq.algorithms.input_model.oracles import declare
+from oracq.infrastructure.backends.basis import export_toffoli_u3_cz
+from oracq.infrastructure.native import DynamicCppFactory, NativeRegistry
 
 
 class Stage2NativeTests(unittest.TestCase):
@@ -97,7 +97,7 @@ class NativeFlipImpl : public SelfAdjointOperator {
         self.assertLess(sum(abs(x) ** 2 for x in vector[16:]), 1e-20)
 
     def test_roe_face_compiled_arithmetic_smoke(self):
-        from pyqecclang.applications.roe import roe_face
+        from oracq.applications.roe import roe_face
 
         fmt = FixedFormat(4, 1)
         op = roe_face(fmt=fmt)

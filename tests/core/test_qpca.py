@@ -3,14 +3,14 @@
 import math
 import unittest
 
-from pyqecclang import ValidationError, simulate
-from pyqecclang.algorithms.input_model.density import (
+from oracq import ValidationError, simulate
+from oracq.algorithms.input_model.density import (
     gate_purification,
     partial_trace,
     trace_distance,
 )
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep
-from pyqecclang.algorithms.qml.qpca import (
+from oracq.algorithms.input_model.oracles import gate_state_prep
+from oracq.algorithms.qml.qpca import (
     density_matrix_exponentiation,
     eigenvalue_from_phase,
     qpca,

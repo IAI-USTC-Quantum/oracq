@@ -2,8 +2,8 @@
 
 import unittest
 
-from pyqecclang import run_originir, run_pysparq, simulate
-from pyqecclang.applications.gallery import algorithm_gallery
+from oracq import run_originir, run_pysparq, simulate
+from oracq.applications.gallery import algorithm_gallery
 
 
 class AlgorithmGalleryNativeTests(unittest.TestCase):

@@ -18,7 +18,7 @@ uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
 
 ## 交叉链接
 
-正文首次提到公开 API 对象时，用 MyST 的 `{obj}` 角色链接到 API 参考，目标写全限定路径（与 `docs/api/toplevel.rst` 的 `:obj:` 一致），例如 `` {obj}`Builder <pyqecclang.infrastructure.builder.Builder>` ``。不要用根包短路径（如 `pyqecclang.Builder`）；同一对象只链第一次出现；代码块内一律不加链接。
+正文首次提到公开 API 对象时，用 MyST 的 `{obj}` 角色链接到 API 参考，目标写全限定路径（与 `docs/api/toplevel.rst` 的 `:obj:` 一致），例如 `` {obj}`Builder <oracq.infrastructure.builder.Builder>` ``。不要用根包短路径（如 `oracq.Builder`）；同一对象只链第一次出现；代码块内一律不加链接。
 
 页面之间的链接沿用相对 markdown 链接：教程和手册用 `[量子线性系统](../../api/algorithms/qlss/qlss.rst)` 这样的真实路径指向 API 页，用 `[核心概念](concepts.md)` 指向手册页，可用 `#标题锚点` 深链（`myst_heading_anchors = 4`）。算法页「相关链接」中的同族/同组链接必须对称：A 链接 B，B 也要链接 A。有教程演示该算法时，「相关链接」加一行教程回链，格式如下：
 
@@ -28,7 +28,9 @@ uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
 
 教程页尾固定一个「相关页面」小节，列出相关手册章节、参考页、算法页与 API 页。
 
-所有 `{obj}` 目标与相对链接由 `tests/docs/test_xrefs.py` 校验（目标可导入/文件存在），构建配置中的 `suppress_warnings = ["ref.python"]` 使失效的 py-domain 引用不会在 `-W` 构建中报错，必须依赖该测试兜底。
+细颗粒密度标准：核心概念与 API 名在正文首次出现时必须带链接，不允许长期裸奔。API 对象用 `{obj}`；概念、章节与规范内容用相对链接，指到具体小节时加标题锚点（如 `[寄存器与视图](concepts.md#寄存器与视图)`）。算法页的引用行把模块路径链接到对应 API 页，「接口与输入模型」的签名块下加一行「API 入口：」列出 `{obj}` 入口；「相关链接」中的「概念：」行指向该算法核心依赖的手册概念页。枢纽页（concepts、operators、qdata、qmem、contracts）与规范页（reference）至少被各自的消费页面回链，避免成为孤儿页。新增页面按同一标准补链，不要只链到目录首页。
+
+所有 `{obj}` 目标与相对链接由 `tests/docs/test_xrefs.py` 校验（目标可导入/文件存在/锚点存在于目标页标题），构建配置中的 `suppress_warnings = ["ref.python"]` 使失效的 py-domain 引用不会在 `-W` 构建中报错，必须依赖该测试兜底。
 
 ## API 页面
 
@@ -39,7 +41,7 @@ uv run python tools/generate_api_docs.py
 uv run sphinx-build -W --keep-going -b html docs out/docs/html
 ```
 
-生成器还会从根包 `pyqecclang.__all__` 产出 `docs/api/toplevel.rst`（包总览页，按定义模块分组链接到各模块页）；新增根导出名字或调整 `__all__` 后同样需要重跑生成器。生成器内 `TITLES` 表维护每个模块的中文页标题，新模块记得补一条。旧导入路径只保留兼容，不出现在 API 文档中。
+生成器还会从根包 `oracq.__all__` 产出 `docs/api/toplevel.rst`（包总览页，按定义模块分组链接到各模块页）；新增根导出名字或调整 `__all__` 后同样需要重跑生成器。生成器内 `TITLES` 表维护每个模块的中文页标题，新模块记得补一条。旧导入路径只保留兼容，不出现在 API 文档中。
 
 API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必须继续在执行入口导入，以便在核心环境中构建文档。完整使用方式参见 [Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html)。
 
@@ -51,7 +53,7 @@ API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必�
 
 `docs/manual/algorithms/` 下每个算法一页，由 `index.md` 的 glob toctree 自动收录；写新页不需要改 `index.md`。文件名用 kebab-case（如 `qsvt-matrix-inversion.md`），与入口函数或算法英文名对应。
 
-页面首行下方用一行引用注明类别与所属模块（`> 类别 Cn · 模块 pyqecclang.algorithms.<module> · 阶段 Vn`），类别与阶段取值必须与 `validation-coverage.md` 一致。正文固定六节：
+页面首行下方用一行引用注明类别与所属模块（`> 类别 Cn · 模块 oracq.algorithms.<module> · 阶段 Vn`），类别与阶段取值必须与 `validation-coverage.md` 一致。正文固定六节：
 
 1. **概述**：问题陈述、数学定义（可用 MyST dollarmath）、文献依据。文献只写 `docs/manual` 现有内容或源码 docstring 明确引用的，不许编造。
 2. **接口与输入模型**：入口函数签名（以源码为准）、input model 类型（词汇见 `algorithm-coverage.md`）、返回对象属性表。

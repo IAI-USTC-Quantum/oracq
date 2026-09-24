@@ -39,9 +39,9 @@ FixedFormat 使用显式二补码和小数位。乘除采用幅值运算后恢�
 BooleanCppFactory 从同一 Boolean 图生成 C++ 布尔求值和输出 XOR，支持切片与跨寄存器视图。宿主只序列化网络数据，原生代码不进入 RIR。导入网络会检查 DAG 和端口布局。
 
 ```python
-from pyqecclang import FixedFormat, fixed_arithmetic, export_toffoli_u3_cz
-from pyqecclang.algorithms.common.arithmetic import arithmetic_native_registry
-from pyqecclang.infrastructure.backends.pysparq import run_pysparq
+from oracq import FixedFormat, fixed_arithmetic, export_toffoli_u3_cz
+from oracq.algorithms.common.arithmetic import arithmetic_native_registry
+from oracq.infrastructure.backends.pysparq import run_pysparq
 
 operation = fixed_arithmetic("div", FixedFormat(width=12, fraction=6))
 program = operation.program()
@@ -62,7 +62,7 @@ state = run_pysparq(program, native_registry=registry)
 1. 动态算子提供调用和 dag，但不会自动拥有 conditioned_by 接口。适配器使用真实 split_systems，将满足量子控制条件的基态分区交给原生算子，再 combine_systems 合并；零控制在两端翻转。
 2. 当前动态共享库中的 System.get() 会访问自身的静态寄存器表，可能与 Python 核心持有的表分离。生成的 C++ 算子使用由适配器提供的寄存器 ID 访问 s.registers.at(id)，避免在共享库内重新查表。真实受控叠加态、伴随、视图和 Roe 算术冒烟已执行。
 
-这条路径依赖已审阅的 CPU ABI，用户自写 DynamicCppFactory 也需要遵守该存储契约。核心后端不在导入 pyqecclang 时加载。不修改 QRAM-Simulator 或 UnifiedQuantum。
+这条路径依赖已审阅的 CPU ABI，用户自写 DynamicCppFactory 也需要遵守该存储契约。核心后端不在导入 oracq 时加载。不修改 QRAM-Simulator 或 UnifiedQuantum。
 
 ## QFVM 的具体路径
 

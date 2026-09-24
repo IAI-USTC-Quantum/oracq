@@ -4,17 +4,17 @@ import math
 import unittest
 from dataclasses import replace
 
-from pyqecclang import FixedFormat, ValidationError, dumps, loads, simulate, unresolved
-from pyqecclang.algorithms.common.qsvt import qsp_response
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq import FixedFormat, ValidationError, dumps, loads, simulate, unresolved
+from oracq.algorithms.common.qsvt import qsp_response
+from oracq.algorithms.input_model.oracles import (
     SparseAccess,
     gate_database,
     gate_state_prep,
     sparse_entry,
     sparse_location_gate,
 )
-from pyqecclang.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
-from pyqecclang.algorithms.qlss.vtaa_cks import (
+from oracq.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
+from oracq.algorithms.qlss.vtaa_cks import (
     VTAAConfig,
     band_inverse_step,
     gapped_phase_estimation,
@@ -22,7 +22,7 @@ from pyqecclang.algorithms.qlss.vtaa_cks import (
     make_vtaa_cks_qlss,
     tunable_rounds,
 )
-from pyqecclang.infrastructure.ir import Adjoint, Control, Repeat
+from oracq.infrastructure.ir import Adjoint, Control, Repeat
 
 
 def chebyshev_value(coefficients, x):

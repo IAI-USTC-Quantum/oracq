@@ -2,8 +2,8 @@
 
 import unittest
 
-from pyqecclang import ValidationError, bind, simulate, unresolved
-from pyqecclang.algorithms.common.integration import (
+from oracq import ValidationError, bind, simulate, unresolved
+from oracq.algorithms.common.integration import (
     heinrich_rate,
     integral_from_phase,
     mean_from_phase,
@@ -12,7 +12,7 @@ from pyqecclang.algorithms.common.integration import (
     sum_preparation,
     table_loader,
 )
-from pyqecclang.algorithms.input_model.oracles import abstract_database
+from oracq.algorithms.input_model.oracles import abstract_database
 
 
 def mode(distribution):

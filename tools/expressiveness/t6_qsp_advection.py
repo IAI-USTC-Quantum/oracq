@@ -1,4 +1,4 @@
-"""表达力基准 T6：QSP 求解 1D 对流方程（pyqecclang 侧，重实现 qsp4pde 示例）。
+"""表达力基准 T6：QSP 求解 1D 对流方程（oracq 侧，重实现 qsp4pde 示例）。
 
 规格（benchmarks/t6/SPEC.md，对齐 qsp4pde README 快速上手）：
 du/dt + r du/dx = 0，N = 16 点周期网格，r = 1.0，t = 0.2，初值
@@ -13,7 +13,7 @@ qsp_phases 相位合成 + qsvt_sequence 装配（Jacobi–Anger 分支）。库�
 逐步以信号后选择块 × sim_scale 重编码初态（measure-and-prepare 协议）。
 QFT/逆 QFT 由 fourier.qft_with_work 提供。
 
-运行：cd ~/projects/qcfd-dev/pyqecclang && PYTHONPATH=src <python> \
+运行：cd ~/projects/qcfd-dev/oracq && PYTHONPATH=src <python> \
 tools/expressiveness/t6_qsp_advection.py
 """
 
@@ -23,12 +23,12 @@ import sys
 
 import numpy as np
 
-from pyqecclang import simulate
-from pyqecclang.algorithms.common.fourier import inverse_qft
-from pyqecclang.algorithms.common.fourier import qft_with_work as qft
-from pyqecclang.algorithms.common.qsvt import qsvt_hamiltonian_simulation
-from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq import simulate
+from oracq.algorithms.common.fourier import inverse_qft
+from oracq.algorithms.common.fourier import qft_with_work as qft
+from oracq.algorithms.common.qsvt import qsvt_hamiltonian_simulation
+from oracq.algorithms.common.state_preparation import apply_be_to_state
+from oracq.algorithms.input_model.oracles import (
     StatePreparation,
     annotate,
     diagonal_block_encoding,
@@ -37,8 +37,8 @@ from pyqecclang.algorithms.input_model.oracles import (
     invoke,
     resources_for,
 )
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits
+from oracq.infrastructure.builder import Builder
+from oracq.infrastructure.ir import Bits
 
 N_QUBITS, N = 4, 16
 SPEED, TIME, STEPS, WORD_WIDTH = 1.0, 0.2, 5, 14
@@ -83,7 +83,7 @@ def apply_stage(evo, amplitudes, *, sandwich):
 
 
 def main():
-    print(f"pyqecclang {importlib.metadata.version('pyqecclang')} python {sys.version.split()[0]}")
+    print(f"oracq {importlib.metadata.version('oracq')} python {sys.version.split()[0]}")
     print(f"numpy {np.__version__}")
 
     x = np.arange(N) / N - 0.5 + 1 / (2 * N)

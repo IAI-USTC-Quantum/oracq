@@ -1,9 +1,9 @@
 Toffoli / U3 / CZ 降低
 ========================================
 
-``pyqecclang.infrastructure.backends.basis``
+``oracq.infrastructure.backends.basis``
 
-.. automodule:: pyqecclang.infrastructure.backends.basis
+.. automodule:: oracq.infrastructure.backends.basis
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,12 +1,12 @@
 # 量子相位估计（Quantum Phase Estimation）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.common.estimation` · 阶段 V2
+> 类别 C3 · 模块 [`oracq.algorithms.common.estimation`](../../api/algorithms/common/estimation.rst) · 阶段 V2
 
 ## 概述
 
 给定酉算子 $U$ 的本征态 $|\psi\rangle$，$U|\psi\rangle = e^{2\pi i\varphi}|\psi\rangle$，量子相位估计（QPE）用 $p$ 位相位寄存器估计 $\varphi\in[0,1)$：读出值近似 $2^p\varphi$，即把相位编到 $2^p$ 等分的整数栅格上。电路为标准教科书构造——Hadamard 层、受控幂 $U^{2^k}$、逆 QFT。
 
-QPE 是估计模块的读出核：数论模块的 `order_finding` 在其上组装求阶，本模块的 `amplitude_estimation` 则对 Grover 迭代做 QPE 完成振幅估计。
+QPE 是估计模块的读出核：数论模块的 {obj}`order_finding <oracq.algorithms.basics.number_theory.order_finding>` 在其上组装求阶，本模块的 {obj}`amplitude_estimation <oracq.algorithms.common.estimation.amplitude_estimation>` 则对 Grover 迭代做 QPE 完成振幅估计。
 
 ## 接口与输入模型
 
@@ -14,7 +14,9 @@ QPE 是估计模块的读出核：数论模块的 `order_finding` 在其上组�
 phase_estimation(operation, *, precision=2)
 ```
 
-- `operation`：支持受控调用的完整 `Operation`（input model 为 UO，酉算子 oracle）；输入态由调用方准备，QPE 自身不做制备。
+API 入口：{obj}`phase_estimation <oracq.algorithms.common.estimation.phase_estimation>`
+
+- `operation`：支持受控调用的完整 {obj}`Operation <oracq.infrastructure.builder.Operation>`（input model 为 UO，酉算子 oracle）；输入态由调用方准备，QPE 自身不做制备。
 - `precision`：相位寄存器位数，范围 1..63。
 
 返回 `Operation`：保留输入的全部公开寄存器并追加 `phase`。模块属性：
@@ -23,13 +25,13 @@ phase_estimation(operation, *, precision=2)
 |---|---|
 | `algorithm` | `"qpe"` |
 
-生成期抛 `ValidationError` 的情形：精度越界、被调接口占用了 `phase` 参数名、输入不支持所需受控调用。
+生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` 的情形：精度越界、被调接口占用了 `phase` 参数名、输入不支持所需受控调用。
 
-读出示例（`applications/gallery.py` 的 `phase_estimation` 条目）：对 $|1\rangle$ 上的相位门 $e^{i\pi/2}$（$\varphi=1/4$）取 `precision=3`，`phase` 读出为 2。
+读出示例（`applications/gallery.py` 的 {obj}`phase_estimation <oracq.algorithms.common.estimation.phase_estimation>` 条目）：对 $|1\rangle$ 上的相位门 $e^{i\pi/2}$（$\varphi=1/4$）取 `precision=3`，`phase` 读出为 2。
 
 ## 实现要点
 
-寄存器布局：输入公开寄存器的名称、位宽和视图原样保留到后端降低阶段，`phase`（`Bits(precision)`）追加在外。各次幂以 `repeat(1 << bit)` 保存——Repeat 节点按幂次计数，生成与 JSON 序列化阶段不展开门序列。逆变换用 `qft(precision)` 的伴随调用实现（正号 Fourier 约定，见 `fourier.py`）。
+寄存器布局：输入公开寄存器的名称、位宽和视图原样保留到后端降低阶段，`phase`（{obj}`Bits(precision) <oracq.infrastructure.ir.Bits>`）追加在外。各次幂以 `repeat(1 << bit)` 保存——{obj}`Repeat <oracq.infrastructure.ir.Repeat>` 节点按幂次计数，生成与文本序列化阶段不展开门序列。逆变换用 {obj}`qft(precision) <oracq.algorithms.common.fourier.qft>` 的伴随调用实现（正号 Fourier 约定，见 `fourier.py`）。
 
 读出与统计在宿主侧完成（模块 docstring 口径）：$\varphi$ 恰落在栅格点上时相位分布峰唯一；否则质量分布于最近栅格点的邻域，有限精度读出可能对应多个近似值。
 
@@ -49,7 +51,7 @@ phase_estimation(operation, *, precision=2)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/estimation.py`
+- 源码：`src/oracq/algorithms/common/estimation.py`
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[振幅估计](qae.md)、[量子计数](quantum-counting.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

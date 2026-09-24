@@ -2,8 +2,8 @@
 
 import unittest
 
-from pyqecclang import Bits, Builder, FixedFormat, arithmetic_native_registry, run_pysparq
-from pyqecclang.applications.qfvm import (
+from oracq import Bits, Builder, FixedFormat, arithmetic_native_registry, run_pysparq
+from oracq.applications.qfvm import (
     bind_qfvm,
     geometry_cells,
     qfvm_sparse_access,
@@ -84,15 +84,15 @@ class QfvmInputNativeTests(unittest.TestCase):
     def test_two_solver_descriptions_parse_in_actual_originir(self):
         from uniqc.compile.originir.originir_base_parser import OriginIR_BaseParser
 
-        from pyqecclang import export_toffoli_u3_cz
-        from pyqecclang.algorithms.input_model.oracles import (
+        from oracq import export_toffoli_u3_cz
+        from oracq.algorithms.input_model.oracles import (
             SparseAccess,
             basis_state,
             gate_database,
             sparse_entry,
             sparse_location_gate,
         )
-        from pyqecclang.algorithms.qlss.qlss import (
+        from oracq.algorithms.qlss.qlss import (
             CostaConfig,
             LinearSystem,
             SparseSystem,

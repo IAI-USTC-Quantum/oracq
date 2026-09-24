@@ -1,9 +1,9 @@
 RIR 序列化
 ==============
 
-``pyqecclang.infrastructure.serialization``
+``oracq.infrastructure.serialization``
 
-.. automodule:: pyqecclang.infrastructure.serialization
+.. automodule:: oracq.infrastructure.serialization
    :members:
    :undoc-members:
    :show-inheritance:

@@ -16,11 +16,12 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from pyqecclang import (
+from oracq import (
     Binding,
     FixedFormat,
     Operation,
     bind,
+    dump_qram_yaml,
     dumps,
     export_originir,
     export_toffoli_u3_cz,
@@ -28,10 +29,10 @@ from pyqecclang import (
     scale,
     unresolved,
 )
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.common.prepare_select import lcu_prepare_select, qram_prepare
-from pyqecclang.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.common.prepare_select import lcu_prepare_select, qram_prepare
+from oracq.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding
+from oracq.algorithms.input_model.oracles import (
     StateOracle,
     abstract_block_encoding,
     abstract_sparse_access,
@@ -44,12 +45,12 @@ from pyqecclang.algorithms.input_model.oracles import (
     sparse_entry,
     sparse_location_qram,
 )
-from pyqecclang.algorithms.input_model.sparse import real_symmetric_sparse_encoding
-from pyqecclang.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qpde.pde import DiscretePDE, make_qpde
-from pyqecclang.applications.qham import (
+from oracq.algorithms.input_model.sparse import real_symmetric_sparse_encoding
+from oracq.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
+from oracq.algorithms.qode.lchs import QuadraturePlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qpde.pde import DiscretePDE, make_qpde
+from oracq.applications.qham import (
     Discretization,
     Field,
     Grid,
@@ -79,27 +80,19 @@ def save_case(
     folder.mkdir(parents=True, exist_ok=True)
     opened = state.operation.program()
     assert loads(dumps(opened)) == opened
-    (folder / "open.rir.json").write_text(dumps(opened), encoding="utf-8")
+    (folder / "open.rir.yaml").write_text(dumps(opened), encoding="utf-8")
     closed = opened
     for index, (slot, implementation) in enumerate((bindings or {}).items()):
         closed = bind(closed, {slot: implementation})
         if index == 0:
-            (folder / "partial.rir.json").write_text(dumps(closed), encoding="utf-8")
+            (folder / "partial.rir.yaml").write_text(dumps(closed), encoding="utf-8")
     assert not unresolved(closed), unresolved(closed)
     assert loads(dumps(closed)) == closed
-    (folder / "closed.rir.json").write_text(dumps(closed), encoding="utf-8")
+    (folder / "closed.rir.yaml").write_text(dumps(closed), encoding="utf-8")
     (folder / "modular.originir").write_text(export_originir(closed).text, encoding="utf-8")
     basis = export_toffoli_u3_cz(closed).text
     (folder / "toffoli_u3_cz.originir").write_text(basis, encoding="utf-8")
-    # 教程的小表统一存为数组，避免 JSON 对象的字符串键被误当作整数地址。
-    memory = dict(memory or {})
-    for resource in closed.main.resources:
-        bank = memory[resource.name]
-        if isinstance(bank, dict):
-            memory[resource.name] = [
-                bank.get(address, 0) for address in range(1 << resource.type.address_width)
-            ]
-    (folder / "memory.json").write_text(json.dumps(memory, indent=2), encoding="utf-8")
+    (folder / "memory.qram.yaml").write_text(dump_qram_yaml(closed, memory), encoding="utf-8")
     record = {
         "case": name,
         "open_slots": [r.name for r in unresolved(opened)],

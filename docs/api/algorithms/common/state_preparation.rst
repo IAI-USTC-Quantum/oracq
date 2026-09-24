@@ -1,9 +1,9 @@
 态制备组合
 ============
 
-``pyqecclang.algorithms.common.state_preparation``
+``oracq.algorithms.common.state_preparation``
 
-.. automodule:: pyqecclang.algorithms.common.state_preparation
+.. automodule:: oracq.algorithms.common.state_preparation
    :members:
    :undoc-members:
    :show-inheritance:

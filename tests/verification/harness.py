@@ -26,29 +26,29 @@ ARTIFACTS = ROOT / "out" / "verification"
 
 
 def reference(program, memory=None, **kwargs):
-    """pyqecclang 内置参考执行器（字典稀疏态）。"""
-    from pyqecclang import simulate
+    """oracq 内置参考执行器（字典稀疏态）。"""
+    from oracq import simulate
 
     return dict(simulate(program, memory, **kwargs).amplitudes)
 
 
 def rir_pysparq(program, memory=None, **kwargs):
     """PySparQ 原生 RIR 解释器（QRAM-Simulator 仓 pysparq.rir）。"""
-    from pyqecclang import run_pysparq_rir
+    from oracq import run_pysparq_rir
 
     return dict(run_pysparq_rir(program, memory, **kwargs).amplitudes)
 
 
 def adapter_pysparq(program, memory=None, **kwargs):
-    """pyqecclang 的 PySparQ 事件适配器。"""
-    from pyqecclang import run_pysparq
+    """oracq 的 PySparQ 事件适配器。"""
+    from oracq import run_pysparq
 
     return dict(run_pysparq(program, memory, **kwargs).amplitudes)
 
 
 def originir_ext(program, memory=None, **kwargs):
     """OriginIR-ext + UnifiedQuantum 全振幅态向量（返回 list[complex]）。"""
-    from pyqecclang import run_originir
+    from oracq import run_originir
 
     return [complex(value) for value in run_originir(program, memory, **kwargs)]
 
@@ -62,7 +62,7 @@ def originir_unitary(program):
     import numpy as np
     from uniqc.circuit_builder import Circuit
 
-    from pyqecclang import export_originir
+    from oracq import export_originir
 
     text = export_originir(program).text
     circuit = Circuit.from_originir_ext(text)
@@ -140,7 +140,7 @@ def effective_block(unitary, data_qubits):
 
 
 def _driver(operation, name):
-    from pyqecclang import Builder
+    from oracq import Builder
 
     module = operation.module
     return Builder(name, {r.name: r.type for r in module.registers})

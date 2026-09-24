@@ -15,25 +15,27 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from pyqecclang import (
+from oracq import (
     Binding,
     BlockEncoding,
     FixedFormat,
     Operation,
     bind,
+    dump_qram_yaml,
     dumps,
     export_originir,
     export_toffoli_u3_cz,
     identity,
+    load_qram_yaml,
     loads,
     run_pysparq,
     scale,
     unresolved,
     zero,
 )
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.input_model.block_encoding import lcu
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.input_model.block_encoding import lcu
+from oracq.algorithms.input_model.oracles import (
     StateOracle,
     StatePreparation,
     abstract_block_encoding,
@@ -50,14 +52,14 @@ from pyqecclang.algorithms.input_model.oracles import (
     sparse_location_gate,
     sparse_location_qram,
 )
-from pyqecclang.algorithms.input_model.sparse import real_symmetric_sparse_encoding
-from pyqecclang.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan, lchs_qode
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.ode_models import HermitianParts, LinearODE
-from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
-from pyqecclang.algorithms.qpde.pde import DiscretePDE, PDEInput, make_qpde, qpde_solver
-from pyqecclang.applications.qham import (
+from oracq.algorithms.input_model.sparse import real_symmetric_sparse_encoding
+from oracq.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
+from oracq.algorithms.qode.lchs import QuadraturePlan, lchs_qode
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qode.ode_models import HermitianParts, LinearODE
+from oracq.algorithms.qode.schrodingerization import SchrodingerPlan
+from oracq.algorithms.qpde.pde import DiscretePDE, PDEInput, make_qpde, qpde_solver
+from oracq.applications.qham import (
     Discretization,
     Field,
     Grid,
@@ -65,7 +67,7 @@ from pyqecclang.applications.qham import (
     QHAMBindings,
     structured_fd_bindings,
 )
-from pyqecclang.applications.qham.stencils import derivative_encoding
+from oracq.applications.qham.stencils import derivative_encoding
 
 
 def save_case(
@@ -83,27 +85,19 @@ def save_case(
     folder.mkdir(parents=True, exist_ok=True)
     opened = state.operation.program()
     assert loads(dumps(opened)) == opened
-    (folder / "open.rir.json").write_text(dumps(opened), encoding="utf-8")
+    (folder / "open.rir.yaml").write_text(dumps(opened), encoding="utf-8")
     closed = opened
     for index, (slot, implementation) in enumerate((bindings or {}).items()):
         closed = bind(closed, {slot: implementation})
         if index == 0:
-            (folder / "partial.rir.json").write_text(dumps(closed), encoding="utf-8")
+            (folder / "partial.rir.yaml").write_text(dumps(closed), encoding="utf-8")
     assert not unresolved(closed), unresolved(closed)
     assert loads(dumps(closed)) == closed
-    (folder / "closed.rir.json").write_text(dumps(closed), encoding="utf-8")
+    (folder / "closed.rir.yaml").write_text(dumps(closed), encoding="utf-8")
     (folder / "modular.originir").write_text(export_originir(closed).text, encoding="utf-8")
     basis = export_toffoli_u3_cz(closed).text
     (folder / "toffoli_u3_cz.originir").write_text(basis, encoding="utf-8")
-    # 教程的小表统一存为数组，避免 JSON 对象的字符串键被误当作整数地址。
-    memory = dict(memory or {})
-    for resource in closed.main.resources:
-        bank = memory[resource.name]
-        if isinstance(bank, dict):
-            memory[resource.name] = [
-                bank.get(address, 0) for address in range(1 << resource.type.address_width)
-            ]
-    (folder / "memory.json").write_text(json.dumps(memory, indent=2), encoding="utf-8")
+    (folder / "memory.qram.yaml").write_text(dump_qram_yaml(closed, memory), encoding="utf-8")
     if native_parse:
         from uniqc.compile.originir.originir_base_parser import OriginIR_BaseParser
 
@@ -140,8 +134,8 @@ def verify_bindings(root: Path) -> None:
         states = []
         for implementation in ("gate", "qram"):
             directory = root / f"{stem}_{implementation}_lchs"
-            program = loads((directory / "closed.rir.json").read_text(encoding="utf-8"))
-            memory = json.loads((directory / "memory.json").read_text(encoding="utf-8"))
+            program = loads((directory / "closed.rir.yaml").read_text(encoding="utf-8"))
+            memory = load_qram_yaml(directory / "memory.qram.yaml")
             states.append(run_pysparq(program, memory).amplitudes)
         keys = states[0].keys() | states[1].keys()
         error = max(abs(states[0].get(k, 0) - states[1].get(k, 0)) for k in keys)

@@ -12,13 +12,13 @@ def main():
     board["updated"] = "2026-09-09"
     evidence = {
         "P0": ["docs/archive/coverage.json", "docs/archive/coverage.md"],
-        "P1": ["src/pyqecclang/linking.py", "docs/reference/open-ir.md", "tests/core/test_open_ir.py"],
-        "P2": ["src/pyqecclang/oracles.py", "docs/archive/oracle-paradigms.md"],
-        "P3": ["src/pyqecclang/access.py", "src/pyqecclang/combinators.py"],
-        "P4": ["src/pyqecclang/algorithms/basics/oracle_algorithms.py"],
-        "P5": ["src/pyqecclang/algorithms/qlss/qlss.py"],
-        "P6": ["src/pyqecclang/applications.py", "out/catalog/qfvm_qram/program.originir"],
-        "P7": ["src/pyqecclang/algorithms/qode/legacy.py", "out/catalog/qham_qode/program.originir"],
+        "P1": ["src/oracq/linking.py", "docs/reference/open-ir.md", "tests/core/test_open_ir.py"],
+        "P2": ["src/oracq/oracles.py", "docs/archive/oracle-paradigms.md"],
+        "P3": ["src/oracq/access.py", "src/oracq/combinators.py"],
+        "P4": ["src/oracq/algorithms/basics/oracle_algorithms.py"],
+        "P5": ["src/oracq/algorithms/qlss/qlss.py"],
+        "P6": ["src/oracq/applications.py", "out/catalog/qfvm_qram/program.originir"],
+        "P7": ["src/oracq/algorithms/qode/legacy.py", "out/catalog/qham_qode/program.originir"],
         "P8": [
             "tools/build_catalog.py",
             "tests/core/test_workloads.py",
@@ -61,7 +61,7 @@ def render(board, cases):
         "",
         "## 案例产物",
         "",
-        "每个目录提供 open.rir.json、partial.rir.json、closed.rir.json、bindings.json、memory.json 和 program.originir。"
+        "每个目录提供 open.rir.yaml、partial.rir.yaml、closed.rir.yaml、bindings.json、memory.json 和 program.originir。"
         "它们是可重新生成的描述产物，保存在被 Git 忽略的 out/catalog。",
         "",
         "| 案例 | 开放槽 | 绑定后模块 | OriginIR DEF | 原生解析 | 产物 |",
@@ -72,9 +72,9 @@ def render(board, cases):
         links = " / ".join(
             f"[{label}](../out/catalog/{name}/{file})"
             for label, file in [
-                ("开放", "open.rir.json"),
-                ("部分绑定", "partial.rir.json"),
-                ("闭合", "closed.rir.json"),
+                ("开放", "open.rir.yaml"),
+                ("部分绑定", "partial.rir.yaml"),
+                ("闭合", "closed.rir.yaml"),
                 ("OriginIR", "program.originir"),
                 ("报告", "report.json"),
             ]

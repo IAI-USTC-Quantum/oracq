@@ -1,10 +1,10 @@
 # Costa 行走线性系统求解器（Costa Walk QLSS）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.qlss.qlss` · 阶段 V3
+> 类别 C2 · 模块 [`oracq.algorithms.qlss.qlss`](../../api/algorithms/qlss/qlss.rst) · 阶段 V3
 
 ## 概述
 
-基于离散参数化量子行走的 QLSS（Costa 等人, arXiv:2111.08152，输入模型讨论见 [QFVM 输入模型审查](../../reference/qfvm-input-models.md)）：把 $A^{-1}b$ 的求解改写为插值哈密顿量 $H(s)$ 的行走算子序列（RHS 零态反射、$R(s)$ 旋转、受控 $U_A$ / $U_A^\dagger$ 与信号零反射），再用 Laurent 多项式 filter 在行走幂上读取解。行走算子（`costa_walk`）、调度（`schedule`）、Dolph–Chebyshev filter（`dolph_chebyshev_plan` + `lcu_filter`）与问题层入口（`make_costa_qlss`）分开组装。输入模型为 BE 加 SP；稀疏输入经显式适配（[稀疏矩阵块编码](sparse-block-encoding.md)）转换，不违反论文的输入假设。
+基于离散参数化量子行走的 QLSS（Costa 等人, arXiv:2111.08152，输入模型讨论见 [QFVM 输入模型审查](../../reference/qfvm-input-models.md)）：把 $A^{-1}b$ 的求解改写为插值哈密顿量 $H(s)$ 的行走算子序列（RHS 零态反射、$R(s)$ 旋转、受控 $U_A$ / $U_A^\dagger$ 与信号零反射），再用 Laurent 多项式 filter 在行走幂上读取解。行走算子（{obj}`costa_walk <oracq.algorithms.qlss.qlss.costa_walk>`）、调度（{obj}`schedule <oracq.algorithms.qlss.qlss.schedule>`）、Dolph–Chebyshev filter（{obj}`dolph_chebyshev_plan <oracq.algorithms.qlss.qlss.dolph_chebyshev_plan>` + {obj}`lcu_filter <oracq.algorithms.qlss.qlss.lcu_filter>`）与问题层入口（{obj}`make_costa_qlss <oracq.algorithms.qlss.qlss.make_costa_qlss>`）分开组装。输入模型为 BE 加 SP；稀疏输入经显式适配（[稀疏矩阵块编码](sparse-block-encoding.md)）转换，不违反论文的输入假设。
 
 ## 接口与输入模型
 
@@ -20,17 +20,19 @@ costa_qlss(a, bprep, config=None, *, filtering=None)  # 内核，返回 StateOra
 make_costa_qlss(config=None)                       # → QLSSProtocol（input_model="block_encoding"）
 ```
 
-- `a`：`BlockEncoding`（BE）；`bprep`：`StatePreparation`（SP）；两者同宽，`fs ∈ [0,1]`。
-- `CostaConfig.kappa` 是**编码矩阵** $A/\alpha$ 的逆谱界（要求 $\sigma_{\min}(A/\alpha) \ge 1/\kappa$），不是任意尺度下的 cond(A)。问题层入口按谱声明推导：`replace(config, kappa=system.inverse_norm_bound)`，避免 alpha 与 σ_min 声明脱节。
-- 问题输入：`LinearSystem(block=BlockSystem(encoding, rhs, spectrum))`，或稀疏输入自动经 CKS $T^\dagger S T$ 适配；返回 `SolveResult`（属性与范数探针契约见 [CKS 求解器](cks.md)）。
+API 入口：{obj}`costa_walk <oracq.algorithms.qlss.qlss.costa_walk>`、{obj}`schedule <oracq.algorithms.qlss.qlss.schedule>`、{obj}`CostaConfig <oracq.algorithms.qlss.qlss.CostaConfig>`、{obj}`dolph_chebyshev_plan <oracq.algorithms.qlss.qlss.dolph_chebyshev_plan>`
 
-`costa_qlss` 输出属性：`algorithm = "costa_qlss"`、`input_alpha`、`encoded_inverse_bound`、`normalization_assumption = "sigma_min(A / alpha) >= 1 / kappa"`、`steps`、`filtering`、`kernel_status = "prototype; initial walk eigenstate and readout channel unverified"`、`success_condition = "signal == 0; probability and solution accuracy unverified"`。
+- `a`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`（BE）；`bprep`：{obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>`（SP）；两者同宽，`fs ∈ [0,1]`。
+- `CostaConfig.kappa` 是**编码矩阵** $A/\alpha$ 的逆谱界（要求 $\sigma_{\min}(A/\alpha) \ge 1/\kappa$），不是任意尺度下的 cond(A)。问题层入口按谱声明推导：`replace(config, kappa=system.inverse_norm_bound)`，避免 alpha 与 σ_min 声明脱节。
+- 问题输入：{obj}`LinearSystem(block=BlockSystem(encoding, rhs, spectrum)) <oracq.algorithms.qlss.qlss.LinearSystem>`，或稀疏输入自动经 CKS $T^\dagger S T$ 适配；返回 {obj}`SolveResult <oracq.algorithms.qlss.qlss.SolveResult>`（属性与范数探针契约见 [CKS 求解器](cks.md)）。
+
+{obj}`costa_qlss <oracq.algorithms.qlss.qlss.costa_qlss>` 输出属性：`algorithm = "costa_qlss"`、`input_alpha`、`encoded_inverse_bound`、`normalization_assumption = "sigma_min(A / alpha) >= 1 / kappa"`、`steps`、`filtering`、`kernel_status = "prototype; initial walk eigenstate and readout channel unverified"`、`success_condition = "signal == 0; probability and solution accuracy unverified"`。
 
 ## 实现要点
 
-`costa_walk` 信号布局为 `enc(a.signal_qubits) | bw(RHS work) | a1 | a2 | a3 | a4`。电路按论文结构组装：$U_b^\dagger$ → RHS 零态反射（同时要求 target 与 RHS work 位为零——$U_b$ 是 target+work 上的酉扩张，投影对象必须完整）→ $U_b$；$R(s)$ 旋转写成 $R_y(2\arctan\frac{f}{1-f}) \cdot Z$ 作用在 a2；受控 $U_A$ / $U_A^\dagger$ 与 a2 零反射构成行走主体；末尾对全部信号位做正反射并附 $\pi/2$ 全局相位。输入契约经 `operator_state_contract` 检查。
+`costa_walk` 信号布局为 `enc(a.signal_qubits) | bw(RHS work) | a1 | a2 | a3 | a4`。电路按论文结构组装：$U_b^\dagger$ → RHS 零态反射（同时要求 target 与 RHS work 位为零——$U_b$ 是 target+work 上的酉扩张，投影对象必须完整）→ $U_b$；$R(s)$ 旋转写成 $R_y(2\arctan\frac{f}{1-f}) \cdot Z$ 作用在 a2；受控 $U_A$ / $U_A^\dagger$ 与 a2 零反射构成行走主体；末尾对全部信号位做正反射并附 $\pi/2$ 全局相位。输入契约经 {obj}`operator_state_contract <oracq.algorithms.input_model.interfaces.operator_state_contract>` 检查。
 
-调度 $f(s) = \frac{\kappa}{\kappa-1}\bigl(1 - (1 + s(\kappa^{p-1} - 1))^{1/(1-p)}\bigr)$（$\kappa = 1$ 时退化为 $s$）。`costa_qlss` 在 $s_i = (i+1)/\text{steps}$ 处生成各步行走，在最后一步 walk 上施加 Dolph–Chebyshev filter：`unary_weight_preparation` 在 clock 寄存器制备权重，逐 clock 位受控重复行走（负 offset 幂经 adjoint），相干叠加出 Laurent 多项式。问题层 `solve()` 再统一做物理通道选择与独立范数探针。
+调度 $f(s) = \frac{\kappa}{\kappa-1}\bigl(1 - (1 + s(\kappa^{p-1} - 1))^{1/(1-p)}\bigr)$（$\kappa = 1$ 时退化为 $s$）。`costa_qlss` 在 $s_i = (i+1)/\text{steps}$ 处生成各步行走，在最后一步 walk 上施加 Dolph–Chebyshev filter：{obj}`unary_weight_preparation <oracq.algorithms.qlss.qlss.unary_weight_preparation>` 在 clock 寄存器制备权重，逐 clock 位受控重复行走（负 offset 幂经 adjoint），相干叠加出 Laurent 多项式。问题层 `solve()` 再统一做物理通道选择与独立范数探针。
 
 适用边界：kernel_status 如实标注初始 walk 本征态与读出通道未核验；alpha 与 σ_min 声明冲突在 check 阶段报 `INPUT_SPECTRUM`，不静默生成错误调度的电路。
 
@@ -48,15 +50,16 @@ make_costa_qlss(config=None)                       # → QLSSProtocol（input_mo
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qlss/qlss.py`
+- 源码：`src/oracq/algorithms/qlss/qlss.py`
 - 同族页面：[CKS Chebyshev 求解器](cks.md)、[稀疏矩阵块编码](sparse-block-encoding.md)、[VTAA-CKS 变时求解器](vtaa-cks.md)
 - API 参考：[量子线性系统](../../api/algorithms/qlss/qlss.rst)
 - 输入模型审查：[QFVM 输入模型审查](../../reference/qfvm-input-models.md)
+- 概念：[算法自己的约定：从一个 gate 开始](../contracts.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证
 
-实验设计：最小实例（1 量子位目标）：`a` 为对角块编码（`diagonal_block_encoding`，angle_scale $=\pi/3$），`bprep` 为基态制备 `basis_state(1, 0)`，调度点 $f_s=0.5$，信号共 6 位（enc 2 + a1..a4），总计 7 量子位。验证两个可判定性质：
+实验设计：最小实例（1 量子位目标）：`a` 为对角块编码（{obj}`diagonal_block_encoding <oracq.algorithms.input_model.oracles.diagonal_block_encoding>`，angle_scale $=\pi/3$），`bprep` 为基态制备 {obj}`basis_state(1, 0) <oracq.algorithms.input_model.oracles.basis_state>`，调度点 $f_s=0.5$，信号共 6 位（enc 2 + a1..a4），总计 7 量子位。验证两个可判定性质：
 
 1. 幺正性：OriginIR-ext 导出经 UniQC `Circuit.to_matrix` 得 128 维矩阵 $W$，计算 $\|W^\dagger W - I\|_{\max}$；
 2. 后端一致性：零输入态上的执行结果在 reference、rir-pysparq、adapter-pysparq、originir-ext 四路径间逐振幅对拍。

@@ -1,9 +1,9 @@
 # 普通数学函数自动生成可逆量子模块
 
-先编写纯 Python 数学函数，再调用 `compile_function` 生成可逆量子模块。函数仍可用于经典计算；量子侧由编译器处理临时寄存器、别名复制、结果 XOR 和反算。QFVM 的 Roe face 已采用这条路径。
+先编写纯 Python 数学函数，再调用 {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 生成可逆量子模块。函数仍可用于经典计算；量子侧由编译器处理临时寄存器、别名复制、结果 XOR 和反算。[QFVM](qfvm.md) 的 Roe face 已采用这条路径。
 
 ```python
-from pyqecclang import FixedFormat, compile_function, export_toffoli_u3_cz
+from oracq import FixedFormat, compile_function, export_toffoli_u3_cz
 
 def pressure(rho, momentum, energy, gamma=1.4):
     velocity = momentum / rho
@@ -19,10 +19,10 @@ program = compiled.program()
 originir = export_toffoli_u3_cz(program).text
 ```
 
-该模块的接口为 rho、momentum、energy、out、status；gamma 是生成期参数。调用方式与其他 Operation 相同：
+该模块的接口为 rho、momentum、energy、out、status；gamma 是生成期参数。调用方式与其他 {obj}`Operation <oracq.infrastructure.builder.Operation>` 相同：
 
 ```python
-from pyqecclang import Builder, Bits
+from oracq import Builder, Bits
 
 b = Builder("flow_pressure", {
     "rho": Bits(12), "momentum": Bits(12), "energy": Bits(12),
@@ -46,7 +46,7 @@ application = b.finish().program()
 
 ```python
 import cmath
-from pyqecclang import MathConfig
+from oracq import MathConfig
 
 def response(z: complex):
     return cmath.exp(1j * z) / (1 + z * z)
@@ -63,13 +63,13 @@ print(compiled.input_layout)   # z_real, z_imag
 print(compiled.output_layout)  # out_real, out_imag
 ```
 
-普通无注解参数默认实数；可用 inputs 显式指定 real/complex/bool。Index(width) 为 QFVM 行列索引等无符号整数提供较短的公开寄存器，进入计算时自动转换到定点表示。常量默认参数视为生成期参数；显式放入 inputs 后也可成为量子输入。多结果可用 output_names 指定名称，例如 Roe 的 left/right。
+普通无注解参数默认实数；可用 inputs 显式指定 real/complex/bool。{obj}`Index <oracq.infrastructure.mathfunc.graph.Index>`(width) 为 QFVM 行列索引等无符号整数提供较短的公开寄存器，进入计算时自动转换到定点表示。常量默认参数视为生成期参数；显式放入 inputs 后也可成为量子输入。多结果可用 output_names 指定名称，例如 Roe 的 left/right。
 
 Python 的 cmath 在分支切线上区分有符号零；当前定点编码没有该信息。因此这里提供函数族和可替换的近似实现，不承诺完整浮点/分支兼容。[对应的 cmath 行为见官方文档](https://docs.python.org/3/library/cmath.html)。
 
 ## 近似与状态
 
-MathConfig.degree 控制实函数的 Chebyshev 多项式阶数；intervals 可替换每个数学核的区间。默认区间见 numeric.py 的 BOUNDS。配置必须覆盖各个**中间数学核输入**，不只是最外层函数的输入。状态会标记超出区间或发生定义域/字长问题的路径。当前没有自动区间推导、误差证明或最优算术电路选择。
+{obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`.degree 控制实函数的 Chebyshev 多项式阶数；intervals 可替换每个数学核的区间。默认区间见 [numeric.py](../api/infrastructure/mathfunc/numeric.rst) 的 BOUNDS。配置必须覆盖各个**中间数学核输入**，不只是最外层函数的输入。状态会标记超出区间或发生定义域/字长问题的路径。当前没有自动区间推导、误差证明或最优算术电路选择。
 
 函数系数通过 degree+1 个经典采样点生成，然后执行量子乘加递推，没有预先枚举每个输入对应的函数值。字长、近似阶数、区间和系数进入生成配置/模块属性，eps 仍不进入语言核心。
 
@@ -82,12 +82,12 @@ def safe_inverse(x):
 
 ## 中间表示与后端
 
-完整链路为 Python 纯函数 → [MIR 0.1](../reference/math-ir.md) → RIR 0.3 → 模块化 OriginIR-ext / PySparQ。MIR 可独立 JSON 往返，再由 lower_math_ir 按其他配置降低。最终 RIR 不含 Python callback；带数学核和 helper 的调用继续保留为 Module/Call。
+完整链路为 Python 纯函数 → [MIR 0.1](../reference/math-ir.md) → RIR 0.3 → 模块化 OriginIR-ext / PySparQ。MIR 可独立 JSON 往返，再由 {obj}`lower_math_ir <oracq.infrastructure.mathfunc.lower_math_ir>` 按其他配置降低。最终 RIR 不含 Python callback；带数学核和 helper 的调用继续保留为 {obj}`Module <oracq.infrastructure.ir.Module>`/{obj}`Call <oracq.infrastructure.ir.Call>`。
 
-现有 arithmetic_native_registry 会识别生成模块内部的算术/布尔实现。PySparQ 在这些模块边界执行真实自定义 C++ 算子，跳过内部 Boolean 工作区。原生路径与门级路径使用同一组算术网络，并已通过实际执行检查。这里没有用 Python 原函数的直接求值冒充量子模拟。
+现有 {obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>` 会识别生成模块内部的算术/布尔实现。PySparQ 在这些模块边界执行真实自定义 C++ 算子，跳过内部 Boolean 工作区。原生路径与门级路径使用同一组算术网络，并已通过实际执行检查。这里没有用 Python 原函数的直接求值冒充量子模拟。
 
 ```python
-from pyqecclang import arithmetic_native_registry, run_pysparq
+from oracq import arithmetic_native_registry, run_pysparq
 state = run_pysparq(
     application,
     native_registry=arithmetic_native_registry(application),
@@ -95,22 +95,22 @@ state = run_pysparq(
 )
 ```
 
-QFVM 仍查询原始守恒量；[roe_formulas.py](../api/applications/roe_formulas.rst) 是普通经典公式，roe_face 通过 compile_function 生成原 ABI 的模块。经典 Riemann 更新和 QRAM 数据结构继续与量子矩阵元计算分离。
+QFVM 仍查询原始守恒量；[roe_formulas.py](../api/applications/roe_formulas.rst) 是普通经典公式，{obj}`roe_face <oracq.applications.roe.roe_face>` 通过 compile_function 生成原 ABI 的模块。经典 Riemann 更新和 QRAM 数据结构继续与量子矩阵元计算分离。
 
 ## 命令行与案例
 
 ```bash
-pyqecclang compile-function examples/math_functions.py \
+oracq compile-function examples/math_functions.py \
   --function pressure --width 12 --fraction 6 \
   --constants '{"gamma": 1.4}' \
-  --mir-output out/pressure.mir.json -o out/pressure.rir.json
+  --mir-output out/pressure.mir.json -o out/pressure.rir.yaml
 
-pyqecclang emit out/pressure.rir.json --basis toffoli-u3-cz -o out/pressure.originir
+oracq emit out/pressure.rir.yaml --basis toffoli-u3-cz -o out/pressure.originir
 
 PYTHONPATH=src .venv/bin/python tools/build_math_functions.py
 ```
 
---inputs 接收 JSON 类型映射，例如 '{"z":"complex"}' 或 '{"row":{"index":2},"x":"real"}'。不支持的源语句会给出 FunctionCompileError；这不是可以编译任意 Python 程序的工具。
+--inputs 接收 JSON 类型映射，例如 '{"z":"complex"}' 或 '{"row":{"index":2},"x":"real"}'。不支持的源语句会给出 {obj}`FunctionCompileError <oracq.infrastructure.mathfunc.frontend.FunctionCompileError>`；这不是可以编译任意 Python 程序的工具。
 
 out/math-functions/ 包含 pressure、roe_speed、phase_response、guarded_reciprocal、polynomial、自动 Roe face 与接入后的 QFVM，共七组产物。见 [实施面板](../development/contributing.md) 与 [验证记录](../archive/function-compiler-validation.json)。
 
@@ -118,7 +118,7 @@ out/math-functions/ 包含 pressure、roe_speed、phase_response、guarded_recip
 
 ## 数值验证
 
-论文级数值实验见 `tests/verification/verify_mathfunc.py`（真实后端执行，无模拟替身）。实验设计：本页 5 个函数（pressure、roe_speed、phase_response、guarded_reciprocal、polynomial）与 `roe_formulas.frozen_roe_face` 经 `compile_function` 编译为 FixedFormat(6,2)/(8,3) 两种格式（gamma、order、entropy_delta 等默认参数作生成期常量，roe_face 的 row/col 为 Index(2)、输出 left/right 双寄存器），在 rir-pysparq 上以叠加态一次穷举输入域——单输入函数全域 2^6/2^8 分支；多输入函数逐轴纤维穷举加联合立方体；roe_face 另做 row×col 全 16 组联合（含越界索引 3）与六实轴全幅值 16 点网格。期望值由独立的定点语义逐比特仿真（_Fx：mul/div/sqrt 幅度向零截断、add/sub 模 wrap、status 位 0 = 定义域失效、位 1 = 值域/字长越界、helper 调用合并全部参数旗标）与 float64 原式双层给出；phase_response 的初等核按模块属性 `math_approximation` 的 Chebyshev 系数逐比特复现（degree=3），另报系数配方与真函数的方法误差。status 旗标逐分支核对；reference / adapter-pysparq 在代表性程序上振幅级三方对拍。编译函数工作区实测 358–2178 量子比特，远超 OriginIR-ext 的 24 比特预算，故不走态向量路径。
+论文级数值实验见 `tests/verification/verify_mathfunc.py`（真实后端执行，无模拟替身）。实验设计：本页 5 个函数（pressure、roe_speed、phase_response、guarded_reciprocal、polynomial）与 `roe_formulas.frozen_roe_face` 经 `compile_function` 编译为 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`(6,2)/(8,3) 两种格式（gamma、order、entropy_delta 等默认参数作生成期常量，roe_face 的 row/col 为 Index(2)、输出 left/right 双寄存器），在 rir-pysparq 上以叠加态一次穷举输入域——单输入函数全域 2^6/2^8 分支；多输入函数逐轴纤维穷举加联合立方体；roe_face 另做 row×col 全 16 组联合（含越界索引 3）与六实轴全幅值 16 点网格。期望值由独立的定点语义逐比特仿真（_Fx：mul/div/sqrt 幅度向零截断、add/sub 模 wrap、status 位 0 = 定义域失效、位 1 = 值域/字长越界、helper 调用合并全部参数旗标）与 float64 原式双层给出；phase_response 的初等核按模块属性 `math_approximation` 的 Chebyshev 系数逐比特复现（degree=3），另报系数配方与真函数的方法误差。status 旗标逐分支核对；reference / adapter-pysparq 在代表性程序上振幅级三方对拍。编译函数工作区实测 358–2178 量子比特，远超 OriginIR-ext 的 24 比特预算，故不走态向量路径。
 
 | 案例 | 规模 | 后端路径 | 指标 | 数值 |
 |---|---|---|---|---|

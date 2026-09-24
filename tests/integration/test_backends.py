@@ -4,7 +4,7 @@ import cmath
 import math
 import unittest
 
-from pyqecclang import (
+from oracq import (
     QRAM,
     Bits,
     Builder,
@@ -33,7 +33,7 @@ class BackendTests(unittest.TestCase):
     def test_pysparq_preserves_existing_registry(self):
         import pysparq as ps
 
-        from pyqecclang import ValidationError
+        from oracq import ValidationError
 
         ps.System.add_register("existing", ps.StateStorageType.General, 1)
         try:
@@ -46,7 +46,7 @@ class BackendTests(unittest.TestCase):
     def test_pysparq_budget_cleans_its_registry(self):
         import pysparq as ps
 
-        from pyqecclang import ValidationError
+        from oracq import ValidationError
 
         b = Builder("budget", {"q": Bits(5)})
         b.h(b["q"])
@@ -55,7 +55,7 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(ps.System.get_activated_register_size(), 0)
 
     def test_signed_and_rational_storage(self):
-        from pyqecclang import Rational, SInt
+        from oracq import Rational, SInt
 
         b = Builder("storage", {"s": SInt(3), "r": Rational(2)})
         b.x(b["s"])

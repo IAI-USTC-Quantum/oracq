@@ -1,6 +1,6 @@
 # Oblivious 振幅放大（Oblivious Amplitude Amplification）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.common.transforms` · 阶段 V1
+> 类别 C2 · 模块 [`oracq.algorithms.common.transforms`](../../api/algorithms/common/transforms.rst) · 阶段 V1
 
 ## 概述
 
@@ -20,10 +20,12 @@ $$
 oblivious_amplification(a, iterations=1)
 ```
 
-- `a`：`BlockEncoding`，被放大的块编码（input model 为 BE）。
+API 入口：{obj}`oblivious_amplification <oracq.algorithms.common.transforms.oblivious_amplification>`
+
+- `a`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，被放大的块编码（input model 为 BE）。
 - `iterations`：迭代次数，默认 1。
 
-返回 `Operation`（裸操作而非 `BlockEncoding`），寄存器为 `target`（宽度 `a.width`）与 `signal`（宽度 `a.signal_qubits`）。模块属性：
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`（裸操作而非 `BlockEncoding`），寄存器为 `target`（宽度 `a.width`）与 `signal`（宽度 `a.signal_qubits`）。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -33,7 +35,7 @@ BE 归一化不经属性传播，放大后的幅度语义由调用方解释。
 
 ## 实现要点
 
-程序时间顺序为：先 `invoke` 挂载输入 BE（初始 $U$），随后每次迭代四次结构调用：`reflect_zero(signal)`（默认 `positive=False`，信号零分支取 $-1$、其余分支取 $+1$，即 $R = I - 2\Pi$）→ 伴随 `invoke` → 再次 `reflect_zero(signal)` → 收尾 `invoke`。迭代次数经 IR 的 `Repeat` 结构表达，不在生成或 JSON 序列化阶段无条件展开。
+程序时间顺序为：先 {obj}`invoke <oracq.algorithms.input_model.oracles.invoke>` 挂载输入 BE（初始 $U$），随后每次迭代四次结构调用：{obj}`reflect_zero(signal) <oracq.algorithms.input_model.block_encoding.reflect_zero>`（默认 `positive=False`，信号零分支取 $-1$、其余分支取 $+1$，即 $R = I - 2\Pi$）→ 伴随 `invoke` → 再次 `reflect_zero(signal)` → 收尾 `invoke`。迭代次数经 IR 的 {obj}`Repeat <oracq.infrastructure.ir.Repeat>` 结构表达，不在生成或文本序列化阶段无条件展开。
 
 适用边界：输入必须是块编码。放大保证依赖"零信号块接近某个 $1/2$ 缩放的部分等距算子"这一结构假设，本函数不检查该假设；归一化远离 $1/2$ 的块编码迭代不会按 OAA 语义收敛，需先经缩放或 LCU 组合调整。
 
@@ -51,7 +53,7 @@ BE 归一化不经属性传播，放大后的幅度语义由调用方解释。
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/transforms.py`
+- 源码：`src/oracq/algorithms/common/transforms.py`
 - API 参考：[矩阵变换序列](../../api/algorithms/common/transforms.rst)
 - 同族页面：[量子化行走](qubitization-walk.md)、[QSVT 相位序列](qsvt-sequence.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

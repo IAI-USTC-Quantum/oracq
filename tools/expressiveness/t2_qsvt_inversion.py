@@ -1,9 +1,9 @@
-"""pyqecclang 侧 T2：QSVT 2×2 矩阵求逆方向（A=[[1,-1/3],[-1/3,1]], |b>=[1,0]）。
+"""oracq 侧 T2：QSVT 2×2 矩阵求逆方向（A=[[1,-1/3],[-1/3,1]], |b>=[1,0]）。
 
-规格与判定阈值见 ~/projects/pyqecclang-dev/benchmarks/t2/SPEC.md。
+规格与判定阈值见 ~/projects/oracq-dev/benchmarks/t2/SPEC.md。
 独立可运行：
 
-    cd ~/projects/qcfd-dev/pyqecclang && \
+    cd ~/projects/qcfd-dev/oracq && \
     PYTHONPATH=src ~/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python \
     tools/expressiveness/t2_qsvt_inversion.py
 
@@ -17,12 +17,12 @@ from importlib.metadata import version
 
 import numpy as np
 
-import pyqecclang
-from pyqecclang import simulate
-from pyqecclang.algorithms.common.qsvt import qsp_phases
-from pyqecclang.algorithms.common.transforms import qsvt_sequence
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
-from pyqecclang.infrastructure.ir import ValidationError
+import oracq
+from oracq import simulate
+from oracq.algorithms.common.qsvt import qsp_phases
+from oracq.algorithms.common.transforms import qsvt_sequence
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from oracq.infrastructure.ir import ValidationError
 
 KAPPA, EPS, THRESHOLD = 8, 1e-2, 1e-2
 A = np.array([[1.0, -1.0 / 3.0], [-1.0 / 3.0, 1.0]])
@@ -58,7 +58,7 @@ def run(b):
 
 
 def main():
-    print(f"pyqecclang {version('pyqecclang')} ({pyqecclang.__file__})")
+    print(f"oracq {version('oracq')} ({oracq.__file__})")
     b_spec = math.ceil(math.log(1.0 / EPS) / -math.log(1.0 - 1.0 / KAPPA**2))
     try:
         run(b_spec)

@@ -1,10 +1,10 @@
 # QFVM 中替换 QLSS：输入模型、QRAM 数据结构与输出契约审查
 
-审查日期：2026-09-09。本文对应本轮修正后的实现；被审查的基线是 pyqecclang 0.4.0 的 QFVM 路径。
+审查日期：2026-09-09。本文对应本轮修正后的实现；被审查的基线是 oracq 0.4.0 的 QFVM 路径。
 
 ## 结论
 
-**基线没有正确实现跨输入模型的 QLSS 替换。** 原 roe_qfvm_step 先固定调用 roe_qfvm_block_encoding，再执行 qlss(be, rhs)。这只能替换接受相同 BE 接口的 Python 生成器。库中虽然已有 SparseAccess，它并没有成为 QFVM 暴露给 QLSS 的问题输入。
+**基线没有正确实现跨输入模型的 QLSS 替换。** 原 {obj}`roe_qfvm_step <oracq.applications.qfvm.roe_qfvm_step>` 先固定调用 {obj}`roe_qfvm_block_encoding <oracq.applications.qfvm.roe_qfvm_block_encoding>`，再执行 qlss(be, rhs)。这只能替换接受相同 BE 接口的 Python 生成器。库中虽然已有 {obj}`SparseAccess <oracq.algorithms.input_model.oracles.SparseAccess>`，它并没有成为 QFVM 暴露给 QLSS 的问题输入。
 
 QFVM/CKS 的稀疏输入与 Costa 的 BE 输入属于不同抽象层，但并不互相排斥。可以把稀疏 oracle 显式转换成 BE，再交给 Costa；反过来，从任意 BE 恢复高效的稀疏位置和元素 oracle，一般没有这样的保证。**替换应发生在问题和 protocol 之间，并保留适配过程，不能把不同输入接口当成相同签名。**
 
@@ -70,13 +70,13 @@ QFVM 原文另外假设 QRAM 的量子查询具有对数时间开销，经典访
 
 | 基线问题 | 影响 | 本轮处理 |
 |---|---|---|
-| QFVM 固定输出 BE | 原生稀疏 QLSS 无法直接接入 | 新增 LinearSystem、SparseSystem、BlockSystem 和 QLSSProtocol |
+| QFVM 固定输出 BE | 原生稀疏 QLSS 无法直接接入 | 新增 {obj}`LinearSystem <oracq.algorithms.qlss.qlss.LinearSystem>`、{obj}`SparseSystem <oracq.algorithms.qlss.qlss.SparseSystem>`、{obj}`BlockSystem <oracq.algorithms.qlss.qlss.BlockSystem>` 和 {obj}`QLSSProtocol <oracq.algorithms.qlss.qlss.QLSSProtocol>` |
 | geometry XOR 查询被当成稀疏位置访问的替代品 | 没有 CKS 原地语义和逆映射 | 新增真正的 O_F，完整置换由九个位置的可逆换位补全 |
 | Roe entry 只接受 source/row/col/band | 不是任意矩阵坐标 O_A | 新增 row/column/data 接口，稀疏域外返回零 |
 | 三分量补到四分量后留有全零行列 | 扩张矩阵整体奇异 | 在补齐子空间添加正对角 padding_value |
 | alpha 与 Costa kappa 相互独立 | 编码矩阵的逆谱界可能错误 | 用 alpha / sigma_min_lower 推导实际参数 |
 | Costa 的 RHS 零态反射未包含 work | 一般酉扩张的投影对象不完整 | 同时反射 target 和 RHS work 的零态 |
-| 只有 StateOracle 返回值 | 无法正确恢复 QFVM 更新量范数 | SolveResult 包含物理通道与独立矩阵范数探针 |
+| 只有 {obj}`StateOracle <oracq.algorithms.input_model.oracles.StateOracle>` 返回值 | 无法正确恢复 QFVM 更新量范数 | {obj}`SolveResult <oracq.algorithms.qlss.qlss.SolveResult>` 包含物理通道与独立矩阵范数探针 |
 | 角树制备枚举全部 prefix | 查询数随数据长度增长 | 每一树层根据量子 prefix 形成地址并查询 |
 | 局部更新复制全部 states/fluxes | 隐含 O(N) 经典开销 | 用局部暂存与原地提交更新受影响部分 |
 
@@ -134,7 +134,7 @@ encoded_inverse_bound = alpha / sigma_min_lower.
 
 它一般不同于 cond(D)。例如 D=0.5 I 的条件数为 1，但若 alpha=2，编码矩阵的逆范数为 4。对于非 Hermitian 原矩阵，应使用奇异值界；不能普遍用特征值绝对值之比替代。
 
-SpectralPromise 记录范数上界、最小奇异值下界及证据来源。它是调用者的声明，语言不证明该声明，也不在核心引入 eps。原来的低层 make_costa_qlss(...)(be,b) 仍供旧生成器使用，其 kappa 现在明确指编码矩阵的逆谱界；新的问题级入口会推导该参数。
+{obj}`SpectralPromise <oracq.algorithms.qlss.qlss.SpectralPromise>` 记录范数上界、最小奇异值下界及证据来源。它是调用者的声明，语言不证明该声明，也不在核心引入 eps。原来的低层 {obj}`make_costa_qlss <oracq.algorithms.qlss.qlss.make_costa_qlss>`(...)(be,b) 仍供旧生成器使用，其 kappa 现在明确指编码矩阵的逆谱界；新的问题级入口会推导该参数。
 
 ## 6. 输出替换也需要契约
 
@@ -169,10 +169,10 @@ QFVM 的输入不是一份未加工数组加上“有 QRAM”四个字。它需�
 ## 8. 如何替换
 
 ```python
-from pyqecclang import FixedFormat, SpectralPromise
-from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem, bind_qfvm
-from pyqecclang.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
-from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
+from oracq import FixedFormat, SpectralPromise
+from oracq.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem, bind_qfvm
+from oracq.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
+from oracq.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
 
 inputs = roe_qfvm_inputs(fmt=FixedFormat(6, 2), angle_width=6)
 problem = roe_qfvm_problem(
@@ -217,7 +217,7 @@ CKS 基础实现为论文 §4 的 Chebyshev/LCU 路线；第 5 节的 VTAA 变�
 
 `tests/verification/verify_qham_qfvm.py` 在真实后端（PySparQ 原生 RIR 解释器、UniQC 态向量；无 mock、无 skip）上对本审查涉及的输入模型层做了论文级数值验证。与 §9 的结构/契约见证不同，本轮证据是数值执行结果；求解器一侧的精度仍未认证。
 
-**定点格式前提。** 数值实验暴露一个使用前提：`roe_face` 的熵修正项含常数 2δ，若定点小数位使其截断为零（如 FixedFormat(4,1) 配默认 δ=0.125），熵修正分支除零，矩阵元按 §4 的 totalize 约定静默归零。此前的集成见证只检查 padding 对角，未触发该路径。本轮实验统一使用 FixedFormat(5,2) 与 δ=0.5（2δ、δ²、δ 均精确可表示），并据此确认：**谱声明必须针对实际量化后的矩阵**这一要求的一个具体表现是，粗糙格式下整张 Roe 矩阵可能退化为零矩阵。
+**定点格式前提。** 数值实验暴露一个使用前提：{obj}`roe_face <oracq.applications.roe.roe_face>` 的熵修正项含常数 2δ，若定点小数位使其截断为零（如 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`(4,1) 配默认 δ=0.125），熵修正分支除零，矩阵元按 §4 的 totalize 约定静默归零。此前的集成见证只检查 padding 对角，未触发该路径。本轮实验统一使用 FixedFormat(5,2) 与 δ=0.5（2δ、δ²、δ 均精确可表示），并据此确认：**谱声明必须针对实际量化后的矩阵**这一要求的一个具体表现是，粗糙格式下整张 Roe 矩阵可能退化为零矩阵。
 
 **矩阵元与位置 oracle。** 编译 Roe 电路的输出 raw 与独立定点仿真（按 fixed_arithmetic 的 toward_zero/modular_wrap 文档语义重实现）在 32 个叠加分支上逐位一致，status 旗标同样一致；稀疏条目 oracle 在一个结构列的 8 分支叠加下同样逐位一致，零元素与 padding 对角（raw=4，即 1.0）位置正确。对照 float64 Roe 公式的方法误差 0.43–0.48，是 5 位定点流水线的固有量化误差，不是实现缺陷。位置 oracle 在全 32 列叠加下每列都是完整置换，9 个结构槽位映射与独立几何语义 0 失配，工作区复净。
 

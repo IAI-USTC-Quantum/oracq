@@ -1,9 +1,9 @@
 参考工作负载目录
 ================
 
-``pyqecclang.applications.catalog``
+``oracq.applications.catalog``
 
-.. automodule:: pyqecclang.applications.catalog
+.. automodule:: oracq.applications.catalog
    :members:
    :undoc-members:
    :show-inheritance:

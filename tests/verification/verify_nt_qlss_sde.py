@@ -43,13 +43,13 @@ from harness import (
     tvd,
 )
 
-from pyqecclang import Bits, Builder, FixedFormat
-from pyqecclang.algorithms.basics.number_theory import (
+from oracq import Bits, Builder, FixedFormat
+from oracq.algorithms.basics.number_theory import (
     factors_from_phase,
     modular_multiply,
     order_finding,
 )
-from pyqecclang.algorithms.common.integration import (
+from oracq.algorithms.common.integration import (
     heinrich_rate,
     integral_from_phase,
     mean_from_phase,
@@ -58,7 +58,7 @@ from pyqecclang.algorithms.common.integration import (
     sum_preparation,
     table_loader,
 )
-from pyqecclang.algorithms.qode.sde import (
+from oracq.algorithms.qode.sde import (
     FokkerPlanckProblem,
     boltzmann_distribution,
     distribution_moments,
@@ -134,7 +134,7 @@ def _tvd_vec(distribution, theory):
 
 def _originir_qubits(program):
     """预判 OriginIR 态向量预算；超预算返回 None。"""
-    from pyqecclang.infrastructure.layout import workspace_table
+    from oracq.infrastructure.layout import workspace_table
 
     width = sum(r.type.width for r in program.main.registers)
     total = width + workspace_table(program)[program.entry]
@@ -957,14 +957,14 @@ def verify_sde_generator_encoding(report):
 
 def _sparse_problem():
     """κ=3 的 2×2 有符号稀疏系统（特征值 0.5 与 1.0，alpha = 1.5）。"""
-    from pyqecclang.algorithms.input_model.oracles import (
+    from oracq.algorithms.input_model.oracles import (
         SparseAccess,
         basis_state,
         gate_database,
         sparse_entry,
         sparse_location_gate,
     )
-    from pyqecclang.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
+    from oracq.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
 
     fmt = FixedFormat(4, 2)
     matrix = [[0.75, -0.25], [-0.25, 0.75]]
@@ -1023,7 +1023,7 @@ def verify_cks_kernel(report):
     """条件解态与成功概率对照独立 Chebyshev 矩阵多项式；方法误差随阶数收敛。"""
     import numpy as np
 
-    from pyqecclang.algorithms.qlss.qlss import CKSConfig, cks_chebyshev
+    from oracq.algorithms.qlss.qlss import CKSConfig, cks_chebyshev
 
     problem, matrix = _sparse_problem()
     a = np.array(matrix)
@@ -1100,7 +1100,7 @@ def verify_cks_protocol(report):
     """协议级：recover_norm(p_solver, p_joint) 恢复 ‖A^{-1}b‖；探针概率与多项式一致。"""
     import numpy as np
 
-    from pyqecclang.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
+    from oracq.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
 
     problem, matrix = _sparse_problem()
     a = np.array(matrix)
@@ -1169,9 +1169,9 @@ def verify_costa(report):
     import numpy as np
     from numpy.polynomial.chebyshev import chebval
 
-    from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
-    from pyqecclang.algorithms.input_model.oracles import basis_state
-    from pyqecclang.algorithms.qlss.qlss import (
+    from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
+    from oracq.algorithms.input_model.oracles import basis_state
+    from oracq.algorithms.qlss.qlss import (
         CostaConfig,
         costa_qlss,
         dolph_chebyshev_plan,
@@ -1265,7 +1265,7 @@ def verify_costa(report):
 
 def verify_gallery(report):
     """gallery 全部条目在 rir/adapter 真实后端跑通并与参考执行器逐振幅对拍。"""
-    from pyqecclang.applications.gallery import algorithm_gallery
+    from oracq.applications.gallery import algorithm_gallery
 
     for case in algorithm_gallery():
         program = case.operation.program()
@@ -1288,8 +1288,8 @@ def _catalog_qham_worker(name, path, queue):
     """qham 重例的子进程入口：独立构建并执行，回传振幅。"""
     import time as _time
 
-    from pyqecclang import run_pysparq, simulate
-    from pyqecclang.applications.catalog import build_case
+    from oracq import run_pysparq, simulate
+    from oracq.applications.catalog import build_case
 
     case = build_case(name)
     program = case.closed()
@@ -1343,7 +1343,7 @@ def _verify_catalog_qham(report):
 
 def verify_catalog(report):
     """catalog 全部条目跑通并对拍参考执行器；stateprep_qram 记录工作位残留。"""
-    from pyqecclang.applications.catalog import CASES, build_case
+    from oracq.applications.catalog import CASES, build_case
 
     for name in CASES:
         if name in ("qham_qode", "qham_qpde"):

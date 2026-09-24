@@ -4,8 +4,8 @@ import math
 import unittest
 from functools import partial
 
-from pyqecclang import arithmetic_native_registry, export_toffoli_u3_cz, run_pysparq
-from pyqecclang.applications.qham import (
+from oracq import arithmetic_native_registry, export_toffoli_u3_cz, run_pysparq
+from oracq.applications.qham import (
     Block,
     Discretization,
     Field,
@@ -31,7 +31,7 @@ class QhamNativeTests(unittest.TestCase):
                 if pde.ports[[p.name for p in pde.ports].index(name)].terms[0].output == "u"
                 else 32
             )
-            from pyqecclang import Builder
+            from oracq import Builder
 
             b = Builder(
                 "port_witness", {r.name: r.type for r in port.encoding.operation.module.registers}
@@ -74,7 +74,7 @@ class QhamNativeTests(unittest.TestCase):
     def test_forcing_generator_and_actual_originir_parser(self):
         from uniqc.compile.originir.originir_base_parser import OriginIR_BaseParser
 
-        from pyqecclang import Builder
+        from oracq import Builder
 
         u = Field("u")
         pde = PolynomialPDE.from_equations({"u": -0.2 * u + 0.1 * u * u + Known("f")})

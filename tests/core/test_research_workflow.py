@@ -4,7 +4,7 @@ import json
 import unittest
 from dataclasses import replace
 
-from pyqecclang import (
+from oracq import (
     AlgorithmContract,
     Binding,
     BindingError,
@@ -25,13 +25,13 @@ from pyqecclang import (
     loads,
     simulate,
 )
-from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
-from pyqecclang.algorithms.input_model.interfaces import (
+from oracq.algorithms.common.state_preparation import apply_be_to_state
+from oracq.algorithms.input_model.interfaces import (
     BlockEncodingProtocol,
     as_block_encoding,
 )
-from pyqecclang.algorithms.input_model.operators import BlockEncoding
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.input_model.operators import BlockEncoding
+from oracq.algorithms.input_model.oracles import (
     abstract_database,
     abstract_state_prep,
     annotate,
@@ -173,7 +173,7 @@ class BindingWorkflowTests(unittest.TestCase):
 
 class ResourceWorkflowTests(unittest.TestCase):
     def test_arithmetic_realization_accepts_nonzero_xor_outputs(self):
-        from pyqecclang.applications.oracle_study import oracle_study
+        from oracq.applications.oracle_study import oracle_study
 
         _, variants = oracle_study(2)
         for name, (binding, memory) in variants.items():
@@ -185,7 +185,7 @@ class ResourceWorkflowTests(unittest.TestCase):
                         self.assertEqual(actual, {(address, data ^ ((address + 1) % 4)): 1 + 0j})
 
     def test_study_implementations_match_analytic_reference(self):
-        from pyqecclang.applications.oracle_study import oracle_study, oracle_study_reference
+        from oracq.applications.oracle_study import oracle_study, oracle_study_reference
 
         for width in (1, 2, 3):
             opened, variants = oracle_study(width, 3)

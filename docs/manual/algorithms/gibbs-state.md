@@ -1,6 +1,6 @@
 # Gibbs 态制备（Gibbs State Preparation）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.density` · 阶段 V1
+> 类别 C2 · 模块 [`oracq.algorithms.input_model.density`](../../api/algorithms/input_model/density.rst) · 阶段 V1
 
 ## 概述
 
@@ -18,11 +18,13 @@ $g$ 按奇偶分解为 $e^{-c}\cosh(cx)$ 与 $-e^{-c}\sinh(cx)$ 两支，各以�
 gibbs_purification(hamiltonian, beta, *, error=0.01)
 ```
 
-- `hamiltonian`：`BlockEncoding`，约定 $H$ 的谱含于 $[-\alpha, \alpha]$（input model 为 BE + DM；$\alpha$ = `be_alpha`）。
+API 入口：{obj}`gibbs_purification <oracq.algorithms.input_model.density.gibbs_purification>`
+
+- `hamiltonian`：{obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，约定 $H$ 的谱含于 $[-\alpha, \alpha]$（input model 为 BE + DM；$\alpha$ = `be_alpha`）。
 - `beta`：逆温 $\beta \ge 0$；$\beta = 0$ 时退化为最大混合态纯化（`qsp_degree = 0`、`gibbs_scale = 1.0`）。
 - `error`：多项式一致逼近误差，必须在 $(0, 1)$ 内；每支截断尾部按 $\le$ `error`/8 控制。
 
-返回 `ApproximatePurification`（`oracle_kind = "approximate_purification"`，操作签名为 `("system", "environment", "signal")`）。模块属性：
+返回 {obj}`ApproximatePurification <oracq.algorithms.input_model.density.ApproximatePurification>`（`oracle_kind = "approximate_purification"`，操作签名为 `("system", "environment", "signal")`）。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -33,13 +35,13 @@ gibbs_purification(hamiltonian, beta, *, error=0.01)
 | `success_condition` | `"signal == 0"` |
 | `width` / `environment_width` / `signal_qubits` | 三个寄存器的宽度 |
 
-经典参考 `gibbs_state(hamiltonian, beta)`（小矩阵 $e^{-\beta H}/\operatorname{Tr}$）与 `trace_distance` 供见证与下游复用。
+经典参考 {obj}`gibbs_state(hamiltonian, beta) <oracq.algorithms.input_model.density.gibbs_state>`（小矩阵 $e^{-\beta H}/\operatorname{Tr}$）与 {obj}`trace_distance <oracq.algorithms.input_model.density.trace_distance>` 供见证与下游复用。
 
 ## 实现要点
 
-生成链为 Bell 对制备 → 偶/奇支截断 → 相位合成 → LCU 相加。偶/奇支均为凸函数，端点匹配的虚部补全恒满足单位圆盘约束（$f^2(x)$ 不超过端点连线），相位合成必然可行；每支经虚部补全合成相位后用 $(U_\Phi + U_{-\Phi})/2$ 提取实部，两支再经 `linear_combination` 相加。缩放 $s = 1.5\max(\lVert g_{\mathrm{even}}\rVert_\infty, \lVert g_{\mathrm{odd}}\rVert_\infty, 10^{-3})$，两支合计一致误差不超过 `error`/4。
+生成链为 Bell 对制备 → 偶/奇支截断 → 相位合成 → LCU 相加。偶/奇支均为凸函数，端点匹配的虚部补全恒满足单位圆盘约束（$f^2(x)$ 不超过端点连线），相位合成必然可行；每支经虚部补全合成相位后用 $(U_\Phi + U_{-\Phi})/2$ 提取实部，两支再经 {obj}`linear_combination <oracq.algorithms.input_model.operators.linear_combination>` 相加。缩放 $s = 1.5\max(\lVert g_{\mathrm{even}}\rVert_\infty, \lVert g_{\mathrm{odd}}\rVert_\infty, 10^{-3})$，两支合计一致误差不超过 `error`/4。
 
-寄存器布局：`system(n) | environment(n) | signal(gibbs_be.signal_qubits)`，其中 environment 承载 Bell 对的另一半。适用边界：$\beta\alpha$ 过大时多项式度数超过合成上限（40），生成期抛出 `ValidationError`（提示减小 $\beta$ 或先缩小 $H$ 的谱尺度），不静默降级；输入必须是块编码而非稀疏 oracle。
+寄存器布局：`system(n) | environment(n) | signal(gibbs_be.signal_qubits)`，其中 environment 承载 Bell 对的另一半。适用边界：$\beta\alpha$ 过大时多项式度数超过合成上限（40），生成期抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`（提示减小 $\beta$ 或先缩小 $H$ 的谱尺度），不静默降级；输入必须是块编码而非稀疏 oracle。
 
 ## 验证方案
 
@@ -57,7 +59,7 @@ gibbs_purification(hamiltonian, beta, *, error=0.01)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/input_model/density.py`
+- 源码：`src/oracq/algorithms/input_model/density.py`
 - 同模块算法：[纯化访问](purification.md)
 - API 参考：[密度矩阵输入模型与 Gibbs 态](../../api/algorithms/input_model/density.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

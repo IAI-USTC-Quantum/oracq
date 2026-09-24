@@ -7,26 +7,26 @@ import json
 from functools import partial
 from pathlib import Path
 
-from pyqecclang import bind, dumps, identity, scale
-from pyqecclang.algorithms.common.arithmetic import FixedFormat, fixed_arithmetic
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding, pad_signal
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq import bind, dumps, identity, scale
+from oracq.algorithms.common.arithmetic import FixedFormat, fixed_arithmetic
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding, pad_signal
+from oracq.algorithms.input_model.oracles import (
     abstract_block_encoding,
     abstract_state_prep,
     basis_state,
     gate_state_prep,
 )
-from pyqecclang.algorithms.qlss.qlss import CostaConfig, SpectralPromise, make_costa_qlss
-from pyqecclang.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
-from pyqecclang.algorithms.qode.cbmd import ContourPlan
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
-from pyqecclang.algorithms.qpde.pde import PDEInput, make_qpde, qpde_solver
-from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.legacy import qham_initial_vector, qham_m1
-from pyqecclang.applications.qfvm import (
+from oracq.algorithms.qlss.qlss import CostaConfig, SpectralPromise, make_costa_qlss
+from oracq.algorithms.qnlss.carleman import PolynomialODE, carleman_qode
+from oracq.algorithms.qode.cbmd import ContourPlan
+from oracq.algorithms.qode.lchs import QuadraturePlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qode.schrodingerization import SchrodingerPlan
+from oracq.algorithms.qpde.pde import PDEInput, make_qpde, qpde_solver
+from oracq.applications.flow_data import RoeFlowData
+from oracq.applications.legacy import qham_initial_vector, qham_m1
+from oracq.applications.qfvm import (
     bind_qfvm,
     qfvm_memories,
     roe_entry,
@@ -34,17 +34,17 @@ from pyqecclang.applications.qfvm import (
     roe_qfvm_inputs,
     roe_qfvm_step,
 )
-from pyqecclang.applications.roe import roe_face
-from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
-from pyqecclang.infrastructure.backends.originir import export_originir
-from pyqecclang.infrastructure.layout import workspace_table
-from pyqecclang.infrastructure.linking import unresolved
+from oracq.applications.roe import roe_face
+from oracq.infrastructure.backends.basis import export_toffoli_u3_cz
+from oracq.infrastructure.backends.originir import export_originir
+from oracq.infrastructure.layout import workspace_table
+from oracq.infrastructure.linking import unresolved
 
 
 def save_case(root, name, opened, closed=None, memory=None):
     path = root / name
     path.mkdir(parents=True, exist_ok=True)
-    (path / "open.rir.json").write_text(dumps(opened))
+    (path / "open.rir.yaml").write_text(dumps(opened))
     requirements = [
         {"name": r.name, "paradigm": r.paradigm, "path": r.path} for r in unresolved(opened)
     ]
@@ -57,7 +57,7 @@ def save_case(root, name, opened, closed=None, memory=None):
         "private_workspace": workspace_table(opened)[opened.entry],
     }
     if closed is not None:
-        (path / "closed.rir.json").write_text(dumps(closed))
+        (path / "closed.rir.yaml").write_text(dumps(closed))
         normal = export_originir(closed)
         strict = export_toffoli_u3_cz(closed)
         (path / "modular.originir").write_text(normal.text)
@@ -170,7 +170,7 @@ def main():
         p = state.operation.program()
         reports.append(save_case(root, method + "_qode", p, bind(p, bindings)))
         # PDE 入口只负责空间离散化到开放算子；同一 oracle 图可来自非矩阵输入。
-        from pyqecclang.algorithms.qpde.pde import DiscretePDE
+        from oracq.algorithms.qpde.pde import DiscretePDE
 
         state = make_qpde(qode)(DiscretePDE(a, initial, "heat_equation_open_space"), 0.1)
         p = state.operation.program()

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pyqecclang import estimate_resources, simulate
-from pyqecclang.algorithms.common.arithmetic import FixedFormat
-from pyqecclang.algorithms.input_model.qdata import QMatrix
-from pyqecclang.algorithms.qml.recommendation import KPRecommendationConfig, kp_recommendation
+from oracq import estimate_resources, simulate
+from oracq.algorithms.common.arithmetic import FixedFormat
+from oracq.algorithms.input_model.qdata import QMatrix
+from oracq.algorithms.qml.recommendation import KPRecommendationConfig, kp_recommendation
 
 
 def preference_matrix() -> QMatrix:

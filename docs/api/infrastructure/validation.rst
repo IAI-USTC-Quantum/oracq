@@ -1,9 +1,9 @@
 结构验证
 ============
 
-``pyqecclang.infrastructure.validation``
+``oracq.infrastructure.validation``
 
-.. automodule:: pyqecclang.infrastructure.validation
+.. automodule:: oracq.infrastructure.validation
    :members:
    :undoc-members:
    :show-inheritance:

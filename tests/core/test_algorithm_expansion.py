@@ -5,40 +5,40 @@ import importlib
 import math
 import unittest
 
-from pyqecclang import Bits, Builder, ValidationError, simulate
-from pyqecclang.algorithms.basics.number_theory import (
+from oracq import Bits, Builder, ValidationError, simulate
+from oracq.algorithms.basics.number_theory import (
     factors_from_phase,
     modular_multiply,
     order_finding,
 )
-from pyqecclang.algorithms.basics.oracle_algorithms import (
+from oracq.algorithms.basics.oracle_algorithms import (
     affine_boolean_oracle,
     bernstein_vazirani,
     simon_nullspace,
     simon_sample,
 )
-from pyqecclang.algorithms.common.estimation import (
+from oracq.algorithms.common.estimation import (
     amplitude_estimation,
     amplitude_from_phase,
     hadamard_test,
     swap_test,
 )
-from pyqecclang.algorithms.common.fourier import fourier_add, qft
-from pyqecclang.algorithms.common.search import amplify_success
-from pyqecclang.algorithms.common.walks import cycle_walk
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.common.fourier import fourier_add, qft
+from oracq.algorithms.common.search import amplify_success
+from oracq.algorithms.common.walks import cycle_walk
+from oracq.algorithms.input_model.oracles import (
     StateOracle,
     basis_state,
     gate_database,
     uniform_state,
 )
-from pyqecclang.algorithms.optimization.variational import (
+from oracq.algorithms.optimization.variational import (
     hardware_efficient_ansatz,
     qaoa_maxcut,
     vqe_measurements,
 )
-from pyqecclang.algorithms.qec.error_correction import repetition_encode, repetition_recover
-from pyqecclang.infrastructure.ir import fuse
+from oracq.algorithms.qec.error_correction import repetition_encode, repetition_recover
+from oracq.infrastructure.ir import fuse
 
 
 def distribution(state, index):
@@ -50,13 +50,13 @@ def distribution(state, index):
 
 class AlgorithmExpansionTests(unittest.TestCase):
     def test_legacy_imports_reference_canonical_objects(self):
-        from pyqecclang.algorithms.qlss.qlss import make_costa_qlss
+        from oracq.algorithms.qlss.qlss import make_costa_qlss
 
         self.assertIs(
-            importlib.import_module("pyqecclang.algorithms.costa").make_costa_qlss, make_costa_qlss
+            importlib.import_module("oracq.algorithms.costa").make_costa_qlss, make_costa_qlss
         )
-        self.assertIs(importlib.import_module("pyqecclang.ir").Bits, Bits)
-        self.assertIs(importlib.import_module("pyqecclang.algorithms.elementary").qft, qft)
+        self.assertIs(importlib.import_module("oracq.ir").Bits, Bits)
+        self.assertIs(importlib.import_module("oracq.algorithms.elementary").qft, qft)
 
     def test_qft_matches_positive_fourier_matrix(self):
         size = 8
@@ -193,7 +193,7 @@ class AlgorithmExpansionTests(unittest.TestCase):
                 case()
 
     def test_measurement_algorithms_require_clean_preparation(self):
-        from pyqecclang.algorithms.input_model.oracles import StatePreparation, annotate
+        from oracq.algorithms.input_model.oracles import StatePreparation, annotate
 
         dirty = StatePreparation(annotate(basis_state(1, work_width=1).operation,
                                          "state_prep_isometry", clean_work=False))

@@ -1,9 +1,9 @@
 资源估计
 ============
 
-``pyqecclang.infrastructure.estimate``
+``oracq.infrastructure.estimate``
 
-.. automodule:: pyqecclang.infrastructure.estimate
+.. automodule:: oracq.infrastructure.estimate
    :members:
    :undoc-members:
    :show-inheritance:

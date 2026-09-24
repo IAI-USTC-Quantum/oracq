@@ -10,7 +10,7 @@
 | Draft 2020-12 JSON Schema 与序列化 | 4 | 全部通过。 |
 | 真实 UnifiedQuantum 与 PySparQ 集成 | 11 | 全部通过。 |
 
-核心与 Schema 测试在本仓库自己的 uv 环境中运行。原生集成测试使用本工作区已有的 QECC.Lang/.venv 解释器，只借用其安装的后端依赖；导入的 pyqecclang 来自新仓库 src。两个后端源码提交见 backend-revisions.json。
+核心与 Schema 测试在本仓库自己的 uv 环境中运行。原生集成测试使用本工作区已有的 QECC.Lang/.venv 解释器，只借用其安装的后端依赖；导入的 oracq 来自新仓库 src。两个后端源码提交见 backend-revisions.json。
 
 真实集成覆盖寄存器 64 位及总位数超过 64、signed/rational 存储、嵌套 DEF、不同 QRAM 绑定、任意非零数据目标、切片查询、零控制、复系数相对相位、受控重复模块、伴随、原生注册表所有权和稀疏态预算。小规模实例对拍完整复幅度。
 

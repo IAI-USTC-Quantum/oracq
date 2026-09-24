@@ -1,6 +1,6 @@
 # 解码量子干涉（Decoded Quantum Interferometry）
 
-> 类别 C4 · 模块 `pyqecclang.algorithms.optimization.dqi` · 阶段 V1
+> 类别 C4 · 模块 [`oracq.algorithms.optimization.dqi`](../../api/algorithms/optimization/dqi.rst) · 阶段 V1
 
 ## 概述
 
@@ -17,11 +17,13 @@ bruteforce_decoder(instance, *, max_weight=None, name=None)
 dicke_state(m, weight)
 ```
 
-- `instance`：`XorSatInstance`，约束的稀疏行表示（每行是参与该约束的变量下标，行内不重复；`rhs` 取 0 或 1）。`num_variables` 即 syndrome 位宽 $n$，约束数 `num_constraints` 即 error 位宽 $m$。约束实例是经典数据直接参数化，input model 为 CP（编码约束）。
-- `decoder`：`DecoderOracle`，语义为 `|syndrome, error> → |syndrome, error XOR D(syndrome)>`，是 FO 类开放输入（可逆经典函数，`reversible_function` 范式）。`abstract_decoder` 声明槽位后经 `bind` 分批绑定；`table_decoder` 用显式查询表做 gate 见证（未列出的综合征映射到零错误）；`bruteforce_decoder` 枚举全部 $2^m$ 个错误模式给出不超过 `max_weight` 的最轻错误，只接受 $m \le 16$。
+API 入口：{obj}`dqi <oracq.algorithms.optimization.dqi.dqi>`、{obj}`XorSatInstance <oracq.algorithms.optimization.dqi.XorSatInstance>`、{obj}`abstract_decoder <oracq.algorithms.optimization.dqi.abstract_decoder>`、{obj}`table_decoder <oracq.algorithms.optimization.dqi.table_decoder>`
+
+- `instance`：{obj}`XorSatInstance <oracq.algorithms.optimization.dqi.XorSatInstance>`，约束的稀疏行表示（每行是参与该约束的变量下标，行内不重复；`rhs` 取 0 或 1）。`num_variables` 即 syndrome 位宽 $n$，约束数 `num_constraints` 即 error 位宽 $m$。约束实例是经典数据直接参数化，input model 为 CP（编码约束）。
+- `decoder`：{obj}`DecoderOracle <oracq.algorithms.optimization.dqi.DecoderOracle>`，语义为 `|syndrome, error> → |syndrome, error XOR D(syndrome)>`，是 FO 类开放输入（可逆经典函数，`reversible_function` 范式）。{obj}`abstract_decoder <oracq.algorithms.optimization.dqi.abstract_decoder>` 声明槽位后经 {obj}`bind <oracq.infrastructure.linking.bind>` 分批绑定；{obj}`table_decoder <oracq.algorithms.optimization.dqi.table_decoder>` 用显式查询表做 gate 见证（未列出的综合征映射到零错误）；{obj}`bruteforce_decoder <oracq.algorithms.optimization.dqi.bruteforce_decoder>` 枚举全部 $2^m$ 个错误模式给出不超过 `max_weight` 的最轻错误，只接受 $m \le 16$。
 - `weight`：Dicke 态权重 $l$，范围 0..m；译码半径需覆盖该权重，译码器位宽必须与实例的 n/m 一致。
 
-返回 `Operation`，寄存器为 `error`(m) 与 `syndrome`(n)。模块属性：
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `error`(m) 与 `syndrome`(n)。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -31,11 +33,11 @@ dicke_state(m, weight)
 | `readout_register` | `"syndrome"` |
 | `postselection` | `"error_zero"` |
 
-`dicke_state(m, weight)` 单独导出，制备 $\lvert D_l^m\rangle$（显式幅度构造，$m \le 16$）；`XorSatInstance.satisfied_count(assignment)` 提供经典侧对拍用的满足数统计。
+{obj}`dicke_state(m, weight) <oracq.algorithms.optimization.dqi.dicke_state>` 单独导出，制备 $\lvert D_l^m\rangle$（显式幅度构造，$m \le 16$）；`XorSatInstance.satisfied_count(assignment)` 提供经典侧对拍用的满足数统计。
 
 ## 实现要点
 
-生成链：Dicke 制备（`gate_state_prep` 显式幅度，以 syndrome 的零宽视图作 work）→ 右端项相位（对 `rhs[i] = 1` 的 error 位施加 Z）→ 综合征计算（对每条约束的每个变量下标施加 `xor(error_i → syndrome_j)`，合计即 $B^T y$）→ 译码器调用 → syndrome 上的 Hadamard。译码成功的分支 error 回到 $\lvert 0\rangle$；后选（丢弃 error 非零的分支）由调用方按 `postselection` 属性完成。
+生成链：Dicke 制备（{obj}`gate_state_prep <oracq.algorithms.input_model.oracles.gate_state_prep>` 显式幅度，以 syndrome 的零宽视图作 work）→ 右端项相位（对 `rhs[i] = 1` 的 error 位施加 Z）→ 综合征计算（对每条约束的每个变量下标施加 `xor(error_i → syndrome_j)`，合计即 $B^T y$）→ 译码器调用 → syndrome 上的 Hadamard。译码成功的分支 error 回到 $\lvert 0\rangle$；后选（丢弃 error 非零的分支）由调用方按 `postselection` 属性完成。
 
 设计决策：译码器是输入模型的一部分而非算法内部细节——无法译码的综合征可以映射到任意错误模式（对应分支在后选中被淘汰），高效经典译码（如 belief propagation 的可逆实现）经 `abstract_decoder` 加 `bind` 接入，与仓库的开放声明三层范式一致。适用边界：当前只支持 GF(2)，GF(q) 情形需要 q 元离散 Fourier 变换与广义 Dicke 态、寄存器按 $\log_2 q$ 分子组织，留作扩展；显式幅度 Dicke 与穷举译码只服务 $m \le 16$ 的小实例见证，大实例应换成专用 Dicke 线路（如 Bartschi–Eidenbenz 的 O(l·m) 构造，经 `state_prep_isometry` 开放声明接入）与高效译码器。
 
@@ -55,7 +57,7 @@ dicke_state(m, weight)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/optimization/dqi.py`
+- 源码：`src/oracq/algorithms/optimization/dqi.py`
 - API 参考：[DQI 解码量子干涉优化](../../api/algorithms/optimization/dqi.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

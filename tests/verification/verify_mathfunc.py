@@ -2,7 +2,7 @@
 
 覆盖 examples/math_functions.py 的 5 个函数（pressure / roe_speed / phase_response /
 guarded_reciprocal / polynomial）与 applications/roe_formulas.py 的 frozen_roe_face，
-全部经 pyqecclang.compile_function 编译为定点可逆模块后在真实后端上执行：
+全部经 oracq.compile_function 编译为定点可逆模块后在真实后端上执行：
 
 - rir-pysparq（PySparQ 原生 RIR 解释器）为主力路径，叠加态一次穷举输入域；
 - reference / adapter-pysparq 在代表性程序上做振幅级三方对拍；
@@ -40,8 +40,8 @@ from harness import (
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))  # 使 worker 进程可导入 examples/ 下的被测函数
 
-from pyqecclang import Builder, FixedFormat
-from pyqecclang.infrastructure.mathfunc import Index, MathConfig, compile_function
+from oracq import Builder, FixedFormat
+from oracq.infrastructure.mathfunc import Index, MathConfig, compile_function
 
 FMTS = {"6.2": (6, 2), "8.3": (8, 3)}
 
@@ -88,7 +88,7 @@ def _compile(fn_key, fmt):
             phase_response, fmt=fmt, config=MathConfig(degree=PHASE_DEGREE)
         )
     if fn_key == "frozen_roe_face":
-        from pyqecclang.applications.roe_formulas import frozen_roe_face
+        from oracq.applications.roe_formulas import frozen_roe_face
 
         return compile_function(
             frozen_roe_face,
@@ -106,7 +106,7 @@ def _compile(fn_key, fmt):
 
 def _workspace(fn_key, fmt):
     """编译程序的工作区峰值（locals 叠调用链最大值），用于 OriginIR 预算说明。"""
-    from pyqecclang.infrastructure.layout import workspace_table
+    from oracq.infrastructure.layout import workspace_table
 
     program = _compile(fn_key, fmt).program()
     return workspace_table(program)[program.entry]

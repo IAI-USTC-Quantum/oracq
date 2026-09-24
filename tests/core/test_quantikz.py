@@ -3,9 +3,9 @@
 import math
 import unittest
 
-from pyqecclang import QRAM, Bits, Builder, UInt, bind, quantikz
-from pyqecclang.algorithms.basics.oracle_algorithms import affine_boolean_oracle, bernstein_vazirani
-from pyqecclang.algorithms.input_model.oracles import abstract_database
+from oracq import QRAM, Bits, Builder, UInt, bind, quantikz
+from oracq.algorithms.basics.oracle_algorithms import affine_boolean_oracle, bernstein_vazirani
+from oracq.algorithms.input_model.oracles import abstract_database
 
 
 class QuantikzTests(unittest.TestCase):

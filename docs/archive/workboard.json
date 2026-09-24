@@ -16,7 +16,7 @@
       "title": "RIR 0.2：开放 oracle 声明、部分绑定、缺口报告和闭合导出",
       "status": "done",
       "evidence": [
-        "src/pyqecclang/linking.py",
+        "src/oracq/linking.py",
         "docs/open-ir.md",
         "tests/core/test_open_ir.py"
       ]
@@ -26,7 +26,7 @@
       "title": "BE、XOR database、state-prep isometry、CKS sparse 等范式",
       "status": "done",
       "evidence": [
-        "src/pyqecclang/oracles.py",
+        "src/oracq/oracles.py",
         "docs/oracle-paradigms.md"
       ]
     },
@@ -35,8 +35,8 @@
       "title": "Gate/QRAM 基础实现与组合适配器",
       "status": "done",
       "evidence": [
-        "src/pyqecclang/access.py",
-        "src/pyqecclang/combinators.py"
+        "src/oracq/access.py",
+        "src/oracq/combinators.py"
       ]
     },
     {
@@ -44,7 +44,7 @@
       "title": "Deutsch–Jozsa、Grover 抽象与具体组装",
       "status": "done",
       "evidence": [
-        "src/pyqecclang/algorithms/elementary.py"
+        "src/oracq/algorithms/elementary.py"
       ]
     },
     {
@@ -52,7 +52,7 @@
       "title": "Costa QLSS walk、调度、filtering 及实例绑定",
       "status": "done",
       "evidence": [
-        "src/pyqecclang/algorithms/costa.py"
+        "src/oracq/algorithms/costa.py"
       ]
     },
     {
@@ -60,7 +60,7 @@
       "title": "QFVM 输入访问与 QLSS 组装",
       "status": "done",
       "evidence": [
-        "src/pyqecclang/applications.py",
+        "src/oracq/applications.py",
         "out/catalog/qfvm_qram/program.originir"
       ]
     },
@@ -69,7 +69,7 @@
       "title": "QODE/QPDE 与 QHAM 提升系统组装",
       "status": "done",
       "evidence": [
-        "src/pyqecclang/algorithms/solvers.py",
+        "src/oracq/algorithms/solvers.py",
         "out/catalog/qham_qode/program.originir"
       ]
     },

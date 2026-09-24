@@ -1,14 +1,14 @@
 # MIR 0.1：纯数学函数图
 
-MIR 是 Python 纯函数前端与 RIR 之间的生成层表示。它可以独立 JSON 往返，完整格式见 [Schema](schemas/math-ir.schema.json)。它不替代 RIR 0.3，也不把 Python 回调写入量子 IR。
+MIR 是 Python 纯函数前端与 RIR 之间的生成层表示。它可以独立 JSON 往返，完整格式见 [Schema](schemas/math-ir.schema.json)。它不替代 RIR 0.3，也不把 Python 回调写入量子 IR。函数写法、已实现的数学范围与数值验证见手册[普通数学函数自动生成可逆量子模块](../manual/math-functions.md)。
 
 ## 对象与类型
 
-MathProgram 包含 version="0.1"、entry 和 functions。每个 MathFunction 包含唯一 name、源码 label、parameters、有序 nodes 和 returns。函数图无递归，helper 调用保留为 call 节点。
+{obj}`MathProgram <oracq.infrastructure.mathfunc.graph.MathProgram>` 包含 version="0.1"、entry 和 functions。每个 {obj}`MathFunction <oracq.infrastructure.mathfunc.graph.MathFunction>` 包含唯一 name、源码 label、parameters、有序 nodes 和 returns。函数图无递归，helper 调用保留为 call 节点。
 
-参数类型为 real、complex、bool 或 index。index 另带 1..64 的无符号位宽；其他参数 width=0，具体量子字长由 lowering 的 FixedFormat 决定。Index 在进入数学计算时转换为当前定点表示，格式必须容纳它的完整范围。值节点只有 real、complex、bool 三类；复数 lowering 到两个独立实数寄存器。
+参数类型为 real、complex、bool 或 index。index 另带 1..64 的无符号位宽；其他参数 width=0，具体量子字长由 lowering 的 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>` 决定。{obj}`Index <oracq.infrastructure.mathfunc.graph.Index>` 在进入数学计算时转换为当前定点表示，格式必须容纳它的完整范围。值节点只有 real、complex、bool 三类；复数 lowering 到两个独立实数寄存器。
 
-MathNode 包含 op、kind、args 和 data。节点编号为其在 nodes 中的位置，args 只能引用编号更小的节点。returns 是非空节点编号数组；返回 tuple 在这里表示多个独立结果，不允许递归嵌套 tuple 输出。函数参数、节点类型、元数、调用接口以及 DAG 均由 MathProgram.validate 核对。
+{obj}`MathNode <oracq.infrastructure.mathfunc.graph.MathNode>` 包含 op、kind、args 和 data。节点编号为其在 nodes 中的位置，args 只能引用编号更小的节点。returns 是非空节点编号数组；返回 tuple 在这里表示多个独立结果，不允许递归嵌套 tuple 输出。函数参数、节点类型、元数、调用接口以及 DAG 均由 MathProgram.validate 核对。
 
 | op | 参数 / data | 结果 |
 |---|---|---|
@@ -28,7 +28,7 @@ MathNode 包含 op、kind、args 和 data。节点编号为其在 nodes 中的�
 
 ## 有限数值与生成配置
 
-MIR 表达函数结构；生成配置包括 FixedFormat 和 MathConfig。前者指定二补码字长/小数位，后者指定数学核阶数与近似区间。这些参数及采样得到的系数记录在 RIR 属性中。相同数学图在不同配置下得到不同的 RIR 模块符号，可同时组装。
+MIR 表达函数结构；生成配置包括 FixedFormat 和 {obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`。前者指定二补码字长/小数位，后者指定数学核阶数与近似区间。这些参数及采样得到的系数记录在 RIR 属性中。相同数学图在不同配置下得到不同的 RIR 模块符号，可同时组装。
 
 lowering 使用现有定点加减乘除/开方等 Boolean 电路。非多项式实函数采用 Chebyshev 采样系数与 Clenshaw 递推；采样数由阶数决定，独立于输入位模式总数，不生成整个函数的真值表。复数函数以实数核和代数关系分解。
 
@@ -54,7 +54,7 @@ select 的结果状态为条件状态 OR 被选中分支状态。未选中分支
 
 ## 前端边界
 
-compile_function 读取普通 Python 函数源码并解释受限 AST；不执行待编译函数，也不使用动态 eval/exec。源码字符串可指定 entry；没有指定时使用最后一个 def。支持数值常量、局部赋值/解包、算术、比较、条件表达式、结构化 if、静态有界 range、tuple 返回、纯 helper 和白名单 math/cmath 调用。
+{obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 读取普通 Python 函数源码并解释受限 AST；不执行待编译函数，也不使用动态 eval/exec。源码字符串可指定 entry；没有指定时使用最后一个 def。支持数值常量、局部赋值/解包、算术、比较、条件表达式、结构化 if、静态有界 range、tuple 返回、纯 helper 和白名单 math/cmath 调用。
 
 拒绝 I/O、对象突变、任意对象方法、动态循环、递归、异常处理、生成器、lambda 及不能读取源码的可调用对象。闭包和显式 constants 只捕获有限数值。源码不可用时可传 def 字符串。math 和 cmath 别名以及 from 导入均可识别；数学 intrinsic 当前用位置参数。
 

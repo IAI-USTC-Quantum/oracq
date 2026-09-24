@@ -1,6 +1,6 @@
 # Hadamard 检验（Hadamard Test）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.common.estimation` · 阶段 V2
+> 类别 C3 · 模块 [`oracq.algorithms.common.estimation`](../../api/algorithms/common/estimation.rst) · 阶段 V2
 
 ## 概述
 
@@ -12,8 +12,10 @@
 hadamard_test(unitary, preparation=None, *, component="real")
 ```
 
-- `unitary`：完整酉 `Operation`，或无信号位且 `alpha=1` 的块编码（UO，经 `as_block_encoding` 适配）；带信号位或 $\alpha\ne 1$ 的输入在生成期抛 `ValidationError`。
-- `preparation`：初态制备（SP，零输入 + 复净工作区）；省略时用目标空间的零基态（`basis_state(width)`）。
+API 入口：{obj}`hadamard_test <oracq.algorithms.common.estimation.hadamard_test>`
+
+- `unitary`：完整酉 {obj}`Operation <oracq.infrastructure.builder.Operation>`，或无信号位且 `alpha=1` 的块编码（UO，经 {obj}`as_block_encoding <oracq.algorithms.input_model.interfaces.as_block_encoding>` 适配）；带信号位或 $\alpha\ne 1$ 的输入在生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
+- `preparation`：初态制备（SP，零输入 + 复净工作区）；省略时用目标空间的零基态（{obj}`basis_state(width) <oracq.algorithms.input_model.oracles.basis_state>`）。
 - `component`：`"real"` 或 `"imag"`。
 
 返回 `Operation`，寄存器为 `target`、`work`、`probe`。模块属性：
@@ -46,7 +48,7 @@ hadamard_test(unitary, preparation=None, *, component="real")
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/estimation.py`
+- 源码：`src/oracq/algorithms/common/estimation.py`
 - API 参考：[相位、振幅与重叠估计](../../api/algorithms/common/estimation.rst)
 - 同组页面：[SWAP 检验](swap-test.md)（两态重叠的对应读出）
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
@@ -56,7 +58,7 @@ hadamard_test(unitary, preparation=None, *, component="real")
 `tests/verification/verify_estimation.py` 在真实后端上对本接口做期望值级数值验证（共 6 个案例，全部通过）。实验设计：
 
 - 单比特相位门 $U=\mathrm{diag}(1,e^{i\theta})$ 作用于 $|1\rangle$（$\theta=0.6$ 与 $-1.1$）：闭式期望 $e^{i\theta}$。
-- 双比特对角幺正 $U|x\rangle=e^{i\theta_x}|x\rangle$（角度表 $(0.35,-0.9,1.7,0.55)$，受控全局相位实现）配 `gate_state_prep` 复幅度制备 $\psi=(0.5,\,0.5i,\,0.5,\,-0.5)$：期望值 $\sum_x|\psi_x|^2 e^{i\theta_x}$ 由 math 库独立计算。
+- 双比特对角幺正 $U|x\rangle=e^{i\theta_x}|x\rangle$（角度表 $(0.35,-0.9,1.7,0.55)$，受控全局相位实现）配 {obj}`gate_state_prep <oracq.algorithms.input_model.oracles.gate_state_prep>` 复幅度制备 $\psi=(0.5,\,0.5i,\,0.5,\,-0.5)$：期望值 $\sum_x|\psi_x|^2 e^{i\theta_x}$ 由 math 库独立计算。
 - 后端路径：reference、rir-pysparq、adapter-pysparq、originir-ext 四条；probe 的 Z 期望 $p(0)-p(1)$ 对照期望值实/虚部分量。
 
 | 案例 | 规模 | 路径 | 指标值 |

@@ -6,12 +6,12 @@ import random
 from functools import partial
 from pathlib import Path
 
-from pyqecclang import bind, dumps, export_originir, export_toffoli_u3_cz, unresolved
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.qode.cbmd import ContourPlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan
-from pyqecclang.applications.qham import (
+from oracq import bind, dumps, export_originir, export_toffoli_u3_cz, unresolved
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.qode.cbmd import ContourPlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qode.schrodingerization import SchrodingerPlan
+from oracq.applications.qham import (
     Discretization,
     Grid,
     QHAMBindings,
@@ -20,8 +20,8 @@ from pyqecclang.applications.qham import (
     structured_fd_bindings,
     taylor_qode,
 )
-from pyqecclang.applications.qham.examples import example_pde
-from pyqecclang.applications.qham.report import export_derivation
+from oracq.applications.qham.examples import example_pde
+from oracq.applications.qham.report import export_derivation
 
 
 def main():
@@ -70,8 +70,8 @@ def main():
             plan, disc.width, specs, initial_norm=numerical.initial_norm, prefix="Input_" + name
         )
         model = qham_input_model(plan, declared, eta=-0.4)
-        (path / "generator-open.rir.json").write_text(dumps(model.generator.operation.program()))
-        (path / "initial-open.rir.json").write_text(dumps(model.initial.operation.program()))
+        (path / "generator-open.rir.yaml").write_text(dumps(model.generator.operation.program()))
+        (path / "initial-open.rir.yaml").write_text(dumps(model.initial.operation.program()))
         (path / "bindings.json").write_text(
             json.dumps(
                 {
@@ -94,8 +94,8 @@ def main():
         mapping[declared.initial.operation.module.name] = numerical.initial.operation
         opened = solution.operation.program()
         closed = bind(opened, mapping)
-        (path / "solution-open.rir.json").write_text(dumps(opened))
-        (path / "solution-closed.rir.json").write_text(dumps(closed))
+        (path / "solution-open.rir.yaml").write_text(dumps(opened))
+        (path / "solution-closed.rir.yaml").write_text(dumps(closed))
         (path / "solution.originir").write_text(export_originir(closed).text)
         strict = export_toffoli_u3_cz(closed)
         (path / "toffoli_u3_cz.originir").write_text(strict.text)
@@ -132,7 +132,7 @@ def main():
                     linear_qode(method, hamiltonian_function=hf, **options), 0.01
                 )
                 program = bind(result.operation.program(), mapping)
-                (path / (method + ".rir.json")).write_text(dumps(program))
+                (path / (method + ".rir.yaml")).write_text(dumps(program))
                 (path / (method + ".originir")).write_text(export_originir(program).text)
                 alternatives[method] = {
                     "modules": len(program.modules),

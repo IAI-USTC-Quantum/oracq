@@ -1,6 +1,6 @@
 # Select-Swap QROM（Select-Swap QROM）
 
-> 类别 C5 · 模块 `pyqecclang.algorithms.input_model.data_loading` · 阶段 V4
+> 类别 C5 · 模块 [`oracq.algorithms.input_model.data_loading`](../../api/algorithms/input_model/data_loading.rst) · 阶段 V4
 
 ## 概述
 
@@ -13,11 +13,13 @@ select_swap_qrom(table, *, partitions, data_bits=None, name=None)
 qrom_cost(n_addresses, data_bits, partitions=1)
 ```
 
+API 入口：{obj}`select_swap_qrom <oracq.algorithms.input_model.data_loading.select_swap_qrom>`、{obj}`qrom_cost <oracq.algorithms.input_model.data_loading.qrom_cost>`
+
 - `table`：字序列或稀疏字典，缺失地址按 0 处理。
 - `partitions`：分区数 λ，必须是二的幂且不超过地址数 $2^{\lceil\log_2 N\rceil}$。
 - `data_bits`：数据位宽，缺省取最大表字的位宽。
 
-返回 `XorDatabase`（`implementation="select_swap"`），对外接口仍是 `address` / `data` 两个 bits 寄存器，XOR 语义与基线完全一致。模块属性附带 `qrom_cost` 估算（字段表见 [QROM 查找](qrom-lookup.md)），其中 `work_qubits = λ·b` 为窗口寄存器、`fanout_qubits = (λ-1)·l` 为低位扇出副本（可用 dirty qubit）。
+返回 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`（`implementation="select_swap"`），对外接口仍是 `address` / `data` 两个 bits 寄存器，XOR 语义与基线完全一致。模块属性附带 {obj}`qrom_cost <oracq.algorithms.input_model.data_loading.qrom_cost>` 估算（字段表见 [QROM 查找](qrom-lookup.md)），其中 `work_qubits = λ·b` 为窗口寄存器、`fanout_qubits = (λ-1)·l` 为低位扇出副本（可用 dirty qubit）。
 
 ## 实现要点
 
@@ -40,9 +42,9 @@ t_count 在 λ = 4 处取谷（测试 `test_cost_model_matches_formulas_and_trad
 类别 C5（数据访问层，判定准则见 `../development/validation-plan.md` §2）。三层证据位于 `tests/core/test_data_loading.py:DataLoadingTests`（16 地址表 `TABLE16`，b = 3）：
 
 - 结构：`test_generated_operations_carry_cost_attributes`——`select_toffoli` / `swap_toffoli` / `t_count` / `work_qubits` / `dirty_fanout_qubits` 等属性与 `qrom_cost(16, 3, 4)` 逐项一致。
-- 数值：`test_select_swap_matches_gate_database_per_address`——λ ∈ {1, 2, 4, 8, 16} 下全部 16 个地址的读出与 `gate_database` 基线逐点相等；`test_xor_semantics_with_nonzero_data_register`（data 初值 5 时输出为 `T[a] XOR 5`）；`test_superposition_query_restores_clean_work`（地址均匀叠加上查询后边缘分布均匀，places = 12，窗口由 LocalExit 强制复净）；`test_cost_model_matches_formulas_and_tradeoff_curve`——λ = 4 处于曲线谷底（curve[4] < curve[1] = 4·15 且 < curve[16] = 4·45），并断言曲线与闭式 $4(N/\lambda - 1 + b(\lambda - 1))$ 逐点一致。
+- 数值：`test_select_swap_matches_gate_database_per_address`——λ ∈ {1, 2, 4, 8, 16} 下全部 16 个地址的读出与 {obj}`gate_database <oracq.algorithms.input_model.oracles.gate_database>` 基线逐点相等；`test_xor_semantics_with_nonzero_data_register`（data 初值 5 时输出为 `T[a] XOR 5`）；`test_superposition_query_restores_clean_work`（地址均匀叠加上查询后边缘分布均匀，places = 12，窗口由 LocalExit 强制复净）；`test_cost_model_matches_formulas_and_tradeoff_curve`——λ = 4 处于曲线谷底（curve[4] < curve[1] = 4·15 且 < curve[16] = 4·45），并断言曲线与闭式 $4(N/\lambda - 1 + b(\lambda - 1))$ 逐点一致。
 - 绑定：gate / QRAM 两绑定由 `test_result_invariant_across_partitions_and_qrom_lookup_baseline` 间接覆盖（结果不随分区与实现变化）；三绑定一致性参数化待 V4。
-- 负例：`test_invalid_inputs_fail_at_generation`——partitions 非二的幂 / 越界、空表、负值、字宽越界等在生成期抛 `ValidationError`。
+- 负例：`test_invalid_inputs_fail_at_generation`——partitions 非二的幂 / 越界、空表、负值、字宽越界等在生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 
 ## 已知缺口与计划阶段
 
@@ -50,9 +52,10 @@ t_count 在 λ = 4 处取谷（测试 `test_cost_model_matches_formulas_and_trad
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/input_model/data_loading.py`
+- 源码：`src/oracq/algorithms/input_model/data_loading.py`
 - 同组页面：[QROM 查找](qrom-lookup.md)、[XOR 数据库](xor-database.md)
 - API 参考：[Select-Swap QROM 数据加载](../../api/algorithms/input_model/data_loading.rst)
+- 概念：[Oracle 与算子表示](../operators.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

@@ -29,8 +29,8 @@ from harness import (
     superposition_program,
 )
 
-from pyqecclang import Bits, Builder, FixedFormat, UInt
-from pyqecclang.infrastructure.mathfunc import MathConfig, compile_function
+from oracq import Bits, Builder, FixedFormat, UInt
+from oracq.infrastructure.mathfunc import MathConfig, compile_function
 
 
 def _add_const_operation(width):

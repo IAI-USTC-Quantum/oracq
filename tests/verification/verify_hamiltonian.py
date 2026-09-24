@@ -1,6 +1,6 @@
 """Hamiltonian 模拟与 QSVT 标准变换的论文级数值验证。
 
-覆盖 src/pyqecclang/algorithms/hamiltonian.py 与 src/pyqecclang/algorithms/qsvt.py：
+覆盖 src/oracq/algorithms/hamiltonian.py 与 src/oracq/algorithms/qsvt.py：
 
 - trotter_hamsim / hamiltonian_simulation：线路幺正（UniQC ``Circuit.to_matrix``）
   与乘积公式的独立经典矩阵逐元素对拍（单项精确、含恒等项全局相位、1–4 量子位）；
@@ -46,30 +46,30 @@ from harness import (
 from scipy.linalg import expm as scipy_expm
 from scipy.special import jv as bessel_j
 
-from pyqecclang.algorithms.common.hamiltonian import (
+from oracq.algorithms.common.hamiltonian import (
     EncodedOperator,
     PauliHamiltonian,
     hamiltonian_simulation,
     trotter_hamsim,
 )
-from pyqecclang.algorithms.common.qsvt import (
+from oracq.algorithms.common.qsvt import (
     eigenstate_filter,
     qsp_phases,
     qsvt_hamiltonian_simulation,
     qsvt_matrix_inversion,
 )
-from pyqecclang.algorithms.common.transforms import (
+from oracq.algorithms.common.transforms import (
     oblivious_amplification,
     qsvt_sequence,
     qubitization_walk,
 )
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding, reflect_zero
-from pyqecclang.algorithms.input_model.density import gibbs_purification
-from pyqecclang.algorithms.input_model.operators import block_encoding, linear_combination, zero
-from pyqecclang.algorithms.input_model.oracles import invoke, resources_for
-from pyqecclang.infrastructure.builder import Builder
-from pyqecclang.infrastructure.ir import Bits
-from pyqecclang.infrastructure.layout import workspace_table
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding, reflect_zero
+from oracq.algorithms.input_model.density import gibbs_purification
+from oracq.algorithms.input_model.operators import block_encoding, linear_combination, zero
+from oracq.algorithms.input_model.oracles import invoke, resources_for
+from oracq.infrastructure.builder import Builder
+from oracq.infrastructure.ir import Bits
+from oracq.infrastructure.layout import workspace_table
 
 # ---------------------------------------------------------------------------
 # 独立经典 oracle：Pauli 矩阵、乘积公式、QSP 响应、目标多项式。

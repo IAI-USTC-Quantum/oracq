@@ -4,7 +4,7 @@ import math
 import unittest
 from collections import Counter
 
-from pyqecclang import (
+from oracq import (
     QRAM,
     Bits,
     Builder,
@@ -111,8 +111,8 @@ class HandCountTests(unittest.TestCase):
         self.assertEqual(len(estimate.rotations), 0)
 
     def test_open_module_rejected(self):
-        from pyqecclang import ValidationError
-        from pyqecclang.algorithms.input_model.oracles import abstract_database
+        from oracq import ValidationError
+        from oracq.algorithms.input_model.oracles import abstract_database
 
         oracle = abstract_database("open_db", 2, 2)
         open_main = Builder("main", {"q": Bits(4)})

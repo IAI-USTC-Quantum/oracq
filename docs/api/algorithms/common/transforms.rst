@@ -1,9 +1,9 @@
 矩阵变换序列
 ============
 
-``pyqecclang.algorithms.common.transforms``
+``oracq.algorithms.common.transforms``
 
-.. automodule:: pyqecclang.algorithms.common.transforms
+.. automodule:: oracq.algorithms.common.transforms
    :members:
    :undoc-members:
    :show-inheritance:

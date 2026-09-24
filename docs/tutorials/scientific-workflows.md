@@ -8,11 +8,11 @@
 
 | 层次 | 决定什么 | 典型对象 |
 |---|---|---|
-| 数学输入与近似 | PDE、离散化、截断阶、初态范数、物理输出窗口 | {obj}`PolynomialPDE <pyqecclang.applications.qham.pde.PolynomialPDE>`、{obj}`QHAMPlan <pyqecclang.applications.qham.linearization.QHAMPlan>`、{obj}`PolynomialODE <pyqecclang.algorithms.qnlss.carleman.PolynomialODE>` |
-| 量子算法生成 | 选哪个求解器及内部模拟核，生成哪些模块调用 | {obj}`QODESolver <pyqecclang.algorithms.qode.ode.QODESolver>`、{obj}`linear_qode <pyqecclang.algorithms.qode.ode.linear_qode>`、{obj}`carleman_qode <pyqecclang.algorithms.qnlss.carleman.carleman_qode>` |
-| 实现绑定与执行 | 用门表、QRAM 或算术实现开放槽，提供运行期数据 | RIR {obj}`Program <pyqecclang.infrastructure.ir.Program>`、{obj}`Binding <pyqecclang.infrastructure.linking.Binding>`、内存快照 |
+| 数学输入与近似 | PDE、离散化、截断阶、初态范数、物理输出窗口 | {obj}`PolynomialPDE <oracq.applications.qham.pde.PolynomialPDE>`、{obj}`QHAMPlan <oracq.applications.qham.linearization.QHAMPlan>`、{obj}`PolynomialODE <oracq.algorithms.qnlss.carleman.PolynomialODE>` |
+| 量子算法生成 | 选哪个求解器及内部模拟核，生成哪些模块调用 | {obj}`QODESolver <oracq.algorithms.qode.ode.QODESolver>`、{obj}`linear_qode <oracq.algorithms.qode.ode.linear_qode>`、{obj}`carleman_qode <oracq.algorithms.qnlss.carleman.carleman_qode>` |
+| 实现绑定与执行 | 用门表、QRAM 或算术实现开放槽，提供运行期数据 | RIR {obj}`Program <oracq.infrastructure.ir.Program>`、{obj}`Binding <oracq.infrastructure.linking.Binding>`、内存快照 |
 
-替换求解器通常需要重新生成程序；给既有槽换一个兼容实现可以使用 {obj}`bind <pyqecclang.infrastructure.linking.bind>`。
+替换求解器通常需要重新生成程序；给既有槽换一个兼容实现可以使用 {obj}`bind <oracq.infrastructure.linking.bind>`。
 改变公开位宽或已用于组装的 alpha 不能只替换标签。数学条件相同与接口兼容
 也是两件事：一个生成元能提供 BE，并不意味着它满足所有 QODE 方法的条件。
 
@@ -29,16 +29,16 @@
 
 按对象的生命周期理解这段代码：
 
-1. {obj}`Field <pyqecclang.applications.qham.pde.Field>` 与 {obj}`Known <pyqecclang.applications.qham.pde.Known>` 构造未知场及按名字引用的强迫项。表达式描述待求场，
+1. {obj}`Field <oracq.applications.qham.pde.Field>` 与 {obj}`Known <oracq.applications.qham.pde.Known>` 构造未知场及按名字引用的强迫项。表达式描述待求场，
    不是把一个普通数值函数直接作用到量子振幅上。
-2. {obj}`QHAMPlan(pde, order=2) <pyqecclang.applications.qham.linearization.QHAMPlan>` 确定有限 HAM 截断与量子适配线性化规则。
+2. {obj}`QHAMPlan(pde, order=2) <oracq.applications.qham.linearization.QHAMPlan>` 确定有限 HAM 截断与量子适配线性化规则。
    计划可保存、恢复和按行查询，不会立即物化完整提升矩阵。
-3. {obj}`Grid <pyqecclang.applications.qham.reference.Grid>` 与 {obj}`Discretization <pyqecclang.applications.qham.reference.Discretization>` 决定周期网格、导数和已知数据。边界条件属于
+3. {obj}`Grid <oracq.applications.qham.reference.Grid>` 与 {obj}`Discretization <oracq.applications.qham.reference.Discretization>` 决定周期网格、导数和已知数据。边界条件属于
    这一层，不由求解器猜测。
-4. {obj}`structured_fd_bindings <pyqecclang.applications.qham.stencils.structured_fd_bindings>` 用移位、局部系数和多线性收缩构造端口 BE；
-   {obj}`qham_input_model <pyqecclang.algorithms.input_model.qham.qham_input_model>` 再组装提升生成元和初态。提升初态各张量块的相对范数
+4. {obj}`structured_fd_bindings <oracq.applications.qham.stencils.structured_fd_bindings>` 用移位、局部系数和多线性收缩构造端口 BE；
+   {obj}`qham_input_model <oracq.algorithms.input_model.qham.qham_input_model>` 再组装提升生成元和初态。提升初态各张量块的相对范数
    必须保留，不能逐块独立归一化。
-5. {obj}`linear_qode <pyqecclang.algorithms.qode.ode.linear_qode>` 选择线性演化方法；{obj}`partial(taylor_hamiltonian, degree=1) <pyqecclang.algorithms.common.hamiltonian.taylor_hamiltonian>`
+5. {obj}`linear_qode <oracq.algorithms.qode.ode.linear_qode>` 选择线性演化方法；{obj}`partial(taylor_hamiltonian, degree=1) <oracq.algorithms.common.hamiltonian.taylor_hamiltonian>`
    显式指定本例的近似模拟核。`solve` 生成带信号和恢复信息的态 oracle，
    并不直接返回一个已认证收敛的经典 PDE 解。
 6. `dissipative_shift` 显式改变生成元以满足另一种方法的前提。相应增长
@@ -65,7 +65,7 @@ Carleman 路径从多项式 ODE 的系数端口出发，按所选 cutoff 构造�
 一个同宽、同信号布局、同 alpha 的开放声明，同时在 `bindings` 中保留对应
 实现。`BurgersInitial` 同样是开放态制备槽，原始初态范数由宿主单独携带。
 
-`PolynomialODE` 因此描述数学输入；`carleman_qode` 负责提升；传入的
+{obj}`PolynomialODE <oracq.algorithms.qnlss.carleman.PolynomialODE>` 因此描述数学输入；{obj}`carleman_qode <oracq.algorithms.qnlss.carleman.carleman_qode>` 负责提升；传入的
 `linear_solver` 负责提升后的线性问题。脚本分别使用 Schrödingerization
 与显式移位后的 LCHS，并把恢复因子写入记录。运行两次生成器不意味着两种
 方法的成功概率、截断误差或线路成本相同。
@@ -86,7 +86,7 @@ LCHS 的配置包含求积计划与 Hermitian 分支的模拟核。示例中的 
 :caption: 不改调用方，只改变角数据库和初态制备的绑定。
 ```
 
-`DiagonalAngles` 存储的是旋转角字，{obj}`diagonal_block_encoding <pyqecclang.algorithms.input_model.oracles.diagonal_block_encoding>` 把它解释为
+`DiagonalAngles` 存储的是旋转角字，{obj}`diagonal_block_encoding <oracq.algorithms.input_model.oracles.diagonal_block_encoding>` 把它解释为
 矩阵系数。`Initial` 是独立的初态制备槽。两个 `write` 调用接收同一个开放
 `state`，但分别选择门表与 QRAM 实现；后者还必须提供 `memory` 中的两个表。
 
@@ -143,7 +143,7 @@ PYTHONPATH=src /path/to/backend/python tools/run_verification.py \
 
 | 要查的细节 | 维护位置 |
 |---|---|
-| RIR 节点、完整 JSON 与 OriginIR-ext 文法 | [RIR 规范](../reference/rir.md) |
+| RIR 节点、完整序列化文本与 OriginIR-ext 文法 | [RIR 规范](../reference/rir.md) |
 | 开放声明、分批绑定、资源捕获 | [开放 IR](../reference/open-ir.md) |
 | 数学函数的中间表示与序列化 | [数学 IR](../reference/math-ir.md) |
 | Toffoli/旋转/QRAM 计数、通用规模扫描 | [资源估计](../manual/resource-estimation.md) |

@@ -1,10 +1,10 @@
 # 可逆定点算术（Fixed-Point Arithmetic）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.common.arithmetic` · 阶段 V1
+> 类别 C1 · 模块 [`oracq.algorithms.common.arithmetic`](../../api/algorithms/common/arithmetic.rst) · 阶段 V1
 
 ## 概述
 
-定点格式下的可逆算术族：加、减、乘（以及取负、绝对值、除法、倒数、开方、比较与按位逻辑等）。定点数由 `FixedFormat(width, fraction, signed)` 描述——`width` 位字长、低 `fraction` 位为小数、`signed` 时最高位为补码符号位。输出采用 XOR 语义并附带两位 `status` 标志：`status[0]` 标记定义域失效（除零、负数开方），`status[1]` 标记结果越出字长（而非精度界内的舍入）；取整口径为向零舍入加模回绕（`rounding = "toward_zero; modular_wrap"`）。线路由[布尔网络](boolean-networks.md)的 compute/XOR/uncompute 模式生成，全程无脏工作区。
+定点格式下的可逆算术族：加、减、乘（以及取负、绝对值、除法、倒数、开方、比较与按位逻辑等）。定点数由 {obj}`FixedFormat(width, fraction, signed) <oracq.algorithms.common.arithmetic.FixedFormat>` 描述——`width` 位字长、低 `fraction` 位为小数、`signed` 时最高位为补码符号位。输出采用 XOR 语义并附带两位 `status` 标志：`status[0]` 标记定义域失效（除零、负数开方），`status[1]` 标记结果越出字长（而非精度界内的舍入）；取整口径为向零舍入加模回绕（`rounding = "toward_zero; modular_wrap"`）。线路由[布尔网络](boolean-networks.md)的 compute/XOR/uncompute 模式生成，全程无脏工作区。
 
 ## 接口与输入模型
 
@@ -13,10 +13,12 @@ FixedFormat(width=8, fraction=3, signed=True)
 fixed_arithmetic(kind, fmt=DEFAULT_FIXED_FORMAT)
 ```
 
-- `FixedFormat`：要求 $2 \le \text{width} \le 64$ 且 $0 \le \text{fraction} < \text{width} - \text{signed}$（小数位不占用符号位），违例抛 `ValidationError`；`encode(value)` / `decode(value)` 在实数与补码整数间换算。`DEFAULT_FIXED_FORMAT` 即默认的 (8, 3, 有符号)。
-- `fixed_arithmetic(kind, fmt)`：`kind` 取 `add` / `sub` / `neg` / `abs` / `mul` / `div` / `reciprocal` / `sqrt` / `lt` / `eq` / `select` / `and` / `or` / `xor` 之一，未知值抛 `ValidationError`；结果按 `(kind, fmt)` 以 `lru_cache` 缓存复用。
+API 入口：{obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`、{obj}`fixed_arithmetic <oracq.algorithms.common.arithmetic.fixed_arithmetic>`
 
-返回 `Operation`，寄存器为输入 `a`（一元 `kind` 只有 `a`；`select` 另有 1 位 `select`）加输出 `out`（`lt` / `eq` 为 1 位，其余 `width` 位）与 `status: Bits(2)`。本入口不消费 oracle 输入（CP：定点格式与操作种类直接参数化）。模块属性：
+- `FixedFormat`：要求 $2 \le \text{width} \le 64$ 且 $0 \le \text{fraction} < \text{width} - \text{signed}$（小数位不占用符号位），违例抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`；{obj}`encode(value) <oracq.infrastructure.serialization.encode>` / {obj}`decode(value) <oracq.infrastructure.serialization.decode>` 在实数与补码整数间换算。`DEFAULT_FIXED_FORMAT` 即默认的 (8, 3, 有符号)。
+- {obj}`fixed_arithmetic(kind, fmt) <oracq.algorithms.common.arithmetic.fixed_arithmetic>`：`kind` 取 `add` / `sub` / `neg` / `abs` / `mul` / `div` / `reciprocal` / `sqrt` / `lt` / `eq` / `select` / `and` / `or` / `xor` 之一，未知值抛 `ValidationError`；结果按 `(kind, fmt)` 以 `lru_cache` 缓存复用。
+
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为输入 `a`（一元 `kind` 只有 `a`；`select` 另有 1 位 `select`）加输出 `out`（`lt` / `eq` 为 1 位，其余 `width` 位）与 `status: Bits(2)`。本入口不消费 oracle 输入（CP：定点格式与操作种类直接参数化）。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -36,11 +38,11 @@ fixed_arithmetic(kind, fmt=DEFAULT_FIXED_FORMAT)
 
 - 结构：`tests/core/test_stage2.py:Stage2StructureTests`——`test_arithmetic_construction_and_basis` 对全部 14 种 `kind` × `FixedFormat(4, 1)` 逐一检查：模块含私有工作区、程序 JSON 往返相等、Toffoli/U3/CZ 基导出只含三种基门且无 `controlled_by`。
 - 数值：`Stage2StructureTests.test_gate_network_is_executable_small_example`——无符号 2 位 `add` 在 `a = 1, b = 2` 上模拟，幅度精确集中在 `(a, b, out, status) = (1, 2, 3, 0)`；同一模块的 `arithmetic_network` payload 经 `from_payload` 复原后经典求值 `evaluate(a=1, b=2) == {"out": 3, "status": 0}`，电路与经典语义对拍。其余 `kind` 由结构见证与 payload 经典求值一致性覆盖，电路级数值对拍集中在 `add` 小实例。
-- 绑定：本算法无独立绑定见证（矩阵口径为 —）。真实后端上的原生执行（`arithmetic_native_registry`）另由 `tests/integration/test_stage2_native.py:Stage2NativeTests` 在 PySparQ 上与参考模拟器对拍（L4 冒烟，非矩阵口径）。
+- 绑定：本算法无独立绑定见证（矩阵口径为 —）。真实后端上的原生执行（{obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>`）另由 `tests/integration/test_stage2_native.py:Stage2NativeTests` 在 PySparQ 上与参考模拟器对拍（L4 冒烟，非矩阵口径）。
 
 ## 数值验证
 
-实验设计（`tests/verification/verify_arithmetic.py`，产物 `out/verification/arithmetic.json`，20 案例）：原语算术走「OriginIR-ext 全振幅（1–8 bit）+ UniQC `Circuit.to_matrix` 幺正（3–4 bit）+ PySparQ RIR 宽寄存器（16/32/64 bit）」三条路径；定点编译函数（`compile_function` 的 Boolean SSA 降低）用叠加态一次穷举全部输入编码，对照独立经典语义逐分支核对；初等函数把「实现误差（对照模块属性 `math_approximation` 中的 Chebyshev 系数）」与「方法误差（系数多项式 vs 真函数）」分开报告。复现：`PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_arithmetic.py`。
+实验设计（`tests/verification/verify_arithmetic.py`，产物 `out/verification/arithmetic.json`，20 案例）：原语算术走「OriginIR-ext 全振幅（1–8 bit）+ UniQC `Circuit.to_matrix` 幺正（3–4 bit）+ PySparQ RIR 宽寄存器（16/32/64 bit）」三条路径；定点编译函数（{obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 的 Boolean SSA 降低）用叠加态一次穷举全部输入编码，对照独立经典语义逐分支核对；初等函数把「实现误差（对照模块属性 `math_approximation` 中的 Chebyshev 系数）」与「方法误差（系数多项式 vs 真函数）」分开报告。复现：`PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_arithmetic.py`。
 
 | 案例 | 规模 | 路径 | 指标 |
 |---|---|---|---|
@@ -59,6 +61,6 @@ fixed_arithmetic(kind, fmt=DEFAULT_FIXED_FORMAT)
 ## 相关链接
 
 - 同模块：[布尔网络](boolean-networks.md)、[Fourier 加法](fourier-addition.md)
-- 源码：`src/pyqecclang/algorithms/common/arithmetic.py`
+- 源码：`src/oracq/algorithms/common/arithmetic.py`
 - API 参考：[可逆算术](../../api/algorithms/common/arithmetic.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

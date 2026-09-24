@@ -1,6 +1,6 @@
 # Heinrich 量子求和（Heinrich Quantum Summation）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.common.integration` · 阶段 V1
+> 类别 C3 · 模块 [`oracq.algorithms.common.integration`](../../api/algorithms/common/integration.rst) · 阶段 V1
 
 ## 概述
 
@@ -14,10 +14,12 @@
 quantum_sum(database, *, precision=4, name=None)
 ```
 
-- `database`：函数值加载器（`XorDatabase`，address = index、data = value），input model 为 FO + QRAM，与仓库的三层绑定（abstract / gate / qram）直接兼容；通常由 `table_loader(values, data_width=None, backend="gate"|"qram")` 构造。
+API 入口：{obj}`quantum_sum <oracq.algorithms.common.integration.quantum_sum>`
+
+- `database`：函数值加载器（{obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`，address = index、data = value），input model 为 FO + QRAM，与仓库的三层绑定（abstract / gate / qram）直接兼容；通常由 {obj}`table_loader(values, data_width=None, backend="gate"|"qram") <oracq.algorithms.common.integration.table_loader>` 构造。
 - `precision`：相位寄存器位数，范围 1..63；估计误差量级 $O(1/2^{\text{precision}})$。
 
-返回 `Operation`，寄存器为 `target`、`work`、`phase`。读出 `phase` 后用 `mean_from_phase(value, precision, data_width)` 解码均值估计。模块属性：
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `target`、`work`、`phase`。读出 `phase` 后用 {obj}`mean_from_phase(value, precision, data_width) <oracq.algorithms.common.integration.mean_from_phase>` 解码均值估计。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -26,11 +28,11 @@ quantum_sum(database, *, precision=4, name=None)
 | `value_bits` / `index_bits` | 值字宽 $w$ 与下标位数 $n$ |
 | `query_complexity` / `classical_query_complexity` | `O(1/epsilon)` / `O(1/epsilon**2)` |
 
-相关入口：`quantum_integral`（一维积分，均值乘区间长度，解码用 `integral_from_phase`）与 `heinrich_rate(smoothness, dimension)`（函数类最优收敛率：确定性 $s/d$、随机化 $s/d + 1/2$、量子 $s/d + 1$）。
+相关入口：{obj}`quantum_integral <oracq.algorithms.common.integration.quantum_integral>`（一维积分，均值乘区间长度，解码用 {obj}`integral_from_phase <oracq.algorithms.common.integration.integral_from_phase>`）与 {obj}`heinrich_rate(smoothness, dimension) <oracq.algorithms.common.integration.heinrich_rate>`（函数类最优收敛率：确定性 $s/d$、随机化 $s/d + 1/2$、量子 $s/d + 1$）。
 
 ## 实现要点
 
-生成链为 `sum_preparation`（均匀 index + 函数值加载 + 阈值比较）→ `sum_iterate`（标记由制备 target 的 flag 位驱动的 Grover 迭代）→ `phase_estimation`。寄存器布局：`target = index(n) | threshold(w) | flag(1)`，`work = value(w)`；value 字与 index 纠缠留在 work（比较器读出不需要复净它，制备标注 `clean_work=False`），调用方按 flag 标记后应逆调用制备复原。
+生成链为 {obj}`sum_preparation <oracq.algorithms.common.integration.sum_preparation>`（均匀 index + 函数值加载 + 阈值比较）→ {obj}`sum_iterate <oracq.algorithms.common.integration.sum_iterate>`（标记由制备 target 的 flag 位驱动的 Grover 迭代）→ {obj}`phase_estimation <oracq.algorithms.common.estimation.phase_estimation>`。寄存器布局：`target = index(n) | threshold(w) | flag(1)`，`work = value(w)`；value 字与 index 纠缠留在 work（比较器读出不需要复净它，制备标注 `clean_work=False`），调用方按 flag 标记后应逆调用制备复原。
 
 适用边界：函数值必须量化为 $w$ 位非负整数（`table_loader` 逐值校验字宽）；均值估计的精度由 QAE 栅格决定，`precision` 每加 1 位栅格密度翻倍。积分路线（`quantum_integral`）的总误差 = 离散化误差（由网格与光滑性决定，见 `heinrich_rate`）+ QAE 估计误差。
 
@@ -40,7 +42,7 @@ quantum_sum(database, *, precision=4, name=None)
 
 - 结构：`tests/core/test_integration.py:SumPreparationTests` / `QuantumSumTests` / `RateTests` 的构造与属性断言；`RateTests.test_invalid_inputs_fail_at_generation` 覆盖全部入口的参数违例（空表、负值、字宽越界、非法 backend、precision / interval / 光滑性参数越界等）。
 - 数值：`SumPreparationTests.test_flag_probability_matches_mean` 与 `test_constant_table_exact` 对拍线性恒等式 $P(\text{flag}=1) = E[v]/2^w$（places = 12）；`QuantumSumTests.test_mean_on_qae_grid_is_exact` 在均值恰落 QAE 栅格时要求全部非零概率读出精确等于真值（places = 9）；`test_ramp_mean_within_qae_resolution`（delta = 0.5）与 `test_quantum_integral_trapezoid_scale`（对拍量化均值 delta = 0.06、积分真值 0.5 处 delta = 0.09）覆盖栅格外的分辨率界；`RateTests.test_heinrich_rate_known_values` 校验收敛率闭式值。
-- 绑定：`SumPreparationTests.test_qram_binding_matches_gate`（gate / qram 两绑定的 flag 概率逐点对拍，places = 12）与 `test_abstract_loader_binds`（abstract 声明经 `bind` 绑定后概率不变）共同覆盖三层一致性。
+- 绑定：`SumPreparationTests.test_qram_binding_matches_gate`（gate / qram 两绑定的 flag 概率逐点对拍，places = 12）与 `test_abstract_loader_binds`（abstract 声明经 {obj}`bind <oracq.infrastructure.linking.bind>` 绑定后概率不变）共同覆盖三层一致性。
 
 ## 已知缺口与计划阶段
 
@@ -48,7 +50,7 @@ quantum_sum(database, *, precision=4, name=None)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/common/integration.py`
+- 源码：`src/oracq/algorithms/common/integration.py`
 - 同族页面：[Heinrich 量子积分](heinrich-integration.md)
 - API 参考：[量子求和与积分](../../api/algorithms/common/integration.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)

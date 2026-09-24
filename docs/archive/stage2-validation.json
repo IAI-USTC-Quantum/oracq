@@ -1,5 +1,5 @@
 {
-  "schema": "pyqecclang-stage-validation-v1",
+  "schema": "oracq-stage-validation-v1",
   "stage": 2,
   "version": "0.3.0",
   "rir": "0.3",

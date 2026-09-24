@@ -9,8 +9,8 @@ import json
 import platform
 from pathlib import Path
 
-from pyqecclang import bind_with_report, dumps, estimate_resources, loads, simulate
-from pyqecclang.applications.oracle_study import oracle_study, oracle_study_reference
+from oracq import bind_with_report, dump_qram_yaml, dumps, estimate_resources, loads, simulate
+from oracq.applications.oracle_study import oracle_study, oracle_study_reference
 
 
 def main() -> None:
@@ -25,7 +25,7 @@ def main() -> None:
     for width in args.widths:
         opened, variants = oracle_study(width, args.repetitions)
         text = dumps(opened)
-        (args.output / f"width-{width}.open.rir.json").write_text(text)
+        (args.output / f"width-{width}.open.rir.yaml").write_text(text)
         opened = loads(text)
         expected = oracle_study_reference(width, args.repetitions)
         for name, (binding, memory) in variants.items():
@@ -34,7 +34,7 @@ def main() -> None:
             actual = dict(simulate(program, memory).amplitudes)
             errors = {"reference": max(abs(actual.get(k, 0) - expected.get(k, 0)) for k in actual.keys() | expected.keys())}
             if args.native:
-                from pyqecclang import run_originir, run_pysparq, run_pysparq_rir
+                from oracq import run_originir, run_pysparq, run_pysparq_rir
 
                 for label, runner in (("adapter_pysparq", run_pysparq), ("rir_pysparq", run_pysparq_rir)):
                     state = dict(runner(program, memory).amplitudes)
@@ -45,12 +45,13 @@ def main() -> None:
             if max(errors.values()) > 1e-9:
                 raise AssertionError((width, name, errors))
             prefix = args.output / f"width-{width}.{name}"
-            prefix.with_suffix(f".{name}.rir.json").write_text(dumps(program))
-            prefix.with_suffix(f".{name}.memory.json").write_text(json.dumps(memory, sort_keys=True))
+            prefix.with_suffix(f".{name}.rir.yaml").write_text(dumps(program))
+            memory_text = dump_qram_yaml(program, memory)
+            prefix.with_suffix(f".{name}.memory.qram.yaml").write_text(memory_text, encoding="utf-8")
             record = {
                 "width": width, "repetitions": args.repetitions, "implementation": name,
                 "binding": linked.report.to_dict(),
-                "memory_sha256": hashlib.sha256(json.dumps(memory, sort_keys=True).encode()).hexdigest(),
+                "memory_sha256": hashlib.sha256(memory_text.encode()).hexdigest(),
                 "open_cost": estimate_resources(opened, require_closed=False).to_dict(),
                 "closed_cost": estimate_resources(program).to_dict(),
                 "amplitude_errors": errors, "tolerance": 1e-9,

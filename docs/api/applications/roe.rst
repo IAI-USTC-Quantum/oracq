@@ -1,9 +1,9 @@
 Roe 矩阵元生成
 ==================
 
-``pyqecclang.applications.roe``
+``oracq.applications.roe``
 
-.. automodule:: pyqecclang.applications.roe
+.. automodule:: oracq.applications.roe
    :members:
    :undoc-members:
    :show-inheritance:

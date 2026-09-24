@@ -1,10 +1,10 @@
-"""语言核心与 BE 组合的行为验证，全部测试只需要 Python 标准库。"""
+"""语言核心与 BE 组合的行为验证，测试只依赖包自身与 Python 标准库。"""
 
 import json
 import math
 import unittest
 
-from pyqecclang import (
+from oracq import (
     QRAM,
     Bits,
     BlockEncoding,
@@ -240,25 +240,60 @@ class LanguageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValidationError, "冲突"):
             c.call(b.finish(), q=c["q"])
 
-    def test_json_roundtrip_retains_modules(self):
+    def test_roundtrip_retains_modules(self):
         b = Builder("main", {"a": UInt(2), "d": UInt(3)}, {"table": QRAM(2, 3)})
         with b.repeat(123):
             b.call(lookup(), a=b["a"], d=b["d"], resources={"mem": "table"})
         p = b.finish().program()
-        text = dumps(p)
-        self.assertEqual(dumps(loads(text)), text)
-        self.assertEqual(loads(text), p)
+        for fmt in ("yaml", "json"):
+            with self.subTest(fmt=fmt):
+                text = dumps(p, format=fmt)
+                self.assertEqual(dumps(loads(text), format=fmt), text)
+                self.assertEqual(loads(text), p)
+        self.assertEqual(loads(dumps(p, format="json")), loads(dumps(p)))
 
-    def test_json_rejects_unknown_version_fields_and_duplicates(self):
-        text = dumps(identity(1).operation.program())
+    def test_rejects_unknown_version_fields_and_duplicates(self):
+        text = dumps(identity(1).operation.program(), format="json")
         data = json.loads(text)
         for key, value in [("version", "9.0"), ("extra", 1), ("tag", "Unknown")]:
             mutated = dict(data)
             mutated[key] = value
             with self.subTest(key=key), self.assertRaises(ValidationError):
                 loads(json.dumps(mutated))
-        with self.assertRaisesRegex(ValidationError, "重复"):
-            loads('{"tag":"Program","tag":"Program"}')
+        for fmt, duplicate in [
+            ("json", '{"tag":"Program","tag":"Program"}'),
+            ("yaml", "{tag: Program, tag: Program}"),
+        ]:
+            with self.subTest(fmt=fmt), self.assertRaisesRegex(ValidationError, "重复"):
+                loads(duplicate)
+
+    def test_yaml_rejects_nonfinite_and_implicit_scalars(self):
+        for literal in ["[.nan]", "[.inf]", "[-.inf]"]:
+            with self.subTest(literal=literal), self.assertRaisesRegex(ValidationError, "非法数值"):
+                loads(f"tag: Program\nmodules: {literal}\n")
+        with self.assertRaisesRegex(ValidationError, "非法 YAML 标量"):
+            loads("tag: Program\nday: 2026-01-02\n")
+        with self.assertRaises(ValidationError):
+            loads("tag: Program\n\tversion: '0.3'")
+
+    def test_yaml_roundtrips_ambiguous_names_and_scientific_floats(self):
+        b = Builder("main", {"y": Bits(1), "no": Bits(1)})
+        b.x(b["y"])
+        b.ry(b["no"], 1e-7)
+        attr = Module(
+            "attr",
+            (Register("q", Bits(1)),),
+            (),
+            (Primitive("x", (Ref((Span("q", 0, 1),), Bits(1)),)),),
+            (("big", 1e16), ("small", 1.5e-7), ("note", "no"), ("day", "2026-01-02")),
+            (),
+        )
+        # dumps 按模块名排序输出，构造时即按该顺序放置模块以便逐字节比较。
+        p = Program("main", (attr, b.finish().program().main))
+        text = dumps(p)
+        self.assertEqual(p.modules[0].attributes[0][1], 1e16)
+        self.assertEqual(loads(text), p)
+        self.assertEqual(dumps(loads(text)), text)
 
     def test_unknown_primitive_and_nan_rejected(self):
         for op, angle in [("unknown", None), ("ry", float("nan"))]:

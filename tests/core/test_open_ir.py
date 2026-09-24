@@ -2,7 +2,7 @@
 
 import unittest
 
-from pyqecclang import (
+from oracq import (
     Binding,
     Bits,
     Builder,
@@ -13,7 +13,7 @@ from pyqecclang import (
     loads,
     unresolved,
 )
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.input_model.oracles import (
     abstract_database,
     abstract_state_prep,
     basis_state,
@@ -24,7 +24,7 @@ from pyqecclang.algorithms.input_model.oracles import (
 class OpenIRTests(unittest.TestCase):
     def test_open_roundtrip_and_export_boundary(self):
         slot = abstract_database("Function", 2, 1)
-        from pyqecclang.algorithms.basics.oracle_algorithms import deutsch_jozsa
+        from oracq.algorithms.basics.oracle_algorithms import deutsch_jozsa
 
         p = deutsch_jozsa(slot).program()
         restored = loads(dumps(p))

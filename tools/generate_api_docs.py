@@ -65,6 +65,7 @@ TITLES = {
     "layout": "寄存器布局",
     "readout": "宿主读出",
     "qmem": "QRAM 指针式读写",
+    "qram_schema": "QRAM YAML 内存格式",
     "estimate": "资源估计",
     "originir": "OriginIR-ext 后端",
     "pysparq": "PySparQ 后端",
@@ -106,11 +107,11 @@ def write_toplevel(docs: Path, modules: dict[str, dict]) -> None:
     sys.path.insert(0, str(ROOT / "src"))
     import importlib
 
-    import pyqecclang
+    import oracq
 
     grouped: dict[str, dict[str, list[str]]] = {group: {} for group in GROUPS}
-    for name in pyqecclang.__all__:
-        obj = getattr(pyqecclang, name)
+    for name in oracq.__all__:
+        obj = getattr(oracq, name)
         module = getattr(obj, "__module__", None)
         if module not in modules:
             module = None
@@ -125,10 +126,10 @@ def write_toplevel(docs: Path, modules: dict[str, dict]) -> None:
         grouped[module.split(".")[1]].setdefault(module, []).append(name)
 
     lines = [
-        "pyqecclang 包总览",
-        _underline("pyqecclang 包总览", "="),
+        "oracq 包总览",
+        _underline("oracq 包总览", "="),
         "",
-        f"根包 ``pyqecclang`` 汇总导出公开 API（共 {len(pyqecclang.__all__)} 个名字）。",
+        f"根包 ``oracq`` 汇总导出公开 API（共 {len(oracq.__all__)} 个名字）。",
         "名字按定义模块分组；模块标题链接到对应 API 页，成员链接到模块页内的完整说明。",
         "",
     ]
@@ -159,13 +160,13 @@ def main():
     modules: dict[str, dict] = {}
     for group in GROUPS:
         pages = []
-        for source in sorted((ROOT / "src/pyqecclang" / group).rglob("*.py")):
+        for source in sorted((ROOT / "src/oracq" / group).rglob("*.py")):
             if source.name.startswith("_") or source.stem == "legacy":
                 if source.name != "__init__.py" or source.parent.name != "mathfunc":
                     continue
-            relative = source.relative_to(ROOT / "src/pyqecclang").with_suffix("")
+            relative = source.relative_to(ROOT / "src/oracq").with_suffix("")
             parts = relative.parts[:-1] if source.name == "__init__.py" else relative.parts
-            module = "pyqecclang." + ".".join(parts)
+            module = "oracq." + ".".join(parts)
             target = docs.joinpath(*parts).with_suffix(".rst")
             target.parent.mkdir(parents=True, exist_ok=True)
             title = TITLES.get(parts[-1], parts[-1])

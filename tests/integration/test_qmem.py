@@ -2,7 +2,7 @@
 
 import unittest
 
-from pyqecclang import (
+from oracq import (
     QRAM,
     Builder,
     QMem,

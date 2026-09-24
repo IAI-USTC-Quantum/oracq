@@ -1,9 +1,9 @@
 OriginIR-ext 后端
 ==============================
 
-``pyqecclang.infrastructure.backends.originir``
+``oracq.infrastructure.backends.originir``
 
-.. automodule:: pyqecclang.infrastructure.backends.originir
+.. automodule:: oracq.infrastructure.backends.originir
    :members:
    :undoc-members:
    :show-inheritance:

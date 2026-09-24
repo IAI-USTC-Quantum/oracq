@@ -1,6 +1,6 @@
 # 布尔网络（Boolean Networks）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.common.arithmetic` · 阶段 V1
+> 类别 C1 · 模块 [`oracq.algorithms.common.arithmetic`](../../api/algorithms/common/arithmetic.rst) · 阶段 V1
 
 ## 概述
 
@@ -15,7 +15,9 @@ BooleanNetwork.from_payload(value)
 arithmetic_native_registry(program, *, cache_dir="out/native-cache")
 ```
 
-`BooleanNetwork` 的构图层 API（节选，均返回节点编号或位列表）：
+API 入口：{obj}`BooleanNetwork <oracq.algorithms.common.arithmetic.BooleanNetwork>`、{obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>`
+
+{obj}`BooleanNetwork <oracq.algorithms.common.arithmetic.BooleanNetwork>` 的构图层 API（节选，均返回节点编号或位列表）：
 
 | 方法 | 含义 |
 |---|---|
@@ -26,13 +28,13 @@ arithmetic_native_registry(program, *, cache_dir="out/native-cache")
 | `evaluate(**inputs)` | 图的经典求值（输入为整数，输出各端口的整数值） |
 | `payload()` / `from_payload(value)` | JSON 序列化与严格校验的反序列化 |
 
-`net.operation()` 返回 `Operation`，寄存器为全部输入与输出端口（位宽即端口宽），并写入属性 `arithmetic_network`（payload JSON）、`correctness = "pending"`、`workspace_contract = "zero_in_zero_out"`；模块名缺省为 payload 哈希前缀。`arithmetic_native_registry` 扫描程序中带 `arithmetic_network` 属性的模块，端口与 payload 不一致时抛 `ValidationError`。
+`net.operation()` 返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为全部输入与输出端口（位宽即端口宽），并写入属性 `arithmetic_network`（payload JSON）、`correctness = "pending"`、`workspace_contract = "zero_in_zero_out"`；模块名缺省为 payload 哈希前缀。{obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>` 扫描程序中带 `arithmetic_network` 属性的模块，端口与 payload 不一致时抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 
 ## 实现要点
 
-编译策略是"计算—拷贝—复净"：每个非常量非常输入节点分配到宽度 64 的私有 bank（`ssa_0`, `ssa_1`, …），`not`/`xor` 用 X 门与 XOR 拷贝实现、`and` 用受控 X 实现，逐节点写入 bank；随后把输出位 XOR 拷贝到公开输出寄存器；最后对前向已发出的帧整体取 `Adjoint` 复净全部 bank，满足零进零出契约，调用方无需管理脏工作区。图构造侧以元组键缓存节点实现 hash-consing：`xor`/`and_` 对操作数排序规范化，配合代数化简（常量吸收、`not(not a) = a`）让相同子表达式共享同一节点。
+编译策略是"计算—拷贝—复净"：每个非常量非常输入节点分配到宽度 64 的私有 bank（`ssa_0`, `ssa_1`, …），`not`/`xor` 用 X 门与 XOR 拷贝实现、`and` 用受控 X 实现，逐节点写入 bank；随后把输出位 XOR 拷贝到公开输出寄存器；最后对前向已发出的帧整体取 {obj}`Adjoint <oracq.infrastructure.ir.Adjoint>` 复净全部 bank，满足零进零出契约，调用方无需管理脏工作区。图构造侧以元组键缓存节点实现 hash-consing：`xor`/`and_` 对操作数排序规范化，配合代数化简（常量吸收、`not(not a) = a`）让相同子表达式共享同一节点。
 
-`from_payload` 把网络当不可信输入校验：常量前缀、端口命名、位宽 1..64、位引用范围、顺序 DAG 性质与输入端口映射一致性，任一违例抛 `ValidationError`。原生路线 `BooleanCppFactory` 为同一张图生成真实 PySparQ C++ 算子：按调用点的实际布局（跨寄存器视图的 `start/width`）缓存编译产物，代码把节点值算进 `v[]` 数组后对输出寄存器做 XOR 写回，与门级线路语义一致。
+`from_payload` 把网络当不可信输入校验：常量前缀、端口命名、位宽 1..64、位引用范围、顺序 DAG 性质与输入端口映射一致性，任一违例抛 `ValidationError`。原生路线 {obj}`BooleanCppFactory <oracq.algorithms.common.arithmetic.BooleanCppFactory>` 为同一张图生成真实 PySparQ C++ 算子：按调用点的实际布局（跨寄存器视图的 `start/width`）缓存编译产物，代码把节点值算进 `v[]` 数组后对输出寄存器做 XOR 写回，与门级线路语义一致。
 
 ## 验证方案
 
@@ -49,7 +51,7 @@ arithmetic_native_registry(program, *, cache_dir="out/native-cache")
 ## 相关链接
 
 - 同模块：[可逆定点算术](fixed-point-arithmetic.md)
-- 源码：`src/pyqecclang/algorithms/common/arithmetic.py`
+- 源码：`src/oracq/algorithms/common/arithmetic.py`
 - API 参考：[可逆算术](../../api/algorithms/common/arithmetic.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 

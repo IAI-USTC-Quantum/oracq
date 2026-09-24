@@ -3,10 +3,10 @@
 import math
 import unittest
 
-from pyqecclang import ValidationError, simulate, unresolved
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.input_model.density import gate_purification
-from pyqecclang.algorithms.qml.qsdp import (
+from oracq import ValidationError, simulate, unresolved
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from oracq.algorithms.input_model.density import gate_purification
+from oracq.algorithms.qml.qsdp import (
     SdpInstance,
     classical_estimator,
     iteration_circuits,

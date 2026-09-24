@@ -1,6 +1,6 @@
 # Jordan 量子梯度估计（Jordan Quantum Gradient Estimation）
 
-> 类别 C3 · 模块 `pyqecclang.algorithms.optimization.gradient` · 阶段 V1
+> 类别 C3 · 模块 [`oracq.algorithms.optimization.gradient`](../../api/algorithms/optimization/gradient.rst) · 阶段 V1
 
 ## 概述
 
@@ -18,13 +18,15 @@ $$
 gradient_estimation(oracle, *, dimension, grid_bits)
 ```
 
-- `oracle`：`PhaseOracle` 或具 `target` 签名的相位 oracle 操作，input model 为 FO（相位 oracle）；`phase_scale` 属性必须等于 $2^{\text{grid\_bits}}$，不符时按 INPUT_PROMISE 违例抛错。
+API 入口：{obj}`gradient_estimation <oracq.algorithms.optimization.gradient.gradient_estimation>`
+
+- `oracle`：{obj}`PhaseOracle <oracq.algorithms.optimization.gradient.PhaseOracle>` 或具 `target` 签名的相位 oracle 操作，input model 为 FO（相位 oracle）；`phase_scale` 属性必须等于 $2^{\text{grid\_bits}}$，不符时按 INPUT_PROMISE 违例抛错。
 - `dimension`：网格维数 $d$，范围 1..16。
 - `grid_bits`：每个坐标的位数 $m$，范围 1..32；总宽度 $d \cdot m$ 不超过 64。
 
-oracle 的三个构造入口：`abstract_phase_oracle(name, width, *, phase_scale)`（开放声明，实现留待 `bind`）、`gate_phase_oracle(width, angles, *, phase_scale, name=None)`（显式相位表，长度须为 $2^{\text{width}}$）、`function_phase_oracle(source, *, dimension, grid_bits, fmt=None, scale=None, ...)`（由 mathfunc 算术编译 $f$ 后做相位踢回）。
+oracle 的三个构造入口：{obj}`abstract_phase_oracle(name, width, *, phase_scale) <oracq.algorithms.optimization.gradient.abstract_phase_oracle>`（开放声明，实现留待 {obj}`bind <oracq.infrastructure.linking.bind>`）、{obj}`gate_phase_oracle(width, angles, *, phase_scale, name=None) <oracq.algorithms.optimization.gradient.gate_phase_oracle>`（显式相位表，长度须为 $2^{\text{width}}$）、{obj}`function_phase_oracle(source, *, dimension, grid_bits, fmt=None, scale=None, ...) <oracq.algorithms.optimization.gradient.function_phase_oracle>`（由 mathfunc 算术编译 $f$ 后做相位踢回）。
 
-返回 `Operation`，寄存器为 `target`（宽 $d \cdot m$）。读出后用 `gradient_from_readout(value, *, dimension, grid_bits)` 解码：第 $i$ 个分量把位段 $[i \cdot m, (i+1) \cdot m)$ 按二进制补码解释后除以 $2^m$。模块属性：
+返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `target`（宽 $d \cdot m$）。读出后用 {obj}`gradient_from_readout(value, *, dimension, grid_bits) <oracq.algorithms.optimization.gradient.gradient_from_readout>` 解码：第 $i$ 个分量把位段 $[i \cdot m, (i+1) \cdot m)$ 按二进制补码解释后除以 $2^m$。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -35,9 +37,9 @@ oracle 的三个构造入口：`abstract_phase_oracle(name, width, *, phase_scal
 
 ## 实现要点
 
-生成链为：全部坐标寄存器制备均匀叠加 → 单次调用相位 oracle → 对每个坐标位段施加 `inverse_qft(grid_bits)`。寄存器布局即单一的 `target`，第 $i$ 个坐标占位段 $[i \cdot m, (i+1) \cdot m)$；无 work 寄存器，`function_phase_oracle` 内部的算术工作位在相位踢回后逆调用复原。
+生成链为：全部坐标寄存器制备均匀叠加 → 单次调用相位 oracle → 对每个坐标位段施加 {obj}`inverse_qft(grid_bits) <oracq.algorithms.common.fourier.inverse_qft>`。寄存器布局即单一的 `target`，第 $i$ 个坐标占位段 $[i \cdot m, (i+1) \cdot m)$；无 work 寄存器，`function_phase_oracle` 内部的算术工作位在相位踢回后逆调用复原。
 
-设计决策：相位缩放约定（`phase_scale == 2**grid_bits`）在生成期核对而非隐式假设，oracle 宽度也必须等于 $d \cdot m$，两者不符均在生成期抛 `ValidationError`。`function_phase_oracle` 默认定点格式 `FixedFormat(grid_bits+12, grid_bits+8)`，要求带符号且 fraction ≥ grid_bits 以精确表示网格坐标。
+设计决策：相位缩放约定（`phase_scale == 2**grid_bits`）在生成期核对而非隐式假设，oracle 宽度也必须等于 $d \cdot m$，两者不符均在生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。`function_phase_oracle` 默认定点格式 {obj}`FixedFormat(grid_bits+12, grid_bits+8) <oracq.algorithms.common.arithmetic.FixedFormat>`，要求带符号且 fraction ≥ grid_bits 以精确表示网格坐标。
 
 适用边界：读出分量只在 mod 1 意义下可分辨（相位 $e^{2\pi i N a j}$ 对 $a$ 与 $a \pm 1$ 相同），见证因此取 $|\partial f/\partial x_i| < 1/2$ 的分量；大梯度需调用方预缩放 $f$。$f$ 偏离线性时读出峰围绕真值展宽，失败概率随网格细化按近似二次率衰减（见验证方案）。
 
@@ -55,7 +57,7 @@ oracle 的三个构造入口：`abstract_phase_oracle(name, width, *, phase_scal
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/optimization/gradient.py`
+- 源码：`src/oracq/algorithms/optimization/gradient.py`
 - API 参考：[量子梯度估计](../../api/algorithms/optimization/gradient.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
@@ -64,7 +66,7 @@ oracle 的三个构造入口：`abstract_phase_oracle(name, width, *, phase_scal
 `tests/verification/verify_estimation.py` 在真实后端上对本接口做读出级数值验证（共 11 个案例，全部通过）。实验设计：
 
 - 线性函数精确读出：`gate_phase_oracle` 相位表，$d=1$（$m=3,4,5$，梯度分量 $3/8$、$-5/16$、$9/32$）、$d=2$（$m=4$）、$d=3$（$m=3$）；读出分布应确定性落在编码值上。
-- mathfunc 相位 oracle：`function_phase_oracle` 编译 $f(x)=0.25x$（$d=1,m=4$）与 $f(x_0,x_1)=0.25x_0-0.125x_1$（$d=2,m=3$），同时对照中心有限差分（线性函数时与真值完全一致，差距 $0$）。该路径工作区按 `workspace_table` 预算为 $1768$ / $1638$ 量子位，超出 OriginIR 24 位预算，只走 reference / rir-pysparq / adapter-pysparq 三条寄存器级路径。
+- mathfunc 相位 oracle：`function_phase_oracle` 编译 $f(x)=0.25x$（$d=1,m=4$）与 $f(x_0,x_1)=0.25x_0-0.125x_1$（$d=2,m=3$），同时对照中心有限差分（线性函数时与真值完全一致，差距 $0$）。该路径工作区按 {obj}`workspace_table <oracq.infrastructure.layout.workspace_table>` 预算为 $1768$ / $1638$ 量子位，超出 OriginIR 24 位预算，只走 reference / rir-pysparq / adapter-pysparq 三条寄存器级路径。
 - 扰动线性收敛：$f(x)=ax+x^2/N^2$（$a=3/8$），$m=3,4,5$；峰位恒为真值，失败概率衰减率对照近似二次收敛判据；信息性指标给出 $x=1/2$ 处中心有限差分（$f$ 非线性时与线性系数差 $O(1/N^2)$）。
 - 后端路径：reference、rir-pysparq、adapter-pysparq、originir-ext（gate 相位表案例，总宽 $\le 9$ 量子位）。
 

@@ -5,9 +5,9 @@ import unittest
 
 import witness
 
-from pyqecclang import Bits, Builder
-from pyqecclang.algorithms.common.prepare_select import abstract_prepare, gate_prepare
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from oracq import Bits, Builder
+from oracq.algorithms.common.prepare_select import abstract_prepare, gate_prepare
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
 
 COEFFICIENTS = (0.6, -0.8, 0.3j, -0.5)
 

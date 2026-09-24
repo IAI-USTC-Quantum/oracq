@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pyqecclang import QRAM, Builder, Operation, Program, UInt, dumps, export_originir, simulate
+from oracq import QRAM, Builder, Operation, Program, UInt, dumps, export_originir, simulate
 
 
 def make_lookup(address_width: int = 2, data_width: int = 3) -> Operation:

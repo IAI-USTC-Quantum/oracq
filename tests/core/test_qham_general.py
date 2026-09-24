@@ -5,10 +5,10 @@ import random
 import unittest
 from functools import partial
 
-from pyqecclang import ValidationError, bind, dumps, loads, simulate, unresolved
-from pyqecclang.algorithms.input_model.oracles import gate_database
-from pyqecclang.algorithms.input_model.qham import embed_rectangular, place_port
-from pyqecclang.applications.qham import (
+from oracq import ValidationError, bind, dumps, loads, simulate, unresolved
+from oracq.algorithms.input_model.oracles import gate_database
+from oracq.algorithms.input_model.qham import embed_rectangular, place_port
+from oracq.applications.qham import (
     Block,
     Discretization,
     Field,
@@ -220,8 +220,8 @@ class QhamGeneralTests(unittest.TestCase):
         self.assertLess(max(abs(a - b) for a, b in zip(actual, expected, strict=True)), 1e-10)
 
     def test_m1_reduces_to_previous_special_case(self):
-        from pyqecclang.applications.legacy import qham_lift_m1
-        from pyqecclang.applications.qham import structured_fd_bindings
+        from oracq.applications.legacy import qham_lift_m1
+        from oracq.applications.qham import structured_fd_bindings
 
         u = Field("u")
         pde = PolynomialPDE.from_equations({"u": -0.2 * u + 0.1 * u * u})
@@ -242,9 +242,9 @@ class QhamGeneralTests(unittest.TestCase):
     def test_zero_initial_forcing_and_reused_work(self):
         from dataclasses import replace
 
-        from pyqecclang.algorithms.input_model.oracles import gate_state_prep
-        from pyqecclang.algorithms.input_model.qham import lifted_initial
-        from pyqecclang.applications.qham import structured_fd_bindings
+        from oracq.algorithms.input_model.oracles import gate_state_prep
+        from oracq.algorithms.input_model.qham import lifted_initial
+        from oracq.applications.qham import structured_fd_bindings
 
         u = Field("u")
         pde = PolynomialPDE.from_equations({"u": u * u + Known("f")})

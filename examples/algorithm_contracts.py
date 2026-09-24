@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Protocol, cast, runtime_checkable
 
-from pyqecclang import (
+from oracq import (
     Bits,
     BlockEncoding,
     BlockSystem,
@@ -22,27 +22,27 @@ from pyqecclang import (
     requires,
     scale,
 )
-from pyqecclang.algorithms.common.hamiltonian import (
+from oracq.algorithms.common.hamiltonian import (
     PauliOperator,
     TrotterizableProtocol,
     TrotterTerm,
     hamiltonian_simulation,
 )
-from pyqecclang.algorithms.input_model.block_encoding import lcu
-from pyqecclang.algorithms.input_model.interfaces import (
+from oracq.algorithms.input_model.block_encoding import lcu
+from oracq.algorithms.input_model.interfaces import (
     BlockEncodingProtocol,
     StateOracleProtocol,
     StatePreparationProtocol,
     UnitaryProtocol,
 )
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.input_model.oracles import (
     StatePreparation,
     abstract_block_encoding,
     abstract_state_prep,
 )
-from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan
-from pyqecclang.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
+from oracq.algorithms.qode.lchs import QuadraturePlan
+from oracq.algorithms.qode.ode import linear_qode
 
 
 @runtime_checkable
@@ -108,8 +108,8 @@ def main() -> None:
     assert isinstance(result, StateOracleProtocol)
     assert all(isinstance(result, p) for p in qlss.provides)
     closed = bind(result.operation.program(), {"GivenA": identity(1).operation})
-    (root / "qlss.open.rir.json").write_text(dumps(result.operation.program()), encoding="utf-8")
-    (root / "qlss.closed.rir.json").write_text(dumps(closed), encoding="utf-8")
+    (root / "qlss.open.rir.yaml").write_text(dumps(result.operation.program()), encoding="utf-8")
+    (root / "qlss.closed.rir.yaml").write_text(dumps(closed), encoding="utf-8")
     (root / "qlss.originir").write_text(export_originir(closed).text, encoding="utf-8")
 
     limited = abstract_state_prep("ForwardOnly", 1, reversible=False)
@@ -127,7 +127,7 @@ def main() -> None:
     for solver in (lchs, schrodinger):
         solver.check(model, time=0.1).require()
         state = solver.solve(model, 0.1)
-        (root / (solver.name + ".rir.json")).write_text(
+        (root / (solver.name + ".rir.yaml")).write_text(
             dumps(state.operation.program()), encoding="utf-8"
         )
 
@@ -135,11 +135,11 @@ def main() -> None:
     assert isinstance(h, TrotterizableProtocol)
     assert not isinstance(h, BlockEncodingProtocol)
     evolution = hamiltonian_simulation(h, 0.4, steps=3)
-    (root / "trotter.rir.json").write_text(dumps(evolution.operation.program()), encoding="utf-8")
+    (root / "trotter.rir.yaml").write_text(dumps(evolution.operation.program()), encoding="utf-8")
     (root / "trotter.originir").write_text(
         export_originir(evolution.operation.program()).text, encoding="utf-8"
     )
-    (root / "unitary_lcu.rir.json").write_text(
+    (root / "unitary_lcu.rir.yaml").write_text(
         dumps(encoded_sum.operation.program()), encoding="utf-8"
     )
     (root / "contracts.json").write_text(

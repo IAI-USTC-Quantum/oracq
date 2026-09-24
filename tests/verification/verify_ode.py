@@ -43,11 +43,11 @@ from harness import (
     rir_pysparq,
 )
 
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.common.state_preparation import apply_be_to_state
-from pyqecclang.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding, tensor
-from pyqecclang.algorithms.input_model.operators import identity, product, scale, zero
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.common.state_preparation import apply_be_to_state
+from oracq.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding, tensor
+from oracq.algorithms.input_model.operators import identity, product, scale, zero
+from oracq.algorithms.input_model.oracles import (
     StateOracle,
     abstract_database,
     abstract_state_prep,
@@ -59,17 +59,17 @@ from pyqecclang.algorithms.input_model.oracles import (
     qram_state_angles,
     qram_state_prep,
 )
-from pyqecclang.algorithms.qnlss.carleman import (
+from oracq.algorithms.qnlss.carleman import (
     PolynomialODE,
     carleman_initial,
     carleman_lift,
     carleman_qode,
 )
-from pyqecclang.algorithms.qode.cbmd import ContourPlan, cbmd_qode
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan, lchs_qode
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.ode_models import HermitianParts, LinearODE
-from pyqecclang.algorithms.qode.schrodingerization import SchrodingerPlan, fourier_momentum
+from oracq.algorithms.qode.cbmd import ContourPlan, cbmd_qode
+from oracq.algorithms.qode.lchs import QuadraturePlan, lchs_qode
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qode.ode_models import HermitianParts, LinearODE
+from oracq.algorithms.qode.schrodingerization import SchrodingerPlan, fourier_momentum
 
 SQRT2 = math.sqrt(2)
 RUN_KWARGS = {"max_steps": 1 << 30, "max_states": 1 << 22}
@@ -357,13 +357,13 @@ def schrodinger_sign_flipped_qode(g_be, initial, time, plan, *, degree):
     K'。此处用公开组合子独立重组装同一构造，作为符号约定的回归钉：与库
     程序逐振幅一致即符号未被回退。
     """
-    from pyqecclang.algorithms.common.fourier import qft_with_work as qft
-    from pyqecclang.algorithms.common.state_preparation import select_subspace
-    from pyqecclang.algorithms.input_model.operators import _name
-    from pyqecclang.algorithms.input_model.oracles import StatePreparation, invoke, resources_for
-    from pyqecclang.algorithms.qode.ode_models import HermitianParts
-    from pyqecclang.infrastructure.builder import Builder
-    from pyqecclang.infrastructure.ir import Bits
+    from oracq.algorithms.common.fourier import qft_with_work as qft
+    from oracq.algorithms.common.state_preparation import select_subspace
+    from oracq.algorithms.input_model.operators import _name
+    from oracq.algorithms.input_model.oracles import StatePreparation, invoke, resources_for
+    from oracq.algorithms.qode.ode_models import HermitianParts
+    from oracq.infrastructure.builder import Builder
+    from oracq.infrastructure.ir import Bits
 
     parts = HermitianParts.from_operator(g_be)
     n, p = g_be.width, plan.auxiliary_width
@@ -698,7 +698,7 @@ def verify_lchs_parts_noncommuting(report):
 
 def verify_lchs_diagonal_gate_vs_qram(report):
     """输入模型 3：对角谱角数据库，同一开放程序分别绑定 gate 表与 QRAM。"""
-    from pyqecclang import Binding, bind, unresolved
+    from oracq import Binding, bind, unresolved
 
     time, degree = 0.4, 3
     u0 = np.array([1.0, 1.0]) / SQRT2
@@ -785,7 +785,7 @@ def verify_lchs_diagonal_gate_vs_qram(report):
 
 def verify_lchs_fokker_planck(report):
     """输入模型 4：Fokker–Planck OU 离散生成元（Pauli 展开 BE）+ QODEProblem.solve。"""
-    from pyqecclang.algorithms.qode.sde import (
+    from oracq.algorithms.qode.sde import (
         FokkerPlanckProblem,
         boltzmann_distribution,
         matrix_exponential,
@@ -855,8 +855,8 @@ def verify_lchs_fokker_planck(report):
 
 def verify_lchs_heat_structured(report):
     """输入模型 5：周期热方程的结构化移位 BE（qham 差分模板），Fourier 解析参考。"""
-    from pyqecclang.applications.qham import Grid
-    from pyqecclang.applications.qham.stencils import derivative_encoding
+    from oracq.applications.qham import Grid
+    from oracq.applications.qham.stencils import derivative_encoding
 
     time, degree = 0.3, 2
     grid = Grid(("x",), (4,), (1.0,), boundary="periodic")

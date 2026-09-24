@@ -1,6 +1,6 @@
 # 张量超收缩块编码（Tensor Hypercontraction）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.lowrank` · 阶段 V1
+> 类别 C2 · 模块 [`oracq.algorithms.input_model.lowrank`](../../api/algorithms/input_model/lowrank.rst) · 阶段 V1
 
 ## 概述
 
@@ -19,10 +19,12 @@ THCDecomposition(coefficients, leaves)
 thc_encoding(thc)
 ```
 
-- `THCDecomposition`：THC 输入模型（input model 为 CP——ζ 与叶矩阵作为经典参数直接给出，即 algorithm-coverage 中"低秩张量（HAM）→ BE"管道）。`coefficients` 必须是实对称方阵（对称性容差 1e-12），`leaves` 为维度一致（2..32 内二的幂）的显式小矩阵，无需酉或 Hermitian。数据类的属性 `width` 给出目标量子位数，`leaf_count` 给出叶算符个数。
-- `thc_encoding`：组装 THC 哈密顿量的 LCU 块编码。
+API 入口：{obj}`THCDecomposition <oracq.algorithms.input_model.lowrank.THCDecomposition>`、{obj}`thc_encoding <oracq.algorithms.input_model.lowrank.thc_encoding>`
 
-返回 `BlockEncoding`，模块属性：
+- {obj}`THCDecomposition <oracq.algorithms.input_model.lowrank.THCDecomposition>`：THC 输入模型（input model 为 CP——ζ 与叶矩阵作为经典参数直接给出，即 algorithm-coverage 中"低秩张量（HAM）→ BE"管道）。`coefficients` 必须是实对称方阵（对称性容差 1e-12），`leaves` 为维度一致（2..32 内二的幂）的显式小矩阵，无需酉或 Hermitian。数据类的属性 `width` 给出目标量子位数，`leaf_count` 给出叶算符个数。
+- {obj}`thc_encoding <oracq.algorithms.input_model.lowrank.thc_encoding>`：组装 THC 哈密顿量的 LCU 块编码。
+
+返回 {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -33,7 +35,7 @@ thc_encoding(thc)
 
 ## 实现要点
 
-每个叶算符先经 `matrix_pauli_encoding` 展开为 Pauli LCU 块编码（Pauli 系数低于 1e-12 的字丢弃；显式展开仅支持不超过 5 位的小实例），$L_\nu^\dagger$ 由 `adjoint_be` 取共轭方向，$(\mu,\nu)$ 项取两者的 BE 乘积——signal 拼接、α 相乘。外层 LCU 的 PREPARE 在 $(\mu,\nu)$ 对上，权重 $\propto\lvert\zeta_{\mu\nu}\rvert\alpha_\mu\alpha_\nu$，signal 为 selector（项数所需位数）拼接各叶编码的 signal；ζ 全零时抛 `ValidationError`。
+每个叶算符先经 {obj}`matrix_pauli_encoding <oracq.algorithms.input_model.block_encoding.matrix_pauli_encoding>` 展开为 Pauli LCU 块编码（Pauli 系数低于 1e-12 的字丢弃；显式展开仅支持不超过 5 位的小实例），$L_\nu^\dagger$ 由 {obj}`adjoint_be <oracq.algorithms.input_model.block_encoding.adjoint_be>` 取共轭方向，$(\mu,\nu)$ 项取两者的 BE 乘积——signal 拼接、α 相乘。外层 LCU 的 PREPARE 在 $(\mu,\nu)$ 对上，权重 $\propto\lvert\zeta_{\mu\nu}\rvert\alpha_\mu\alpha_\nu$，signal 为 selector（项数所需位数）拼接各叶编码的 signal；ζ 全零时抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 
 适用边界：叶矩阵 2..32 维；THC 分解相对真实哈密顿量的近似误差属于经典预处理，本模块对给定的 ζ 与叶做精确组装。大规模 ζ 与叶数据应改走 QRAM 数据绑定，产物可直接交给 `transforms.qubitization_walk`。
 
@@ -53,9 +55,10 @@ thc_encoding(thc)
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/input_model/lowrank.py`
+- 源码：`src/oracq/algorithms/input_model/lowrank.py`
 - 同模块算法：[双因子分解块编码](double-factorization.md)
 - API 参考：[化学低秩分解块编码](../../api/algorithms/input_model/lowrank.rst)
+- 概念：[Oracle 与算子表示](../operators.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

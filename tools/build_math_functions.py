@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from pyqecclang import (
+from oracq import (
     FixedFormat,
     MathConfig,
     compile_function,
@@ -11,10 +11,10 @@ from pyqecclang import (
     export_originir,
     export_toffoli_u3_cz,
 )
-from pyqecclang.applications.qfvm import bind_qfvm, roe_qfvm_block_encoding, roe_qfvm_inputs
-from pyqecclang.applications.roe_formulas import frozen_roe_face
-from pyqecclang.infrastructure.layout import workspace_table
-from pyqecclang.infrastructure.mathfunc import Index
+from oracq.applications.qfvm import bind_qfvm, roe_qfvm_block_encoding, roe_qfvm_inputs
+from oracq.applications.roe_formulas import frozen_roe_face
+from oracq.infrastructure.layout import workspace_table
+from oracq.infrastructure.mathfunc import Index
 
 
 def main():
@@ -29,7 +29,7 @@ def main():
         path = root / name
         path.mkdir(exist_ok=True)
         (path / "function.mir.json").write_text(compiled.math_ir.dumps())
-        (path / "function.rir.json").write_text(dumps(compiled.program()))
+        (path / "function.rir.yaml").write_text(dumps(compiled.program()))
         (path / "function.originir").write_text(export_originir(compiled.program()).text)
         strict = export_toffoli_u3_cz(compiled.program())
         (path / "toffoli_u3_cz.originir").write_text(strict.text)
@@ -57,7 +57,7 @@ def main():
     path = root / "roe_face"
     path.mkdir(exist_ok=True)
     (path / "function.mir.json").write_text(compiled.math_ir.dumps())
-    (path / "function.rir.json").write_text(dumps(compiled.program()))
+    (path / "function.rir.yaml").write_text(dumps(compiled.program()))
     (path / "toffoli_u3_cz.originir").write_text(export_toffoli_u3_cz(compiled.program()).text)
     records.append(
         {
@@ -71,9 +71,9 @@ def main():
     be = roe_qfvm_block_encoding(inputs)
     path = root / "qfvm"
     path.mkdir(exist_ok=True)
-    (path / "open.rir.json").write_text(dumps(be.operation.program()))
+    (path / "open.rir.yaml").write_text(dumps(be.operation.program()))
     closed = bind_qfvm(be.operation.program(), inputs)
-    (path / "closed.rir.json").write_text(dumps(closed))
+    (path / "closed.rir.yaml").write_text(dumps(closed))
     (path / "toffoli_u3_cz.originir").write_text(export_toffoli_u3_cz(closed).text)
     records.append(
         {

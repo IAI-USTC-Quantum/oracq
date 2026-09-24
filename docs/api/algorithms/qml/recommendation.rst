@@ -1,9 +1,9 @@
 KP 量子推荐系统
 ==================
 
-``pyqecclang.algorithms.qml.recommendation``
+``oracq.algorithms.qml.recommendation``
 
-.. automodule:: pyqecclang.algorithms.qml.recommendation
+.. automodule:: oracq.algorithms.qml.recommendation
    :members:
    :undoc-members:
    :show-inheritance:

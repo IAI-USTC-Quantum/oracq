@@ -1,9 +1,9 @@
 QPCA 量子主成分分析
 ========================
 
-``pyqecclang.algorithms.qml.qpca``
+``oracq.algorithms.qml.qpca``
 
-.. automodule:: pyqecclang.algorithms.qml.qpca
+.. automodule:: oracq.algorithms.qml.qpca
    :members:
    :undoc-members:
    :show-inheritance:

@@ -6,8 +6,8 @@
 ## 保存开放程序并分析调用
 
 ```{doctest}
->>> from pyqecclang import bind_with_report, dumps, loads, estimate_resources
->>> from pyqecclang.applications.oracle_study import oracle_study
+>>> from oracq import bind_with_report, dumps, loads, estimate_resources
+>>> from oracq.applications.oracle_study import oracle_study
 >>> opened, implementations = oracle_study(width=2, repetitions=3)
 >>> restored = loads(dumps(opened))
 >>> cost = estimate_resources(restored, require_closed=False)
@@ -17,7 +17,7 @@
 [(False, 3), (True, 3)]
 ```
 
-访问模型是 `data ^= (address + 1) mod 2**width`。同一个角字数据库用于构造
+{obj}`oracle_study <oracq.applications.oracle_study.oracle_study>` 一次给出开放程序和全部候选实现；{obj}`dumps <oracq.infrastructure.serialization.dumps>` 与 {obj}`loads <oracq.infrastructure.serialization.loads>` 的往返说明开放描述可以照常保存，{obj}`estimate_resources <oracq.infrastructure.estimate.estimate_resources>` 在未闭合时也返回成本台账。访问模型是 `data ^= (address + 1) mod 2**width`。同一个角字数据库用于构造
 对角块编码，每次调用都会计算角字、旋转、反算。重复三次只保存 Repeat 和
 模块调用；上面的台账说明每种实现要提供三次正向和三次伴随调用。
 
@@ -33,7 +33,7 @@ True
 Counter({'angle_words': 6})
 ```
 
-将选择改为 `gate_table` 或 `arithmetic` 即可比较另外两种实现。
+{obj}`bind_with_report <oracq.infrastructure.linking.bind_with_report>` 返回程序与 {obj}`BindingReport <oracq.infrastructure.linking.BindingReport>` 的组合，`require()` 只在报告无问题时交出闭合程序。将选择改为 `gate_table` 或 `arithmetic` 即可比较另外两种实现。
 门表枚举同一整数函数，QRAM 表在运行时提供，可逆算术直接计算并清除私有
 工作字。三者公开签名一致；私有辅助位和资源消耗可以不同。改变 width 需要
 重新生成程序；这不属于保持接口的实现绑定。

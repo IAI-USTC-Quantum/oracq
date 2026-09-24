@@ -2,14 +2,14 @@
 
 import unittest
 
-from pyqecclang import Bits, Builder, ValidationError, simulate
-from pyqecclang.algorithms.input_model.data_loading import (
+from oracq import Bits, Builder, ValidationError, simulate
+from oracq.algorithms.input_model.data_loading import (
     QromCost,
     qrom_cost,
     qrom_lookup,
     select_swap_qrom,
 )
-from pyqecclang.algorithms.input_model.oracles import gate_database
+from oracq.algorithms.input_model.oracles import gate_database
 
 TABLE16 = (3, 0, 5, 2, 7, 1, 6, 4, 0, 2, 1, 7, 5, 3, 6, 4)
 

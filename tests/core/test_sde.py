@@ -4,13 +4,13 @@ import math
 import unittest
 from functools import partial
 
-from pyqecclang import dumps, loads, simulate
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.algorithms.input_model.oracles import StatePreparation
-from pyqecclang.algorithms.qode.lchs import QuadraturePlan
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.qode.ode_models import LinearODE
-from pyqecclang.algorithms.qode.sde import (
+from oracq import dumps, loads, simulate
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.algorithms.input_model.oracles import StatePreparation
+from oracq.algorithms.qode.lchs import QuadraturePlan
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.qode.ode_models import LinearODE
+from oracq.algorithms.qode.sde import (
     FokkerPlanckProblem,
     boltzmann_distribution,
     distribution_moments,
@@ -20,7 +20,7 @@ from pyqecclang.algorithms.qode.sde import (
     sde_state_preparation,
     stationary_distribution,
 )
-from pyqecclang.infrastructure.ir import ValidationError
+from oracq.infrastructure.ir import ValidationError
 
 
 def ou_problem(size=16, half_width=3.0, theta=1.0, diffusion=0.5):

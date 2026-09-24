@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:oracq:qram-memory:0.2",
+  "title": "oracq QRAM 内存定义 0.2",
+  "type": "object",
+  "properties": {
+    "qram_segments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Segment"
+      }
+    }
+  },
+  "required": [
+    "qram_segments"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "Segment": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "address_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "word_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "type": {
+          "enum": [
+            "uint",
+            "sint",
+            "fixedpoint"
+          ]
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "integer",
+              "number"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "address_length",
+        "word_length",
+        "type",
+        "data"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "uint"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "sint"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "items": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "fixedpoint"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "exclusiveMaximum": 1
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

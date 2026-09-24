@@ -1,9 +1,9 @@
 QFVM 应用
 ==============
 
-``pyqecclang.applications.qfvm``
+``oracq.applications.qfvm``
 
-.. automodule:: pyqecclang.applications.qfvm
+.. automodule:: oracq.applications.qfvm
    :members:
    :undoc-members:
    :show-inheritance:

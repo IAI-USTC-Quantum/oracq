@@ -3,8 +3,8 @@
 import math
 import unittest
 
-from pyqecclang import ValidationError, bind, simulate, unresolved
-from pyqecclang.algorithms.optimization.gradient import (
+from oracq import ValidationError, bind, simulate, unresolved
+from oracq.algorithms.optimization.gradient import (
     abstract_phase_oracle,
     function_phase_oracle,
     gate_phase_oracle,

@@ -49,17 +49,17 @@ from harness import (
     statevector_error,
 )
 
-from pyqecclang import Bits, Builder
-from pyqecclang.algorithms.common.fourier import fourier_add, inverse_qft, qft, qft_with_work
-from pyqecclang.algorithms.common.qsvt import qsp_phases
-from pyqecclang.algorithms.common.transforms import (
+from oracq import Bits, Builder
+from oracq.algorithms.common.fourier import fourier_add, inverse_qft, qft, qft_with_work
+from oracq.algorithms.common.qsvt import qsp_phases
+from oracq.algorithms.common.transforms import (
     oblivious_amplification,
     qsvt_sequence,
     qubitization_walk,
 )
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding, pauli_word
-from pyqecclang.algorithms.input_model.operators import BlockEncoding
-from pyqecclang.algorithms.input_model.oracles import annotate
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding, pauli_word
+from oracq.algorithms.input_model.operators import BlockEncoding
+from oracq.algorithms.input_model.oracles import annotate
 
 # ---------------------------------------------------------------------------
 # 独立经典参考

@@ -6,8 +6,8 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from pyqecclang import ValidationError
-from pyqecclang.applications.qham import Field, Known, PolynomialPDE, QHAMPlan
+from oracq import ValidationError
+from oracq.applications.qham import Field, Known, PolynomialPDE, QHAMPlan
 
 
 class QhamSchemaTests(unittest.TestCase):

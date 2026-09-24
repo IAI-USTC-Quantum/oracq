@@ -2,9 +2,9 @@
 
 使用 `uv sync --locked --extra dev --extra docs` 安装开发与文档环境。代码标识符使用英文，文档与注释使用中文。
 
-- 基础设施放在 `src/pyqecclang/infrastructure/`。
-- 量子算法放在 `src/pyqecclang/algorithms/` 的相应类别文件。
-- 领域模型、数据准备和应用级组合放在 `src/pyqecclang/applications/`。
+- 基础设施放在 `src/oracq/infrastructure/`。
+- 量子算法放在 `src/oracq/algorithms/` 的相应类别文件。
+- 领域模型、数据准备和应用级组合放在 `src/oracq/applications/`。
 - 文档使用 Sphinx；完整文档与教程分开，API 从源码生成。历史记录放入 `docs/archive/`。
 
 运行核心、案例、类型与文档检查（含 `ruff`、`mypy src examples` 与 Sphinx 构建）：

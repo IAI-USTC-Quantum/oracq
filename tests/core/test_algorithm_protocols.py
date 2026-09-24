@@ -5,7 +5,7 @@ import math
 import unittest
 from typing import Protocol, runtime_checkable
 
-from pyqecclang import (
+from oracq import (
     Bits,
     BlockSystem,
     Builder,
@@ -15,7 +15,7 @@ from pyqecclang import (
     requires,
     simulate,
 )
-from pyqecclang.algorithms.common.hamiltonian import (
+from oracq.algorithms.common.hamiltonian import (
     EncodedOperator,
     PauliHamiltonian,
     PauliOperator,
@@ -23,14 +23,14 @@ from pyqecclang.algorithms.common.hamiltonian import (
     TrotterTerm,
     hamiltonian_simulation,
 )
-from pyqecclang.algorithms.input_model.block_encoding import lcu
-from pyqecclang.algorithms.input_model.interfaces import (
+from oracq.algorithms.input_model.block_encoding import lcu
+from oracq.algorithms.input_model.interfaces import (
     BlockEncodingProtocol,
     StatePreparationProtocol,
     UnitaryProtocol,
 )
-from pyqecclang.algorithms.input_model.oracles import basis_state
-from pyqecclang.algorithms.qode.ode import linear_qode
+from oracq.algorithms.input_model.oracles import basis_state
+from oracq.algorithms.qode.ode import linear_qode
 
 
 class AlgorithmProtocolTests(unittest.TestCase):

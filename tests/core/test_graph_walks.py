@@ -3,8 +3,8 @@
 import math
 import unittest
 
-from pyqecclang import Bits, Builder, ValidationError, bind, declare, simulate, unresolved
-from pyqecclang.algorithms.input_model.graph_walks import (
+from oracq import Bits, Builder, ValidationError, bind, declare, simulate, unresolved
+from oracq.algorithms.input_model.graph_walks import (
     abstract_adjacency,
     as_adjacency,
     gate_adjacency,
@@ -16,7 +16,7 @@ from pyqecclang.algorithms.input_model.graph_walks import (
     szegedy_walk,
     transition_matrix,
 )
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.input_model.oracles import (
     abstract_state_prep,
     invoke,
     phase_marks,

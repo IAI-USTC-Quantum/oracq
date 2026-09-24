@@ -1,6 +1,6 @@
 """Oracle 目录与查询算法的论文级数值验证。
 
-验证对象：src/pyqecclang/algorithms/oracles.py 与 oracle_algorithms.py。
+验证对象：src/oracq/algorithms/oracles.py 与 oracle_algorithms.py。
 
 - XOR database：gate 真值表在逐基态与全叠加两种模式下穷举全部输入域，
   QRAM 绑定、abstract 声明的 gate/QRAM 双绑定一致性，四条后端路径对拍；
@@ -32,16 +32,16 @@ from harness import (
     tvd,
 )
 
-from pyqecclang import Binding, Bits, Builder, bind
-from pyqecclang.algorithms.basics.oracle_algorithms import (
+from oracq import Binding, Bits, Builder, bind
+from oracq.algorithms.basics.oracle_algorithms import (
     affine_boolean_oracle,
     bernstein_vazirani,
     deutsch_jozsa,
     simon_nullspace,
     simon_sample,
 )
-from pyqecclang.algorithms.common.arithmetic import BooleanNetwork
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.common.arithmetic import BooleanNetwork
+from oracq.algorithms.input_model.oracles import (
     XorDatabase,
     abstract_database,
     annotate,

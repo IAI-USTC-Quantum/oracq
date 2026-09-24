@@ -1,6 +1,6 @@
 # CKS Chebyshev 线性系统求解器（CKS Chebyshev QLSS）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.qlss.qlss` · 阶段 V3
+> 类别 C2 · 模块 [`oracq.algorithms.qlss.qlss`](../../api/algorithms/qlss/qlss.rst) · 阶段 V3
 
 ## 概述
 
@@ -11,7 +11,7 @@ A^{-1} \approx \sum_{j=0}^{d-1} c_j\, T_{2j+1}(A/\alpha), \qquad
 c_j = 4\,(-1)^j\, 2^{-2d} \sum_{i=j+1}^{d} \binom{2d}{d+i},
 $$
 
-经[稀疏矩阵块编码](sparse-block-encoding.md)得到 BE，`chebyshev_block` 生成奇次 Chebyshev 幂，LCU 以 $c_j$ 为权重组合逆算子 BE，最后作用到 RHS 制备上。矩阵性质（谱界、Hermitian）由调用者声明，语言不证明。
+经[稀疏矩阵块编码](sparse-block-encoding.md)得到 BE，{obj}`chebyshev_block <oracq.algorithms.input_model.sparse.chebyshev_block>` 生成奇次 Chebyshev 幂，LCU 以 $c_j$ 为权重组合逆算子 BE，最后作用到 RHS 制备上。矩阵性质（谱界、Hermitian）由调用者声明，语言不证明。
 
 ## 接口与输入模型
 
@@ -21,16 +21,18 @@ cks_chebyshev(system, config=None)  # 底层内核，接收 SparseSystem
 CKSConfig(order=2, terms=None)      # order 1..128；terms 为截断项数，≤ order
 ```
 
-问题输入是 `LinearSystem(sparse=...)`，只能指定一种源输入模型：
+API 入口：{obj}`make_cks_qlss <oracq.algorithms.qlss.qlss.make_cks_qlss>`、{obj}`cks_chebyshev <oracq.algorithms.qlss.qlss.cks_chebyshev>`、{obj}`CKSConfig <oracq.algorithms.qlss.qlss.CKSConfig>`
 
-- `SparseSystem(access, value_format, entry_bound, rhs, spectrum, diagonal_nonnegative, hermitian)`——input model 为 SO（位置 + 元素 oracle）加 SP（RHS 态制备）；`hermitian` 与 `diagonal_nonnegative` 必须显式声明 `True`，宽度与值格式须匹配。
-- `SpectralPromise(norm_upper, sigma_min_lower, evidence)`——调用者声明的谱界（缺省 `evidence = "caller_declared_unverified"`），要求 $0 < \sigma_{\min}^{\text{lower}} \le$ 范数上界；`inverse_bound(alpha) = max(1, alpha / sigma_min_lower)`，与 alpha 冲突时拒绝。
+问题输入是 {obj}`LinearSystem(sparse=...) <oracq.algorithms.qlss.qlss.LinearSystem>`，只能指定一种源输入模型：
 
-`protocol(problem)` 返回 `SolveResult`：
+- {obj}`SparseSystem(access, value_format, entry_bound, rhs, spectrum, diagonal_nonnegative, hermitian) <oracq.algorithms.qlss.qlss.SparseSystem>`——input model 为 SO（位置 + 元素 oracle）加 SP（RHS 态制备）；`hermitian` 与 `diagonal_nonnegative` 必须显式声明 `True`，宽度与值格式须匹配。
+- {obj}`SpectralPromise(norm_upper, sigma_min_lower, evidence) <oracq.algorithms.qlss.qlss.SpectralPromise>`——调用者声明的谱界（缺省 `evidence = "caller_declared_unverified"`），要求 $0 < \sigma_{\min}^{\text{lower}} \le$ 范数上界；`inverse_bound(alpha) = max(1, alpha / sigma_min_lower)`，与 alpha 冲突时拒绝。
+
+`protocol(problem)` 返回 {obj}`SolveResult <oracq.algorithms.qlss.qlss.SolveResult>`：
 
 | 属性 | 含义 |
 |---|---|
-| `state` | 物理子空间解态（`StateOracle`，`.operation` 为其 RIR） |
+| `state` | 物理子空间解态（{obj}`StateOracle <oracq.algorithms.input_model.oracles.StateOracle>`，`.operation` 为其 RIR） |
 | `norm_probe` | 独立矩阵范数探针（`StateOracle`） |
 | `input_alpha` / `encoded_inverse_bound` | 消费的 BE 归一化与 $\max(1, \alpha/\sigma_{\min})$ |
 | `rhs_norm` / `adapter_trace` | 经典右端范数与适配轨迹 |
@@ -40,7 +42,7 @@ CKSConfig(order=2, terms=None)      # order 1..128；terms 为截断项数，≤
 
 ## 实现要点
 
-生成链：`real_symmetric_sparse_encoding`（CKS $T^\dagger S T$，$\alpha = s \cdot a_{\max}$）→ `chebyshev_block(a, 2j+1)` 奇次幂 → `lcu` 组合逆算子 BE → `apply_be_to_state` 作用到 RHS。协议层 `solve()` 统一做：契约检查（`check()` 不运行内核，按 `INPUT_TYPE` / `INPUT_ZERO_RHS` / `INPUT_ADAPTER` / `INPUT_PROMISE` / `INPUT_SPECTRUM` 出报告）、`select_subspace` 选取物理通道、组装独立范数探针——Costa filtering 的成功率不能套用 CKS 逆算子 LCU 的归一化因子，两者成功分支形成方式不同；探针属性 `probability_contract = "joint solver success and fresh matrix-ancilla success"`。输出要求 adjoint 与 controlled 能力（供 QFVM 组合）。
+生成链：{obj}`real_symmetric_sparse_encoding <oracq.algorithms.input_model.sparse.real_symmetric_sparse_encoding>`（CKS $T^\dagger S T$，$\alpha = s \cdot a_{\max}$）→ `chebyshev_block(a, 2j+1)` 奇次幂 → {obj}`lcu <oracq.algorithms.input_model.block_encoding.lcu>` 组合逆算子 BE → {obj}`apply_be_to_state <oracq.algorithms.common.state_preparation.apply_be_to_state>` 作用到 RHS。协议层 `solve()` 统一做：契约检查（`check()` 不运行内核，按 `INPUT_TYPE` / `INPUT_ZERO_RHS` / `INPUT_ADAPTER` / `INPUT_PROMISE` / `INPUT_SPECTRUM` 出报告）、{obj}`select_subspace <oracq.algorithms.common.state_preparation.select_subspace>` 选取物理通道、组装独立范数探针——Costa filtering 的成功率不能套用 CKS 逆算子 LCU 的归一化因子，两者成功分支形成方式不同；探针属性 `probability_contract = "joint solver success and fresh matrix-ancilla success"`。输出要求 adjoint 与 controlled 能力（供 QFVM 组合）。
 
 适用边界：仅论文 §4 基础 LCU，无 VTAA；解精度与成功通道标注 prototype/pending，不构成求解精度承诺。BE 输入不能自动恢复稀疏 oracle（反向适配不存在）；本 protocol 也没有两参数 legacy 调用形状，只接收 `LinearSystem`。
 
@@ -58,17 +60,18 @@ CKSConfig(order=2, terms=None)      # order 1..128；terms 为截断项数，≤
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/qlss/qlss.py`
+- 源码：`src/oracq/algorithms/qlss/qlss.py`
 - 同族页面：[Costa 行走求解器](costa-walk.md)、[VTAA-CKS 变时求解器](vtaa-cks.md)、[稀疏矩阵块编码](sparse-block-encoding.md)
 - API 参考：[量子线性系统](../../api/algorithms/qlss/qlss.rst)
 - 输入模型审查：[QFVM 输入模型审查](../../reference/qfvm-input-models.md)
+- 概念：[算法自己的约定：从一个 gate 开始](../contracts.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证
 
 论文级数值实验见 `tests/verification/verify_nt_qlss_sde.py`（nt_qlss_sde 组），全部在真实后端执行。经典预言机全部独立：Chebyshev 矩阵多项式 $P(M)=\sum_j c_j T_{2j+1}(M)$ 用 numpy 以 $T_2$ 递推直接求值（系数由 `math.comb` 闭式重算），真解由 `numpy.linalg.solve` 给出，均不经过被测实现的辅助函数。
 
-**实验设计**：(a) 内核收敛扫描——$\kappa=3$ 的 $2\times2$ 有符号稀疏系统（$A=[[0.75,-0.25],[-0.25,0.75]]$，$\alpha=1.5$），`cks_chebyshev` 在 order 2/4/8/16 下于 reference 与 rir-pysparq 运行，条件解态（signal = 0 分支归一化）与成功概率对照多项式预言（实现误差），方法误差对照 numpy 真解；(b) 协议级——`make_cks_qlss(CKSConfig(order=8))` 求解 `LinearSystem`，$p_{\text{solver}}$ 与独立矩阵范数探针的 $p_{\text{joint}}$ 对照多项式预言，`recover_norm` 对照 $\lVert A^{-1}b\rVert$；(c) Costa 构件——Dolph–Chebyshev 权重对照闭式窗 $\gamma\,T_d(\beta\cos\theta)$（numpy chebval 4097 点采样）、`schedule` 闭式与单调性、`unary_weight_preparation` 概率分布；`costa_qlss` 装配程序做三后端对拍（其 `kernel_status` 为库内声明的 prototype，求解精度不作判据）。
+**实验设计**：(a) 内核收敛扫描——$\kappa=3$ 的 $2\times2$ 有符号稀疏系统（$A=[[0.75,-0.25],[-0.25,0.75]]$，$\alpha=1.5$），{obj}`cks_chebyshev <oracq.algorithms.qlss.qlss.cks_chebyshev>` 在 order 2/4/8/16 下于 reference 与 rir-pysparq 运行，条件解态（signal = 0 分支归一化）与成功概率对照多项式预言（实现误差），方法误差对照 numpy 真解；(b) 协议级——{obj}`make_cks_qlss(CKSConfig(order=8)) <oracq.algorithms.qlss.qlss.make_cks_qlss>` 求解 `LinearSystem`，$p_{\text{solver}}$ 与独立矩阵范数探针的 $p_{\text{joint}}$ 对照多项式预言，`recover_norm` 对照 $\lVert A^{-1}b\rVert$；(c) Costa 构件——Dolph–Chebyshev 权重对照闭式窗 $\gamma\,T_d(\beta\cos\theta)$（numpy chebval 4097 点采样）、{obj}`schedule <oracq.algorithms.qlss.qlss.schedule>` 闭式与单调性、{obj}`unary_weight_preparation <oracq.algorithms.qlss.qlss.unary_weight_preparation>` 概率分布；{obj}`costa_qlss <oracq.algorithms.qlss.qlss.costa_qlss>` 装配程序做三后端对拍（其 `kernel_status` 为库内声明的 prototype，求解精度不作判据）。
 
 **关键指标**：
 
@@ -83,7 +86,7 @@ CKSConfig(order=2, terms=None)      # order 1..128；terms 为截断项数，≤
 
 recover_norm = 2.7018 对照 $\lVert A^{-1}b\rVert = 3.1623$（$b=(2,0)$）：0.1456 的相对误差与 order=8 的方法误差 0.213 自洽，随阶数按几何率收敛（kernel 扫描）。order=16 处 reference 与多项式预言保持 ~1e-16 一致，rir-pysparq 在约 $10^6$ 展开步后出现 2.5e-7 的单振幅浮点漂移（物理可观测量一致到 ≤ 8.7e-13），已在最终报告记录。
 
-**结构层模块的覆盖说明**：`contracts.py` 与 `interfaces.py` 是契约/协议结构层，本身不含独立数值语义——其代码路径（`ProtocolContract.check`、协议适配器 `as_sparse_access` / `as_block_encoding` 等）在协议级案例中被真实执行，正确性由 `tests/core` 结构测试与本组的跨后端对拍联合覆盖；`algorithms/legacy.py`（LCHS/Schrödingerization 工厂）与 `applications/legacy.py`（QFVM/QHAM 组装）同理，其数值内容归属底层算法页，组装确定性由 catalog 案例（`lchs`、`schrodingerisation`、`qfvm_*`、`qham_*`）的跨后端对拍覆盖。
+**结构层模块的覆盖说明**：`contracts.py` 与 `interfaces.py` 是契约/协议结构层，本身不含独立数值语义——其代码路径（`ProtocolContract.check`、协议适配器 {obj}`as_sparse_access <oracq.algorithms.input_model.interfaces.as_sparse_access>` / {obj}`as_block_encoding <oracq.algorithms.input_model.interfaces.as_block_encoding>` 等）在协议级案例中被真实执行，正确性由 `tests/core` 结构测试与本组的跨后端对拍联合覆盖；`algorithms/legacy.py`（LCHS/Schrödingerization 工厂）与 `applications/legacy.py`（QFVM/QHAM 组装）同理，其数值内容归属底层算法页，组装确定性由 catalog 案例（`lchs`、`schrodingerisation`、`qfvm_*`、`qham_*`）的跨后端对拍覆盖。
 
 **复现**：
 

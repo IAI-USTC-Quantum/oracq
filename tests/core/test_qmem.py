@@ -4,9 +4,10 @@ import json
 import unittest
 from pathlib import Path
 
+import yaml
 from jsonschema import Draft202012Validator
 
-from pyqecclang import (
+from oracq import (
     QRAM,
     Builder,
     QMem,
@@ -224,11 +225,12 @@ class LedgerAndBackendTests(unittest.TestCase):
         QMem(b, "ram")[b["a"]].store(b["v"])
         program = b.finish().program()
         text = dumps(program)
-        self.assertIn('"tag": "Store"', text)
+        self.assertIn("tag: Store", text)
         self.assertEqual(loads(text), program)
         schema = json.loads((ROOT / "docs/reference/schemas/rir.schema.json").read_text())
         Draft202012Validator.check_schema(schema)
-        Draft202012Validator(schema).validate(json.loads(text))
+        Draft202012Validator(schema).validate(json.loads(dumps(program, format="json")))
+        Draft202012Validator(schema).validate(yaml.safe_load(text))
 
     def test_originir_emits_qramwrite_and_strict_counts_it(self):
         b = Builder("exp", {"a": UInt(2), "v": UInt(4), "o": UInt(4)}, {"ram": QRAM(2, 4)})

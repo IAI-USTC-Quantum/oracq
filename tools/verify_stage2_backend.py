@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from pyqecclang import Program, loads
-from pyqecclang.infrastructure.backends.basis import export_toffoli_u3_cz
+from oracq import Program, loads
+from oracq.infrastructure.backends.basis import export_toffoli_u3_cz
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
             }
         )
         print(name, "parsed", parser.n_qubit, flush=True)
-    closed = loads((root / "qfvm_roe_be" / "closed.rir.json").read_text())
+    closed = loads((root / "qfvm_roe_be" / "closed.rir.yaml").read_text())
     structural = next(
         m
         for m in closed.modules

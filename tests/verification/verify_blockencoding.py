@@ -1,10 +1,10 @@
 """块编码组的论文级数值验证。
 
 覆盖模块：
-- ``pyqecclang.algorithms.input_model.block_encoding``（BE 组合代数）
-- ``pyqecclang.algorithms.common.prepare_select``（PREPARE–SELECT 分解）
-- ``pyqecclang.algorithms.input_model.sparse``（稀疏访问辅助与 CKS 稀疏 BE）
-- ``pyqecclang.algorithms.input_model.lowrank``（DF/THC 低秩块编码）
+- ``oracq.algorithms.input_model.block_encoding``（BE 组合代数）
+- ``oracq.algorithms.common.prepare_select``（PREPARE–SELECT 分解）
+- ``oracq.algorithms.input_model.sparse``（稀疏访问辅助与 CKS 稀疏 BE）
+- ``oracq.algorithms.input_model.lowrank``（DF/THC 低秩块编码）
 
 正确性 oracle：块编码的零信号角块 == A/α。小规模用 OriginIR-ext 经 UniQC
 ``Circuit.to_matrix`` 取全幺正，再用 ``harness.effective_block`` 提取有效块并
@@ -40,9 +40,9 @@ from harness import (
     statevector_error,
 )
 
-from pyqecclang import Builder, bind, simulate, unresolved
-from pyqecclang.algorithms.common.arithmetic import FixedFormat
-from pyqecclang.algorithms.common.prepare_select import (
+from oracq import Builder, bind, simulate, unresolved
+from oracq.algorithms.common.arithmetic import FixedFormat
+from oracq.algorithms.common.prepare_select import (
     abstract_prepare,
     alias_prepare,
     gate_prepare,
@@ -50,7 +50,7 @@ from pyqecclang.algorithms.common.prepare_select import (
     qram_prepare,
     select_pauli,
 )
-from pyqecclang.algorithms.input_model.block_encoding import (
+from oracq.algorithms.input_model.block_encoding import (
     adjoint_be,
     direct_sum,
     kronecker_sum,
@@ -62,8 +62,8 @@ from pyqecclang.algorithms.input_model.block_encoding import (
     tensor,
     truncated_shift,
 )
-from pyqecclang.algorithms.input_model.data_loading import select_swap_qrom
-from pyqecclang.algorithms.input_model.lowrank import (
+from oracq.algorithms.input_model.data_loading import select_swap_qrom
+from oracq.algorithms.input_model.lowrank import (
     DoubleFactorization,
     THCDecomposition,
     _diagonal_encoding,
@@ -71,8 +71,8 @@ from pyqecclang.algorithms.input_model.lowrank import (
     double_factorized_encoding,
     thc_encoding,
 )
-from pyqecclang.algorithms.input_model.operators import product
-from pyqecclang.algorithms.input_model.oracles import (
+from oracq.algorithms.input_model.operators import product
+from oracq.algorithms.input_model.oracles import (
     SparseAccess,
     gate_database,
     qram_database,
@@ -80,7 +80,7 @@ from pyqecclang.algorithms.input_model.oracles import (
     sparse_location_gate,
     sparse_location_qram,
 )
-from pyqecclang.algorithms.input_model.sparse import (
+from oracq.algorithms.input_model.sparse import (
     batch_lookup,
     chebyshev_block,
     compare_words,
@@ -1264,7 +1264,7 @@ def verify_thc(report):
 
 def verify_taylor_block_encoding(report):
     """taylor_hamiltonian：块 == 截断级数/α（实现误差）与 e^{-iHt}/α（方法误差）分离报告。"""
-    from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian  # 页面归属本组
+    from oracq.algorithms.common.hamiltonian import taylor_hamiltonian  # 页面归属本组
 
     hamiltonian = np.array([[1.0, 0.4], [0.4, -0.6]], dtype=complex)
     source = matrix_pauli_encoding(hamiltonian)
@@ -1305,7 +1305,7 @@ def verify_taylor_block_encoding(report):
 
 
 def verify_cross_tridiagonal(report):
-    """同一三对角矩阵：pyqecclang 稀疏/Pauli 两路 × pysparq BlockEncodingTridiagonal。
+    """同一三对角矩阵：oracq 稀疏/Pauli 两路 × pysparq BlockEncodingTridiagonal。
 
     pysparq 侧归一化：dim≥4 时为 Frobenius 范数 norm_f（其 C++ 正确性测试域
     randint(2,5) 覆盖的规模）；dim=2 时 (0,0) 块实测退化为 A/(|α|+2|β|)
@@ -1350,7 +1350,7 @@ def verify_cross_tridiagonal(report):
             )
         passed = qecc_err < EXACT and ps_err < EXACT and cross_err < EXACT
         if dim <= 8:
-            # Pauli 路线：同一矩阵的第二条 pyqecclang 编码路径
+            # Pauli 路线：同一矩阵的第二条 oracq 编码路径
             pauli_be = matrix_pauli_encoding(matrix)
             pauli_block, _ = block_via_reference(pauli_be.operation, pauli_be.alpha, n_bits)
             pauli_err = float(np.abs(pauli_block * pauli_be.alpha - matrix).max())
@@ -1370,7 +1370,7 @@ def verify_cross_tridiagonal(report):
 
 
 def verify_cross_qram_block_encoding(report):
-    """pysparq BlockEncodingViaQRAM × pyqecclang 稀疏 BE：三对角与非三对角稀疏矩阵。"""
+    """pysparq BlockEncodingViaQRAM × oracq 稀疏 BE：三对角与非三对角稀疏矩阵。"""
     fmt = FixedFormat(3, 1, signed=True)
     families = []
     families.append(("tridiagonal-d4", tridiagonal(4, 1.5, -0.5), tridiagonal_rows(4)))
@@ -1408,7 +1408,7 @@ def verify_cross_qram_block_encoding(report):
                 "cross_deviation": cross_err,
                 "psparq_tolerance": 5e-3,
             },
-            criterion="pyqecclang 侧 < 1e-9；pysparq 侧定点量化 ≤ 5e-3（C++ 容差 2^-15 量级）",
+            criterion="oracq 侧 < 1e-9；pysparq 侧定点量化 ≤ 5e-3（C++ 容差 2^-15 量级）",
             passed=qecc_err < EXACT and ps_err < 5e-3 and cross_err < 5e-3,
         )
 

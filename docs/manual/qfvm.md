@@ -6,16 +6,16 @@ QFVM 应用从流场数据构造线性系统，并把它交给可替换的 QLSS�
 
 流场的密度、动量和能量保存在 QRAM 数据中。几何表记录邻居、槽位与分量索引，不预存完整 Jacobian 矩阵。
 
-量子矩阵元 oracle 查询相关单元，调用可逆 Roe 算术，并根据行列索引选择元素。位置 oracle 给出每列的结构位置，其接口是 CKS 使用的原地索引置换。RHS 制备使用残差数据结构提供的角表。
+量子矩阵元 oracle 查询相关单元，调用可逆 Roe 算术，并根据行列索引选择元素。位置 oracle 给出每列的结构位置，其接口是 [CKS](algorithms/cks.md) 使用的原地索引置换。RHS 制备使用残差数据结构提供的角表。
 
-经典 Riemann 计算和局部流场更新由 `RoeFlowData` 管理。逻辑 QRAM patch 可以局部更新；当前原生后端物化仍可能重建被修改的 bank，不能把两者等同。
+经典 Riemann 计算和局部流场更新由 {obj}`RoeFlowData <oracq.applications.flow_data.RoeFlowData>` 管理。逻辑 QRAM patch 可以局部更新；当前原生后端物化仍可能重建被修改的 bank，不能把两者等同。
 
 ## 构造问题
 
 ```python
-from pyqecclang import SpectralPromise
-from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem
-from pyqecclang.algorithms.qlss.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
+from oracq import SpectralPromise
+from oracq.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem
+from oracq.algorithms.qlss.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
 
 inputs = roe_qfvm_inputs()
 problem = roe_qfvm_problem(
@@ -33,7 +33,7 @@ costa.check(problem).require()
 
 ## 替换 QLSS
 
-CKS 入口消费稀疏问题，Costa 入口请求 BE。当前实对称稀疏适配通过 `T†ST` 构造相应 BE，并记录 alpha。没有从任意 BE 反向恢复高效稀疏访问的通用适配。
+[CKS](algorithms/cks.md) 入口消费稀疏问题，[Costa](algorithms/costa-walk.md) 入口请求 BE。当前实对称稀疏适配通过 `T†ST` 构造相应 BE，并记录 alpha。没有从任意 BE 反向恢复高效稀疏访问的通用适配。
 
 QFVM 的非对称物理矩阵使用明确的 Hermitian 扩张，并在输出时选择物理坐标。这个扩张服务于线性求解；不能直接将它当作原生成元的等价 QODE 演化。
 
@@ -41,32 +41,32 @@ QFVM 的非对称物理矩阵使用明确的 Hermitian 扩张，并在输出时�
 
 ## 输出与范数
 
-`SolveResult` 返回态 oracle、矩阵范数探针、输入 alpha、谱声明和适配记录。它将求解成功概率与独立矩阵探针的条件概率分开，避免误用过滤成功率作为解向量范数。
+{obj}`SolveResult <oracq.algorithms.qlss.qlss.SolveResult>` 返回态 oracle、矩阵范数探针、输入 alpha、谱声明和适配记录。它将求解成功概率与独立矩阵探针的条件概率分开，避免误用过滤成功率作为解向量范数。
 
 解态方向、成功通道、数值误差以及 CFD 外循环仍需按具体案例验证。更完整的数学假设和原始论文对照见[QFVM/QLSS 输入模型审查](../reference/qfvm-input-models.md)。
 
 ## 实现逐行讲解（含 QRAM 数据结构）
 
-本节把 QFVM 的实现完整拆开讲：先列全部 QRAM bank 的契约（谁写、谁读、存什么），再逐字段讲几何表与残差树，然后逐段讲三段量子电路（矩阵元 oracle、稀疏位置 oracle、RHS 制备），最后给端到端装配的逐行清单。源码对应 `src/pyqecclang/applications/qfvm.py` 与 `src/pyqecclang/applications/flow_data.py`。
+本节把 QFVM 的实现完整拆开讲：先列全部 QRAM bank 的契约（谁写、谁读、存什么），再逐字段讲几何表与残差树，然后逐段讲三段量子电路（矩阵元 oracle、稀疏位置 oracle、RHS 制备），最后给端到端装配的逐行清单。源码对应 `src/oracq/applications/qfvm.py` 与 `src/oracq/applications/flow_data.py`。
 
 ### QR1. QRAM bank 总览
 
-`roe_qfvm_inputs` 声明的是**抽象槽位**（开放模块），数据到绑定与执行期才出现。绑定后每个 bank 的完整契约：
+{obj}`roe_qfvm_inputs <oracq.applications.qfvm.roe_qfvm_inputs>` 声明的是**抽象槽位**（开放模块），数据到绑定与执行期才出现。绑定后每个 bank 的完整契约：
 
 | bank | 地址宽 → 数据宽 | 经典侧谁写 | 量子侧谁查 | 内容 |
 |---|---|---|---|---|
-| `rho` / `momentum` / `energy` | cell_width → fmt.width | `RoeFlowData.update` | `roe_entry`：每元素查 3 邻居 × 3 场 = 9 次 | 每单元守恒量的定点编码 |
-| `geometry` | width+4 → geometry_width | `geometry_cells()` 静态生成（与流场值无关） | 位置 oracle 9 次；条目 oracle 9 次 | 七段打包的纯几何字（QR2） |
+| `rho` / `momentum` / `energy` | cell_width → fmt.width | `RoeFlowData.update` | {obj}`roe_entry <oracq.applications.qfvm.roe_entry>`：每元素查 3 邻居 × 3 场 = 9 次 | 每单元守恒量的定点编码 |
+| `geometry` | width+4 → geometry_width | {obj}`geometry_cells() <oracq.applications.qfvm.geometry_cells>` 静态生成（与流场值无关） | 位置 oracle 9 次；条目 oracle 9 次 | 七段打包的纯几何字（QR2） |
 | `rhs_values` | cell_width+2 → fmt.width | `RoeFlowData.update` | —（经典范数树的数据面） | 每 (单元, 分量) 的量化残差值 |
 | `rhs_sign` | cell_width+2 → 1 | `RoeFlowData.update` | RHS 制备查 2 次（写入 + 反查询） | 残差符号位 |
-| `rhs_angles` | cell_width+2 → angle_width | `RoeFlowData.update`（树缓存） | `qram_state_prep` 每层 2 次、共 2·(cell_width+2) 次 | 平方范数树内部节点的旋转角字 |
-| `theta` | fmt.width → angle_width | `ptheta_cells()` 静态生成 | —（预留数据面，见下） | θ=2·acos(min(1,|v|/amax)) 的角字 |
+| `rhs_angles` | cell_width+2 → angle_width | `RoeFlowData.update`（树缓存） | {obj}`qram_state_prep <oracq.algorithms.input_model.oracles.qram_state_prep>` 每层 2 次、共 2·(cell_width+2) 次 | 平方范数树内部节点的旋转角字 |
+| `theta` | fmt.width → angle_width | {obj}`ptheta_cells() <oracq.applications.qfvm.ptheta_cells>` 静态生成 | —（预留数据面，见下） | θ=2·acos(min(1,|v|/amax)) 的角字 |
 
 三个要点：
 
 1. **矩阵元从不预存**。QRAM 里只有原始场量与几何；矩阵元素由可逆 Roe 算术在查询时现场算出（QR4）。
-2. **`theta` 是预留的**。它是"残差值定点字 → 旋转角字"的换算表，随 `qfvm_memories` 一并物化；当前 CKS/Costa 两条路线没有电路查询它，文档如实记录这一点，不把它说成已接入的 oracle。
-3. **内存快照必须固定**。同一段相干计算中的 P、P†、受控调用与范数探针必须读同一版本的数据；这写在 `roe_qfvm_problem` 的 `data_assumptions` 属性里，语言不替硬件证明它。
+2. **`theta` 是预留的**。它是"残差值定点字 → 旋转角字"的换算表，随 {obj}`qfvm_memories <oracq.applications.qfvm.qfvm_memories>` 一并物化；当前 CKS/Costa 两条路线没有电路查询它，文档如实记录这一点，不把它说成已接入的 oracle。
+3. **内存快照必须固定**。同一段相干计算中的 P、P†、受控调用与范数探针必须读同一版本的数据；这写在 {obj}`roe_qfvm_problem <oracq.applications.qfvm.roe_qfvm_problem>` 的 `data_assumptions` 属性里，语言不替硬件证明它。
 
 ### QR2. 几何表 `geometry_cells` 逐字段
 
@@ -148,9 +148,9 @@ for depth in range(width):
     b.add_const(addr.reinterpret("uint"), (-offset) % (1 << address_width))
 ```
 
-逐行要点：第 depth 层的树节点编址是 `(1<<depth)−1+前缀`（与 `qram_state_angles` 的表编址一致）；一个 `angle_width` 位角字不必编译成 `2^angle_width` 种旋转门——按位加权 `2π·2^k/2^aw` 用 `angle_width` 次受控 RY 合成任意角；每层一查一反查，总 QRAM 查询 `2·width` 次（对照逐叶制备的 O(2^n) 次查询）。
+逐行要点：第 depth 层的树节点编址是 `(1<<depth)−1+前缀`（与 {obj}`qram_state_angles <oracq.algorithms.input_model.oracles.qram_state_angles>` 的表编址一致）；一个 `angle_width` 位角字不必编译成 `2^angle_width` 种旋转门——按位加权 `2π·2^k/2^aw` 用 `angle_width` 次受控 RY 合成任意角；每层一查一反查，总 QRAM 查询 `2·width` 次（对照逐叶制备的 O(2^n) 次查询）。
 
-**量子侧符号**（`rhs_qram_preparation`）：幅度树只产生非负振幅，符号用独立的 1 位库经**相位反冲**写入：
+**量子侧符号**（{obj}`rhs_qram_preparation <oracq.applications.qfvm.rhs_qram_preparation>`）：幅度树只产生非负振幅，符号用独立的 1 位库经**相位反冲**写入：
 
 ```python
 invoke(b, prep.operation, "prep", target=b["target"][:n], work=b["work"][: n + aw])  # 幅度
@@ -160,7 +160,7 @@ b.z(flag)                                                              # flag=1 
 invoke(b, sign.operation, "sign", address=b["target"][:n], data=flag)  # 反查询复净 flag
 ```
 
-Load 自逆，所以"写入符号 → Z → 还原符号"的净效果只剩分支相位：负残差分量得到 π 相位，flag 与 work 全部复净（`zero_input=True`）。
+{obj}`Load <oracq.infrastructure.ir.Load>` 自逆，所以"写入符号 → Z → 还原符号"的净效果只剩分支相位：负残差分量得到 π 相位，flag 与 work 全部复净（`zero_input=True`）。
 
 ### QR4. 矩阵元 oracle `roe_entry` 逐段
 
@@ -187,7 +187,7 @@ for i in range(2):
            row=b["row"], col=b["col"], left=left, right=right, status=flag)
 ```
 
-`roe_face` 是 `frozen_roe_face` 纯函数经 `compile_function` 编译出的可逆定点电路（含 sqrt/div/mul/select）；调用两次得到左、右界面的通量左右特征分量。`status≠0`（溢出/除零）时元素按文档约定 totalize 为零。
+{obj}`roe_face <oracq.applications.roe.roe_face>` 是 {obj}`frozen_roe_face <oracq.applications.roe_formulas.frozen_roe_face>` 纯函数经 {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 编译出的可逆定点电路（含 sqrt/div/mul/select）；调用两次得到左、右界面的通量左右特征分量。`status≠0`（溢出/除零）时元素按文档约定 totalize 为零。
 
 ```python
 west = -faces[0][0] / dx
@@ -200,7 +200,7 @@ value = g.choose3(b["band"], [west, center, east])
 
 ### QR5. 稀疏位置 oracle（CKS 原地置换）逐段
 
-CKS 要求"给定列与稀疏序号，原地得到行索引"。`qfvm_sparse_access` 的 locator 用 9 次相干值转置构造完整置换：
+CKS 要求"给定列与稀疏序号，原地得到行索引"。{obj}`qfvm_sparse_access <oracq.applications.qfvm.qfvm_sparse_access>` 的 locator 用 9 次相干值转置构造完整置换：
 
 ```python
 for rank in range(9):
@@ -226,9 +226,9 @@ for left, right in zip(lefts, neighbors, strict=True):
 locator.emit(Adjoint(setup))
 ```
 
-对 `index` 依次执行 9 次值转置（`index` 中等于 `left_j` 的字被换成 `neighbor_j`），再用 `Adjoint(setup)` 复净全部工作位。逆映射 = 同一电路的 adjoint，这正是 CKS 接口需要的原地语义；代价是稀疏度次可逆比较/换位，不是免费单位门。
+对 `index` 依次执行 9 次值转置（`index` 中等于 `left_j` 的字被换成 `neighbor_j`），再用 {obj}`Adjoint(setup) <oracq.infrastructure.ir.Adjoint>` 复净全部工作位。逆映射 = 同一电路的 adjoint，这正是 CKS 接口需要的原地语义；代价是稀疏度次可逆比较/换位，不是免费单位门。
 
-**条目 oracle**同用几何表：对 9 个槽位各做"查询 → `compare_words` 匹配 row → XOR 累加出 selected 七段字 → 反比较 → 反查询"的 compute/uncompute 对；拆段后调用 QR4 的 `roe_entry` 得到 `(value, status)`：
+**条目 oracle**同用几何表：对 9 个槽位各做"查询 → {obj}`compare_words <oracq.algorithms.input_model.sparse.compare_words>` 匹配 row → XOR 累加出 selected 七段字 → 反比较 → 反查询"的 compute/uncompute 对；拆段后调用 QR4 的 `roe_entry` 得到 `(value, status)`：
 
 ```python
 with b.control(valid):
@@ -238,17 +238,17 @@ with b.control(fuse(same, b["column"][:2]), 7):    # 对角且列分量为补齐
     ...                                            # 写 padding_value
 ```
 
-前后各包一层 `Adjoint(forward)` 保持可逆。最终 `SparseAccess(location, entry, width, fmt.width, 9)`。
+前后各包一层 `Adjoint(forward)` 保持可逆。最终 {obj}`SparseAccess(location, entry, width, fmt.width, 9) <oracq.algorithms.input_model.oracles.SparseAccess>`。
 
 ### QR6. 端到端装配逐行
 
 ```python
-from pyqecclang import FixedFormat, SpectralPromise
-from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.qfvm import (
+from oracq import FixedFormat, SpectralPromise
+from oracq.applications.flow_data import RoeFlowData
+from oracq.applications.qfvm import (
     bind_qfvm, qfvm_memories, roe_qfvm_inputs, roe_qfvm_problem,
 )
-from pyqecclang.algorithms.qlss.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
+from oracq.algorithms.qlss.qlss import CKSConfig, CostaConfig, make_cks_qlss, make_costa_qlss
 
 # 定点格式：数值验证表明 (5,2) 是 roe_face 常数全部可精确表示的最小格式。
 fmt = FixedFormat(5, 2)
@@ -277,19 +277,19 @@ memories = qfvm_memories(inputs, flow, amax=4.0)
 2026-09-16 的论文级数值验证（`tests/verification/verify_qham_qfvm.py`，真实后端无替身）从数值上确认了本章的数据与访问构造：
 
 - **数值通量**：编译后的 Roe 面电路与独立定点仿真逐位一致（32/32 分支），对照 float64 Roe 公式的方法误差 0.427（5 位定点固有量化）；稀疏条目 oracle 在采样列上逐位一致，补齐对角精确给出 padding_value，结构域外为零。
-- **单步更新**：F*(L,R)=left·U_L+right·U_R 与矩阵求逆实现 `riemann_flux` 相差 3.33e-16；矩阵恒等式 M·u−mass·u=−residual（隐式 FVM 符号约定）残差 2.22e-16；`RoeFlowData` 局部更新只重算相邻界面与受影响树节点，且与全量重算逐 bank 一致。
+- **单步更新**：F*(L,R)=left·U_L+right·U_R 与矩阵求逆实现 {obj}`riemann_flux <oracq.applications.flow_data.riemann_flux>` 相差 3.33e-16；矩阵恒等式 M·u−mass·u=−residual（隐式 FVM 符号约定）残差 2.22e-16；`RoeFlowData` 局部更新只重算相邻界面与受影响树节点，且与全量重算逐 bank 一致。
 - **位置访问**：全 32 列叠加下每列都是完整置换，9 个结构槽位映射与独立几何语义 0 失配，几何 QRAM 表逐点真值。
 - **RHS 制备**：残差态振幅与独立残差/范数计算一致（误差 1.11e-16），符号经 Z 反冲精确写入，角度树与符号 bank 逐点真值。
 
-验证用 `FixedFormat(5,2)` 与 `entropy_delta=0.5`（全部常数精确可表示）；更低精度格式下 2δ 可能截断为零导致熵修正分支除零、条目按文档行为归零（详见[算法页数值验证](algorithms/qfvm.md#数值验证)）。QLSS 两条路线的数值求解精度属求解器一侧，不在本页验证范围。产物：`out/verification/qham_qfvm.json`。
+验证用 {obj}`FixedFormat(5,2) <oracq.algorithms.common.arithmetic.FixedFormat>` 与 `entropy_delta=0.5`（全部常数精确可表示）；更低精度格式下 2δ 可能截断为零导致熵修正分支除零、条目按文档行为归零（详见[算法页数值验证](algorithms/qfvm.md#数值验证)）。QLSS 两条路线的数值求解精度属求解器一侧，不在本页验证范围。产物：`out/verification/qham_qfvm.json`。
 
 ## QMem 直连并行路径
 
 `applications/qfvm_qmem.py` 提供同一套 QFVM 数据访问的并行实现，数据面全部改经[指针式 QRAM 访问](qdata.md)：
 
-- 三个守恒量库合并为一张 `(场, 单元)` 状态表 `QMem(b, "state", shape=(3, n))`；周期邻居在 cell_width 位 scratch 上做模加（与旧路径相同），再经二维指针 `[field, addr]` 查询。
-- 几何表按 `(槽位, 列)` 二维寻址（旧路径的 `fuse(column, slot)` 编址逐点一致）。
-- 残差态由 `QVector` 平方范数树制备（取代 `qram_state_prep` + 符号库组合）。
-- 模块直接声明 QRAM 形式资源，不再经过抽象数据库槽位与 `bind_qfvm`。
+- 三个守恒量库合并为一张 `(场, 单元)` 状态表 {obj}`QMem(b, "state", shape=(3, n)) <oracq.infrastructure.qmem.QMem>`；周期邻居在 cell_width 位 scratch 上做模加（与旧路径相同），再经二维指针 `[field, addr]` 查询。
+- 几何表按 `(槽位, 列)` 二维寻址（旧路径的 {obj}`fuse(column, slot) <oracq.infrastructure.ir.fuse>` 编址逐点一致）。
+- 残差态由 {obj}`QVector <oracq.algorithms.input_model.qdata.QVector>` 平方范数树制备（取代 `qram_state_prep` + 符号库组合）。
+- 模块直接声明 QRAM 形式资源，不再经过抽象数据库槽位与 {obj}`bind_qfvm <oracq.applications.qfvm.bind_qfvm>`。
 
 可逆 Roe 算术、九槽位几何选择、补齐对角与原地位置置换的电路结构与本路径完全相同。等价性证据（`tests/core/test_qfvm_qmem.py`）：几何/状态/周期邻居的叠加探针逐字一致、位置 oracle 全列置换逐振幅一致、残差态振幅一致、含编译 Roe 算术的物理层在单点上逐位一致。本页上文描述的槽位-绑定路径仍是 QLSS 集成的主路径；QMem 路径当前定位是数据访问层的等价重写与后续演进的基线。

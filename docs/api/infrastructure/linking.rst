@@ -1,9 +1,9 @@
 绑定与能力分析
 ==============
 
-``pyqecclang.infrastructure.linking``
+``oracq.infrastructure.linking``
 
-.. automodule:: pyqecclang.infrastructure.linking
+.. automodule:: oracq.infrastructure.linking
    :members:
    :undoc-members:
    :show-inheritance:

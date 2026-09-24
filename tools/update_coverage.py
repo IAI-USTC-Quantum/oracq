@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from pyqecclang.applications.catalog import CASES
+from oracq.applications.catalog import CASES
 
 ROOT = Path(__file__).resolve().parents[1]
 

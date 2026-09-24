@@ -1,13 +1,13 @@
 # QCNN 逐行实现讲解
 
-本页把 QCNN（arXiv:1911.01117，ICLR 2020）的实现逐行讲清：先给端到端最小示例，再逐段读经典基底（`qcnn.py`）与量子构件（`qcnn_layer.py`）的源码。所有代码块均可运行（`tests/core/test_qcnn.py` 即由这些片段构成）。
+本页把 QCNN（arXiv:1911.01117，ICLR 2020）的实现逐行讲清：先给端到端最小示例，再逐段读经典基底（`qcnn.py`）与量子构件（`qcnn_layer.py`）的源码。所有代码块均可运行（`tests/core/test_qcnn.py` 即由这些片段构成）。算法概述见[量子卷积神经网络（QCNN）](algorithms/qcnn.md)；API 参考见 [qcnn](../api/algorithms/qml/qcnn.rst) 与 [qcnn_layer](../api/algorithms/qml/qcnn_layer.rst)。
 
 ## 1. 端到端最小示例
 
 ```python
 import random
-from pyqecclang.algorithms.qml.qcnn import ConvSpec, convolution_forward
-from pyqecclang.algorithms.qml.qcnn_layer import qcnn_sampled_layer
+from oracq.algorithms.qml.qcnn import ConvSpec, convolution_forward
+from oracq.algorithms.qml.qcnn_layer import qcnn_sampled_layer
 
 # 5×5 单通道输入，2×2 核 ×2 个输出通道，capReLU 上限 3.0，2×2 max 池化。
 spec = ConvSpec(input_shape=(5, 5, 1), kernel_shape=(2, 2, 1, 2), cap=3.0, pool=2)
@@ -52,7 +52,7 @@ def im2col(x, spec):
     return rows                        # A^l：行主序，每行一个感受野
 ```
 
-每一行 `A^l_p` 是位置 (i,j) 感受野的向量化；`kernel_columns` 用同一 (d, ki, kj) 顺序把每个核展开为 `F^l` 的一列——两者顺序一致，内积即为卷积输出 `Y^{l+1}_{p,q}`。
+每一行 `A^l_p` 是位置 (i,j) 感受野的向量化；{obj}`kernel_columns <oracq.algorithms.qml.qcnn.kernel_columns>` 用同一 (d, ki, kj) 顺序把每个核展开为 `F^l` 的一列——两者顺序一致，内积即为卷积输出 `Y^{l+1}_{p,q}`。
 
 ### convolution_forward——经典镜像
 
@@ -102,7 +102,7 @@ for depth in range(vector_width):          # 树层：bit 从高位到低位
         # 对称恢复 node_register（X 反转回去）
 ```
 
-`_prep_node_rotation` 的三步：查询 `angles`（地址 `fuse(node_register, index)`——**index 在高位，与 bank 键一致**）；按位加权合成受控 RY（每个置位角字位 k 施加 `ry(2π·2^k/2^aw)`）；反查询复净 work。末尾的符号反冲：以已制备的 `target` 为地址查 `signs`，Z 旗标后反查——负分量只留下 −1 相位。
+`_prep_node_rotation` 的三步：查询 `angles`（地址 {obj}`fuse(node_register, index) <oracq.infrastructure.ir.fuse>`——**index 在高位，与 bank 键一致**）；按位加权合成受控 RY（每个置位角字位 k 施加 `ry(2π·2^k/2^aw)`）；反查询复净 work。末尾的符号反冲：以已制备的 `target` 为地址查 `signs`，Z 旗标后反查——负分量只留下 −1 相位。
 
 ### qcnn_inner_product——Eq. (16)–(19)
 
@@ -131,7 +131,7 @@ index = (i // spec.pool) * pw + (j // spec.pool)   # Eq. 39：池化区域映射
 pooled[index][q] = max(pooled[index][q], value)    # QRAM 在线覆写（§5.2.2）
 ```
 
-`quantized_prepared_state` 是电路语义的经典镜像（逐层量化角旋转 + 符号），驱动用它恢复全部 Y——电路与镜像在测试中逐振幅对照（1e-9），保证分布建模不引入额外近似。
+{obj}`quantized_prepared_state <oracq.algorithms.qml.qcnn_layer.quantized_prepared_state>` 是电路语义的经典镜像（逐层量化角旋转 + 符号），驱动用它恢复全部 Y——电路与镜像在测试中逐振幅对照（1e-9），保证分布建模不引入额外近似。
 
 ## 4. 验证矩阵（全部通过）
 

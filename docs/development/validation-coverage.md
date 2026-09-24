@@ -11,8 +11,8 @@
 | 原语 | 签名 | 用途 | 约定 |
 |---|---|---|---|
 | `assert_unitary` | `(case, program, *, places=9, samples=None)` | W†W = I 的抽样见证：各基态列归一（Σ\|a\|²=1）且两两正交 | `samples` 显式给出基态下标列表；缺省时小寄存器空间（≤16 个基态）取全部，大空间用 `random.Random(0)` 固定种子抽 16 个。失败信息含违规列与 \|a\|² 或内积 |
-| `assert_uncomputation` | `(case, program, *, initial=None, work_registers=None)` | 复净见证：模拟器在 LocalExit 处强制复净，原语把 `ValidationError` 转为 `AssertionError`；`work_registers` 列出的根寄存器在所有非零幅度基态中取值为 0 | 返回 `simulate` 的状态便于调用方继续断言。判定零用阈值 `_ZERO_AMPLITUDE = 1e-9`（模拟器丢 \|a\| < 1e-15 的幅度，复净检查需更宽松） |
-| `assert_bind_invariant` | `(case, abstract_program, bindings, *, tolerance=0.0)` | 同一抽象槽位的各候选实现须给出一致的可观察分布 | `abstract_program` 须恰有一个未绑定槽位（用 `unresolved` 解析）；`bindings` 字典 `{标签: Operation}`。`tolerance=0` 时精确对拍；QRAM 等有量化误差的绑定传误差界（如 `0.02`），与 `integration.py` 三层一致性的 1e-12 精度分开 |
+| `assert_uncomputation` | `(case, program, *, initial=None, work_registers=None)` | 复净见证：模拟器在 LocalExit 处强制复净，原语把 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` 转为 `AssertionError`；`work_registers` 列出的根寄存器在所有非零幅度基态中取值为 0 | 返回 {obj}`simulate <oracq.infrastructure.execution.simulate>` 的状态便于调用方继续断言。判定零用阈值 `_ZERO_AMPLITUDE = 1e-9`（模拟器丢 \|a\| < 1e-15 的幅度，复净检查需更宽松） |
+| `assert_bind_invariant` | `(case, abstract_program, bindings, *, tolerance=0.0)` | 同一抽象槽位的各候选实现须给出一致的可观察分布 | `abstract_program` 须恰有一个未绑定槽位（用 {obj}`unresolved <oracq.infrastructure.linking.unresolved>` 解析）；`bindings` 字典 `{标签: Operation}`。`tolerance=0` 时精确对拍；QRAM 等有量化误差的绑定传误差界（如 `0.02`），与 `integration.py` 三层一致性的 1e-12 精度分开 |
 | `assert_block_equals` | `(case, be, matrix, *, places=9)` | BE 的 (0,0) 块逐列与稠密矩阵对拍（乘回 `alpha`） | 仅依赖 `block_column` helper：先 simulate 初始基态再把 `(row, 0)` 分支的幅度乘 `be.alpha` 复原第 column 列 |
 
 辅助函数 `block_column(be, column)` 单独导出以便调用方在自定义断言中复用（如 `test_lowrank.py` 的 `test_matches_pauli_encoding_block` 自行构造另一侧 BE 后逐行对拍）。
@@ -90,7 +90,7 @@
 
 - 新增算法或新见证时，必须同步本表的模块/算法/缺口/阶段列以及见证原语一节（若引入新原语）。
 - 新增算法必须同步新增 `docs/manual/algorithms/` 页面（模板见 `docs/development/writing-docs.md` 的“算法页面”小节）。
-- 表格写法与 `algorithm-coverage.md` 一致：模块名按 `src/pyqecclang/` 下的实际文件；算法名沿用对应模块导出的公开符号。
+- 表格写法与 `algorithm-coverage.md` 一致：模块名按 `src/oracq/` 下的实际文件；算法名沿用对应模块导出的公开符号。
 - 类别（C1–C6）按 `validation-plan.md` §2 的判定准则填写；同一算法在不同见证下属于不同类别时，取主导类别并在缺口列说明。
 - 三层证据的位置统一写成 `tests/core/<file>.py:<TestClass>` 形式（必要时附 `.<test_method>` 子串），便于读者直接跳转到测试类。
 - 阶段（V1–V4）按 `validation-plan.md` §5 填写；不属于任何阶段的注明"—"。

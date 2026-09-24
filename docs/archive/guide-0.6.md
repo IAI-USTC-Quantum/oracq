@@ -1,16 +1,16 @@
-# pyqecclang 指南与案例集
+# oracq 指南与案例集
 
 0.7 的新入口是 [算法自己的约定](../manual/contracts.md)：从一个 gate 的多个角色讲起，使用 Python 结构协议定义输入与输出。以下保留 0.6 九个案例的背景与运行说明。
 
-本指南面向第一次接触 pyqecclang 的开发者，用九个可以完整运行的案例串起整门语言：从最小的 QRAM 查询模块，一直到从偏微分方程自动推导量子线性系统。每个案例的代码与输出都在当前版本（0.6.0）上实际运行过；涉及算法数学正确性的地方，文中会如实标注哪些已经验证、哪些仍在待核验清单上。规范性的完整定义见 [pyqecclang-spec.md](../reference/language.md)（下称《规范》），本指南按其章节编号引用。
+本指南面向第一次接触 oracq 的开发者，用九个可以完整运行的案例串起整门语言：从最小的 QRAM 查询模块，一直到从偏微分方程自动推导量子线性系统。每个案例的代码与输出都在当前版本（0.6.0）上实际运行过；涉及算法数学正确性的地方，文中会如实标注哪些已经验证、哪些仍在待核验清单上。规范性的完整定义见 [oracq-spec.md](../reference/language.md)（下称《规范》），本指南按其章节编号引用。
 
 专门实现或替换微分方程求解器时，配合阅读 [QPDE/QODE 实作指南](../manual/differential-equations.md)。该指南以 LCHS、Schrödingerization 和 Carleman 说明多种 input paradigm，并提供 11 组可运行的 oracle 绑定与 protocol 替换示例。
 
 ## 1. 这门语言解决什么问题
 
-写量子算法的人通常面临一个别扭的选择：要么直接操作量子位门，把寄存器、算术和数据访问全部手工展平；要么用高层描述，却在导出时丢失全部结构，得到一张巨大的门列表。pyqecclang 的立场是两条路都不必走。你用普通 Python 函数描述算法结构，生成器产出一种**寄存器级的模块化中间表示（RIR）**：一个作用在整个 8 位寄存器上的 Hadamard 门就是一条指令；调用别的模块就是一条调用指令，不会把对方复制进来；重复一千次就是重复计数为一千的单个节点。模块结构一直保留到导出与执行阶段，只有具体后端在需要时才按自己的能力展开。
+写量子算法的人通常面临一个别扭的选择：要么直接操作量子位门，把寄存器、算术和数据访问全部手工展平；要么用高层描述，却在导出时丢失全部结构，得到一张巨大的门列表。oracq 的立场是两条路都不必走。你用普通 Python 函数描述算法结构，生成器产出一种**寄存器级的模块化中间表示（RIR）**：一个作用在整个 8 位寄存器上的 Hadamard 门就是一条指令；调用别的模块就是一条调用指令，不会把对方复制进来；重复一千次就是重复计数为一千的单个节点。模块结构一直保留到导出与执行阶段，只有具体后端在需要时才按自己的能力展开。
 
-第二个核心立场是**允许未完成的实现**。一个量子算法往往依赖若干 oracle（数据库查询、态制备、块编码），它们各有物理实现方案，成熟度各不相同。pyqecclang 允许先把算法骨架生成为带有空槽的合法程序，保存、检查、报告缺口，之后再逐个绑定实现。空槽不会被空线路悄悄冒充，导出闭合程序时未绑定的槽会被点名拒绝。
+第二个核心立场是**允许未完成的实现**。一个量子算法往往依赖若干 oracle（数据库查询、态制备、块编码），它们各有物理实现方案，成熟度各不相同。oracq 允许先把算法骨架生成为带有空槽的合法程序，保存、检查、报告缺口，之后再逐个绑定实现。空槽不会被空线路悄悄冒充，导出闭合程序时未绑定的槽会被点名拒绝。
 
 最后是诚实的边界。语言核心验证的是结构正确、序列化确定、后端可消费；算法层面的数值精度、成功概率与复杂度优势不属于当前承诺，所有产物都带着待核验标记。本指南会在每个案例末尾说明该案例验证了什么、没有验证什么。
 
@@ -52,7 +52,7 @@ PYTHONPATH=src /path/to/backend/python -m unittest discover -s tests/integration
 第一个例子来自 `examples/qram_modules.py`，它展示三件事：带 QRAM 资源形参的模块、跨模块的资源重命名、以及查询的异或语义。
 
 ```python
-from pyqecclang import QRAM, Builder, UInt, dumps, export_originir, simulate
+from oracq import QRAM, Builder, UInt, dumps, export_originir, simulate
 
 def make_lookup(address_width=2, data_width=3):
     b = Builder(
@@ -120,7 +120,7 @@ m_demo_b89906731f4fe79582ed7931(q[0], q[1], q[2], q[3], q[4])
 第二个案例演示视图操作与三个结构块。目标很朴素：在标志位为零的条件下，把一个 8 位字加 7 加一千次，最后对低两位做一次逆旋转。
 
 ```python
-from pyqecclang import Builder, Bits, UInt, simulate
+from oracq import Builder, Bits, UInt, simulate
 
 b = Builder("arithmetic", {"word": UInt(8), "flag": Bits(1)})
 with b.control(b["flag"], 0):
@@ -153,9 +153,9 @@ print(len(operation.module.body))
 现在看这门语言最有特色的工作流：先生成带空槽的算法骨架，再绑定实现。例子是 Deutsch–Jozsa 算法，它的 XOR 数据库 oracle 先保持抽象。
 
 ```python
-from pyqecclang import bind, export_originir, unresolved, ValidationError
-from pyqecclang.algorithms.basics.oracle_algorithms import deutsch_jozsa
-from pyqecclang.algorithms.input_model.oracles import abstract_database, gate_database
+from oracq import bind, export_originir, unresolved, ValidationError
+from oracq.algorithms.basics.oracle_algorithms import deutsch_jozsa
+from oracq.algorithms.input_model.oracles import abstract_database, gate_database
 
 abstract_fn = abstract_database("Function", 2, 1)
 open_program = deutsch_jozsa(abstract_fn).program()
@@ -192,10 +192,10 @@ text = export_originir(closed).text
 
 ```bash
 uv run python tools/build_catalog.py                 # 生成 out/catalog/ 全部案例产物
-uv run pyqecclang requirements out/catalog/costa_qram/open.rir.json
-uv run pyqecclang bind out/catalog/costa_qram/open.rir.json \
+uv run oracq requirements out/catalog/costa_qram/open.rir.json
+uv run oracq bind out/catalog/costa_qram/open.rir.json \
     --bindings out/catalog/costa_qram/bindings.json -o out/costa-bound.rir.json
-uv run pyqecclang emit out/costa-bound.rir.json -o out/costa.originir
+uv run oracq emit out/costa-bound.rir.json -o out/costa.originir
 ```
 
 `--bindings` 清单把每个槽指到一个实现程序文件与可选的资源映射；分批绑定是正常用法，绑定一部分后其余槽位保持开放。QRAM 捕获提升（《规范》8.3）处理实现私需资源的情况：链接器把资源贯通调用链提升到入口，共享同一资源的槽只占一个入口资源。
@@ -205,7 +205,7 @@ uv run pyqecclang emit out/costa-bound.rir.json -o out/costa.originir
 块编码库维护信号位视角的算子代数，组合时归一化常数 alpha 随之传播并保存在模块属性 `be_alpha` 里。README 中的经典片段如下，断言全部成立：
 
 ```python
-from pyqecclang import identity, pauli_x, product, linear_combination, scale
+from oracq import identity, pauli_x, product, linear_combination, scale
 
 a = scale(2, identity(1))          # alpha = 2
 b = scale(3, pauli_x(1))           # alpha = 3
@@ -224,9 +224,9 @@ assert d.alpha == 6                # 2 * 3
 `algorithms/elementary.py` 提供一组可直接组装的范式算法：Deutsch–Jozsa、Grover、QFT、qubitization walk、相位估计、QSVT 序列与 oblivious amplitude amplification。以 Grover 为例，用一个具体的相位 oracle 跑一步振幅放大：
 
 ```python
-from pyqecclang import simulate
-from pyqecclang.algorithms.common.search import grover
-from pyqecclang.algorithms.input_model.oracles import phase_marks
+from oracq import simulate
+from oracq.algorithms.common.search import grover
+from oracq.algorithms.input_model.oracles import phase_marks
 
 marked = phase_marks(2, [3])            # 给基矢 |3> 加相位
 program = grover(marked, 2).operation.program()
@@ -243,7 +243,7 @@ for values, amp in sorted(simulate(program).amplitudes.items()):
 `arithmetic.py` 提供 14 类定点算术的自动可逆合成：`add, sub, neg, abs, mul, div, reciprocal, sqrt, lt, eq, select, and, or, xor`。生成的模块长这样：
 
 ```python
-from pyqecclang import FixedFormat, fixed_arithmetic
+from oracq import FixedFormat, fixed_arithmetic
 
 mul = fixed_arithmetic("mul", FixedFormat(8, 3))
 print([(r.name, r.type.width) for r in mul.module.registers])
@@ -262,7 +262,7 @@ print([(r.name, r.type.width) for r in mul.module.locals])
 同一张网络有三种消费方式。降到严格门集：
 
 ```python
-from pyqecclang import export_toffoli_u3_cz
+from oracq import export_toffoli_u3_cz
 text = export_toffoli_u3_cz(mul.program()).text
 ```
 
@@ -273,7 +273,7 @@ text = export_toffoli_u3_cz(mul.program()).text
 `compile_function` 接受受限的纯数学函数（`examples/math_functions.py` 里的五个函数都是合法输入），产出满足"输入保持、输出异或、状态标志、工作区复净"契约的模块。编译理想气体压强公式并实际执行：
 
 ```python
-from pyqecclang import FixedFormat, MathConfig, compile_function, simulate
+from oracq import FixedFormat, MathConfig, compile_function, simulate
 
 fmt = FixedFormat(12, 6)
 source = '''
@@ -308,7 +308,7 @@ classic: 0.75
 
 前端接受的东西够写实用公式：四则、比较、条件表达式与结构化 if（编译成 select）、静态有界 for 循环、纯 helper、`math`/`cmath` 白名单（sqrt/exp/log/三角/双曲及复数分解）、`Index(width)` 型整数输入、多返回值。拒绝的东西同样明确：递归、lambda、动态循环、异常处理、任何副作用——遇到就抛 `FunctionCompileError`。非多项式核用配置区间的 Chebyshev 采样加 Clenshaw 递推实现，采样数只依赖阶数，不枚举输入真值表。
 
-命令行同样可以完成编译：`pyqecclang compile-function examples/math_functions.py --function pressure --width 12 --fraction 6 --mir-output mir.json -o pressure.rir.json`。MIR 数学图独立于 RIR 序列化，换一份配置可以从同一张图重新降低。这条链路最有分量的应用在 QFVM 里：Roe 通量公式就是由 `frozen_roe_face` 纯函数自动编译的（案例八）。
+命令行同样可以完成编译：`oracq compile-function examples/math_functions.py --function pressure --width 12 --fraction 6 --mir-output mir.json -o pressure.rir.json`。MIR 数学图独立于 RIR 序列化，换一份配置可以从同一张图重新降低。这条链路最有分量的应用在 QFVM 里：Roe 通量公式就是由 `frozen_roe_face` 纯函数自动编译的（案例八）。
 
 ## 11. 案例八：QFVM 中替换 QLSS——CKS 与 Costa 两条路线
 
@@ -319,10 +319,10 @@ classic: 0.75
 替换发生在问题对象与协议之间：
 
 ```python
-from pyqecclang import SpectralPromise
-from pyqecclang.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem
-from pyqecclang.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
-from pyqecclang.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
+from oracq import SpectralPromise
+from oracq.applications.qfvm import roe_qfvm_inputs, roe_qfvm_problem
+from oracq.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
+from oracq.algorithms.qlss.qlss import CostaConfig, make_costa_qlss
 
 inputs = roe_qfvm_inputs()
 problem = roe_qfvm_problem(
@@ -354,9 +354,9 @@ costa_state = make_costa_qlss(CostaConfig(steps=1)).solve(problem)  # 触发稀�
 ```python
 from functools import partial
 
-from pyqecclang.algorithms.qode.ode import linear_qode
-from pyqecclang.algorithms.common.hamiltonian import taylor_hamiltonian
-from pyqecclang.applications.qham import Discretization, Field, Grid, Known, PolynomialPDE, QHAMPlan, qham_input_model, structured_fd_bindings
+from oracq.algorithms.qode.ode import linear_qode
+from oracq.algorithms.common.hamiltonian import taylor_hamiltonian
+from oracq.applications.qham import Discretization, Field, Grid, Known, PolynomialPDE, QHAMPlan, qham_input_model, structured_fd_bindings
 
 u = Field("u")
 pde = PolynomialPDE.from_equations(
@@ -387,7 +387,7 @@ cbmd_solution = shifted.solve(
 命令行入口做同样的事并落盘全套推导产物：
 
 ```bash
-PYTHONPATH=src python3 -m pyqecclang.applications.qham --example burgers --order 2 --row physical
+PYTHONPATH=src python3 -m oracq.applications.qham --example burgers --order 2 --row physical
 ```
 
 manifest 摘录（真实输出）：PDE 最高次 2、张量秩上限 3、函数块 9 个、算子端口 L/F/B_2、状态维数 4、提升后原始维数 **129**、生成元目标宽度 8。输出目录包含 pde.json、qcl-plan.json、rows.json、qode-input.json 与 derivation.md（同伦递推公式和耦合表）。内置案例除 Burgers 外还有 KdV（m=3，16 块）、强迫三次反应、双分量耦合与二维向量 Burgers（提升维数 35,968）。验证状态：链式法则见证残差约 1e-16（检验代数推导正确），真实 PySparQ 已执行过多分量非线性端口与完整小型 QHAM→QODE→物理输出链；HAM 收敛性与求解精度仍在待核验清单。

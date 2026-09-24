@@ -1,6 +1,6 @@
 # 双因子分解块编码（Double Factorization）
 
-> 类别 C2 · 模块 `pyqecclang.algorithms.input_model.lowrank` · 阶段 V1
+> 类别 C2 · 模块 [`oracq.algorithms.input_model.lowrank`](../../api/algorithms/input_model/lowrank.rst) · 阶段 V1
 
 ## 概述
 
@@ -21,12 +21,14 @@ diagonalize_symmetric(matrix, *, tolerance=1e-12, max_sweeps=100)
 double_factorized_encoding(df, *, name=None)
 ```
 
-- `DoubleFactorization`：DF 输入模型（input model 为 CP——张量数据作为经典参数直接给出，即 algorithm-coverage 中"低秩张量（HAM）→ BE"管道）。`rotations` 为显式小酉矩阵（维度 2..32 内二的幂，按列正交校验酉性，容差 1e-9），`spectra` 为对应实谱；数据类的属性 `width` 给出目标量子位数，`rank` 给出秩项数。
-- `from_symmetric`：物理 DF 的经典预处理入口——接收显式酉 $U_r$ 与实对称 $G_r$，把 $G_r = V_r\,\mathrm{diag}(g_r)\,V_r^{\mathsf T}$ 的特征向量矩阵折叠进旋转（$U_r V_r$）。
-- `diagonalize_symmetric`：实对称矩阵的 Jacobi 特征分解，返回 `(特征值, 特征向量矩阵)`；非对称输入在生成期抛 `ValidationError`。
-- `double_factorized_encoding`：组装 LCU 块编码（`name` 形参保留但当前不参与命名）。
+API 入口：{obj}`DoubleFactorization <oracq.algorithms.input_model.lowrank.DoubleFactorization>`、{obj}`diagonalize_symmetric <oracq.algorithms.input_model.lowrank.diagonalize_symmetric>`、{obj}`double_factorized_encoding <oracq.algorithms.input_model.lowrank.double_factorized_encoding>`
 
-返回 `BlockEncoding`，模块属性：
+- {obj}`DoubleFactorization <oracq.algorithms.input_model.lowrank.DoubleFactorization>`：DF 输入模型（input model 为 CP——张量数据作为经典参数直接给出，即 algorithm-coverage 中"低秩张量（HAM）→ BE"管道）。`rotations` 为显式小酉矩阵（维度 2..32 内二的幂，按列正交校验酉性，容差 1e-9），`spectra` 为对应实谱；数据类的属性 `width` 给出目标量子位数，`rank` 给出秩项数。
+- `from_symmetric`：物理 DF 的经典预处理入口——接收显式酉 $U_r$ 与实对称 $G_r$，把 $G_r = V_r\,\mathrm{diag}(g_r)\,V_r^{\mathsf T}$ 的特征向量矩阵折叠进旋转（$U_r V_r$）。
+- {obj}`diagonalize_symmetric <oracq.algorithms.input_model.lowrank.diagonalize_symmetric>`：实对称矩阵的 Jacobi 特征分解，返回 `(特征值, 特征向量矩阵)`；非对称输入在生成期抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
+- {obj}`double_factorized_encoding <oracq.algorithms.input_model.lowrank.double_factorized_encoding>`：组装 LCU 块编码（`name` 形参保留但当前不参与命名）。
+
+返回 {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -59,9 +61,10 @@ $U_r$ 由两能级分解合成：逐列消元为对角相位后按逆序回放�
 
 ## 相关链接
 
-- 源码：`src/pyqecclang/algorithms/input_model/lowrank.py`
+- 源码：`src/oracq/algorithms/input_model/lowrank.py`
 - 同模块算法：[THC 块编码](thc.md)
 - API 参考：[化学低秩分解块编码](../../api/algorithms/input_model/lowrank.rst)
+- 概念：[Oracle 与算子表示](../operators.md)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
 ## 数值验证

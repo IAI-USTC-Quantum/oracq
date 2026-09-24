@@ -6,9 +6,9 @@ import unittest
 
 from witness import assert_block_equals
 
-from pyqecclang import ValidationError, bind, simulate, unresolved
-from pyqecclang.algorithms.common.hamiltonian import PauliHamiltonian
-from pyqecclang.algorithms.common.prepare_select import (
+from oracq import ValidationError, bind, simulate, unresolved
+from oracq.algorithms.common.hamiltonian import PauliHamiltonian
+from oracq.algorithms.common.prepare_select import (
     abstract_prepare,
     alias_prepare,
     alias_table,
@@ -17,9 +17,9 @@ from pyqecclang.algorithms.common.prepare_select import (
     qram_prepare,
     select_pauli,
 )
-from pyqecclang.algorithms.common.transforms import qubitization_walk
-from pyqecclang.algorithms.input_model.oracles import gate_database
-from pyqecclang.infrastructure.linking import Binding
+from oracq.algorithms.common.transforms import qubitization_walk
+from oracq.algorithms.input_model.oracles import gate_database
+from oracq.infrastructure.linking import Binding
 
 TERMS = ((0.6, "XZ"), (-0.8, "ZI"), (0.3j, "YY"), (-0.5, "IX"))
 COEFFICIENTS = tuple(c for c, _ in TERMS)

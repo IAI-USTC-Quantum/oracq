@@ -1,6 +1,6 @@
 # 一般 QHAM：从 PDE 到量子适配线性系统的推导
 
-本文先固定数学规则，再据此实现生成器。主要对照 [QHAM v2](https://arxiv.org/html/2411.06759v2) II.1–II.3；其 [v1](https://arxiv.org/html/2411.06759v1) 使用 secondary linearization 名称。这里“二次”表示第二次线性化，不是将所有 PDE 先降为二次多项式。
+本文先固定数学规则，再据此实现生成器。主要对照 [QHAM v2](https://arxiv.org/html/2411.06759v2) II.1–II.3；其 [v1](https://arxiv.org/html/2411.06759v1) 使用 secondary linearization 名称。这里“二次”表示第二次线性化，不是将所有 PDE 先降为二次多项式。工程描述见手册[一般 QHAM 自动生成：PDE → HAM → QCL → QODE](../manual/qham.md)，可运行示例见教程[从 PDE 表达式生成 QHAM 输入](../tutorials/qham.md)。
 
 ## 1. 输入范围与约定
 
@@ -52,7 +52,7 @@ U2' = L U2 - eta [B_2(U0,U1)+B_2(U1,U0)]
 Y_a(x0,...,x_(k-1)) = product_j U_aj(xj).
 ```
 
-这些因子有独立空间坐标。Y_(0,1) 与 Y_(1,0) 不能未经坐标置换直接合并。同点乘法必须在对相应因子作用空间算子后，再进行对角收缩。离散情况下，B_r 就是这样的矩形线性映射。
+这些因子有独立空间坐标。Y_(0,1) 与 Y_(1,0) 不能未经坐标置换直接合并。同点乘法必须在对相应因子作用空间算子后，再进行对角收缩。离散情况下，B_r 就是这样的矩形线性映射。实现上，{obj}`structured_fd_bindings <oracq.applications.qham.stencils.structured_fd_bindings>` 从移位与收缩生成基本矩阵，不物化端口矩阵。
 
 用乘积法则只求一次时间导数：
 
@@ -85,7 +85,7 @@ weight(new)-weight(old)
 
 并且阶数和严格下降。强迫边删除一个零阶因子，权重减少 1；线性边保持不变。因此所有边都落在有限集合 weight(a)≤W 中，最多需要 W 个动态因子。全零字只产生线性项和强迫降阶项，闭包终止。
 
-这个闭包对给定的 HAM 截断系统是精确的，不是再做一次 Carleman 阶数截断。与原始非线性 PDE 的差异仍来自 HAM 截断、空间离散和后续数值/量子求解。
+这个闭包对给定的 HAM 截断系统是精确的，不是再做一次 Carleman 阶数截断。生成器侧的 {obj}`QHAMPlan <oracq.applications.qham.linearization.QHAMPlan>` 按同一权重判据惰性枚举闭包，不物化矩阵。与原始非线性 PDE 的差异仍来自 HAM 截断、空间离散和后续数值/量子求解。
 
 对于二次 PDE，p=1，字数为 2^(m+1)-1。另加物理输出块后是论文的 2^(m+1) 个函数块。每个单坐标空间维数为 N 时，原始总维数为
 

@@ -1,9 +1,9 @@
-"""pyqecclang 侧 T1：矩阵求逆 QSP 相位序列（κ=8, ε=1e-2）。
+"""oracq 侧 T1：矩阵求逆 QSP 相位序列（κ=8, ε=1e-2）。
 
-规格与判定阈值见 ~/projects/pyqecclang-dev/benchmarks/t1/SPEC.md。
+规格与判定阈值见 ~/projects/oracq-dev/benchmarks/t1/SPEC.md。
 独立可运行：
 
-    cd ~/projects/qcfd-dev/pyqecclang && \
+    cd ~/projects/qcfd-dev/oracq && \
     PYTHONPATH=src ~/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python \
     tools/expressiveness/t1_qsp_phases.py
 
@@ -14,9 +14,9 @@ c·J_b(x) = c·(1−(1−x²)^b)/x，b = ceil(ln(1/ε)/−ln(1−1/κ²))，缩�
 import math
 from importlib.metadata import version
 
-import pyqecclang
-from pyqecclang.algorithms.common.qsvt import qsp_phases, qsp_response
-from pyqecclang.infrastructure.ir import ValidationError
+import oracq
+from oracq.algorithms.common.qsvt import qsp_phases, qsp_response
+from oracq.infrastructure.ir import ValidationError
 
 KAPPA, EPS, MAX_DEGREE, THRESHOLD = 8, 1e-2, 40, 1e-2
 
@@ -38,7 +38,7 @@ def synthesize(b):
 
 
 def main():
-    print(f"pyqecclang {version('pyqecclang')} ({pyqecclang.__file__})")
+    print(f"oracq {version('oracq')} ({oracq.__file__})")
     b_spec = math.ceil(math.log(1.0 / EPS) / -math.log(1.0 - 1.0 / KAPPA**2))
     try:
         synthesize(b_spec)

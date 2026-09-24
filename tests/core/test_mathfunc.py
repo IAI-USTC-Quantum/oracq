@@ -2,8 +2,8 @@
 
 import unittest
 
-from pyqecclang import Bits, Builder, FixedFormat, ValidationError, dumps, loads, simulate
-from pyqecclang.infrastructure.mathfunc import (
+from oracq import Bits, Builder, FixedFormat, ValidationError, dumps, loads, simulate
+from oracq.infrastructure.mathfunc import (
     Index,
     MathConfig,
     MathProgram,
@@ -52,6 +52,18 @@ class MathFunctionTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     compile_function(source)
         self.assertFalse(__import__("pathlib").Path("must_not_create").exists())
+
+    def test_future_imports_and_module_docstring_are_ignored(self):
+        result = compile_function(
+            '"""模块说明。"""\n'
+            "from __future__ import annotations\n"
+            "import math\n"
+            "def norm(x: float) -> float:\n"
+            " return math.sqrt(x)",
+            fmt=FixedFormat(8, 3),
+        )
+        parameters = result.math_ir.function_map[result.math_ir.entry].parameters
+        self.assertEqual([(p.name, p.kind) for p in parameters], [("x", "real")])
 
     def test_helper_module_reuse_and_roundtrip(self):
         result = compile_function(
@@ -125,7 +137,7 @@ class MathFunctionTests(unittest.TestCase):
         program.finish()
 
     def test_roe_is_a_compiled_pure_function(self):
-        from pyqecclang.applications.roe import roe_face
+        from oracq.applications.roe import roe_face
 
         op = roe_face(fmt=FixedFormat(4, 1))
         self.assertEqual(dict(op.module.attributes)["math_function"], "frozen_roe_face")

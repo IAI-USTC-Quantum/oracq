@@ -1,0 +1,180 @@
+entry: demo
+modules:
+  - attributes: []
+    body:
+      - angle: null
+        op: h
+        operands:
+          - parts:
+              - register: address
+                start: 0
+                tag: Span
+                width: 2
+            tag: Ref
+            type:
+              kind: uint
+              tag: RegType
+              width: 2
+        tag: Primitive
+        value: null
+      - angle: null
+        op: x
+        operands:
+          - parts:
+              - register: data
+                start: 0
+                tag: Span
+                width: 1
+            tag: Ref
+            type:
+              kind: bits
+              tag: RegType
+              width: 1
+        tag: Primitive
+        value: null
+      - arguments:
+          - parts:
+              - register: address
+                start: 0
+                tag: Span
+                width: 2
+            tag: Ref
+            type:
+              kind: uint
+              tag: RegType
+              width: 2
+          - parts:
+              - register: data
+                start: 0
+                tag: Span
+                width: 3
+            tag: Ref
+            type:
+              kind: uint
+              tag: RegType
+              width: 3
+        module: wrapped_lookup
+        resources:
+          - values
+        tag: Call
+    name: demo
+    registers:
+      - name: address
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 2
+      - name: data
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 3
+    resources:
+      - name: values
+        tag: Resource
+        type:
+          address_width: 2
+          data_width: 3
+          tag: QRAM
+    tag: Module
+  - attributes: []
+    body:
+      - address:
+          parts:
+            - register: address
+              start: 0
+              tag: Span
+              width: 2
+          tag: Ref
+          type:
+            kind: uint
+            tag: RegType
+            width: 2
+        data:
+          parts:
+            - register: data
+              start: 0
+              tag: Span
+              width: 3
+          tag: Ref
+          type:
+            kind: uint
+            tag: RegType
+            width: 3
+        resource: table
+        tag: Load
+    name: lookup_2_3
+    registers:
+      - name: address
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 2
+      - name: data
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 3
+    resources:
+      - name: table
+        tag: Resource
+        type:
+          address_width: 2
+          data_width: 3
+          tag: QRAM
+    tag: Module
+  - attributes: []
+    body:
+      - arguments:
+          - parts:
+              - register: a
+                start: 0
+                tag: Span
+                width: 2
+            tag: Ref
+            type:
+              kind: uint
+              tag: RegType
+              width: 2
+          - parts:
+              - register: d
+                start: 0
+                tag: Span
+                width: 3
+            tag: Ref
+            type:
+              kind: uint
+              tag: RegType
+              width: 3
+        module: lookup_2_3
+        resources:
+          - memory
+        tag: Call
+    name: wrapped_lookup
+    registers:
+      - name: a
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 2
+      - name: d
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 3
+    resources:
+      - name: memory
+        tag: Resource
+        type:
+          address_width: 2
+          data_width: 3
+          tag: QRAM
+    tag: Module
+tag: Program
+version: '0.1'

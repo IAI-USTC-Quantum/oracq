@@ -1,6 +1,6 @@
 # RIR：模块化寄存器级中间表示
 
-本规范定义 RIR 0.3。开放声明、能力与绑定的详细规则见[开放 IR](open-ir.md)。
+本规范定义 RIR 0.3。开放声明、能力与绑定的详细规则见[开放 IR](open-ir.md)；Python 生成层中寄存器与视图的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md#寄存器与视图)。
 
 规范日期：2026-09-19。Python API、序列化器、参考执行器与后端适配器必须遵守本文。JSON Schema 只覆盖对象形状；跨节点约束由 validate 检查。
 
@@ -9,7 +9,7 @@
 - **第 1 部分：设计定位**——RIR 表达什么、不表达什么；
 - **第 2 部分：数据模型**——对象模型、存储类型与位序、寄存器引用与视图；
 - **第 3 部分：指令集合**——七种指令的逐条语义与约束；
-- **第 4 部分：程序级规则**——调用图、JSON 编码、形式文法、后端降低与私有工作区；
+- **第 4 部分：程序级规则**——调用图、文本编码、形式文法、后端降低与私有工作区；
 - **第 5 部分：完整案例**——六个可以直接运行的端到端程序，逐字段对照前四部分的规则。
 
 ## 第 1 部分：设计定位
@@ -42,7 +42,7 @@ JSON 对象字符串。映射必须引用已声明资源，且局部名不重复
 
 ### 2.2 存储类型与位序
 
-Register 由 name 和 RegType 构成。RegType 由 kind 和 width 构成。width 必须是严格的 Python/JSON 整数，布尔值不能冒充宽度。
+Register 由 name 和 RegType 构成。RegType 由 kind 和 width 构成。width 必须是严格的 Python/JSON/YAML 整数，布尔值不能冒充宽度。
 
 | kind | 位模式解释 |
 |---|---|
@@ -99,7 +99,7 @@ Primitive 具有 op、operands、angle 和 value。operands 是 Ref 列表。没
 
 Load 具有 resource、address 和 data。resource 引用当前模块的 QRAM 形式参数。address 和 data 的宽度必须与声明一致，两个视图不能重叠。
 
-QRAM 类型具有 address_width 与 data_width，两者均为 1..64。内存是由地址到无符号数据字的映射 M，未指定的单元为零。内存数据不写入程序 JSON，而是作为执行输入另行绑定。不含 Store 的程序中 M 固定不变；含 Store 的程序中 M 按指令序演化。
+QRAM 类型具有 address_width 与 data_width，两者均为 1..64。内存是由地址到无符号数据字的映射 M，未指定的单元为零。内存数据不写入程序序列化文本，而是作为执行输入另行绑定（绑定文件格式见 [QRAM 内存定义](qram-memory.md)）。不含 Store 的程序中 M 固定不变；含 Store 的程序中 M 按指令序演化。
 
 ```text
 |address>|data>  ↦  |address>|data XOR M[address]>
@@ -159,46 +159,50 @@ Program 的调用图必须无环。所有声明的模块都要检查，包括不
 
 每个调用目标都必须有明确的 Module 记录。该记录可以是开放声明；未定义的名字不等同于未完成的实现。
 
-### 4.2 JSON 编码
+### 4.2 文本编码（YAML 与 JSON）
 
-每个数据类使用具有 tag 字段的 JSON 对象。tag 的取值对应以下记录名：
+RIR 文本默认采用 YAML；{obj}`dumps(program, format="json") <oracq.infrastructure.serialization.dumps>` 输出等价的规范 JSON，{obj}`loads <oracq.infrastructure.serialization.loads>` 同时接受两种格式（YAML 是 JSON 的超集，两种文本解析得到的对象树逐字段一致）。每个数据类使用具有 tag 字段的对象。tag 的取值对应以下记录名：
 
 ```text
 Program, Module, Register, RegType, Span, Ref, QRAM, Resource,
 Primitive, Load, Store, Call, Repeat, Control, Adjoint
 ```
 
-所有字段都必须写出，包括 null、空列表和空 attributes。解码器拒绝多余字段、缺失字段、未知 tag、重复 JSON 键、非有限浮点数以及未知版本。
+所有字段都必须写出，包括 null、空列表和空 attributes。解码器拒绝多余字段、缺失字段、未知 tag、重复键、非有限浮点数以及未知版本；YAML 路径另拒绝日期等隐式标量类型，需要按字符串处理时必须加引号。
 
-Python 中的不可变元组编码为 JSON 数组。反序列化将其恢复为元组，不允许将任意 Python 对象反序列化成可调用代码。
+Python 中的不可变元组编码为数组。反序列化将其恢复为元组，不允许将任意 Python 对象反序列化成可调用代码。
 
 以下示例是一条作用于两位整数寄存器的 H 广播指令：
 
-```json
-{
-  "tag": "Primitive",
-  "op": "h",
-  "operands": [{
-    "tag": "Ref",
-    "parts": [{"tag": "Span", "register": "address", "start": 0, "width": 2}],
-    "type": {"tag": "RegType", "kind": "uint", "width": 2}
-  }],
-  "angle": null,
-  "value": null
-}
+```yaml
+angle: null
+op: h
+operands:
+  - parts:
+      - register: address
+        start: 0
+        tag: Span
+        width: 2
+    tag: Ref
+    type:
+      kind: uint
+      tag: RegType
+      width: 2
+tag: Primitive
+value: null
 ```
 
-规范输出采用 UTF-8、两空格缩进、按键排序和末尾一个换行。模块定义按模块名排序，签名参数和指令的列表顺序保留。浮点数采用 Python JSON 的有限浮点表示，禁止 NaN 与 Infinity。
+规范 YAML 输出采用 UTF-8、块风格、两空格缩进、按键排序、嵌套序列相对所属键缩进、末尾一个换行，不使用锚点与别名。规范 JSON 输出采用 UTF-8、两空格缩进、按键排序和末尾一个换行。两种格式的模块定义都按模块名排序，签名参数和指令的列表顺序保留。浮点数采用 Python 的有限浮点表示，禁止 NaN 与 Infinity。
 
-模块 attributes 的顺序也会保留。Builder 按键排序属性；外部直接构造的 IR 应采用相同次序，以获得相同的规范输出。当前规范保证同一 IR 的确定性输出，不要求所有语义等价线路具有相同 JSON。
+模块 attributes 的顺序也会保留。Builder 按键排序属性；外部直接构造的 IR 应采用相同次序，以获得相同的规范输出。当前规范保证同一 IR 的确定性输出，不要求所有语义等价线路具有相同文本。
 
-Schema 文件见 [rir.schema.json](schemas/rir.schema.json)。它描述 JSON 结构和局部范围；引用解析、别名、元数、跨节点类型、控制保护及调用图规则仍须运行语义验证器。对象形状的形式产生式汇总见 4.3 节。
+Schema 文件见 [rir.schema.json](schemas/rir.schema.json)。它描述 YAML 与 JSON 共同的编码对象结构与局部范围；引用解析、别名、元数、跨节点类型、控制保护及调用图规则仍须运行语义验证器。对象形状的形式产生式汇总见 4.3 节。
 
 ### 4.3 形式文法
 
 本节以产生式汇总第 2、3 部分与 4.1、4.2 节定义的对象形状，供独立实现对照。文法只覆盖结构与字段；别名、控制保护、调用图和数值范围等语义规则以正文和语义验证器为准。
 
-词法约定：name 匹配 `[A-Za-z_][A-Za-z0-9_]*`；integer 是严格整数，布尔值不能冒充；float 是有限浮点数；string 是任意 JSON 字符串。`∅` 表示字段缺失（开放声明的空体，或未使用的 angle/value）。`X*` 表示有序不可变元组，允许为空。
+词法约定：name 匹配 `[A-Za-z_][A-Za-z0-9_]*`；integer 是严格整数，布尔值不能冒充；float 是有限浮点数；string 是任意字符串标量。`∅` 表示字段缺失（开放声明的空体，或未使用的 angle/value）。`X*` 表示有序不可变元组，允许为空。
 
 ```text
 program     = Program { entry: name;
@@ -242,16 +246,16 @@ angle 与 value 是否出现由 op 决定（见 3.1 节），未使用者序列�
 
 主要数值范围：RegType.width 处于 0..64；QRAM 两个宽度处于 1..64；Repeat.count 处于 0..2^63−1；Control.value 处于控制视图的无符号范围；add_const 的 value 处于 0..2^width−1；模块调用深度和结构块嵌套深度不超过 127。
 
-JSON 编码把每条记录映射为携带 "tag" 的对象，字段名与记录字段一致；元组映射为 JSON 数组，标量与 null 原样传递：
+文本编码把每条记录映射为携带 "tag" 的对象，字段名与记录字段一致；元组映射为数组，标量与 null 原样传递：
 
 ```text
-json(T, f1: v1, …, fn: vn) = { "tag": T, "f1": enc(v1), …, "fn": enc(vn) }
+obj(T, f1: v1, …, fn: vn) = { "tag": T, "f1": enc(v1), …, "fn": enc(vn) }
 enc((e1, …, ek)) = [ enc(e1), …, enc(ek) ]
 enc(∅)           = null
 enc(标量)        = 标量
 ```
 
-解码要求字段集合与 tag 记录完全一致，并拒绝未知 tag、多余或缺失字段、重复键、非有限数和未知版本（见 4.2 节）。规范输出为 UTF-8、按键排序、两空格缩进、末尾一个换行。
+解码要求字段集合与 tag 记录完全一致，并拒绝未知 tag、多余或缺失字段、重复键、非有限数和未知版本（见 4.2 节）。规范输出为 UTF-8、按键排序、两空格缩进、末尾一个换行；YAML 采用块风格，JSON 采用花括号对象。
 
 ### 4.4 后端降低规则
 
@@ -265,17 +269,17 @@ PySparQ 后端将非空入口寄存器映射到原生命名整数寄存器。对
 
 ### 4.5 模块私有工作寄存器
 
-Module.locals 是有序 Register 数组，不属于公开调用签名。每次调用从零态借入，必须在返回前复净；IR 只检查宽度和引用，复净是实现义务，模拟器提供运行期检查。开放模块不得声明 locals。Adjoint 和 Control 包括完整模块行为，工作区不能跨调用逃逸。OriginIR 导出为模块工作参数，顺序调用复用一段物理工作区；PySparQ 可在模块边界截获 native 实现，跳过其内部工作区与分解。原生注册表不是 IR 的一部分，不能将原生可执行误报为门级闭合。0.1/0.2 旧 JSON 仍可读写，其 Module 不含 locals；0.3 显式携带该字段。
+Module.locals 是有序 Register 数组，不属于公开调用签名。每次调用从零态借入，必须在返回前复净；IR 只检查宽度和引用，复净是实现义务，模拟器提供运行期检查。开放模块不得声明 locals。Adjoint 和 Control 包括完整模块行为，工作区不能跨调用逃逸。OriginIR 导出为模块工作参数，顺序调用复用一段物理工作区；PySparQ 可在模块边界截获 native 实现，跳过其内部工作区与分解。原生注册表不是 IR 的一部分，不能将原生可执行误报为门级闭合。0.1/0.2 旧文本（YAML 或 JSON）仍可读写，其 Module 不含 locals；0.3 显式携带该字段。
 
 
 ## 第 5 部分：完整案例
 
-以下六个案例都是可以独立运行的完整程序。每例先给出全部生成代码（含逐行注释），再给出 `dumps()` 的规范 JSON 输出——**逐字节来自真实序列化器**，未经删节——最后按字段对照前四部分的规则讲解。建议先读案例 1 建立整体形状，再按特性跳读。
+以下六个案例都是可以独立运行的完整程序。每例先给出全部生成代码（含逐行注释），再给出 `dumps()` 的规范 YAML 输出——**逐字节来自真实序列化器**，未经删节——最后按字段对照前四部分的规则讲解。建议先读案例 1 建立整体形状，再按特性跳读。
 
 ### 案例 1：最小酉程序（Bell 对）
 
 ```python
-from pyqecclang import Bits, Builder, dumps
+from oracq import Bits, Builder, dumps
 
 # 声明模块：公开接口是一个名为 pair 的两位 bits 寄存器。
 b = Builder("bell_pair", {"pair": Bits(2)})
@@ -283,116 +287,83 @@ b = Builder("bell_pair", {"pair": Bits(2)})
 b.h(b["pair"][0])
 # 逐位 CNOT：源是 pair[0]，目标 pair[1]，得到 Bell 态。
 b.xor(b["pair"][0], b["pair"][1])
-# 输出规范 JSON；下文 JSON 即此调用的逐字节结果。
+# 输出规范 YAML；下文 YAML 即此调用的逐字节结果。
 print(dumps(b.finish().program()))
 ```
 
-```json
-{
-  "entry": "bell_pair",
-  "modules": [
-    {
-      "attributes": [],
-      "body": [
-        {
-          "angle": null,
-          "op": "h",
-          "operands": [
-            {
-              "parts": [
-                {
-                  "register": "pair",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 1
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "bits",
-                "tag": "RegType",
-                "width": 1
-              }
-            }
-          ],
-          "tag": "Primitive",
-          "value": null
-        },
-        {
-          "angle": null,
-          "op": "xor",
-          "operands": [
-            {
-              "parts": [
-                {
-                  "register": "pair",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 1
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "bits",
-                "tag": "RegType",
-                "width": 1
-              }
-            },
-            {
-              "parts": [
-                {
-                  "register": "pair",
-                  "start": 1,
-                  "tag": "Span",
-                  "width": 1
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "bits",
-                "tag": "RegType",
-                "width": 1
-              }
-            }
-          ],
-          "tag": "Primitive",
-          "value": null
-        }
-      ],
-      "locals": [],
-      "name": "bell_pair",
-      "registers": [
-        {
-          "name": "pair",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 2
-          }
-        }
-      ],
-      "resources": [],
-      "tag": "Module"
-    }
-  ],
-  "tag": "Program",
-  "version": "0.3"
-}
+```yaml
+entry: bell_pair
+modules:
+  - attributes: []
+    body:
+      - angle: null
+        op: h
+        operands:
+          - parts:
+              - register: pair
+                start: 0
+                tag: Span
+                width: 1
+            tag: Ref
+            type:
+              kind: bits
+              tag: RegType
+              width: 1
+        tag: Primitive
+        value: null
+      - angle: null
+        op: xor
+        operands:
+          - parts:
+              - register: pair
+                start: 0
+                tag: Span
+                width: 1
+            tag: Ref
+            type:
+              kind: bits
+              tag: RegType
+              width: 1
+          - parts:
+              - register: pair
+                start: 1
+                tag: Span
+                width: 1
+            tag: Ref
+            type:
+              kind: bits
+              tag: RegType
+              width: 1
+        tag: Primitive
+        value: null
+    locals: []
+    name: bell_pair
+    registers:
+      - name: pair
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 2
+    resources: []
+    tag: Module
+tag: Program
+version: '0.3'
+
 ```
 
 讲解：
 
-- `Program` 只有三个字段：`entry` 指向唯一模块；`modules` 按模块名排序输出（4.2 节）；`version` 为 `"0.3"`。
-- `Module` 的 `registers` 是公开接口（`pair: bits/2`）；`resources`、`locals`、`attributes` 即使为空也必须写出。
-- 第一条 `Primitive`：`op=h`，操作数是单个 `Ref`，其 `Span(pair, 0, 1)` 是根寄存器的最低位。切片产生 bits 解释（2.3 节），因此 `Ref.type.kind` 是 `bits`。
+- {obj}`Program <oracq.infrastructure.ir.Program>` 只有三个字段：`entry` 指向唯一模块；`modules` 按模块名排序输出（4.2 节）；`version` 为 `"0.3"`。
+- {obj}`Module <oracq.infrastructure.ir.Module>` 的 `registers` 是公开接口（`pair: bits/2`）；`resources`、`locals`、`attributes` 即使为空也必须写出。
+- 第一条 {obj}`Primitive <oracq.infrastructure.ir.Primitive>`：`op=h`，操作数是单个 {obj}`Ref <oracq.infrastructure.ir.Ref>`，其 {obj}`Span(pair, 0, 1) <oracq.infrastructure.ir.Span>` 是根寄存器的最低位。切片产生 bits 解释（2.3 节），因此 `Ref.type.kind` 是 `bits`。
 - 第二条 `Primitive`：`op=xor`，两个同宽操作数——源是 `pair` 的第 0 位、目标是第 1 位，语义为目标按位异或源（3.1 节）。
 - 两条指令未使用的 `angle` 与 `value` 显式写 `null`：规范输出要求所有字段出现（4.2 节）。
 
 ### 案例 2：切片、拼接与类型再解释
 
 ```python
-from pyqecclang import Bits, Builder, UInt, fuse, dumps
+from oracq import Bits, Builder, UInt, fuse, dumps
 
 b = Builder("views", {"x": UInt(4), "y": Bits(2)})
 # 切片 x[1:3] 产生 bits 视图；add_const 需要 uint，
@@ -405,97 +376,65 @@ b.h(word)
 print(dumps(b.finish().program()))
 ```
 
-```json
-{
-  "entry": "views",
-  "modules": [
-    {
-      "attributes": [],
-      "body": [
-        {
-          "angle": null,
-          "op": "add_const",
-          "operands": [
-            {
-              "parts": [
-                {
-                  "register": "x",
-                  "start": 1,
-                  "tag": "Span",
-                  "width": 2
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "uint",
-                "tag": "RegType",
-                "width": 2
-              }
-            }
-          ],
-          "tag": "Primitive",
-          "value": 3
-        },
-        {
-          "angle": null,
-          "op": "h",
-          "operands": [
-            {
-              "parts": [
-                {
-                  "register": "y",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 2
-                },
-                {
-                  "register": "x",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 2
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "sint",
-                "tag": "RegType",
-                "width": 4
-              }
-            }
-          ],
-          "tag": "Primitive",
-          "value": null
-        }
-      ],
-      "locals": [],
-      "name": "views",
-      "registers": [
-        {
-          "name": "x",
-          "tag": "Register",
-          "type": {
-            "kind": "uint",
-            "tag": "RegType",
-            "width": 4
-          }
-        },
-        {
-          "name": "y",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 2
-          }
-        }
-      ],
-      "resources": [],
-      "tag": "Module"
-    }
-  ],
-  "tag": "Program",
-  "version": "0.3"
-}
+```yaml
+entry: views
+modules:
+  - attributes: []
+    body:
+      - angle: null
+        op: add_const
+        operands:
+          - parts:
+              - register: x
+                start: 1
+                tag: Span
+                width: 2
+            tag: Ref
+            type:
+              kind: uint
+              tag: RegType
+              width: 2
+        tag: Primitive
+        value: 3
+      - angle: null
+        op: h
+        operands:
+          - parts:
+              - register: y
+                start: 0
+                tag: Span
+                width: 2
+              - register: x
+                start: 0
+                tag: Span
+                width: 2
+            tag: Ref
+            type:
+              kind: sint
+              tag: RegType
+              width: 4
+        tag: Primitive
+        value: null
+    locals: []
+    name: views
+    registers:
+      - name: x
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 4
+      - name: y
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 2
+    resources: []
+    tag: Module
+tag: Program
+version: '0.3'
+
 ```
 
 讲解：
@@ -507,7 +446,7 @@ print(dumps(b.finish().program()))
 ### 案例 3：模块调用与 QRAM 资源绑定
 
 ```python
-from pyqecclang import Bits, Builder, QRAM, dumps
+from oracq import Bits, Builder, QRAM, dumps
 
 # 被调模块：声明 QRAM 形式资源 table(2,3)，body 是一条 Load。
 lookup = Builder("lookup", {"address": Bits(2), "data": Bits(3)},
@@ -523,199 +462,132 @@ demo.call(lookup.finish(), address=demo["address"], data=demo["data"],
 print(dumps(demo.finish().program()))
 ```
 
-```json
-{
-  "entry": "demo",
-  "modules": [
-    {
-      "attributes": [],
-      "body": [
-        {
-          "angle": null,
-          "op": "h",
-          "operands": [
-            {
-              "parts": [
-                {
-                  "register": "address",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 2
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "bits",
-                "tag": "RegType",
-                "width": 2
-              }
-            }
-          ],
-          "tag": "Primitive",
-          "value": null
-        },
-        {
-          "arguments": [
-            {
-              "parts": [
-                {
-                  "register": "address",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 2
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "bits",
-                "tag": "RegType",
-                "width": 2
-              }
-            },
-            {
-              "parts": [
-                {
-                  "register": "data",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 3
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "bits",
-                "tag": "RegType",
-                "width": 3
-              }
-            }
-          ],
-          "module": "lookup",
-          "resources": [
-            "mem"
-          ],
-          "tag": "Call"
-        }
-      ],
-      "locals": [],
-      "name": "demo",
-      "registers": [
-        {
-          "name": "address",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 2
-          }
-        },
-        {
-          "name": "data",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 3
-          }
-        }
-      ],
-      "resources": [
-        {
-          "name": "mem",
-          "tag": "Resource",
-          "type": {
-            "address_width": 2,
-            "data_width": 3,
-            "tag": "QRAM"
-          }
-        }
-      ],
-      "tag": "Module"
-    },
-    {
-      "attributes": [],
-      "body": [
-        {
-          "address": {
-            "parts": [
-              {
-                "register": "address",
-                "start": 0,
-                "tag": "Span",
-                "width": 2
-              }
-            ],
-            "tag": "Ref",
-            "type": {
-              "kind": "bits",
-              "tag": "RegType",
-              "width": 2
-            }
-          },
-          "data": {
-            "parts": [
-              {
-                "register": "data",
-                "start": 0,
-                "tag": "Span",
-                "width": 3
-              }
-            ],
-            "tag": "Ref",
-            "type": {
-              "kind": "bits",
-              "tag": "RegType",
-              "width": 3
-            }
-          },
-          "resource": "table",
-          "tag": "Load"
-        }
-      ],
-      "locals": [],
-      "name": "lookup",
-      "registers": [
-        {
-          "name": "address",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 2
-          }
-        },
-        {
-          "name": "data",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 3
-          }
-        }
-      ],
-      "resources": [
-        {
-          "name": "table",
-          "tag": "Resource",
-          "type": {
-            "address_width": 2,
-            "data_width": 3,
-            "tag": "QRAM"
-          }
-        }
-      ],
-      "tag": "Module"
-    }
-  ],
-  "tag": "Program",
-  "version": "0.3"
-}
+```yaml
+entry: demo
+modules:
+  - attributes: []
+    body:
+      - angle: null
+        op: h
+        operands:
+          - parts:
+              - register: address
+                start: 0
+                tag: Span
+                width: 2
+            tag: Ref
+            type:
+              kind: bits
+              tag: RegType
+              width: 2
+        tag: Primitive
+        value: null
+      - arguments:
+          - parts:
+              - register: address
+                start: 0
+                tag: Span
+                width: 2
+            tag: Ref
+            type:
+              kind: bits
+              tag: RegType
+              width: 2
+          - parts:
+              - register: data
+                start: 0
+                tag: Span
+                width: 3
+            tag: Ref
+            type:
+              kind: bits
+              tag: RegType
+              width: 3
+        module: lookup
+        resources:
+          - mem
+        tag: Call
+    locals: []
+    name: demo
+    registers:
+      - name: address
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 2
+      - name: data
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 3
+    resources:
+      - name: mem
+        tag: Resource
+        type:
+          address_width: 2
+          data_width: 3
+          tag: QRAM
+    tag: Module
+  - attributes: []
+    body:
+      - address:
+          parts:
+            - register: address
+              start: 0
+              tag: Span
+              width: 2
+          tag: Ref
+          type:
+            kind: bits
+            tag: RegType
+            width: 2
+        data:
+          parts:
+            - register: data
+              start: 0
+              tag: Span
+              width: 3
+          tag: Ref
+          type:
+            kind: bits
+            tag: RegType
+            width: 3
+        resource: table
+        tag: Load
+    locals: []
+    name: lookup
+    registers:
+      - name: address
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 2
+      - name: data
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 3
+    resources:
+      - name: table
+        tag: Resource
+        type:
+          address_width: 2
+          data_width: 3
+          tag: QRAM
+    tag: Module
+tag: Program
+version: '0.3'
+
 ```
 
 讲解：
 
-- `Program` 含两个模块，按名字排序（`demo` 在 `lookup` 前）；`Call` 通过名字引用被调模块，定义不复制进调用点（4.1 节）。
-- `lookup` 声明形式资源 `table: QRAM(2,3)`，body 只有一条 `Load`：`|address>|data> ↦ |address>|data XOR M[address]>`（3.2 节）。
+- `Program` 含两个模块，按名字排序（`demo` 在 `lookup` 前）；{obj}`Call <oracq.infrastructure.ir.Call>` 通过名字引用被调模块，定义不复制进调用点（4.1 节）。
+- `lookup` 声明形式资源 `table: QRAM(2,3)`，body 只有一条 {obj}`Load <oracq.infrastructure.ir.Load>`：`|address>|data> ↦ |address>|data XOR M[address]>`（3.2 节）。
 - `demo` 声明自己的实际资源 `mem: QRAM(2,3)`。`Call` 节点的 `arguments` 按被调签名顺序（`address`、`data`）逐个绑定实参视图；`resources: ["mem"]` 表示把 `lookup` 的形式资源 `table` 绑到 `demo` 的实际资源 `mem`——两者的 QRAM 类型必须完全一致（3.3 节）。
 - `lookup` 内部的 `Load` 引用的是形式名 `table`；名字替换发生在调用点，而数据表本身仍留待执行期另行绑定（3.2 节）。
 - 调用不展开：`demo` 的 body 只有广播 `h` 和一条 `Call`；`lookup` 的定义原样留在 `modules` 表中，供多个调用点共享。
@@ -723,7 +595,7 @@ print(dumps(demo.finish().program()))
 ### 案例 4：结构化控制与私有工作区
 
 ```python
-from pyqecclang import Bits, Builder, UInt, dumps
+from oracq import Bits, Builder, UInt, dumps
 
 b = Builder("structured", {"word": UInt(4), "flag": Bits(1)})
 # 私有工作区：零入零出，不属于公开调用签名。
@@ -741,269 +613,176 @@ with b.repeat(3):
 print(dumps(b.finish().program()))
 ```
 
-```json
-{
-  "entry": "structured",
-  "modules": [
-    {
-      "attributes": [],
-      "body": [
-        {
-          "angle": null,
-          "op": "h",
-          "operands": [
-            {
-              "parts": [
-                {
-                  "register": "word",
-                  "start": 0,
-                  "tag": "Span",
-                  "width": 4
-                }
-              ],
-              "tag": "Ref",
-              "type": {
-                "kind": "uint",
-                "tag": "RegType",
-                "width": 4
-              }
-            }
-          ],
-          "tag": "Primitive",
-          "value": null
-        },
-        {
-          "body": [
-            {
-              "angle": null,
-              "op": "xor",
-              "operands": [
-                {
-                  "parts": [
-                    {
-                      "register": "word",
-                      "start": 0,
-                      "tag": "Span",
-                      "width": 2
-                    }
-                  ],
-                  "tag": "Ref",
-                  "type": {
-                    "kind": "bits",
-                    "tag": "RegType",
-                    "width": 2
-                  }
-                },
-                {
-                  "parts": [
-                    {
-                      "register": "scratch",
-                      "start": 0,
-                      "tag": "Span",
-                      "width": 2
-                    }
-                  ],
-                  "tag": "Ref",
-                  "type": {
-                    "kind": "bits",
-                    "tag": "RegType",
-                    "width": 2
-                  }
-                }
-              ],
-              "tag": "Primitive",
-              "value": null
-            },
-            {
-              "angle": null,
-              "op": "xor",
-              "operands": [
-                {
-                  "parts": [
-                    {
-                      "register": "scratch",
-                      "start": 0,
-                      "tag": "Span",
-                      "width": 2
-                    }
-                  ],
-                  "tag": "Ref",
-                  "type": {
-                    "kind": "bits",
-                    "tag": "RegType",
-                    "width": 2
-                  }
-                },
-                {
-                  "parts": [
-                    {
-                      "register": "word",
-                      "start": 2,
-                      "tag": "Span",
-                      "width": 2
-                    }
-                  ],
-                  "tag": "Ref",
-                  "type": {
-                    "kind": "bits",
-                    "tag": "RegType",
-                    "width": 2
-                  }
-                }
-              ],
-              "tag": "Primitive",
-              "value": null
-            },
-            {
-              "angle": null,
-              "op": "xor",
-              "operands": [
-                {
-                  "parts": [
-                    {
-                      "register": "word",
-                      "start": 0,
-                      "tag": "Span",
-                      "width": 2
-                    }
-                  ],
-                  "tag": "Ref",
-                  "type": {
-                    "kind": "bits",
-                    "tag": "RegType",
-                    "width": 2
-                  }
-                },
-                {
-                  "parts": [
-                    {
-                      "register": "scratch",
-                      "start": 0,
-                      "tag": "Span",
-                      "width": 2
-                    }
-                  ],
-                  "tag": "Ref",
-                  "type": {
-                    "kind": "bits",
-                    "tag": "RegType",
-                    "width": 2
-                  }
-                }
-              ],
-              "tag": "Primitive",
-              "value": null
-            }
-          ],
-          "register": {
-            "parts": [
-              {
-                "register": "flag",
-                "start": 0,
-                "tag": "Span",
-                "width": 1
-              }
-            ],
-            "tag": "Ref",
-            "type": {
-              "kind": "bits",
-              "tag": "RegType",
-              "width": 1
-            }
-          },
-          "tag": "Control",
-          "value": 1
-        },
-        {
-          "body": [
-            {
-              "body": [
-                {
-                  "angle": 0.5,
-                  "op": "rz",
-                  "operands": [
-                    {
-                      "parts": [
-                        {
-                          "register": "word",
-                          "start": 0,
-                          "tag": "Span",
-                          "width": 1
-                        }
-                      ],
-                      "tag": "Ref",
-                      "type": {
-                        "kind": "bits",
-                        "tag": "RegType",
-                        "width": 1
-                      }
-                    }
-                  ],
-                  "tag": "Primitive",
-                  "value": null
-                }
-              ],
-              "tag": "Adjoint"
-            }
-          ],
-          "count": 3,
-          "tag": "Repeat"
-        }
-      ],
-      "locals": [
-        {
-          "name": "scratch",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 2
-          }
-        }
-      ],
-      "name": "structured",
-      "registers": [
-        {
-          "name": "word",
-          "tag": "Register",
-          "type": {
-            "kind": "uint",
-            "tag": "RegType",
-            "width": 4
-          }
-        },
-        {
-          "name": "flag",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 1
-          }
-        }
-      ],
-      "resources": [],
-      "tag": "Module"
-    }
-  ],
-  "tag": "Program",
-  "version": "0.3"
-}
+```yaml
+entry: structured
+modules:
+  - attributes: []
+    body:
+      - angle: null
+        op: h
+        operands:
+          - parts:
+              - register: word
+                start: 0
+                tag: Span
+                width: 4
+            tag: Ref
+            type:
+              kind: uint
+              tag: RegType
+              width: 4
+        tag: Primitive
+        value: null
+      - body:
+          - angle: null
+            op: xor
+            operands:
+              - parts:
+                  - register: word
+                    start: 0
+                    tag: Span
+                    width: 2
+                tag: Ref
+                type:
+                  kind: bits
+                  tag: RegType
+                  width: 2
+              - parts:
+                  - register: scratch
+                    start: 0
+                    tag: Span
+                    width: 2
+                tag: Ref
+                type:
+                  kind: bits
+                  tag: RegType
+                  width: 2
+            tag: Primitive
+            value: null
+          - angle: null
+            op: xor
+            operands:
+              - parts:
+                  - register: scratch
+                    start: 0
+                    tag: Span
+                    width: 2
+                tag: Ref
+                type:
+                  kind: bits
+                  tag: RegType
+                  width: 2
+              - parts:
+                  - register: word
+                    start: 2
+                    tag: Span
+                    width: 2
+                tag: Ref
+                type:
+                  kind: bits
+                  tag: RegType
+                  width: 2
+            tag: Primitive
+            value: null
+          - angle: null
+            op: xor
+            operands:
+              - parts:
+                  - register: word
+                    start: 0
+                    tag: Span
+                    width: 2
+                tag: Ref
+                type:
+                  kind: bits
+                  tag: RegType
+                  width: 2
+              - parts:
+                  - register: scratch
+                    start: 0
+                    tag: Span
+                    width: 2
+                tag: Ref
+                type:
+                  kind: bits
+                  tag: RegType
+                  width: 2
+            tag: Primitive
+            value: null
+        register:
+          parts:
+            - register: flag
+              start: 0
+              tag: Span
+              width: 1
+          tag: Ref
+          type:
+            kind: bits
+            tag: RegType
+            width: 1
+        tag: Control
+        value: 1
+      - body:
+          - body:
+              - angle: 0.5
+                op: rz
+                operands:
+                  - parts:
+                      - register: word
+                        start: 0
+                        tag: Span
+                        width: 1
+                    tag: Ref
+                    type:
+                      kind: bits
+                      tag: RegType
+                      width: 1
+                tag: Primitive
+                value: null
+            tag: Adjoint
+        count: 3
+        tag: Repeat
+    locals:
+      - name: scratch
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 2
+    name: structured
+    registers:
+      - name: word
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 4
+      - name: flag
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 1
+    resources: []
+    tag: Module
+tag: Program
+version: '0.3'
+
 ```
 
 讲解：
 
 - `locals` 含 `scratch`（`bits/2`）：模块私有工作区，不属于公开签名；每次调用从零态借入、返回前必须复净，执行器在模块返回时检查（4.5 节）。
-- `Control` 节点：`register` 是 `flag`（`bits/1`），`value=1`——`flag` 等于 1 时执行 body，否则恒等。控制位在整个 body 内受保护：body 中所有操作数都不与 `flag` 重叠（3.5 节）。
+- {obj}`Control <oracq.infrastructure.ir.Control>` 节点：`register` 是 `flag`（`bits/1`），`value=1`——`flag` 等于 1 时执行 body，否则恒等。控制位在整个 body 内受保护：body 中所有操作数都不与 `flag` 重叠（3.5 节）。
 - body 的三条 `xor` 是"借用—使用—复净"模式：`scratch ^= word[:2]`；`word[2:] ^= scratch`；`scratch ^= word[:2]`。第三条执行后 `scratch` 回到零。
-- `Repeat` 节点 `count=3`，body 只有一个 `Adjoint`，其 body 是一条 `rz(0.5)`。结构块按数据嵌套保存，序列化绝不按 count 复制指令体（3.4 节、4.2 节）；`Adjoint` 的语义等价于 `rz(-0.5)`，但 IR 不改写体（3.6 节）。
+- {obj}`Repeat <oracq.infrastructure.ir.Repeat>` 节点 `count=3`，body 只有一个 {obj}`Adjoint <oracq.infrastructure.ir.Adjoint>`，其 body 是一条 `rz(0.5)`。结构块按数据嵌套保存，序列化绝不按 count 复制指令体（3.4 节、4.2 节）；`Adjoint` 的语义等价于 `rz(-0.5)`，但 IR 不改写体（3.6 节）。
 - 根寄存器 `word` 是 `uint/4`，但 `xor` 的操作数切片是 `bits`——再次体现"切片产生 bits"的规则。
 
 ### 案例 5：开放声明（oracle 槽位）
 
 ```python
-from pyqecclang import Bits, dumps
-from pyqecclang.algorithms.input_model.oracles import declare
+from oracq import Bits, dumps
+from oracq.algorithms.input_model.oracles import declare
 
 # 开放声明：body 为 null 的 oracle 槽位；范式 database_xor，
 # 默认声明伴随与受控能力，实现状态 unresolved。
@@ -1012,72 +791,52 @@ op = declare("BooleanFunction", {"address": Bits(3), "data": Bits(1)},
 print(dumps(op.program()))
 ```
 
-```json
-{
-  "entry": "BooleanFunction",
-  "modules": [
-    {
-      "attributes": [
-        [
-          "implementation_status",
-          "unresolved"
-        ],
-        [
-          "oracle_paradigm",
-          "database_xor"
-        ],
-        [
-          "supports_adjoint",
-          true
-        ],
-        [
-          "supports_controlled",
-          true
-        ]
-      ],
-      "body": null,
-      "locals": [],
-      "name": "BooleanFunction",
-      "registers": [
-        {
-          "name": "address",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 3
-          }
-        },
-        {
-          "name": "data",
-          "tag": "Register",
-          "type": {
-            "kind": "bits",
-            "tag": "RegType",
-            "width": 1
-          }
-        }
-      ],
-      "resources": [],
-      "tag": "Module"
-    }
-  ],
-  "tag": "Program",
-  "version": "0.3"
-}
+```yaml
+entry: BooleanFunction
+modules:
+  - attributes:
+      - - implementation_status
+        - unresolved
+      - - oracle_paradigm
+        - database_xor
+      - - supports_adjoint
+        - true
+      - - supports_controlled
+        - true
+    body: null
+    locals: []
+    name: BooleanFunction
+    registers:
+      - name: address
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 3
+      - name: data
+        tag: Register
+        type:
+          kind: bits
+          tag: RegType
+          width: 1
+    resources: []
+    tag: Module
+tag: Program
+version: '0.3'
+
 ```
 
 讲解：
 
 - `body` 为 `null`：这是一个开放模块，表示 oracle 槽位而非已实现线路（2.1 节、4.1 节）。
-- `attributes` 按键排序：`oracle_paradigm="database_xor"` 声明九种命名范式之一；`supports_adjoint` / `supports_controlled` 是能力声明，`bind` 链接实现时会核对实现方是否真的具备；`implementation_status="unresolved"` 记录实现状态。属性不改变指令语义（2.1 节）；能力与绑定的完整规则见[开放 IR](open-ir.md)。
+- `attributes` 按键排序：`oracle_paradigm="database_xor"` 声明九种命名范式之一；`supports_adjoint` / `supports_controlled` 是能力声明，{obj}`bind <oracq.infrastructure.linking.bind>` 链接实现时会核对实现方是否真的具备；`implementation_status="unresolved"` 记录实现状态。属性不改变指令语义（2.1 节）；能力与绑定的完整规则见[开放 IR](open-ir.md)。
 - 寄存器接口照常声明（`address: bits/3`、`data: bits/1`）：调用方按签名使用这个槽位，即使实现尚不存在。
 - 开放模块不得声明 `locals`；本例 `locals` 为空列表（4.5 节）。
 
 ### 案例 6：QRAM 随机写与读回（指针式访问）
 
 ```python
-from pyqecclang import Builder, QRAM, QMem, UInt, dumps, simulate
+from oracq import Builder, QRAM, QMem, UInt, dumps, simulate
 
 b = Builder("store_load", {"addr": UInt(2), "val": UInt(4)}, {"ram": QRAM(2, 4)})
 mem = QMem(b, "ram")            # 把资源 ram 绑定为数组视图
@@ -1087,132 +846,92 @@ print(dumps(b.finish().program()))
 print(simulate(b.finish().program(), {"ram": [0, 0, 0, 0]}, initial={"addr": 2, "val": 13}).amplitudes)
 ```
 
-地址表达式恰好是单个全宽寄存器且无常量分量时，`QMem` 直接以该寄存器为 Load/Store 地址，不引入寻址算术。`dumps()` 输出：
+地址表达式恰好是单个全宽寄存器且无常量分量时，{obj}`QMem <oracq.infrastructure.qmem.QMem>` 直接以该寄存器为 Load/Store 地址，不引入寻址算术。`dumps()` 输出：
 
-```json
-{
-  "entry": "store_load",
-  "modules": [
-    {
-      "attributes": [],
-      "body": [
-        {
-          "address": {
-            "parts": [
-              {
-                "register": "addr",
-                "start": 0,
-                "tag": "Span",
-                "width": 2
-              }
-            ],
-            "tag": "Ref",
-            "type": {
-              "kind": "uint",
-              "tag": "RegType",
-              "width": 2
-            }
-          },
-          "data": {
-            "parts": [
-              {
-                "register": "val",
-                "start": 0,
-                "tag": "Span",
-                "width": 4
-              }
-            ],
-            "tag": "Ref",
-            "type": {
-              "kind": "uint",
-              "tag": "RegType",
-              "width": 4
-            }
-          },
-          "resource": "ram",
-          "tag": "Store"
-        },
-        {
-          "address": {
-            "parts": [
-              {
-                "register": "addr",
-                "start": 0,
-                "tag": "Span",
-                "width": 2
-              }
-            ],
-            "tag": "Ref",
-            "type": {
-              "kind": "uint",
-              "tag": "RegType",
-              "width": 2
-            }
-          },
-          "data": {
-            "parts": [
-              {
-                "register": "val",
-                "start": 0,
-                "tag": "Span",
-                "width": 4
-              }
-            ],
-            "tag": "Ref",
-            "type": {
-              "kind": "uint",
-              "tag": "RegType",
-              "width": 4
-            }
-          },
-          "resource": "ram",
-          "tag": "Load"
-        }
-      ],
-      "locals": [],
-      "name": "store_load",
-      "registers": [
-        {
-          "name": "addr",
-          "tag": "Register",
-          "type": {
-            "kind": "uint",
-            "tag": "RegType",
-            "width": 2
-          }
-        },
-        {
-          "name": "val",
-          "tag": "Register",
-          "type": {
-            "kind": "uint",
-            "tag": "RegType",
-            "width": 4
-          }
-        }
-      ],
-      "resources": [
-        {
-          "name": "ram",
-          "tag": "Resource",
-          "type": {
-            "address_width": 2,
-            "data_width": 4,
-            "tag": "QRAM"
-          }
-        }
-      ],
-      "tag": "Module"
-    }
-  ],
-  "tag": "Program",
-  "version": "0.3"
-}
+```yaml
+entry: store_load
+modules:
+  - attributes: []
+    body:
+      - address:
+          parts:
+            - register: addr
+              start: 0
+              tag: Span
+              width: 2
+          tag: Ref
+          type:
+            kind: uint
+            tag: RegType
+            width: 2
+        data:
+          parts:
+            - register: val
+              start: 0
+              tag: Span
+              width: 4
+          tag: Ref
+          type:
+            kind: uint
+            tag: RegType
+            width: 4
+        resource: ram
+        tag: Store
+      - address:
+          parts:
+            - register: addr
+              start: 0
+              tag: Span
+              width: 2
+          tag: Ref
+          type:
+            kind: uint
+            tag: RegType
+            width: 2
+        data:
+          parts:
+            - register: val
+              start: 0
+              tag: Span
+              width: 4
+          tag: Ref
+          type:
+            kind: uint
+            tag: RegType
+            width: 4
+        resource: ram
+        tag: Load
+    locals: []
+    name: store_load
+    registers:
+      - name: addr
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 2
+      - name: val
+        tag: Register
+        type:
+          kind: uint
+          tag: RegType
+          width: 4
+    resources:
+      - name: ram
+        tag: Resource
+        type:
+          address_width: 2
+          data_width: 4
+          tag: QRAM
+    tag: Module
+tag: Program
+version: '0.3'
+
 ```
 
 讲解：
 
-- `body` 依次为一条 `Store` 和一条 `Load`：Store 先把经典单元 `M[addr]` 赋值为 `val`（3.2 节），随后的 XOR-Load 读回新值，模拟器输出 `(2, 13)`。
-- 两条指令的 `address`/`data` 宽度与 `QRAM(2, 4)` 声明逐一相符；Store 位于模块体顶层，满足「不出现在 Control/Adjoint 体内」的结构约束（3.5、3.6 节）。
+- `body` 依次为一条 {obj}`Store <oracq.infrastructure.ir.Store>` 和一条 `Load`：Store 先把经典单元 `M[addr]` 赋值为 `val`（3.2 节），随后的 XOR-Load 读回新值，模拟器输出 `(2, 13)`。
+- 两条指令的 `address`/`data` 宽度与 {obj}`QRAM(2, 4) <oracq.infrastructure.ir.QRAM>` 声明逐一相符；Store 位于模块体顶层，满足「不出现在 Control/Adjoint 体内」的结构约束（3.5、3.6 节）。
 - 含 Store 的模块不具备 `supports_adjoint`/`supports_controlled` 能力；本例没有被控或伴随调用，验证通过（4.1 节、开放 IR）。
 - `QMem` 的指针、偏移与多维视图是 Python 生成阶段的寻址糖衣：地址表达式物化为寄存器算术后，落在 IR 里的仍然只是 Primitive、Load 与 Store（第 1 部分设计定位）。

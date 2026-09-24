@@ -46,14 +46,14 @@ from harness import (
     superposition_program,
 )
 
-from pyqecclang import Binding, Bits, Builder, FixedFormat, bind, unresolved
-from pyqecclang.algorithms.input_model.block_encoding import matrix_pauli_encoding
-from pyqecclang.algorithms.input_model.operators import scale
-from pyqecclang.algorithms.input_model.oracles import gate_state_prep, invoke, qram_database
-from pyqecclang.algorithms.input_model.qham import gate_bindings, qham_input_model, taylor_qode
-from pyqecclang.algorithms.qpde.pde import DiscretePDE, PDEInput, make_qpde, qpde_solver
-from pyqecclang.applications.flow_data import RoeFlowData
-from pyqecclang.applications.qfvm import (
+from oracq import Binding, Bits, Builder, FixedFormat, bind, unresolved
+from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
+from oracq.algorithms.input_model.operators import scale
+from oracq.algorithms.input_model.oracles import gate_state_prep, invoke, qram_database
+from oracq.algorithms.input_model.qham import gate_bindings, qham_input_model, taylor_qode
+from oracq.algorithms.qpde.pde import DiscretePDE, PDEInput, make_qpde, qpde_solver
+from oracq.applications.flow_data import RoeFlowData
+from oracq.applications.qfvm import (
     bind_qfvm,
     geometry_cells,
     ptheta_cells,
@@ -61,7 +61,7 @@ from pyqecclang.applications.qfvm import (
     qfvm_sparse_access,
     roe_qfvm_inputs,
 )
-from pyqecclang.applications.qham import (
+from oracq.applications.qham import (
     Discretization,
     Field,
     Grid,
@@ -73,10 +73,10 @@ from pyqecclang.applications.qham import (
     qram_coefficient_memory,
     structured_fd_bindings,
 )
-from pyqecclang.applications.qham.linearization import compositions
-from pyqecclang.applications.roe import roe_face
-from pyqecclang.applications.roe_formulas import frozen_roe_face
-from pyqecclang.infrastructure.layout import workspace_table
+from oracq.applications.qham.linearization import compositions
+from oracq.applications.roe import roe_face
+from oracq.applications.roe_formulas import frozen_roe_face
+from oracq.infrastructure.layout import workspace_table
 
 # ---------------------------------------------------------------------------
 # 独立定点仿真 oracle：按 fixed_arithmetic 文档语义重实现
@@ -1190,7 +1190,7 @@ def verify_qfvm_rhs_preparation(report):
 
 def verify_qfvm_single_step(report):
     """flow_data 单步更新与 Roe 通量的经典恒等式（对照矩阵求逆独立实现）。"""
-    from pyqecclang.applications.flow_data import riemann_flux
+    from oracq.applications.flow_data import riemann_flux
 
     gamma, delta = 1.4, 0.125
     flux_worst = 0.0

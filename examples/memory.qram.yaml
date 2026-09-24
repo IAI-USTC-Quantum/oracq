@@ -1,0 +1,6 @@
+qram_segments:
+  - name: values
+    address_length: 2
+    word_length: 3
+    type: uint
+    data: [1, 2, 4, 7]

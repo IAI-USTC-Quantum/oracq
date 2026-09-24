@@ -1,6 +1,6 @@
 # 量子求阶与因子后处理（Order Finding）
 
-> 类别 C1 · 模块 `pyqecclang.algorithms.basics.number_theory` · 阶段 —
+> 类别 C1 · 模块 [`oracq.algorithms.basics.number_theory`](../../api/algorithms/basics/number_theory.rst) · 阶段 —
 
 ## 概述
 
@@ -13,11 +13,13 @@ order_finding(multiplier, modulus, *, precision=3, max_width=8)
 factors_from_phase(value, precision, multiplier, modulus)
 ```
 
+API 入口：{obj}`order_finding <oracq.algorithms.basics.number_theory.order_finding>`、{obj}`factors_from_phase <oracq.algorithms.basics.number_theory.factors_from_phase>`
+
 - `multiplier` / `modulus`：与模乘相同的 CP 参数（经典整数直接参数化，无 oracle 输入）；底层模乘位宽预算由 `max_width` 控制。
 - `precision`：QPE 相位寄存器位宽。
-- `factors_from_phase` 为纯经典函数：`value` 是相位寄存器的整数读出（$0 \le \text{value} < 2^{\text{precision}}$），返回已验证的因子对（升序元组），或 `None` 表示该样本未能给出因子。
+- {obj}`factors_from_phase <oracq.algorithms.basics.number_theory.factors_from_phase>` 为纯经典函数：`value` 是相位寄存器的整数读出（$0 \le \text{value} < 2^{\text{precision}}$），返回已验证的因子对（升序元组），或 `None` 表示该样本未能给出因子。
 
-`order_finding` 返回 `Operation`，寄存器为 `target: Bits(n)`（$n$ 为模乘位宽）与 `phase: Bits(precision)`。模块属性：
+{obj}`order_finding <oracq.algorithms.basics.number_theory.order_finding>` 返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `target: Bits(n)`（$n$ 为模乘位宽）与 `phase: Bits(precision)`。模块属性：
 
 | 属性 | 含义 |
 |---|---|
@@ -27,7 +29,7 @@ factors_from_phase(value, precision, multiplier, modulus)
 
 ## 实现要点
 
-生成链为 `modular_multiply` → `phase_estimation`：先在 `target` 最低位加 X 制备 $|1\rangle$，再调用 QPE。$|1\rangle$ 在各阶循环本征态上均匀展开，故相位读出近似 $s/r$（$s$ 均匀），单个样本不保证给出阶——`factors_from_phase` 用 `Fraction(value, 2**precision).limit_denominator(modulus)` 取候选阶，逐一校验偶数性和 $a^r \equiv 1$，再对 $\gcd(a^{r/2}\pm1, m)$ 做验证，全部失败返回 `None`。乘数与模数不互素且公因子非平凡（$1 < \gcd(a,m) < m$）时跳过量子路径，直接返回由该公因子拆出的升序因子对。
+生成链为 {obj}`modular_multiply <oracq.algorithms.basics.number_theory.modular_multiply>` → {obj}`phase_estimation <oracq.algorithms.common.estimation.phase_estimation>`：先在 `target` 最低位加 X 制备 $|1\rangle$，再调用 QPE。$|1\rangle$ 在各阶循环本征态上均匀展开，故相位读出近似 $s/r$（$s$ 均匀），单个样本不保证给出阶——`factors_from_phase` 用 `Fraction(value, 2**precision).limit_denominator(modulus)` 取候选阶，逐一校验偶数性和 $a^r \equiv 1$，再对 $\gcd(a^{r/2}\pm1, m)$ 做验证，全部失败返回 `None`。乘数与模数不互素且公因子非平凡（$1 < \gcd(a,m) < m$）时跳过量子路径，直接返回由该公因子拆出的升序因子对。
 
 适用边界：底层模乘是默认最多 8 位的有界置换合成（见[模乘置换](modular-multiplication.md)），因此求阶同样只面向小实例的接口与线路检查，**不代表可扩展的 Shor 模算术**。`precision` 不足时连分数可能还原不出正确的阶，调用方需按 $r < m$ 选择相位位宽并接受多次采样。
 
@@ -46,7 +48,7 @@ factors_from_phase(value, precision, multiplier, modulus)
 ## 相关链接
 
 - 同模块：[模乘置换](modular-multiplication.md)
-- 源码：`src/pyqecclang/algorithms/basics/number_theory.py`
+- 源码：`src/oracq/algorithms/basics/number_theory.py`
 - API 参考：[模乘与求阶](../../api/algorithms/basics/number_theory.rst)
 - 验证矩阵：[验证覆盖矩阵](../../development/validation-coverage.md)
 
