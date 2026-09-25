@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oracq"
-version = "0.8.0"
+version = "0.1.0"
 description = "Python quantum generators with a modular register-level IR"
 requires-python = ">=3.11"
 license = "MIT"
@@ -28,7 +28,7 @@ dependencies = ["pyyaml>=6.0"]
 Homepage = "https://github.com/IAI-USTC-Quantum/oracq"
 Repository = "https://github.com/IAI-USTC-Quantum/oracq"
 Issues = "https://github.com/IAI-USTC-Quantum/oracq/issues"
-Documentation = "https://github.com/IAI-USTC-Quantum/oracq/tree/main/docs"
+Documentation = "https://iai-ustc-quantum.github.io/oracq/"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.9", "jsonschema>=4.23", "mypy>=1.14", "types-PyYAML>=6"]

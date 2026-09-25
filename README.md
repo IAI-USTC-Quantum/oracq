@@ -9,7 +9,7 @@ access models and compiled to a register-level intermediate representation
 until you compare gate-network, QRAM, and reversible-arithmetic candidates,
 bind them, and proceed to numerical validation and resource analysis.
 
-The current package version is **0.8.0** and the RIR format is **0.3**
+The current package version is **0.1.0** and the RIR format is **0.3**
 ([full specification](docs/reference/rir.md)). Algorithms declare inputs and
 outputs through plain Python protocols; no language-level type-system
 extension is required.
