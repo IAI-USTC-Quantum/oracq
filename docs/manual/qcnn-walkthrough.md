@@ -1,8 +1,8 @@
 # QCNN line-by-line implementation walkthrough
 
-**English** · [简体中文](../zh/manual/qcnn-walkthrough.html)
+**English** · <a href="../zh/manual/qcnn-walkthrough.html">简体中文</a>
 
-This page explains the QCNN (arXiv:1911.01117, ICLR 2020) implementation line by line: first an end-to-end minimal example, then a segment-by-segment reading of the sources of the classical basis (`qcnn.py`) and the quantum building blocks (`qcnn_layer.py`). Every code block is runnable (`tests/core/test_qcnn.py` is built from these snippets). For the algorithm overview see the [quantum convolutional neural network (QCNN)](../zh/manual/algorithms/qcnn.html) page; for the API reference see [qcnn](../api/algorithms/qml/qcnn.rst) and [qcnn_layer](../api/algorithms/qml/qcnn_layer.rst).
+This page explains the QCNN (arXiv:1911.01117, ICLR 2020) implementation line by line: first an end-to-end minimal example, then a segment-by-segment reading of the sources of the classical basis (`qcnn.py`) and the quantum building blocks (`qcnn_layer.py`). Every code block is runnable (`tests/core/test_qcnn.py` is built from these snippets). For the algorithm overview see the <a href="../zh/manual/algorithms/qcnn.html">quantum convolutional neural network (QCNN)</a> page; for the API reference see [qcnn](../api/algorithms/qml/qcnn.rst) and [qcnn_layer](../api/algorithms/qml/qcnn_layer.rst).
 
 ## 1. End-to-end minimal example
 

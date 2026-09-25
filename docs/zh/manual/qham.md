@@ -1,6 +1,6 @@
 # 一般 QHAM 自动生成：PDE → HAM → QCL → QODE
 
-[English](../../manual/qham.html) · **简体中文**
+<a href="../../manual/qham.html">English</a> · **简体中文**
 
 QHAM 生成器将规则化 PDE、有限阶 HAM 推导和量子适配线性化连接到 QODE 输入。先阅读[数学推导](../reference/qham-derivation.md)，再按本章提供网格、系数与初态；最小可运行示例见[教程：从 PDE 表达式生成 QHAM 输入](../tutorials/qham.md)。构造依据是 [QHAM 论文](https://arxiv.org/html/2411.06759v2)。
 

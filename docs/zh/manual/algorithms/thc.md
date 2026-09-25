@@ -1,6 +1,6 @@
 # 张量超收缩块编码（Tensor Hypercontraction）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.input_model.lowrank`](../../api/algorithms/input_model/lowrank.rst) · 阶段 V1
 

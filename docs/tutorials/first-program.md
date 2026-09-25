@@ -1,6 +1,6 @@
 # Your first register program
 
-**English** · [简体中文](../zh/tutorials/first-program.html)
+**English** · <a href="../zh/tutorials/first-program.html">简体中文</a>
 
 This tutorial generates a Bell state. You will use one register, two gate operations, and the reference executor. Afterwards, the same program is saved as RIR and exported as OriginIR-ext.
 

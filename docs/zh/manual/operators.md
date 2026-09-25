@@ -1,6 +1,6 @@
 # Oracle 与算子表示
 
-[English](../../manual/operators.html) · **简体中文**
+<a href="../../manual/operators.html">English</a> · **简体中文**
 
 选择输入表示时，应先问上层算法需要怎样访问数据。一个矩阵的 BE、稀疏位置查询和数值 XOR 查询，提供的是不同能力。
 

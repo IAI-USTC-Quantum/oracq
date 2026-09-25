@@ -1,6 +1,6 @@
 # QFVM 输入模型与求解器替换
 
-[English](../../manual/qfvm.html) · **简体中文**
+<a href="../../manual/qfvm.html">English</a> · **简体中文**
 
 QFVM 应用从流场数据构造线性系统，并把它交给可替换的 QLSS。当前实现针对周期一维 Euler 方程，使用三个守恒量和 frozen-Roe Jacobian。它不覆盖原论文的全部网格、边界和物理模型。端到端工作流见[教程：科学计算工作流](../tutorials/scientific-workflows.md)。
 

@@ -1,6 +1,6 @@
 # From a paper's access model to implementation comparison
 
-**English** · [简体中文](../zh/tutorials/algorithm-research.html)
+**English** · <a href="../zh/tutorials/algorithm-research.html">简体中文</a>
 
 This tutorial is for researchers implementing new quantum algorithms: first save the algorithm with its open oracles, then choose an implementation, and finally compare against an independent mathematical reference and compare costs. The core of this needs no quantum backend.
 
@@ -64,6 +64,6 @@ and `verify_mathfunc.py`, reporting implementation error and method error respec
 
 - Manual: [Resource estimation (Toffoli+Clifford+T+QRAM)](../manual/resource-estimation.md) (cost-ledger accounting), [Conventions owned by algorithms](../manual/contracts.md)
 - Specification: [Open IR](../reference/open-ir.md) (open declarations and batched binding)
-- Algorithm pages: [XOR database views](../zh/manual/algorithms/xor-database.html) (the view basis shared by the gate-table and QRAM implementations)
+- Algorithm pages: <a href="../zh/manual/algorithms/xor-database.html">XOR database views</a> (the view basis shared by the gate-table and QRAM implementations)
 - API reference: [Oracle implementation comparison](../api/applications/oracle_study.rst), [Resource estimation](../api/infrastructure/estimate.rst), [Binding and capability analysis](../api/infrastructure/linking.rst)
 - Continue with: [Scientific computing workflows](scientific-workflows.md) (the complete chains of QHAM/Carleman/LCHS/CBMD)

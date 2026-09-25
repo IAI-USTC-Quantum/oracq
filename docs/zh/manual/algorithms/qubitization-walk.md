@@ -1,6 +1,6 @@
 # 量子化行走（Qubitization Walk）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.common.transforms`](../../api/algorithms/common/transforms.rst) · 阶段 V1
 

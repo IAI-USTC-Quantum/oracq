@@ -1,6 +1,6 @@
 # 验证覆盖矩阵
 
-[English](../../development/validation-coverage.html) · **简体中文**
+<a href="../../development/validation-coverage.html">English</a> · **简体中文**
 
 本文档记录"每个算法的证据在哪里"，与 `validation-plan.md` 的"如何证明正确"和 `algorithm-coverage.md` 的"实现了什么"行级对应（见 `validation-plan.md` §6 的分工说明）。`validation.md` / `validation.json` 继续承担版本验收快照的职责；本表描述的是当前开发版本的实时覆盖状态，新增算法或新见证必须同步本表（维护规则见末节）。逐算法的接口与验证详情见各算法页（`../manual/algorithms/index.md`）。
 

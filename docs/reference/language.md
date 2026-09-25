@@ -1,6 +1,6 @@
 # Language and algorithm library conventions
 
-**English** · [简体中文](../zh/reference/language.html)
+**English** · <a href="../zh/reference/language.html">简体中文</a>
 
 This specification corresponds to oracq 0.8. It defines the boundary between the Python generation layer and RIR. For RIR objects and instruction semantics see [RIR 0.3](rir.md); for the mathematical function graph see [MIR 0.1](math-ir.md). For an introduction to operations during the generation stage see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md).
 

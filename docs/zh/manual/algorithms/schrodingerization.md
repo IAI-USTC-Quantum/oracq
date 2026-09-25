@@ -1,6 +1,6 @@
 # Schrödingerization 非酉演化模拟（Schrödingerization）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.qode.schrodingerization`](../../api/algorithms/qode/schrodingerization.rst) · 阶段 V2
 

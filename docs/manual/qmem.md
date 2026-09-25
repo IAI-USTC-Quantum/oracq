@@ -1,6 +1,6 @@
 # QRAM data structures: pointers, offsets, and random writes
 
-**English** · [简体中文](../zh/manual/qmem.html)
+**English** · <a href="../zh/manual/qmem.html">简体中文</a>
 
 {obj}`QMem <oracq.infrastructure.qmem.QMem>` abstracts QRAM resources into C-style array access: base addresses, constant and quantum offsets, multidimensional views, and random reads and writes. All of the addressing is Python generation-stage sugar — what lands in the RIR is only register arithmetic, {obj}`Load <oracq.infrastructure.ir.Load>`, and {obj}`Store <oracq.infrastructure.ir.Store>` (see [the RIR specification](../reference/rir.md), section 3.2). The API is documented in [QRAM pointer-style reads and writes](../api/infrastructure/qmem.rst).
 

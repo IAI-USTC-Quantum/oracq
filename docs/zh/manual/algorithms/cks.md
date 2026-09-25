@@ -1,6 +1,6 @@
 # CKS Chebyshev 线性系统求解器（CKS Chebyshev QLSS）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.qlss.qlss`](../../api/algorithms/qlss/qlss.rst) · 阶段 V3
 

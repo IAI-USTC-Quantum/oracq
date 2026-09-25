@@ -1,6 +1,6 @@
 # MIR 0.1：纯数学函数图
 
-[English](../../reference/math-ir.html) · **简体中文**
+<a href="../../reference/math-ir.html">English</a> · **简体中文**
 
 MIR 是 Python 纯函数前端与 RIR 之间的生成层表示。它可以独立 JSON 往返，完整格式见 [Schema](schemas/math-ir.schema.json)。它不替代 RIR 0.3，也不把 Python 回调写入量子 IR。函数写法、已实现的数学范围与数值验证见手册[普通数学函数自动生成可逆量子模块](../manual/math-functions.md)。
 
@@ -60,4 +60,4 @@ select 的结果状态为条件状态 OR 被选中分支状态。未选中分支
 
 拒绝 I/O、对象突变、任意对象方法、动态循环、递归、异常处理、生成器、lambda 及不能读取源码的可调用对象。闭包和显式 constants 只捕获有限数值。源码不可用时可传 def 字符串。math 和 cmath 别名以及 from 导入均可识别；数学 intrinsic 当前用位置参数。
 
-数学函数名目录依据 [Python cmath 文档](https://docs.python.org/3/library/cmath.html)，AST 节点依据 [Python AST 文档](https://docs.python.org/3/library/ast.html)。支持的语法/数值子集和定点行为由本规范限定，不能视作任意 Python 或完整 cmath 兼容实现。
+数学函数名目录依据 <a href="https://docs.python.org/3/library/cmath.html">Python cmath 文档</a>，AST 节点依据 <a href="https://docs.python.org/3/library/ast.html">Python AST 文档</a>。支持的语法/数值子集和定点行为由本规范限定，不能视作任意 Python 或完整 cmath 兼容实现。

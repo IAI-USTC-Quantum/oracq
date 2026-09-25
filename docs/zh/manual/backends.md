@@ -1,6 +1,6 @@
 # 导出与执行后端
 
-[English](../../manual/backends.html) · **简体中文**
+<a href="../../manual/backends.html">English</a> · **简体中文**
 
 oracq 将导出和执行分开。{obj}`export_originir <oracq.infrastructure.backends.originir.export_originir>` 与 {obj}`export_toffoli_u3_cz <oracq.infrastructure.backends.basis.export_toffoli_u3_cz>` 只生成描述，不需要安装量子模拟器。各后端的 API 参考页：[OriginIR-ext](../api/infrastructure/backends/originir.rst)、[严格门集 basis](../api/infrastructure/backends/basis.rst)、[PySparQ](../api/infrastructure/backends/pysparq.rst)、[参考执行器](../api/infrastructure/execution.rst) 与 [读出](../api/infrastructure/readout.rst)。
 

@@ -1,6 +1,6 @@
 # 算法研究工作流改进
 
-[English](../../development/research-workflow-plan.html) · **简体中文**
+<a href="../../development/research-workflow-plan.html">English</a> · **简体中文**
 
 核心受众是根据论文实现、验证和比较量子科学计算算法的研究者。
 实现顺序按依赖推进，每阶段同步规范、示例与验证结果。

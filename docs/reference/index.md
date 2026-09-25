@@ -1,6 +1,6 @@
 # Specification reference
 
-**English** · [简体中文](../zh/reference/index.html)
+**English** · <a href="../zh/reference/index.html">简体中文</a>
 
 These documents define object formats and composition semantics. When implementing or validating the underlying tools, treat the rules here and the corresponding tests as authoritative.
 

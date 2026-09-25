@@ -1,6 +1,6 @@
 # Automatically generating reversible quantum modules from ordinary math functions
 
-**English** · [简体中文](../zh/manual/math-functions.html)
+**English** · <a href="../zh/manual/math-functions.html">简体中文</a>
 
 First write a pure Python math function, then call {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` to generate a reversible quantum module. The function remains usable for classical computation; on the quantum side the compiler handles temporary registers, alias copying, result XOR, and uncomputation. The [QFVM](qfvm.md) Roe face already uses this path.
 
@@ -67,7 +67,7 @@ print(compiled.output_layout)  # out_real, out_imag
 
 Ordinary unannotated parameters default to real; inputs can explicitly specify real/complex/bool. {obj}`Index <oracq.infrastructure.mathfunc.graph.Index>`(width) provides shorter public registers for unsigned integers such as QFVM row/column indices, automatically converted to the fixed-point representation on entry. Parameters with default values are treated as generation-time parameters; placed explicitly into inputs they can also become quantum inputs. Multiple results can be named with output_names, for example Roe's left/right.
 
-Python's cmath distinguishes signed zeros on branch cuts; the current fixed-point encoding does not carry that information. This is why a family of functions and replaceable approximate implementations are provided here, without promising full float/branch compatibility. [See the official documentation for the corresponding cmath behavior](https://docs.python.org/3/library/cmath.html).
+Python's cmath distinguishes signed zeros on branch cuts; the current fixed-point encoding does not carry that information. This is why a family of functions and replaceable approximate implementations are provided here, without promising full float/branch compatibility. <a href="https://docs.python.org/3/library/cmath.html">See the official documentation for the corresponding cmath behavior</a>.
 
 ## Approximation and status
 

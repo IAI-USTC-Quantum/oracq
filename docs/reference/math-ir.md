@@ -1,6 +1,6 @@
 # MIR 0.1: the pure mathematical function graph
 
-**English** · [简体中文](../zh/reference/math-ir.html)
+**English** · <a href="../zh/reference/math-ir.html">简体中文</a>
 
 MIR is the generation-layer representation between the Python pure-function front end and RIR. It round-trips through JSON independently; the full format is in the [Schema](schemas/math-ir.schema.json). It neither replaces RIR 0.3 nor writes Python callbacks into the quantum IR. For how to write functions, the implemented mathematical coverage, and numerical validation see the manual chapter [Automatically generating reversible quantum modules from ordinary math functions](../manual/math-functions.md).
 
@@ -60,4 +60,4 @@ There is no IEEE signed zero, and the boundary conventions of complex functions 
 
 Rejected are I/O, object mutation, arbitrary object methods, dynamic loops, recursion, exception handling, generators, lambdas, and callables whose source cannot be read. Closures and explicit constants capture only finite numerics. When source is unavailable, a def string can be passed instead. math and cmath aliases and from-imports are recognized; math intrinsics currently take positional arguments.
 
-The mathematical function-name catalog follows the [Python cmath documentation](https://docs.python.org/3/library/cmath.html), and AST nodes follow the [Python AST documentation](https://docs.python.org/3/library/ast.html). The supported syntax/numeric subset and the fixed-point behavior are delimited by this specification and must not be taken as an arbitrary-Python or complete-cmath compatible implementation.
+The mathematical function-name catalog follows the <a href="https://docs.python.org/3/library/cmath.html">Python cmath documentation</a>, and AST nodes follow the <a href="https://docs.python.org/3/library/ast.html">Python AST documentation</a>. The supported syntax/numeric subset and the fixed-point behavior are delimited by this specification and must not be taken as an arbitrary-Python or complete-cmath compatible implementation.

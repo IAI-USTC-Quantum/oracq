@@ -1,4 +1,4 @@
-[English](../index.html) · **简体中文**
+<a href="../index.html">English</a> · **简体中文**
 
 # oracq
 

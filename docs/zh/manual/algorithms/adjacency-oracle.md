@@ -1,6 +1,6 @@
 # 图邻接 oracle（Adjacency Oracle）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C1 · 模块 [`oracq.algorithms.input_model.graph_walks`](../../api/algorithms/input_model/graph_walks.rst) · 阶段 V3
 

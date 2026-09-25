@@ -1,6 +1,6 @@
 # QROM 查找（QROM Lookup）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C5 · 模块 [`oracq.algorithms.input_model.data_loading`](../../api/algorithms/input_model/data_loading.rst) · 阶段 V4
 

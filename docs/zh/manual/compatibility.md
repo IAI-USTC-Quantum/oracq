@@ -1,6 +1,6 @@
 # 导入路径迁移
 
-[English](../../manual/compatibility.html) · **简体中文**
+<a href="../../manual/compatibility.html">English</a> · **简体中文**
 
 0.8 将实现移到按职责划分的目录。根包中的常用导出继续可用；旧模块路径通过集中兼容表转发，引用同一个实现。新代码应使用规范路径。
 

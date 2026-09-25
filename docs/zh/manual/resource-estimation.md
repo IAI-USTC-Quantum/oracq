@@ -1,6 +1,6 @@
 # 资源估计（Toffoli+Clifford+T+QRAM）
 
-[English](../../manual/resource-estimation.html) · **简体中文**
+<a href="../../manual/resource-estimation.html">English</a> · **简体中文**
 
 > 模块 [`oracq.infrastructure.estimate`](../api/infrastructure/estimate.rst) 与 [`oracq.infrastructure.backends.strict`](../api/infrastructure/backends/strict.rst)
 

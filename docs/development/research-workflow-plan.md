@@ -1,6 +1,6 @@
 # Algorithm research workflow improvements
 
-**English** · [简体中文](../zh/development/research-workflow-plan.html)
+**English** · <a href="../zh/development/research-workflow-plan.html">简体中文</a>
 
 The core audience is researchers who implement, validate, and compare quantum
 scientific-computing algorithms from papers. Implementation advances in

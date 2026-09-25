@@ -1,6 +1,6 @@
 # Development and acceptance
 
-**English** · [简体中文](../zh/development/contributing.html)
+**English** · <a href="../zh/development/contributing.html">简体中文</a>
 
 ## Placing new code
 

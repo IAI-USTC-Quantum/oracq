@@ -24,7 +24,7 @@ for path in sorted(ZH.rglob("*.md")):
         target = f"{up}{rel.with_suffix('.html').as_posix()}"
     else:
         target = f"{up}index.html"
-    line = f"[English]({target}) · **简体中文**"
+    line = f'<a href="{target}">English</a> · **简体中文**'
     text = path.read_text(encoding="utf-8")
     if text.startswith("[English]"):
         skipped += 1

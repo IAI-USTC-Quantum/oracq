@@ -1,6 +1,6 @@
 # 安装与环境
 
-[English](../../manual/installation.html) · **简体中文**
+<a href="../../manual/installation.html">English</a> · **简体中文**
 
 语言核心要求 Python 3.11 或更高版本，没有第三方运行时依赖。量子模拟器和文档工具单独安装。
 

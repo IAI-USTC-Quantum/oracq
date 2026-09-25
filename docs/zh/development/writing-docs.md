@@ -1,6 +1,6 @@
 # 编写文档
 
-[English](../../development/writing-docs.html) · **简体中文**
+<a href="../../development/writing-docs.html">English</a> · **简体中文**
 
 文档分为完整文档和教程。完整文档解释稳定的规则、接口和限制；教程围绕一个具体任务，给出输入、代码、结果解释和下一步。API 参考由源码生成。
 
@@ -45,7 +45,7 @@ uv run sphinx-build -W --keep-going -b html docs out/docs/html
 
 生成器还会从根包 `oracq.__all__` 产出 `docs/api/toplevel.rst`（包总览页，按定义模块分组链接到各模块页）；新增根导出名字或调整 `__all__` 后同样需要重跑生成器。生成器内 `TITLES` 表维护每个模块的中文页标题，新模块记得补一条。旧导入路径只保留兼容，不出现在 API 文档中。
 
-API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必须继续在执行入口导入，以便在核心环境中构建文档。完整使用方式参见 [Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html)。
+API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必须继续在执行入口导入，以便在核心环境中构建文档。完整使用方式参见 <a href="https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html">Sphinx autodoc</a>。
 
 ## 中文与 API 名称搜索
 

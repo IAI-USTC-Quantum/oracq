@@ -1,6 +1,6 @@
 # QRAM 内存定义（qram YAML）
 
-[English](../../reference/qram-memory.html) · **简体中文**
+<a href="../../reference/qram-memory.html">English</a> · **简体中文**
 
 内存数据不写入程序序列化文本（见 [RIR](rir.md)），而是作为执行输入另行绑定。本文定义绑定文件 `*.qram.yaml` 的格式：一个文件描述一组 QRAM 段（`qram_segments` 列表），执行时按入口资源名与程序交叉校验。
 

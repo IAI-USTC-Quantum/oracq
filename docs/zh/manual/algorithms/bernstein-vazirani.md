@@ -1,6 +1,6 @@
 # Bernstein–Vazirani 秘密串读出（Bernstein–Vazirani）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C1 · 模块 [`oracq.algorithms.basics.oracle_algorithms`](../../api/algorithms/basics/oracle_algorithms.rst) · 阶段 V1
 

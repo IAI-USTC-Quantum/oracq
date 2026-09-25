@@ -1,6 +1,6 @@
 # Writing documentation
 
-**English** · [简体中文](../zh/development/writing-docs.html)
+**English** · <a href="../zh/development/writing-docs.html">简体中文</a>
 
 The documentation is bilingual. The English pages under
 `docs/{manual,tutorials,reference,development}/` are the primary source, and a
@@ -32,12 +32,15 @@ readout, or numerical error validation.
 ## Language switcher
 
 Every page carries a language-switcher line directly under its H1: English
-pages use `**English** · [简体中文](<relative path>)`, Chinese pages use
-`[English](<relative path>) · **简体中文**` (the Chinese side is prepended
-automatically by `tools/add_switchers.py`). Cross-tree targets always use the
-`.html` form — for example
-`[简体中文](../zh/development/contributing.html)` from this directory — so
-the link resolves in the built HTML of the other tree.
+pages use `**English** · <a href="../zh/...">简体中文</a>`, Chinese pages use
+`<a href="../../...">English</a> · **简体中文**` (the Chinese side is
+prepended automatically by `tools/add_switchers.py`). Cross-tree targets must
+be RAW HTML anchors with relative `.html` paths — a markdown link like
+`[简体中文](../zh/x.html)` would be resolved by MyST as a document reference
+and, since the other tree is outside the project, silently degrade to a
+`#...` anchor link. Raw `<a>` tags pass through to the built HTML unchanged,
+for example `<a href="../zh/development/contributing.html">简体中文</a>` from
+this directory.
 
 ## Executable tutorials
 
@@ -127,7 +130,7 @@ and never appear in the API documentation.
 The API pages import the actual source through autodoc, with no mock imports.
 Optional backends must keep being imported at the execution entry points, so
 the documentation can be built in the core environment. See
-[Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html)
+<a href="https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html">Sphinx autodoc</a>
 for full usage.
 
 ## Chinese and API-name search

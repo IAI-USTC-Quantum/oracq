@@ -1,6 +1,6 @@
 # 给算法替换 oracle
 
-[English](../../tutorials/oracle-binding.html) · **简体中文**
+<a href="../../tutorials/oracle-binding.html">English</a> · **简体中文**
 
 我们先编写一个不知道函数实现的 Bernstein–Vazirani 程序，再给它绑定门实现。这样可以看清“算法已经完整”和“输入 oracle 尚未完成”之间的区别。
 

@@ -1,6 +1,6 @@
 # Acceptance record for this version
 
-**English** · [简体中文](../zh/development/validation.html)
+**English** · <a href="../zh/development/validation.html">简体中文</a>
 
 ## Algorithm research workflow improvements (2026-09-21)
 

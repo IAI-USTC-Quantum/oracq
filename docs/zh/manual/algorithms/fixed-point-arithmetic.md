@@ -1,6 +1,6 @@
 # 可逆定点算术（Fixed-Point Arithmetic）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C1 · 模块 [`oracq.algorithms.common.arithmetic`](../../api/algorithms/common/arithmetic.rst) · 阶段 V1
 

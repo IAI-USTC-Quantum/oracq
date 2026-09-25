@@ -1,6 +1,6 @@
 # LCHS 线性组合哈密顿模拟（Linear Combination of Hamiltonian Simulations）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.qode.lchs`](../../api/algorithms/qode/lchs.rst) · 阶段 V2
 

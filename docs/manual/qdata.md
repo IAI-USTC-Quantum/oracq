@@ -1,6 +1,6 @@
 # Quantum data structures and the KP recommendation system
 
-**English** · [简体中文](../zh/manual/qdata.html)
+**English** · <a href="../zh/manual/qdata.html">简体中文</a>
 
 {obj}`QVector <oracq.algorithms.input_model.qdata.QVector>` and {obj}`QMatrix <oracq.algorithms.input_model.qdata.QMatrix>` package the quantum data structures shared by [QFVM](qfvm.md) (arXiv:2102.03557 Eqs. 15–22 residual sum-of-squares tree) and the Kerenidis–Prakash recommendation system (arXiv:1603.08675 Thm 5.1 + Appendix A.1), with the entire data plane accessed through [QRAM pointers](qmem.md). The API is documented in [quantum data structures (qsample and sample-and-query)](../api/algorithms/input_model/qdata.rst).
 

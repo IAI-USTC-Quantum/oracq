@@ -1,6 +1,6 @@
 # 科学计算工作流：输入模型、求解器与复现
 
-[English](../../tutorials/scientific-workflows.html) · **简体中文**
+<a href="../../tutorials/scientific-workflows.html">English</a> · **简体中文**
 
 本章串联 QHAM、Carleman、LCHS 和 CBMD 的完整示例，解释每一步产生的对象、
 仍然开放的接口，以及结果能够支持的结论。论文保留机制与代表性实验；完整

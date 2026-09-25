@@ -1,6 +1,6 @@
 # 量子算法覆盖工作板
 
-[English](../../development/algorithm-coverage.html) · **简体中文**
+<a href="../../development/algorithm-coverage.html">English</a> · **简体中文**
 
 本文档跟踪 oracq 相对开源生态的量子算法实现覆盖面，按"input model 自由度优先"的原则安排实现顺序。核心原则：算法与输入模型解耦，一个算法定义通过开放声明与分批绑定服务多种 input model（abstract / gate / qram 三层）。
 

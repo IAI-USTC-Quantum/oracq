@@ -1,6 +1,6 @@
 # Repository reorganization and the algorithm expansion panel
 
-**English** · [简体中文](../zh/development/roadmap.html)
+**English** · <a href="../zh/development/roadmap.html">简体中文</a>
 
 This round first reorganizes code and documentation, then expands a batch of
 algorithms that can actually generate circuits. All work happens inside the

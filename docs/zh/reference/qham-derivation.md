@@ -1,6 +1,6 @@
 # 一般 QHAM：从 PDE 到量子适配线性系统的推导
 
-[English](../../reference/qham-derivation.html) · **简体中文**
+<a href="../../reference/qham-derivation.html">English</a> · **简体中文**
 
 本文先固定数学规则，再据此实现生成器。主要对照 [QHAM v2](https://arxiv.org/html/2411.06759v2) II.1–II.3；其 [v1](https://arxiv.org/html/2411.06759v1) 使用 secondary linearization 名称。这里“二次”表示第二次线性化，不是将所有 PDE 先降为二次多项式。工程描述见手册[一般 QHAM 自动生成：PDE → HAM → QCL → QODE](../manual/qham.md)，可运行示例见教程[从 PDE 表达式生成 QHAM 输入](../tutorials/qham.md)。
 

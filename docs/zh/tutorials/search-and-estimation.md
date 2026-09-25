@@ -1,6 +1,6 @@
 # 搜索一个元素，并估计成功概率
 
-[English](../../tutorials/search-and-estimation.html) · **简体中文**
+<a href="../../tutorials/search-and-estimation.html">English</a> · **简体中文**
 
 [Grover 搜索](../manual/algorithms/grover.md)使用相位 oracle 标记好状态。下面在四个基态中标记 `3`，一次迭代后读取该状态。
 

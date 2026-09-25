@@ -1,6 +1,6 @@
 # 第一个寄存器程序
 
-[English](../../tutorials/first-program.html) · **简体中文**
+<a href="../../tutorials/first-program.html">English</a> · **简体中文**
 
 这篇教程生成一个 Bell 态。你会用到一个寄存器、两条门操作和参考执行器。完成后，再把同一程序保存为 RIR 和 OriginIR-ext。
 

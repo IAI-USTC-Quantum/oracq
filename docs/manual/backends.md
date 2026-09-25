@@ -1,6 +1,6 @@
 # Export and execution backends
 
-**English** · [简体中文](../zh/manual/backends.html)
+**English** · <a href="../zh/manual/backends.html">简体中文</a>
 
 oracq separates export from execution.
 {obj}`export_originir <oracq.infrastructure.backends.originir.export_originir>`
@@ -57,6 +57,6 @@ do not treat the scale it can run as a real-hardware resource estimate.
 The RIR core contains no measurement or reset. Final measurement,
 post-selection, and statistical processing happen at the host layer; when
 dynamic OriginIR is needed, the readout adapter can be used explicitly.
-Error-recovery circuits with syndromes ([repetition codes](../zh/manual/algorithms/repetition-codes.html))
+Error-recovery circuits with syndromes (<a href="../zh/manual/algorithms/repetition-codes.html">repetition codes</a>)
 keep the error information, and appropriate host processing is required
 before these registers are reused.

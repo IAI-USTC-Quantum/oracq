@@ -1,6 +1,6 @@
 # PREPARE–SELECT 分解（PREPARE–SELECT Decomposition）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C5/C1 · 模块 [`oracq.algorithms.common.prepare_select`](../../api/algorithms/common/prepare_select.rst) · 阶段 V4
 

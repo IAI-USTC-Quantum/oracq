@@ -1,6 +1,6 @@
 # QFVM 中替换 QLSS：输入模型、QRAM 数据结构与输出契约审查
 
-[English](../../reference/qfvm-input-models.html) · **简体中文**
+<a href="../../reference/qfvm-input-models.html">English</a> · **简体中文**
 
 审查日期：2026-09-09。本文对应本轮修正后的实现；被审查的基线是 oracq 0.4.0 的 QFVM 路径。
 

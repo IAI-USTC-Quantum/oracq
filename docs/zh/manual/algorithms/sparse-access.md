@@ -1,6 +1,6 @@
 # 稀疏矩阵访问（Sparse Access）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C5 · 模块 [`oracq.algorithms.input_model.oracles`](../../api/algorithms/input_model/oracles.rst) · 阶段 V4
 

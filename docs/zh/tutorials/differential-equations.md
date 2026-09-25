@@ -1,6 +1,6 @@
 # 为同一个线性问题替换 QODE 方法
 
-[English](../../tutorials/differential-equations.html) · **简体中文**
+<a href="../../tutorials/differential-equations.html">English</a> · **简体中文**
 
 本例考虑 `u'=-u`。我们用 `-I` 的 BE 表示生成元，用一个 X 门制备初态，再分别选择 [LCHS](../manual/algorithms/lchs.md) 和 [Schrödingerization](../manual/algorithms/schrodingerization.md)。生成元写成 {obj}`scale <oracq.algorithms.input_model.operators.scale>` 缩放 {obj}`identity <oracq.algorithms.input_model.operators.identity>`，问题连同初态一起装进 {obj}`QODEProblem <oracq.algorithms.qode.ode.QODEProblem>`。
 

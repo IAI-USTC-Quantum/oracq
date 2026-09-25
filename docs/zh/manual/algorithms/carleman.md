@@ -1,6 +1,6 @@
 # Carleman 线性化（Carleman Linearization）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.qnlss.carleman`](../../api/algorithms/qnlss/carleman.rst) · 阶段 V2
 

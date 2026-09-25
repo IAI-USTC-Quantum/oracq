@@ -1,6 +1,6 @@
 # 从 PDE 表达式生成 QHAM 输入
 
-[English](../../tutorials/qham.html) · **简体中文**
+<a href="../../tutorials/qham.html">English</a> · **简体中文**
 
 这一例子先定义 Burgers 方程，再建立一个二阶 HAM 计划。创建计划不会展开所有张量块，也不会构造完整矩阵。未知场是 {obj}`Field <oracq.applications.qham.pde.Field>`，方程冻结成 {obj}`PolynomialPDE <oracq.applications.qham.pde.PolynomialPDE>`，二阶计划保存在 {obj}`QHAMPlan <oracq.applications.qham.linearization.QHAMPlan>` 里。
 

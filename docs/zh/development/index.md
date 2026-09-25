@@ -1,6 +1,6 @@
 # 项目开发
 
-[English](../../development/index.html) · **简体中文**
+<a href="../../development/index.html">English</a> · **简体中文**
 
 修改算法时，先确定它的输入约定和返回语义，再实现生成器与独立见证。修改 RIR 时，还需要更新格式规范、Schema 和序列化测试。
 

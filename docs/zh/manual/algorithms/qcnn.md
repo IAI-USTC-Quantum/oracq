@@ -1,6 +1,6 @@
 # 量子卷积神经网络（QCNN）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C4 · 模块 [`oracq.algorithms.qml.qcnn`](../../api/algorithms/qml/qcnn.rst) 与 [`oracq.algorithms.qml.qcnn_layer`](../../api/algorithms/qml/qcnn_layer.rst) · 论文 arXiv:1911.01117（ICLR 2020）
 

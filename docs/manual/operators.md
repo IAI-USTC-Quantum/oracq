@@ -1,6 +1,6 @@
 # Oracles and operator representations
 
-**English** · [简体中文](../zh/manual/operators.html)
+**English** · <a href="../zh/manual/operators.html">简体中文</a>
 
 When choosing an input representation, first ask how the higher-level algorithm needs to access the data. A BE of a matrix, a sparse position query, and a numeric XOR query provide different capabilities.
 

@@ -1,6 +1,6 @@
 # Conventions owned by algorithms: starting from one gate
 
-**English** · [简体中文](../zh/manual/contracts.html)
+**English** · <a href="../zh/manual/contracts.html">简体中文</a>
 
 **Conventions belong to the algorithm library, not to the RIR language's type system.** An object can satisfy multiple Python protocols at once; higher-level algorithms check the methods, parameters, and invocation capabilities they need. A new algorithm can define new protocols in its own file without modifying the oracq syntax, the RIR, the serializers, or a global type catalog.
 

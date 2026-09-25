@@ -1,6 +1,6 @@
 # 普通数学函数自动生成可逆量子模块
 
-[English](../../manual/math-functions.html) · **简体中文**
+<a href="../../manual/math-functions.html">English</a> · **简体中文**
 
 先编写纯 Python 数学函数，再调用 {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 生成可逆量子模块。函数仍可用于经典计算；量子侧由编译器处理临时寄存器、别名复制、结果 XOR 和反算。[QFVM](qfvm.md) 的 Roe face 已采用这条路径。
 
@@ -67,7 +67,7 @@ print(compiled.output_layout)  # out_real, out_imag
 
 普通无注解参数默认实数；可用 inputs 显式指定 real/complex/bool。{obj}`Index <oracq.infrastructure.mathfunc.graph.Index>`(width) 为 QFVM 行列索引等无符号整数提供较短的公开寄存器，进入计算时自动转换到定点表示。常量默认参数视为生成期参数；显式放入 inputs 后也可成为量子输入。多结果可用 output_names 指定名称，例如 Roe 的 left/right。
 
-Python 的 cmath 在分支切线上区分有符号零；当前定点编码没有该信息。因此这里提供函数族和可替换的近似实现，不承诺完整浮点/分支兼容。[对应的 cmath 行为见官方文档](https://docs.python.org/3/library/cmath.html)。
+Python 的 cmath 在分支切线上区分有符号零；当前定点编码没有该信息。因此这里提供函数族和可替换的近似实现，不承诺完整浮点/分支兼容。<a href="https://docs.python.org/3/library/cmath.html">对应的 cmath 行为见官方文档</a>。
 
 ## 近似与状态
 

@@ -1,8 +1,8 @@
 # Search for an element and estimate the success probability
 
-**English** · [简体中文](../zh/tutorials/search-and-estimation.html)
+**English** · <a href="../zh/tutorials/search-and-estimation.html">简体中文</a>
 
-[Grover search](../zh/manual/algorithms/grover.html) marks good states with a phase oracle. Below we mark `3` among four basis states and read that state out after one iteration.
+<a href="../zh/manual/algorithms/grover.html">Grover search</a> marks good states with a phase oracle. Below we mark `3` among four basis states and read that state out after one iteration.
 
 ```{testcode}
 from oracq.algorithms.input_model.oracles import phase_marks
@@ -23,7 +23,7 @@ assert abs(state.amplitudes[(3, 0)] - 1) < 1e-12
 
 ## Estimating the probability
 
-Standard [amplitude estimation](../zh/manual/algorithms/qae.html) runs phase estimation on the Grover iterate; its entry point is {obj}`amplitude_estimation <oracq.algorithms.common.estimation.amplitude_estimation>`. It takes an initial-state preparation and a set of good states and outputs a phase register. The initial state below is uniform over `0` and `1`, so the good state `1` has probability `1/2`.
+Standard <a href="../zh/manual/algorithms/qae.html">amplitude estimation</a> runs phase estimation on the Grover iterate; its entry point is {obj}`amplitude_estimation <oracq.algorithms.common.estimation.amplitude_estimation>`. It takes an initial-state preparation and a set of good states and outputs a phase register. The initial state below is uniform over `0` and `1`, so the good state `1` has probability `1/2`.
 
 ```{testcode}
 from oracq.algorithms.input_model.oracles import uniform_state
@@ -48,6 +48,6 @@ The initial state is prepared by {obj}`uniform_state <oracq.algorithms.input_mod
 
 ## Related pages
 
-- Algorithm pages: [Grover search](../zh/manual/algorithms/grover.html), [amplitude amplification](../zh/manual/algorithms/amplitude-amplification.html), [amplitude estimation](../zh/manual/algorithms/qae.html), [phase estimation](../zh/manual/algorithms/qpe.html)
+- Algorithm pages: <a href="../zh/manual/algorithms/grover.html">Grover search</a>, <a href="../zh/manual/algorithms/amplitude-amplification.html">amplitude amplification</a>, <a href="../zh/manual/algorithms/qae.html">amplitude estimation</a>, <a href="../zh/manual/algorithms/qpe.html">phase estimation</a>
 - API reference: [Search and amplitude amplification](../api/algorithms/common/search.rst), [Phase, amplitude, and overlap estimation](../api/algorithms/common/estimation.rst), [Oracle declarations and implementations](../api/algorithms/input_model/oracles.rst)
 - Continue with: [Running and modifying the algorithm gallery](gallery.md) (further cases covering both algorithms of this example)

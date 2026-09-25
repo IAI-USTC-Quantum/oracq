@@ -1,6 +1,6 @@
 # Generating QHAM input from a PDE expression
 
-**English** · [简体中文](../zh/tutorials/qham.html)
+**English** · <a href="../zh/tutorials/qham.html">简体中文</a>
 
 This example first defines the Burgers equation, then sets up a second-order HAM plan. Creating the plan expands no tensor block and builds no complete matrix. The unknown field is a {obj}`Field <oracq.applications.qham.pde.Field>`, the equation is frozen into a {obj}`PolynomialPDE <oracq.applications.qham.pde.PolynomialPDE>`, and the second-order plan is stored in a {obj}`QHAMPlan <oracq.applications.qham.linearization.QHAMPlan>`.
 
@@ -42,5 +42,5 @@ contrasts the inputs, solver choices, and binding boundaries of Carleman, LCHS, 
 
 - Manual: [General QHAM automatic generation](../manual/qham.md)
 - Specification: [QHAM mathematical derivation](../reference/qham-derivation.md)
-- Algorithm pages: [QHAM](../zh/manual/algorithms/qham.html), [QODE problem objects and protocol](../zh/manual/algorithms/qode-problem.html)
+- Algorithm pages: <a href="../zh/manual/algorithms/qham.html">QHAM</a>, <a href="../zh/manual/algorithms/qode-problem.html">QODE problem objects and protocol</a>
 - API reference: [QHAM](../api/algorithms/input_model/qham.rst), [PDE models and adaptation](../api/applications/qham/pde.rst), [QHAM finite closure](../api/applications/qham/linearization.rst), [structured stencil ports](../api/applications/qham/stencils.rst)

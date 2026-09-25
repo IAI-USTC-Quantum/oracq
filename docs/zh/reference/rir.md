@@ -1,6 +1,6 @@
 # RIR：模块化寄存器级中间表示
 
-[English](../../reference/rir.html) · **简体中文**
+<a href="../../reference/rir.html">English</a> · **简体中文**
 
 本规范定义 RIR 0.3。开放声明、能力与绑定的详细规则见[开放 IR](open-ir.md)；Python 生成层中寄存器与视图的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md#寄存器与视图)。
 

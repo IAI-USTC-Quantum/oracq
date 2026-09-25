@@ -1,6 +1,6 @@
 # 语言与算法库约定
 
-[English](../../reference/language.html) · **简体中文**
+<a href="../../reference/language.html">English</a> · **简体中文**
 
 本规范对应 oracq 0.8。它定义 Python 生成层与 RIR 之间的边界。RIR 对象及指令语义见 [RIR 0.3](rir.md)，数学函数图见 [MIR 0.1](math-ir.md)。生成阶段的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md)。
 

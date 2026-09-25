@@ -1,6 +1,6 @@
 # Translation Glossary (Chinese → English)
 
-**English** · [简体中文](../zh/development/translation-glossary.html)
+**English** · <a href="../zh/development/translation-glossary.html">简体中文</a>
 
 Single source of truth for translating this repository from Chinese to English.
 Every translation pass (code comments, docstrings, docs pages, exception

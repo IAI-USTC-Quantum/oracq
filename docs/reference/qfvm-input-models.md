@@ -1,6 +1,6 @@
 # Replacing the QLSS inside QFVM: a review of input models, QRAM data structures, and output contracts
 
-**English** · [简体中文](../zh/reference/qfvm-input-models.html)
+**English** · <a href="../zh/reference/qfvm-input-models.html">简体中文</a>
 
 Review date: 2026-09-09. This document corresponds to the implementation after this round of fixes; the reviewed baseline is the QFVM path of oracq 0.4.0.
 

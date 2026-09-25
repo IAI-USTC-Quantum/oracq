@@ -1,6 +1,6 @@
 # Source code structure
 
-**English** · [简体中文](../zh/manual/architecture.html)
+**English** · <a href="../zh/manual/architecture.html">简体中文</a>
 
 The source is divided into infrastructure, the algorithm library, and domain
 applications. Directory names correspond to the responsibilities of the code,

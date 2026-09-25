@@ -1,6 +1,6 @@
 # 开发与验收
 
-[English](../../development/contributing.html) · **简体中文**
+<a href="../../development/contributing.html">English</a> · **简体中文**
 
 ## 放置新代码
 

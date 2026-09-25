@@ -1,6 +1,6 @@
 # QPCA 主成分分析（Quantum Principal Component Analysis）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C3 · 模块 [`oracq.algorithms.qml.qpca`](../../api/algorithms/qml/qpca.rst) · 阶段 V1
 

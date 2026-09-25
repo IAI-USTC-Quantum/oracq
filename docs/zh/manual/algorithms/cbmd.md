@@ -1,6 +1,6 @@
 # CBMD 轮廓分解（CBMD）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.qode.cbmd`](../../api/algorithms/qode/cbmd.rst) · 阶段 V2
 

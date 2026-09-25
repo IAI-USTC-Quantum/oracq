@@ -1,6 +1,6 @@
 # QODE 问题对象与协议（QODE Problem and Protocol）
 
-[English](../../../index.html) · **简体中文**
+<a href="../../../index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.qode.ode`](../../api/algorithms/qode/ode.rst) · 阶段 V2
 
