@@ -1,6 +1,6 @@
 # Hadamard 检验（Hadamard Test）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C3 · 模块 [`oracq.algorithms.common.estimation`](../../api/algorithms/common/estimation.rst) · 阶段 V2
 

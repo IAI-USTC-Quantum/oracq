@@ -1,6 +1,6 @@
 # Command line
 
-**English** · <a href="../zh/manual/cli.html">简体中文</a>
+**English** · <a href="../../zh/manual/cli.html">简体中文</a>
 
 The command line processes already saved RIR and also provides an entry point
 for [math function compilation](math-functions.md#command-line-and-cases).

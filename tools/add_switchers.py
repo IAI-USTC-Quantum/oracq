@@ -1,11 +1,15 @@
 """Prepend language-switcher links to Chinese docs pages (run from repo root).
 
 For every docs/zh/**/*.md page, insert directly under the H1 title:
-    [English](<relative .html path to the EN twin>) · **简体中文**
-when an English twin exists at the mirrored path under docs/, otherwise link
-to the English landing page. Existing switcher lines are skipped.
+    <a href="...">English</a> · **简体中文**
+linking to the English twin when one exists at the mirrored path under docs/,
+otherwise to the English landing page. Href depths follow the DEPLOYED site
+layout — a built page sits at <site>/<lang>/<relpath>.html, so from
+/site/zh/manual/x.html the English twin is ../../en/manual/x.html (one level
+more than source-tree intuition). Existing switcher lines are skipped.
 """
 
+import posixpath
 import re
 from pathlib import Path
 
@@ -17,16 +21,17 @@ changed = 0
 skipped = 0
 for path in sorted(ZH.rglob("*.md")):
     rel = path.relative_to(ZH)
-    depth = len(rel.parts) - 1
-    up = "../" * (depth + 1)
+    dirname = posixpath.dirname(rel.as_posix())
+    page_dir = f"/oracq/zh/{dirname}" if dirname else "/oracq/zh"
     en_twin = DOCS / rel
     if en_twin.exists():
-        target = f"{up}{rel.with_suffix('.html').as_posix()}"
+        deployed = "/oracq/en/" + rel.as_posix()[: -len(".md")] + ".html"
     else:
-        target = f"{up}index.html"
+        deployed = "/oracq/en/index.html"
+    target = posixpath.relpath(deployed, page_dir)
     line = f'<a href="{target}">English</a> · **简体中文**'
     text = path.read_text(encoding="utf-8")
-    if text.startswith("[English]"):
+    if text.startswith('<a href='):
         skipped += 1
         continue
     m = re.match(r"^(#\s+.*?\n)", text)

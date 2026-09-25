@@ -1,8 +1,8 @@
 # RIR：模块化寄存器级中间表示
 
-<a href="../../reference/rir.html">English</a> · **简体中文**
+<a href="../../en/reference/rir.html">English</a> · **简体中文**
 
-本规范定义 RIR 0.3。开放声明、能力与绑定的详细规则见[开放 IR](open-ir.md)；Python 生成层中寄存器与视图的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md#寄存器与视图)。
+本规范定义 RIR 0.1。开放声明、能力与绑定的详细规则见[开放 IR](open-ir.md)；Python 生成层中寄存器与视图的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md#寄存器与视图)。
 
 规范日期：2026-09-19。Python API、序列化器、参考执行器与后端适配器必须遵守本文。JSON Schema 只覆盖对象形状；跨节点约束由 validate 检查。
 
@@ -28,7 +28,7 @@ RIR 的已实现主体由酉操作构成；未实现模块以开放声明表示�
 
 ### 2.1 对象模型
 
-Program 具有 entry、modules 和 version 三个字段。当前 version 为字符串 "0.3"，读取器也接受 "0.1" 和 "0.2"。entry 必须引用一个已定义模块。
+Program 具有 entry、modules 和 version 三个字段。当前 version 为字符串 "0.1"。entry 必须引用一个已定义模块。
 
 Module 具有 name、registers、resources、body、attributes 和 locals。registers 是有序量子参数列表，resources 是有序 QRAM 参数列表，body 是有序指令体，或表示开放声明的 null。attributes 是由键和值组成的有序二元组列表。属性值只允许字符串、整数、有限浮点数或布尔值。
 
@@ -115,7 +115,7 @@ Store 具有与 Load 相同的 resource、address 和 data 字段及相同的宽
 M[address] := data
 ```
 
-Store 不改变任何量子位，也不计入后端门成本。存储单元按经典单元建模；叠加地址或叠加数据下的写没有线性语义，执行器遇到时必须报错。结构上 Store 只能出现在模块体或 Repeat 体内；Control 和 Adjoint 体内禁止出现，含 Store 的模块（含经调用可达者）不具备 supports_adjoint 与 supports_controlled 能力。Store 仅在 RIR 0.3 中合法。
+Store 不改变任何量子位，也不计入后端门成本。存储单元按经典单元建模；叠加地址或叠加数据下的写没有线性语义，执行器遇到时必须报错。结构上 Store 只能出现在模块体或 Repeat 体内；Control 和 Adjoint 体内禁止出现，含 Store 的模块（含经调用可达者）不具备 supports_adjoint 与 supports_controlled 能力。Store 在 RIR 0.1 中合法。
 
 ### 3.3 Call
 
@@ -209,7 +209,7 @@ Schema 文件见 [rir.schema.json](schemas/rir.schema.json)。它描述 YAML 与
 ```text
 program     = Program { entry: name;
                         modules: module*;
-                        version: "0.1" | "0.2" | "0.3" } .
+                        version: "0.1" } .
 
 module      = Module { name: name;
                        registers: register*;
@@ -244,7 +244,7 @@ control     = Control { register: ref; value: integer; body: instruction* } .
 adjoint     = Adjoint { body: instruction* } .
 ```
 
-angle 与 value 是否出现由 op 决定（见 3.1 节），未使用者序列化为 null。开放模块的 body 为 ∅ 且不得声明 locals（见 4.5 节）。版本 "0.1" 与 "0.2" 的 Module 不携带 locals 字段。
+angle 与 value 是否出现由 op 决定（见 3.1 节），未使用者序列化为 null。开放模块的 body 为 ∅ 且不得声明 locals（见 4.5 节）。
 
 主要数值范围：RegType.width 处于 0..64；QRAM 两个宽度处于 1..64；Repeat.count 处于 0..2^63−1；Control.value 处于控制视图的无符号范围；add_const 的 value 处于 0..2^width−1；模块调用深度和结构块嵌套深度不超过 127。
 
@@ -271,7 +271,7 @@ PySparQ 后端将非空入口寄存器映射到原生命名整数寄存器。对
 
 ### 4.5 模块私有工作寄存器
 
-Module.locals 是有序 Register 数组，不属于公开调用签名。每次调用从零态借入，必须在返回前复净；IR 只检查宽度和引用，复净是实现义务，模拟器提供运行期检查。开放模块不得声明 locals。Adjoint 和 Control 包括完整模块行为，工作区不能跨调用逃逸。OriginIR 导出为模块工作参数，顺序调用复用一段物理工作区；PySparQ 可在模块边界截获 native 实现，跳过其内部工作区与分解。原生注册表不是 IR 的一部分，不能将原生可执行误报为门级闭合。0.1/0.2 旧文本（YAML 或 JSON）仍可读写，其 Module 不含 locals；0.3 显式携带该字段。
+Module.locals 是有序 Register 数组，不属于公开调用签名。每次调用从零态借入，必须在返回前复净；IR 只检查宽度和引用，复净是实现义务，模拟器提供运行期检查。开放模块不得声明 locals。Adjoint 和 Control 包括完整模块行为，工作区不能跨调用逃逸。OriginIR 导出为模块工作参数，顺序调用复用一段物理工作区；PySparQ 可在模块边界截获 native 实现，跳过其内部工作区与分解。原生注册表不是 IR 的一部分，不能将原生可执行误报为门级闭合。
 
 
 ## 第 5 部分：完整案例
@@ -350,13 +350,13 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
 讲解：
 
-- {obj}`Program <oracq.infrastructure.ir.Program>` 只有三个字段：`entry` 指向唯一模块；`modules` 按模块名排序输出（4.2 节）；`version` 为 `"0.3"`。
+- {obj}`Program <oracq.infrastructure.ir.Program>` 只有三个字段：`entry` 指向唯一模块；`modules` 按模块名排序输出（4.2 节）；`version` 为 `"0.1"`。
 - {obj}`Module <oracq.infrastructure.ir.Module>` 的 `registers` 是公开接口（`pair: bits/2`）；`resources`、`locals`、`attributes` 即使为空也必须写出。
 - 第一条 {obj}`Primitive <oracq.infrastructure.ir.Primitive>`：`op=h`，操作数是单个 {obj}`Ref <oracq.infrastructure.ir.Ref>`，其 {obj}`Span(pair, 0, 1) <oracq.infrastructure.ir.Span>` 是根寄存器的最低位。切片产生 bits 解释（2.3 节），因此 `Ref.type.kind` 是 `bits`。
 - 第二条 `Primitive`：`op=xor`，两个同宽操作数——源是 `pair` 的第 0 位、目标是第 1 位，语义为目标按位异或源（3.1 节）。
@@ -435,7 +435,7 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -582,7 +582,7 @@ modules:
           tag: QRAM
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -768,7 +768,7 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -824,7 +824,7 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -927,7 +927,7 @@ modules:
           tag: QRAM
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 

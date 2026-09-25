@@ -1,6 +1,6 @@
 # OriginIR-ext and PySparQ review
 
-**English** · <a href="../zh/reference/backend-compatibility.html">简体中文</a>
+**English** · <a href="../../zh/reference/backend-compatibility.html">简体中文</a>
 
 The review date is 2026-09-08. The actual revisions are recorded in backend-revisions.json. The conclusions below come from local implementations, tests, and real compatibility experiments; neither upstream repository was modified.
 

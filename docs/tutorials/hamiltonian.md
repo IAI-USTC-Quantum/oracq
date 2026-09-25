@@ -1,8 +1,8 @@
 # Supplying your own Hamiltonian decomposition
 
-**English** · <a href="../zh/tutorials/hamiltonian.html">简体中文</a>
+**English** · <a href="../../zh/tutorials/hamiltonian.html">简体中文</a>
 
-Suppose you already know the term decomposition of `H=0.3I+0.7X`. You can hand it to the <a href="../zh/manual/algorithms/trotter.html">Trotter implementation</a> through an ordinary Python method — no dense matrix needs to be built first, and no new language type needs to be registered. The decomposition is written directly as a tuple of {obj}`TrotterTerm <oracq.algorithms.common.hamiltonian.TrotterTerm>`, each factor being a {obj}`PauliOperator <oracq.algorithms.common.hamiltonian.PauliOperator>`; {obj}`hamiltonian_simulation <oracq.algorithms.common.hamiltonian.hamiltonian_simulation>` accepts any object that can produce these terms.
+Suppose you already know the term decomposition of `H=0.3I+0.7X`. You can hand it to the <a href="../../zh/manual/algorithms/trotter.html">Trotter implementation</a> through an ordinary Python method — no dense matrix needs to be built first, and no new language type needs to be registered. The decomposition is written directly as a tuple of {obj}`TrotterTerm <oracq.algorithms.common.hamiltonian.TrotterTerm>`, each factor being a {obj}`PauliOperator <oracq.algorithms.common.hamiltonian.PauliOperator>`; {obj}`hamiltonian_simulation <oracq.algorithms.common.hamiltonian.hamiltonian_simulation>` accepts any object that can produce these terms.
 
 ```{testcode}
 import cmath
@@ -39,5 +39,5 @@ This example shows the role of the algorithm contract: the Hamiltonian object pr
 ## Related pages
 
 - Manual: [Oracles and operator representations](../manual/operators.md) (operator views and protocols for Hamiltonians)
-- Algorithm pages: <a href="../zh/manual/algorithms/hamiltonian-simulation.html">Hamiltonian evolution</a>, <a href="../zh/manual/algorithms/trotter.html">Trotter product-formula simulation</a>, <a href="../zh/manual/algorithms/taylor-block-encoding.html">truncated Taylor block encoding</a>
+- Algorithm pages: <a href="../../zh/manual/algorithms/hamiltonian-simulation.html">Hamiltonian evolution</a>, <a href="../../zh/manual/algorithms/trotter.html">Trotter product-formula simulation</a>, <a href="../../zh/manual/algorithms/taylor-block-encoding.html">truncated Taylor block encoding</a>
 - API reference: [Hamiltonian evolution](../api/algorithms/common/hamiltonian.rst)

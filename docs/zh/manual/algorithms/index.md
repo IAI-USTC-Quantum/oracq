@@ -1,6 +1,6 @@
 # 算法目录
 
-<a href="../../../manual/algorithms/index.html">English</a> · **简体中文**
+<a href="../../../en/manual/algorithms/index.html">English</a> · **简体中文**
 
 算法库按用途组织为十个子包：`input_model`（输入模型与数据访问）、`common`（通用原语）、`qlss`（线性系统）、`qnlss`（非线性系统）、`qode`（常微分方程）、`qpde`（偏微分方程）、`qml`（量子机器学习）、`optimization`（量子优化与变分方法）、`basics`（基础示例算法）与 `qec`（量子纠错）。下表给出入口文件、已实现的内容以及使用时需要留意的边界。API 参考列出了完整签名。
 

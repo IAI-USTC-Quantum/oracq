@@ -1,6 +1,6 @@
 # Writing documentation
 
-**English** · <a href="../zh/development/writing-docs.html">简体中文</a>
+**English** · <a href="../../zh/development/writing-docs.html">简体中文</a>
 
 The documentation is bilingual. The English pages under
 `docs/{manual,tutorials,reference,development}/` are the primary source, and a
@@ -32,15 +32,21 @@ readout, or numerical error validation.
 ## Language switcher
 
 Every page carries a language-switcher line directly under its H1: English
-pages use `**English** · <a href="../zh/...">简体中文</a>`, Chinese pages use
-`<a href="../../...">English</a> · **简体中文**` (the Chinese side is
-prepended automatically by `tools/add_switchers.py`). Cross-tree targets must
-be RAW HTML anchors with relative `.html` paths — a markdown link like
-`[简体中文](../zh/x.html)` would be resolved by MyST as a document reference
-and, since the other tree is outside the project, silently degrade to a
-`#...` anchor link. Raw `<a>` tags pass through to the built HTML unchanged,
-for example `<a href="../zh/development/contributing.html">简体中文</a>` from
-this directory.
+pages use `**English** · <a href="...">简体中文</a>`, Chinese pages use
+`<a href="...">English</a> · **简体中文**` (the Chinese side is prepended
+automatically by `tools/add_switchers.py`). Two rules:
+
+1. Cross-tree targets must be RAW HTML anchors with relative `.html` paths —
+   a markdown link like `[简体中文](../zh/x.html)` would be resolved by MyST
+   as a document reference and, since the other tree is outside the project,
+   silently degrade to a `#...` anchor link. Raw `<a>` tags pass through to
+   the built HTML unchanged.
+2. Href depths follow the DEPLOYED site layout, not the source tree. A built
+   page sits at `<site>/<lang>/<relpath>.html`, so from
+   `<site>/en/development/writing-docs.html` the Chinese twin is
+   `<a href="../../zh/development/writing-docs.html">简体中文</a>` — climb one
+   level more than the source-tree path suggests, then enter the other
+   language root.
 
 ## Executable tutorials
 

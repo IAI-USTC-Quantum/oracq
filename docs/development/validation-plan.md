@@ -1,6 +1,6 @@
 # Quantum algorithm implementation validation plan (review draft)
 
-**English** · <a href="../zh/development/validation-plan.html">简体中文</a>
+**English** · <a href="../../zh/development/validation-plan.html">简体中文</a>
 
 This document systematically plans oracq's algorithm validation system: it
 first classifies all algorithms by "how correctness is judged", then

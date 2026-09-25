@@ -1,6 +1,6 @@
 # Heinrich 量子积分（Heinrich Quantum Integration）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C3 · 模块 [`oracq.algorithms.common.integration`](../../api/algorithms/common/integration.rst) · 阶段 V1
 

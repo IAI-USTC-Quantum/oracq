@@ -1,6 +1,6 @@
 # 量子有限体积法（Quantum Finite Volume Method, QFVM）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C6 · 模块 [`oracq.applications.qfvm`](../../api/applications/qfvm.rst) · 阶段 V1
 

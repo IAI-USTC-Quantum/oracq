@@ -1,6 +1,6 @@
 # Running and modifying the algorithm gallery
 
-**English** · <a href="../zh/tutorials/gallery.html">简体中文</a>
+**English** · <a href="../../zh/tutorials/gallery.html">简体中文</a>
 
 The gallery places algorithms from different families into one unified run pipeline, making it easy to compare their inputs, registers, and readout. All cases are constructed uniformly by {obj}`algorithm_gallery <oracq.applications.gallery.algorithm_gallery>`.
 
@@ -70,6 +70,6 @@ The script compares the complex amplitudes of the reference executor, PySparQ, a
 
 ## Related pages
 
-- Manual: <a href="../zh/manual/algorithms/index.html">Algorithm catalog</a> (most algorithms covered by the gallery have entry pages), [Export and execution backends](../manual/backends.md)
+- Manual: <a href="../../zh/manual/algorithms/index.html">Algorithm catalog</a> (most algorithms covered by the gallery have entry pages), [Export and execution backends](../manual/backends.md)
 - API reference: [Algorithm gallery](../api/applications/gallery.rst)
 - Continue with: [Search for an element and estimate the success probability](search-and-estimation.md), [Supplying your own Hamiltonian decomposition](hamiltonian.md)

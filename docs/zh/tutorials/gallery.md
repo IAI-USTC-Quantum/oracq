@@ -1,6 +1,6 @@
 # 运行与修改算法展示目录
 
-<a href="../../tutorials/gallery.html">English</a> · **简体中文**
+<a href="../../en/tutorials/gallery.html">English</a> · **简体中文**
 
 展示目录把不同类别的算法放在统一的运行流程中，便于比较它们的输入、寄存器和读出方式。全部案例由 {obj}`algorithm_gallery <oracq.applications.gallery.algorithm_gallery>` 统一构造。
 

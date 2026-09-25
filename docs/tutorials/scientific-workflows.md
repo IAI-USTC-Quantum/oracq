@@ -1,6 +1,6 @@
 # Scientific computing workflows: input models, solvers, and reproduction
 
-**English** · <a href="../zh/tutorials/scientific-workflows.html">简体中文</a>
+**English** · <a href="../../zh/tutorials/scientific-workflows.html">简体中文</a>
 
 This chapter strings together the complete examples of QHAM, Carleman, LCHS, and CBMD, explaining which objects each step
 produces, which interfaces remain open, and which conclusions the results can support. The paper keeps the mechanism and
@@ -76,7 +76,7 @@ separately by the host.
 and an explicitly shifted LCHS respectively, and writes the recovery factors into the records. Running the generator
 twice does not mean the two methods agree in success probability, truncation error, or circuit cost.
 
-Mathematical conventions and interfaces are on the <a href="../zh/manual/algorithms/carleman.html">Carleman page</a>.
+Mathematical conventions and interfaces are on the <a href="../../zh/manual/algorithms/carleman.html">Carleman page</a>.
 Download the {download}`full input-model script <../../examples/ode_input_models.py>` with all the context.
 
 ## LCHS: gate-table and QRAM bindings on the same open graph
@@ -101,7 +101,7 @@ tables in `memory`.
 The script's `save_case` saves the open, the first partially bound, and the final closed RIR separately,
 and produces modular backend text. Intermediate resource capture remains an explicit parameter; memory contents are
 never stuffed into the RIR. For a smaller standalone example see [comparing implementations of an open program](algorithm-research.md);
-method configuration and applicability conditions are on the <a href="../zh/manual/algorithms/lchs.html">LCHS page</a>.
+method configuration and applicability conditions are on the <a href="../../zh/manual/algorithms/lchs.html">LCHS page</a>.
 
 ## CBMD: reusing QHAM input while handling the dissipative precondition explicitly
 
@@ -118,7 +118,7 @@ This code reuses the QHAM plan and the open coefficient input instead of reinter
 The shift and recovery information produced by `model.dissipative_shift()` is a mathematical adaptation; only the final
 `qram_dict` and `qram_memory` constitute the implementation and run-time data binding.
 
-Nodes, residues, the finite truncation, and the omitted terms are on the <a href="../zh/manual/algorithms/cbmd.html">CBMD page</a>.
+Nodes, residues, the finite truncation, and the omitted terms are on the <a href="../../zh/manual/algorithms/cbmd.html">CBMD page</a>.
 Do not infer from `check().ok` that the contour truncation error or the physical recovery error has been certified.
 
 ## Input-model variants and reproduction
@@ -159,7 +159,7 @@ are in [Applicability boundaries and validation status](../manual/limits.md).
 | Intermediate representation and serialization of mathematical functions | [Math IR](../reference/math-ir.md) |
 | Toffoli/rotation/QRAM counts, generic scale sweeps | [Resource estimation](../manual/resource-estimation.md) |
 | QFVM inputs, Roe arithmetic, and the recovery chain | [QFVM documentation](../manual/qfvm.md) |
-| The wider algorithm catalog and validation status | <a href="../zh/manual/algorithms/index.html">Algorithm catalog</a>, [validation coverage](../development/validation-coverage.md) |
+| The wider algorithm catalog and validation status | <a href="../../zh/manual/algorithms/index.html">Algorithm catalog</a>, [validation coverage](../development/validation-coverage.md) |
 | Classes, functions, parameter names, and returned objects | [API reference](../api/index.rst) |
 
 These pages carry the full implementation and tutorial detail. Non-core algorithms remain maintained in the library,

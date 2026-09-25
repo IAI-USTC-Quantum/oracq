@@ -2,6 +2,12 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
+[![CI](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml/badge.svg)](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml)
+[![Docs](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/docs.yml/badge.svg)](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/docs.yml)
+[![PyPI](https://img.shields.io/pypi/v/oracq.svg)](https://pypi.org/project/oracq/)
+[![Python](https://img.shields.io/pypi/pyversions/oracq.svg)](https://pypi.org/project/oracq/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
+
 oracq is a scientific-computing algorithm implementation framework for quantum
 algorithm researchers. Composable algorithms are written in Python against
 access models and compiled to a register-level intermediate representation
@@ -9,7 +15,7 @@ access models and compiled to a register-level intermediate representation
 until you compare gate-network, QRAM, and reversible-arithmetic candidates,
 bind them, and proceed to numerical validation and resource analysis.
 
-The current package version is **0.1.0** and the RIR format is **0.3**
+The current package version is **0.1.0** and the RIR format is **0.1**
 ([full specification](docs/reference/rir.md)). Algorithms declare inputs and
 outputs through plain Python protocols; no language-level type-system
 extension is required.
@@ -18,7 +24,7 @@ extension is required.
 
 | Concept | One-liner | Manual / spec | API reference |
 |---|---|---|---|
-| RIR | Register-level IR; module calls and Repeat structures survive to the text form | [RIR 0.3 spec](docs/reference/rir.md) | [ir](docs/api/infrastructure/ir.rst) |
+| RIR | Register-level IR; module calls and Repeat structures survive to the text form | [RIR 0.1 spec](docs/reference/rir.md) | [ir](docs/api/infrastructure/ir.rst) |
 | Builder | `Builder`/`Operation` three-stage generation of modules and programs | [Core concepts](docs/manual/concepts.md#modules-and-oracle-placeholders) | [builder](docs/api/infrastructure/builder.rst) |
 | Registers and views | bits/uint/qubit interpretations, slicing, reinterpretation; index 0 is the least significant bit | [Core concepts](docs/manual/concepts.md#registers-and-views) | [ir](docs/api/infrastructure/ir.rst) |
 | Open oracles and binding | Declare first, bind later: capability conjunction, candidate comparison, QRAM capture | [Binding tutorial](docs/tutorials/oracle-binding.md) | [linking](docs/api/infrastructure/linking.rst) |

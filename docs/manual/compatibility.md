@@ -1,6 +1,6 @@
 # Import path migration
 
-**English** · <a href="../zh/manual/compatibility.html">简体中文</a>
+**English** · <a href="../../zh/manual/compatibility.html">简体中文</a>
 
 Release 0.8 moved the implementations into directories organized by
 responsibility. The common exports of the root package remain available; old
@@ -75,7 +75,7 @@ entries.
 
 ## File formats
 
-The RIR version is still 0.3, and the instruction set and execution semantics
+The RIR version is 0.1, and the instruction set and execution semantics
 are unchanged; the `binding_captures` field newly added to the linker holds
 provenance information inside the existing scalar-attribute format, and the
 schema and semantic checks now state its constraints as well. After the module

@@ -1,6 +1,6 @@
 # Installation and environment
 
-**English** · <a href="../zh/manual/installation.html">简体中文</a>
+**English** · <a href="../../zh/manual/installation.html">简体中文</a>
 
 The language core requires Python 3.11 or newer and has no third-party runtime
 dependencies. Quantum simulators and documentation tooling are installed

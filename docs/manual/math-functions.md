@@ -1,6 +1,6 @@
 # Automatically generating reversible quantum modules from ordinary math functions
 
-**English** · <a href="../zh/manual/math-functions.html">简体中文</a>
+**English** · <a href="../../zh/manual/math-functions.html">简体中文</a>
 
 First write a pure Python math function, then call {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` to generate a reversible quantum module. The function remains usable for classical computation; on the quantum side the compiler handles temporary registers, alias copying, result XOR, and uncomputation. The [QFVM](qfvm.md) Roe face already uses this path.
 
@@ -84,7 +84,7 @@ At x=0 this function does not set the final domain flag due to a division by zer
 
 ## Intermediate representations and backends
 
-The full chain is Python pure function → [MIR 0.1](../reference/math-ir.md) → RIR 0.3 → modular OriginIR-ext / PySparQ. The MIR round-trips through JSON independently and can then be lowered by {obj}`lower_math_ir <oracq.infrastructure.mathfunc.lower_math_ir>` under a different configuration. The final RIR contains no Python callbacks; calls carrying math kernels and helpers remain {obj}`Module <oracq.infrastructure.ir.Module>`/{obj}`Call <oracq.infrastructure.ir.Call>`.
+The full chain is Python pure function → [MIR 0.1](../reference/math-ir.md) → RIR 0.1 → modular OriginIR-ext / PySparQ. The MIR round-trips through JSON independently and can then be lowered by {obj}`lower_math_ir <oracq.infrastructure.mathfunc.lower_math_ir>` under a different configuration. The final RIR contains no Python callbacks; calls carrying math kernels and helpers remain {obj}`Module <oracq.infrastructure.ir.Module>`/{obj}`Call <oracq.infrastructure.ir.Call>`.
 
 The existing {obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>` recognizes the arithmetic/Boolean implementations inside generated modules. PySparQ executes real custom C++ operators at these module boundaries, skipping the internal Boolean workspaces. The native path and the gate-level path use the same arithmetic networks and have been checked by actual execution. The direct evaluation of the original Python function is never passed off as quantum simulation here.
 

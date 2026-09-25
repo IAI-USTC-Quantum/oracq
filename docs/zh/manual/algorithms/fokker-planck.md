@@ -1,6 +1,6 @@
 # Fokker–Planck 输入模型（Fokker–Planck Input Model）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.qode.sde`](../../api/algorithms/qode/sde.rst) · 阶段 V3
 

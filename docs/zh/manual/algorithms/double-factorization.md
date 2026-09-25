@@ -1,6 +1,6 @@
 # 双因子分解块编码（Double Factorization）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.input_model.lowrank`](../../api/algorithms/input_model/lowrank.rst) · 阶段 V1
 

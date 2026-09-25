@@ -1,6 +1,6 @@
 # 一般量子同伦分析（General QHAM）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C6 · 模块 `oracq.applications.qham` · 阶段 V1
 

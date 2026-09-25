@@ -1,6 +1,6 @@
 # 解码量子干涉（Decoded Quantum Interferometry）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C4 · 模块 [`oracq.algorithms.optimization.dqi`](../../api/algorithms/optimization/dqi.rst) · 阶段 V1
 

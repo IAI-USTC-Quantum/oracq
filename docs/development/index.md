@@ -1,6 +1,6 @@
 # Development
 
-**English** · <a href="../zh/development/index.html">简体中文</a>
+**English** · <a href="../../zh/development/index.html">简体中文</a>
 
 When modifying an algorithm, first pin down its input conventions and return
 semantics, then implement the generator and the independent witness. When

@@ -1,6 +1,6 @@
 # QRAM memory definition (qram YAML)
 
-**English** · <a href="../zh/reference/qram-memory.html">简体中文</a>
+**English** · <a href="../../zh/reference/qram-memory.html">简体中文</a>
 
 Memory data is not written into the program serialization text (see [RIR](rir.md)); it is bound separately as an execution input. This document defines the format of the binding file `*.qram.yaml`: one file describes a set of QRAM segments (the `qram_segments` list), cross-checked against the program by entry resource name at execution time.
 

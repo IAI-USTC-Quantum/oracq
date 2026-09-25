@@ -1,6 +1,6 @@
 # Fourier 加法（Fourier Addition）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C1 · 模块 [`oracq.algorithms.common.fourier`](../../api/algorithms/common/fourier.rst) · 阶段 V1
 

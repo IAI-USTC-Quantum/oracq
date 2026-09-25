@@ -1,8 +1,8 @@
 # RIR: the modular register-level intermediate representation
 
-**English** · <a href="../zh/reference/rir.html">简体中文</a>
+**English** · <a href="../../zh/reference/rir.html">简体中文</a>
 
-This specification defines RIR 0.3. Detailed rules for open declarations, capabilities, and binding are in [the open IR](open-ir.md); for an introduction to working with registers and views in the Python generation layer see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md#registers-and-views).
+This specification defines RIR 0.1. Detailed rules for open declarations, capabilities, and binding are in [the open IR](open-ir.md); for an introduction to working with registers and views in the Python generation layer see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md#registers-and-views).
 
 Specification date: 2026-09-19. The Python API, serializers, reference executor, and backend adapters must comply with this document. The JSON Schema covers object shapes only; cross-node constraints are checked by validate.
 
@@ -28,7 +28,7 @@ Public workspaces and signal registers appear in the call interface; a module ma
 
 ### 2.1 Object model
 
-Program has three fields: entry, modules, and version. The current version is the string "0.3"; readers also accept "0.1" and "0.2". entry must reference a defined module.
+Program has three fields: entry, modules, and version. The current version is the string "0.1". entry must reference a defined module.
 
 Module has name, registers, resources, body, attributes, and locals. registers is an ordered list of quantum parameters, resources is an ordered list of QRAM parameters, and body is an ordered instruction body, or null for an open declaration. attributes is an ordered list of key/value pairs. Attribute values may only be strings, integers, finite floats, or booleans.
 
@@ -111,7 +111,7 @@ Store has the same resource, address, and data fields as Load and the same width
 M[address] := data
 ```
 
-Store changes no qubit and is not counted toward backend gate cost. Storage cells are modeled as classical cells; a write under a superposed address or superposed data has no linear semantics, and an executor must raise an error upon encountering one. Structurally, Store may appear only in a module body or a Repeat body; it is forbidden inside Control and Adjoint bodies, and a module containing Store (including one reachable through calls) has neither the supports_adjoint nor the supports_controlled capability. Store is legal only in RIR 0.3.
+Store changes no qubit and is not counted toward backend gate cost. Storage cells are modeled as classical cells; a write under a superposed address or superposed data has no linear semantics, and an executor must raise an error upon encountering one. Structurally, Store may appear only in a module body or a Repeat body; it is forbidden inside Control and Adjoint bodies, and a module containing Store (including one reachable through calls) has neither the supports_adjoint nor the supports_controlled capability. Store is legal in RIR 0.1.
 
 ### 3.3 Call
 
@@ -205,7 +205,7 @@ Lexical conventions: name matches `[A-Za-z_][A-Za-z0-9_]*`; integer is a strict 
 ```text
 program     = Program { entry: name;
                         modules: module*;
-                        version: "0.1" | "0.2" | "0.3" } .
+                        version: "0.1" } .
 
 module      = Module { name: name;
                        registers: register*;
@@ -267,7 +267,7 @@ Backends may impose execution budgets stricter than the IR, for example state-ve
 
 ### 4.5 Module-private work registers
 
-Module.locals is an ordered array of Registers that is not part of the public call signature. Each call borrows them from the zero state and must uncompute them before returning; the IR checks only widths and references, uncomputation is an implementation obligation, and the simulator provides a runtime check. Open modules must not declare locals. Adjoint and Control include the complete module behavior, and workspaces cannot escape across calls. The OriginIR export renders them as module work parameters, and sequential calls reuse one stretch of physical workspace; PySparQ can intercept native implementations at module boundaries, skipping their internal workspaces and decompositions. The native registry is not part of the IR, and a native executable must not be misreported as gate-level closure. Old 0.1/0.2 text (YAML or JSON) remains readable and writable, with its Module carrying no locals; 0.3 carries the field explicitly.
+Module.locals is an ordered array of Registers that is not part of the public call signature. Each call borrows them from the zero state and must uncompute them before returning; the IR checks only widths and references, uncomputation is an implementation obligation, and the simulator provides a runtime check. Open modules must not declare locals. Adjoint and Control include the complete module behavior, and workspaces cannot escape across calls. The OriginIR export renders them as module work parameters, and sequential calls reuse one stretch of physical workspace; PySparQ can intercept native implementations at module boundaries, skipping their internal workspaces and decompositions. The native registry is not part of the IR, and a native executable must not be misreported as gate-level closure.
 
 
 ## Part 5: Complete examples
@@ -346,13 +346,13 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
 Explanation:
 
-- {obj}`Program <oracq.infrastructure.ir.Program>` has only three fields: `entry` points at the sole module; `modules` is output sorted by module name (section 4.2); `version` is `"0.3"`.
+- {obj}`Program <oracq.infrastructure.ir.Program>` has only three fields: `entry` points at the sole module; `modules` is output sorted by module name (section 4.2); `version` is `"0.1"`.
 - The `registers` of the {obj}`Module <oracq.infrastructure.ir.Module>` are the public interface (`pair: bits/2`); `resources`, `locals`, and `attributes` must be written out even when empty.
 - The first {obj}`Primitive <oracq.infrastructure.ir.Primitive>`: `op=h`, the operand is a single {obj}`Ref <oracq.infrastructure.ir.Ref>` whose {obj}`Span(pair, 0, 1) <oracq.infrastructure.ir.Span>` is the lowest bit of the root register. Slicing produces a bits interpretation (section 2.3), so `Ref.type.kind` is `bits`.
 - The second `Primitive`: `op=xor` with two equal-width operands — the source is bit 0 and the target is bit 1 of `pair`; the semantics is target XOR-equals source (section 3.1).
@@ -433,7 +433,7 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -582,7 +582,7 @@ modules:
           tag: QRAM
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -769,7 +769,7 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -826,7 +826,7 @@ modules:
     resources: []
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 
@@ -929,7 +929,7 @@ modules:
           tag: QRAM
     tag: Module
 tag: Program
-version: '0.3'
+version: '0.1'
 
 ```
 

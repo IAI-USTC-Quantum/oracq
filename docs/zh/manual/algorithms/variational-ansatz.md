@@ -1,6 +1,6 @@
 # 硬件高效拟设（Hardware-Efficient Ansatz）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C4 · 模块 [`oracq.algorithms.optimization.variational`](../../api/algorithms/optimization/variational.rst) · 阶段 V3
 

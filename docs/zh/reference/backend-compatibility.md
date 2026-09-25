@@ -1,6 +1,6 @@
 # OriginIR-ext 与 PySparQ 审阅
 
-<a href="../../reference/backend-compatibility.html">English</a> · **简体中文**
+<a href="../../en/reference/backend-compatibility.html">English</a> · **简体中文**
 
 审阅日期为 2026-09-08。实际提交记录在 backend-revisions.json。以下结论来自本地实现、测试和真实兼容性实验，没有修改两个上游仓库。
 

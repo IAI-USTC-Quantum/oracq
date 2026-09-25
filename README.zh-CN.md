@@ -2,15 +2,21 @@
 
 [English](README.md) · **简体中文**
 
+[![CI](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml/badge.svg)](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml)
+[![Docs](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/docs.yml/badge.svg)](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/docs.yml)
+[![PyPI](https://img.shields.io/pypi/v/oracq.svg)](https://pypi.org/project/oracq/)
+[![Python](https://img.shields.io/pypi/pyversions/oracq.svg)](https://pypi.org/project/oracq/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
+
 oracq 是面向量子算法研究者的科学计算算法实现框架。用 Python 按访问模型编写可组合算法，生成保留模块结构的寄存器级中间表示（RIR）；保存尚未实现的 oracle，比较门网络、QRAM 和可逆算术等实现，完成绑定后进行数值验证和资源分析。
 
-当前包版本为 **0.1.0**，RIR 格式为 **0.3**（[规范全文](docs/zh/reference/rir.md)）。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
+当前包版本为 **0.1.0**，RIR 格式为 **0.1**（[规范全文](docs/zh/reference/rir.md)）。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
 
 ## 核心概念速览
 
 | 概念 | 一句话 | 手册 / 规范 | API 参考 |
 |---|---|---|---|
-| RIR | 寄存器级中间表示；模块调用与 Repeat 结构保留到文本形式 | [RIR 0.3 规范](docs/zh/reference/rir.md) | [ir](docs/api/infrastructure/ir.rst) |
+| RIR | 寄存器级中间表示；模块调用与 Repeat 结构保留到文本形式 | [RIR 0.1 规范](docs/zh/reference/rir.md) | [ir](docs/api/infrastructure/ir.rst) |
 | 构造器 | `Builder`/`Operation` 三段式生成模块与程序 | [核心概念](docs/zh/manual/concepts.md#模块与未完成的实现) | [builder](docs/api/infrastructure/builder.rst) |
 | 寄存器与视图 | bits/uint/qubit 解释、切片与重解释，下标 0 是最低位 | [核心概念](docs/zh/manual/concepts.md#寄存器与视图) | [ir](docs/api/infrastructure/ir.rst) |
 | 开放 oracle 与绑定 | 先声明后绑定：能力合取、候选实现比较、QRAM 捕获 | [绑定教程](docs/zh/tutorials/oracle-binding.md) | [linking](docs/api/infrastructure/linking.rst) |

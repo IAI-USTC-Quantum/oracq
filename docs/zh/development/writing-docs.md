@@ -1,6 +1,6 @@
 # 编写文档
 
-<a href="../../development/writing-docs.html">English</a> · **简体中文**
+<a href="../../en/development/writing-docs.html">English</a> · **简体中文**
 
 文档分为完整文档和教程。完整文档解释稳定的规则、接口和限制；教程围绕一个具体任务，给出输入、代码、结果解释和下一步。API 参考由源码生成。
 

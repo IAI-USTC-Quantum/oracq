@@ -1,6 +1,6 @@
 # Complete documentation
 
-**English** · <a href="../zh/manual/index.html">简体中文</a>
+**English** · <a href="../../zh/manual/index.html">简体中文</a>
 
 This part explains the design and usage rules of oracq. The recommended reading
 order starts with operations, registers, and oracles, then moves on to

@@ -1,6 +1,6 @@
 # General QHAM automatic generation: PDE → HAM → QCL → QODE
 
-**English** · <a href="../zh/manual/qham.html">简体中文</a>
+**English** · <a href="../../zh/manual/qham.html">简体中文</a>
 
 The QHAM generator connects regularized PDEs, finite-order HAM derivations, and quantum-adapted linearization to QODE inputs. Read the [mathematical derivation](../reference/qham-derivation.md) first, then supply grids, coefficients, and initial states as described in this chapter; the minimal runnable example is in [tutorial: generating QHAM inputs from PDE expressions](../tutorials/qham.md). The construction follows the [QHAM paper](https://arxiv.org/html/2411.06759v2).
 
@@ -91,7 +91,7 @@ flowchart LR
 |---|---|---|
 | PDE 0.1 | fields, spatial axes, monomials, known coefficients, and inner/outer derivatives | No |
 | QCL plan 0.1 | PDE + HAM order, plus the deterministic finite closure rules | No |
-| RIR 0.3 | actual registers, {obj}`Call <oracq.infrastructure.ir.Call>`, controls, rectangular windows, work bits, and BE composition | Yes; module calls are kept |
+| RIR 0.1 | actual registers, {obj}`Call <oracq.infrastructure.ir.Call>`, controls, rectangular windows, work bits, and BE composition | Yes; module calls are kept |
 
 The formats are defined in [PDE Schema](../reference/schemas/pde.schema.json) and [QCL Schema](../reference/schemas/qcl-plan.schema.json). PDE/QCL contains no Python callbacks and can be rebuilt from JSON. rows.json or quantum modules are generated only on explicit request.
 
@@ -204,7 +204,7 @@ The returned result selects the first N-dimensional physical block, so it is the
 
 ### Additional premises of LCHS / CBMD
 
-The lifted G is generally non-Hermitian and non-normal, and the forcing augmentation additionally produces zero modes. One cannot simply assume it satisfies the dissipative premises of <a href="../zh/manual/algorithms/lchs.html">LCHS</a>/<a href="../zh/manual/algorithms/cbmd.html">CBMD</a>.
+The lifted G is generally non-Hermitian and non-normal, and the forcing augmentation additionally produces zero modes. One cannot simply assume it satisfies the dissipative premises of <a href="../../zh/manual/algorithms/lchs.html">LCHS</a>/<a href="../../zh/manual/algorithms/cbmd.html">CBMD</a>.
 
 The implementation provides an explicit global shift:
 
@@ -281,7 +281,7 @@ The paper-grade numerical validation of 2026-09-16 (`tests/verification/verify_q
 - **Input-model replaceability**: the generator matrix of the same problem agrees across three input models — structured ports, spectral-embedding ports, and QRAM angle-table coefficients — at the 1e-17 level for the first two; the QRAM angle-table path gives 5.99e-05, within the declared angle-quantization bound α·π/2^angle_width (9.20e-03); the per-address amplitude error of the QRAM coefficient encoding is 2.15e-03 (bound 6.14e-03).
 - **Solve chain**: finite Taylor QODE end to end (BE generator + lifted initial state + physical block selection) against the classical (I+tG)Y_in gives 1.11e-16 for both input models; the explicit dissipative shift G−μI has full-matrix error 5.70e-17 on the complete 2ʷ space.
 
-Convergence certification, automatic η/m selection, and large-scale performance remain solver-side and are out of scope for this validation (see section 9). Reproduction commands and full metrics are in the <a href="../zh/manual/algorithms/qham.html#数值验证">algorithm page's numerical validation</a> and `out/verification/qham_qfvm.json`.
+Convergence certification, automatic η/m selection, and large-scale performance remain solver-side and are out of scope for this validation (see section 9). Reproduction commands and full metrics are in the <a href="../../zh/manual/algorithms/qham.html#数值验证">algorithm page's numerical validation</a> and `out/verification/qham_qfvm.json`.
 
 ## 11. QRAM data path, line by line
 

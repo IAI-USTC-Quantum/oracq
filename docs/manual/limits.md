@@ -1,6 +1,6 @@
 # Applicability boundaries and validation status
 
-**English** · <a href="../zh/manual/limits.html">简体中文</a>
+**English** · <a href="../../zh/manual/limits.html">简体中文</a>
 
 oracq can express open algorithms, assemble modules, and generate executable
 small instances. Whether it suits a specific problem also depends on the
@@ -10,9 +10,9 @@ requirements.
 | Layer | What has been validated | What cannot be inferred from it |
 |---|---|---|
 | [RIR](../reference/rir.md) | Serialization, layout, aliasing, control guards, module calls, and open bindings | Mathematical correctness of arbitrary quantum algorithms |
-| <a href="../zh/manual/algorithms/index.html">Basic algorithms</a> | Small-scale matrix/probability witnesses cross-checked against real-backend complex amplitudes | Large-scale running cost or quantum advantage |
+| <a href="../../zh/manual/algorithms/index.html">Basic algorithms</a> | Small-scale matrix/probability witnesses cross-checked against real-backend complex amplitudes | Large-scale running cost or quantum advantage |
 | [Arithmetic and math functions](math-functions.md) | Reversible constructions under finite bit patterns plus some numerical witnesses | Uniform error bounds over all word lengths and approximation intervals |
-| <a href="../zh/manual/algorithms/hamiltonian-simulation.html">Hamiltonian methods</a> | Pauli evolution, Trotter composition, and interface checks | General QSP kernels and automatic error configuration |
+| <a href="../../zh/manual/algorithms/hamiltonian-simulation.html">Hamiltonian methods</a> | Pauli evolution, Trotter composition, and interface checks | General QSP kernels and automatic error configuration |
 | [QLSS/QODE/QPDE](differential-equations.md) | Input adaptation, modular generation, and partial real execution | Full solver accuracy, success channels, and convergence guarantees |
 | [QHAM](qham.md) | Algebraic closure at finite HAM truncation and small executions | Automatic convergence certification against the original PDE |
 

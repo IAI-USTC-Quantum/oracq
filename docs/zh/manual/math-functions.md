@@ -1,6 +1,6 @@
 # 普通数学函数自动生成可逆量子模块
 
-<a href="../../manual/math-functions.html">English</a> · **简体中文**
+<a href="../../en/manual/math-functions.html">English</a> · **简体中文**
 
 先编写纯 Python 数学函数，再调用 {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 生成可逆量子模块。函数仍可用于经典计算；量子侧由编译器处理临时寄存器、别名复制、结果 XOR 和反算。[QFVM](qfvm.md) 的 Roe face 已采用这条路径。
 
@@ -84,7 +84,7 @@ def safe_inverse(x):
 
 ## 中间表示与后端
 
-完整链路为 Python 纯函数 → [MIR 0.1](../reference/math-ir.md) → RIR 0.3 → 模块化 OriginIR-ext / PySparQ。MIR 可独立 JSON 往返，再由 {obj}`lower_math_ir <oracq.infrastructure.mathfunc.lower_math_ir>` 按其他配置降低。最终 RIR 不含 Python callback；带数学核和 helper 的调用继续保留为 {obj}`Module <oracq.infrastructure.ir.Module>`/{obj}`Call <oracq.infrastructure.ir.Call>`。
+完整链路为 Python 纯函数 → [MIR 0.1](../reference/math-ir.md) → RIR 0.1 → 模块化 OriginIR-ext / PySparQ。MIR 可独立 JSON 往返，再由 {obj}`lower_math_ir <oracq.infrastructure.mathfunc.lower_math_ir>` 按其他配置降低。最终 RIR 不含 Python callback；带数学核和 helper 的调用继续保留为 {obj}`Module <oracq.infrastructure.ir.Module>`/{obj}`Call <oracq.infrastructure.ir.Call>`。
 
 现有 {obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>` 会识别生成模块内部的算术/布尔实现。PySparQ 在这些模块边界执行真实自定义 C++ 算子，跳过内部 Boolean 工作区。原生路径与门级路径使用同一组算术网络，并已通过实际执行检查。这里没有用 Python 原函数的直接求值冒充量子模拟。
 

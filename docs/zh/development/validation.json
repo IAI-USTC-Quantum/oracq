@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "rir_version": "0.3",
+  "rir_version": "0.1",
   "core_schema": {
     "passed": 253,
     "subtests": 135,

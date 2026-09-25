@@ -1,6 +1,6 @@
 # 操作、寄存器与生成过程
 
-<a href="../../manual/concepts.html">English</a> · **简体中文**
+<a href="../../en/manual/concepts.html">English</a> · **简体中文**
 
 一个 oracq 程序经历三个不同的阶段。
 

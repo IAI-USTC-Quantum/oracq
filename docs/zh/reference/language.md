@@ -1,8 +1,8 @@
 # 语言与算法库约定
 
-<a href="../../reference/language.html">English</a> · **简体中文**
+<a href="../../en/reference/language.html">English</a> · **简体中文**
 
-本规范对应 oracq 0.8。它定义 Python 生成层与 RIR 之间的边界。RIR 对象及指令语义见 [RIR 0.3](rir.md)，数学函数图见 [MIR 0.1](math-ir.md)。生成阶段的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md)。
+本规范对应 oracq 0.1。它定义 Python 生成层与 RIR 之间的边界。RIR 对象及指令语义见 [RIR 0.1](rir.md)，数学函数图见 [MIR 0.1](math-ir.md)。生成阶段的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md)。
 
 ## Python 生成层
 
@@ -66,6 +66,6 @@ OriginIR-ext 导出保留 DEF 与 QRAMDECL；严格门集降低在模块内生�
 
 ## 版本与兼容
 
-包版本与中间表示版本独立。当前包为 0.8，RIR 为 0.3，MIR、PDE 和 QCL plan 均为 0.1。旧 RIR 0.1/0.2 继续按规定读取；新的源码目录不改变这些格式。
+包版本与中间表示版本独立。当前包为 0.1，RIR、MIR、PDE 与 QCL plan 也均为 0.1；格式版本随首次公开发布重新计数。
 
 旧 Python 导入路径通过兼容层转发到规范实现。新应用应使用 `infrastructure`、`algorithms` 和 `applications` 中的规范路径，详见[迁移说明](../manual/compatibility.md)。

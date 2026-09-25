@@ -1,6 +1,6 @@
 # Alias 采样制备（Alias Sampling Preparation）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C5/C1 · 模块 [`oracq.algorithms.common.prepare_select`](../../api/algorithms/common/prepare_select.rst) · 阶段 V4
 

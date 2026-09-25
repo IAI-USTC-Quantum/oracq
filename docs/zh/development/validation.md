@@ -1,6 +1,6 @@
 # 本版验收记录
 
-<a href="../../development/validation.html">English</a> · **简体中文**
+<a href="../../en/development/validation.html">English</a> · **简体中文**
 
 ## 算法研究工作流改进（2026-09-21）
 

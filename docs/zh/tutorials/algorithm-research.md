@@ -1,6 +1,6 @@
 # 从论文访问模型到实现比较
 
-<a href="../../tutorials/algorithm-research.html">English</a> · **简体中文**
+<a href="../../en/tutorials/algorithm-research.html">English</a> · **简体中文**
 
 本教程面向实现新量子算法的研究者：先保存含开放 oracle 的算法，再选择实现，
 最后对照独立数学参考并比较成本。核心不需要量子后端。

@@ -1,6 +1,6 @@
 # 量子求阶与因子后处理（Order Finding）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C1 · 模块 [`oracq.algorithms.basics.number_theory`](../../api/algorithms/basics/number_theory.rst) · 阶段 —
 

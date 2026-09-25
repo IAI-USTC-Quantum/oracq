@@ -1,8 +1,8 @@
 # MIR 0.1：纯数学函数图
 
-<a href="../../reference/math-ir.html">English</a> · **简体中文**
+<a href="../../en/reference/math-ir.html">English</a> · **简体中文**
 
-MIR 是 Python 纯函数前端与 RIR 之间的生成层表示。它可以独立 JSON 往返，完整格式见 [Schema](schemas/math-ir.schema.json)。它不替代 RIR 0.3，也不把 Python 回调写入量子 IR。函数写法、已实现的数学范围与数值验证见手册[普通数学函数自动生成可逆量子模块](../manual/math-functions.md)。
+MIR 是 Python 纯函数前端与 RIR 之间的生成层表示。它可以独立 JSON 往返，完整格式见 [Schema](schemas/math-ir.schema.json)。它不替代 RIR 0.1，也不把 Python 回调写入量子 IR。函数写法、已实现的数学范围与数值验证见手册[普通数学函数自动生成可逆量子模块](../manual/math-functions.md)。
 
 ## 对象与类型
 

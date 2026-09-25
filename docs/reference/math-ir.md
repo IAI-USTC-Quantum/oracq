@@ -1,8 +1,8 @@
 # MIR 0.1: the pure mathematical function graph
 
-**English** · <a href="../zh/reference/math-ir.html">简体中文</a>
+**English** · <a href="../../zh/reference/math-ir.html">简体中文</a>
 
-MIR is the generation-layer representation between the Python pure-function front end and RIR. It round-trips through JSON independently; the full format is in the [Schema](schemas/math-ir.schema.json). It neither replaces RIR 0.3 nor writes Python callbacks into the quantum IR. For how to write functions, the implemented mathematical coverage, and numerical validation see the manual chapter [Automatically generating reversible quantum modules from ordinary math functions](../manual/math-functions.md).
+MIR is the generation-layer representation between the Python pure-function front end and RIR. It round-trips through JSON independently; the full format is in the [Schema](schemas/math-ir.schema.json). It neither replaces RIR 0.1 nor writes Python callbacks into the quantum IR. For how to write functions, the implemented mathematical coverage, and numerical validation see the manual chapter [Automatically generating reversible quantum modules from ordinary math functions](../manual/math-functions.md).
 
 ## Objects and types
 

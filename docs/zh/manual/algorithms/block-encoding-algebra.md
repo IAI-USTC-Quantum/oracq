@@ -1,6 +1,6 @@
 # 块编码组合代数（Block Encoding Algebra）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.input_model.block_encoding`](../../api/algorithms/input_model/block_encoding.rst) · 阶段 V1
 

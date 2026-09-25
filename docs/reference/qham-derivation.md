@@ -1,6 +1,6 @@
 # General QHAM: derivation from PDEs to quantum-adapted linear systems
 
-**English** · <a href="../zh/reference/qham-derivation.html">简体中文</a>
+**English** · <a href="../../zh/reference/qham-derivation.html">简体中文</a>
 
 This document first fixes the mathematical rules and then implements the generator accordingly. The primary reference is [QHAM v2](https://arxiv.org/html/2411.06759v2) II.1–II.3; its [v1](https://arxiv.org/html/2411.06759v1) uses the name secondary linearization. "Secondary" here means a second linearization, not first reducing every PDE to a quadratic polynomial. For the engineering description see the manual chapter [General QHAM automatic generation: PDE → HAM → QCL → QODE](../manual/qham.md); for a runnable example see the tutorial [generating QHAM inputs from PDE expressions](../tutorials/qham.md).
 

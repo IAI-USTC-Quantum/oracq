@@ -1,6 +1,6 @@
 # Grover 搜索（Grover Search）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C3 · 模块 [`oracq.algorithms.common.search`](../../api/algorithms/common/search.rst) · 阶段 V1
 

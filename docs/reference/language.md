@@ -1,8 +1,8 @@
 # Language and algorithm library conventions
 
-**English** · <a href="../zh/reference/language.html">简体中文</a>
+**English** · <a href="../../zh/reference/language.html">简体中文</a>
 
-This specification corresponds to oracq 0.8. It defines the boundary between the Python generation layer and RIR. For RIR objects and instruction semantics see [RIR 0.3](rir.md); for the mathematical function graph see [MIR 0.1](math-ir.md). For an introduction to operations during the generation stage see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md).
+This specification corresponds to oracq 0.1. It defines the boundary between the Python generation layer and RIR. For RIR objects and instruction semantics see [RIR 0.1](rir.md); for the mathematical function graph see [MIR 0.1](math-ir.md). For an introduction to operations during the generation stage see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md).
 
 ## The Python generation layer
 
@@ -66,6 +66,6 @@ Backends may impose stricter execution budgets and must raise an error when a li
 
 ## Versions and compatibility
 
-Package versions and intermediate-representation versions are independent. The current package is 0.8, RIR is 0.3, and MIR, PDE, and the QCL plan are all 0.1. Old RIR 0.1/0.2 continue to be read as specified; the new source layout does not change these formats.
+Package versions and intermediate-representation versions are independent. The current package is 0.1, and RIR, MIR, PDE, and the QCL plan are all 0.1 as well; format versioning restarts with the first public release.
 
 Old Python import paths are forwarded to the canonical implementations through the compatibility layer. New applications should use the canonical paths in `infrastructure`, `algorithms`, and `applications`; see the [migration notes](../manual/compatibility.md).

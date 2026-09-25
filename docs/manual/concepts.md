@@ -1,6 +1,6 @@
 # Operations, registers, and the generation process
 
-**English** · <a href="../zh/manual/concepts.html">简体中文</a>
+**English** · <a href="../../zh/manual/concepts.html">简体中文</a>
 
 An oracq program goes through three distinct stages.
 

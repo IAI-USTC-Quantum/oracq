@@ -1,6 +1,6 @@
 # QRAM 数据结构：指针、偏移与随机写
 
-<a href="../../manual/qmem.html">English</a> · **简体中文**
+<a href="../../en/manual/qmem.html">English</a> · **简体中文**
 
 {obj}`QMem <oracq.infrastructure.qmem.QMem>` 把 QRAM 资源抽象成 C 风格的数组访问：基地址、常量与量子偏移、多维视图，以及随机读写。所有寻址都是 Python 生成阶段的糖衣——落到 RIR 里的只有寄存器算术、{obj}`Load <oracq.infrastructure.ir.Load>` 和 {obj}`Store <oracq.infrastructure.ir.Store>`（见[RIR 规范](../reference/rir.md) 3.2 节）。API 见 [QRAM 指针式读写](../api/infrastructure/qmem.rst)。
 

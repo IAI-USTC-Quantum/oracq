@@ -1,6 +1,6 @@
 # 提供自己的 Hamiltonian 分解
 
-<a href="../../tutorials/hamiltonian.html">English</a> · **简体中文**
+<a href="../../en/tutorials/hamiltonian.html">English</a> · **简体中文**
 
 假设你已经知道 `H=0.3I+0.7X` 的项分解。可以通过普通 Python 方法将它交给 [Trotter 实现](../manual/algorithms/trotter.md)，不必先构造一个稠密矩阵，也不必注册新的语言类型。分解直接写成 {obj}`TrotterTerm <oracq.algorithms.common.hamiltonian.TrotterTerm>` 的元组，每个因子是一个 {obj}`PauliOperator <oracq.algorithms.common.hamiltonian.PauliOperator>`；{obj}`hamiltonian_simulation <oracq.algorithms.common.hamiltonian.hamiltonian_simulation>` 接收任何能给出这些项的对象。
 

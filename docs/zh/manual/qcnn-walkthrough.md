@@ -1,6 +1,6 @@
 # QCNN 逐行实现讲解
 
-<a href="../../manual/qcnn-walkthrough.html">English</a> · **简体中文**
+<a href="../../en/manual/qcnn-walkthrough.html">English</a> · **简体中文**
 
 本页把 QCNN（arXiv:1911.01117，ICLR 2020）的实现逐行讲清：先给端到端最小示例，再逐段读经典基底（`qcnn.py`）与量子构件（`qcnn_layer.py`）的源码。所有代码块均可运行（`tests/core/test_qcnn.py` 即由这些片段构成）。算法概述见[量子卷积神经网络（QCNN）](algorithms/qcnn.md)；API 参考见 [qcnn](../api/algorithms/qml/qcnn.rst) 与 [qcnn_layer](../api/algorithms/qml/qcnn_layer.rst)。
 

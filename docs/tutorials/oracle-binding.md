@@ -1,6 +1,6 @@
 # Replacing an algorithm's oracle
 
-**English** · <a href="../zh/tutorials/oracle-binding.html">简体中文</a>
+**English** · <a href="../../zh/tutorials/oracle-binding.html">简体中文</a>
 
 We first write a Bernstein–Vazirani program that does not know its function implementation, then bind a gate implementation to it. This makes the difference between "the algorithm itself is complete" and "the input oracle is still unfinished" visible.
 
@@ -57,6 +57,6 @@ The gate implementation and the QRAM implementation must honor the same XOR sema
 
 - Manual: [Oracles and operator representations](../manual/operators.md) (the oracle paradigm and views)
 - Specification: [Open IR](../reference/open-ir.md) (open declarations, batched binding, and resource capture)
-- Algorithm pages: <a href="../zh/manual/algorithms/bernstein-vazirani.html">Bernstein–Vazirani</a>, <a href="../zh/manual/algorithms/xor-database.html">XOR database views</a>
+- Algorithm pages: <a href="../../zh/manual/algorithms/bernstein-vazirani.html">Bernstein–Vazirani</a>, <a href="../../zh/manual/algorithms/xor-database.html">XOR database views</a>
 - API reference: [Oracle declarations and implementations](../api/algorithms/input_model/oracles.rst), [Binding and capability analysis](../api/infrastructure/linking.rst)
 - Continue with: [From a paper's access model to implementation comparison](algorithm-research.md)

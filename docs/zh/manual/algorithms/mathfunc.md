@@ -1,6 +1,6 @@
 # 数学函数可逆编译（Math Function Compilation）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C5 · 模块 [`oracq.infrastructure.mathfunc`](../../api/infrastructure/mathfunc.rst) · 阶段 V2
 

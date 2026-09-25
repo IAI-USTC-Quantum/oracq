@@ -1,6 +1,6 @@
 # QFVM input models and solver replacement
 
-**English** · <a href="../zh/manual/qfvm.html">简体中文</a>
+**English** · <a href="../../zh/manual/qfvm.html">简体中文</a>
 
 The QFVM application builds a linear system from flow-field data and hands it to a replaceable QLSS. The current implementation targets the periodic one-dimensional Euler equations with three conserved quantities and the frozen-Roe Jacobian. It does not cover the full set of grids, boundaries, and physical models of the original paper. For the end-to-end workflow see the [tutorial: scientific computing workflows](../tutorials/scientific-workflows.md).
 
@@ -8,7 +8,7 @@ The QFVM application builds a linear system from flow-field data and hands it to
 
 The density, momentum, and energy of the flow field are kept in QRAM data. The geometry table records neighbors, slots, and component indices; no full Jacobian matrix is pre-stored.
 
-The quantum matrix-element oracle queries the relevant cells, invokes reversible Roe arithmetic, and selects elements by row/column index. The position oracle gives the structural positions of each column through the in-place index permutation used by <a href="../zh/manual/algorithms/cks.html">CKS</a>. The RHS preparation uses the angle table provided by the residual data structure.
+The quantum matrix-element oracle queries the relevant cells, invokes reversible Roe arithmetic, and selects elements by row/column index. The position oracle gives the structural positions of each column through the in-place index permutation used by <a href="../../zh/manual/algorithms/cks.html">CKS</a>. The RHS preparation uses the angle table provided by the residual data structure.
 
 Classical Riemann computation and local flow-field updates are managed by {obj}`RoeFlowData <oracq.applications.flow_data.RoeFlowData>`. A logical QRAM patch can update locally; the current native backend materialization may still rebuild modified banks, so the two must not be equated.
 
@@ -35,7 +35,7 @@ costa.check(problem).require()
 
 ## Replacing the QLSS
 
-The <a href="../zh/manual/algorithms/cks.html">CKS</a> entry consumes sparse problems, and the <a href="../zh/manual/algorithms/costa-walk.html">Costa</a> entry requests a BE. The current real-symmetric sparse adaptation constructs the corresponding BE via `T†ST` and records alpha. There is no general adaptation that recovers efficient sparse access from an arbitrary BE in reverse.
+The <a href="../../zh/manual/algorithms/cks.html">CKS</a> entry consumes sparse problems, and the <a href="../../zh/manual/algorithms/costa-walk.html">Costa</a> entry requests a BE. The current real-symmetric sparse adaptation constructs the corresponding BE via `T†ST` and records alpha. There is no general adaptation that recovers efficient sparse access from an arbitrary BE in reverse.
 
 QFVM's non-symmetric physical matrix uses an explicit Hermitian dilation and selects the physical coordinate at output. This dilation serves the linear solve; it cannot be taken directly as a QODE evolution equivalent to the original generator.
 
@@ -290,7 +290,7 @@ The paper-grade numerical validation of 2026-09-16 (`tests/verification/verify_q
 - **Position access**: under a superposition of all 32 columns every column is a complete permutation, the 9 structural slot mappings show 0 mismatches against the independent geometry semantics, and the geometry QRAM table is point-wise true.
 - **RHS preparation**: the residual-state amplitudes agree with independent residual/norm computations (error 1.11e-16), signs are written exactly via Z kickback, and the angle tree and sign bank are point-wise true.
 
-The validation uses {obj}`FixedFormat(5,2) <oracq.algorithms.common.arithmetic.FixedFormat>` and `entropy_delta=0.5` (all constants exactly representable); under lower-precision formats 2δ may truncate to zero, causing division by zero in the entropy-correction branch and zeroing the entry per the documented behavior (see the <a href="../zh/manual/algorithms/qfvm.html#数值验证">algorithm page's numerical validation</a>). The numerical solve accuracy of the two QLSS routes belongs to the solver side and is out of scope for this page. Artifacts: `out/verification/qham_qfvm.json`.
+The validation uses {obj}`FixedFormat(5,2) <oracq.algorithms.common.arithmetic.FixedFormat>` and `entropy_delta=0.5` (all constants exactly representable); under lower-precision formats 2δ may truncate to zero, causing division by zero in the entropy-correction branch and zeroing the entry per the documented behavior (see the <a href="../../zh/manual/algorithms/qfvm.html#数值验证">algorithm page's numerical validation</a>). The numerical solve accuracy of the two QLSS routes belongs to the solver side and is out of scope for this page. Artifacts: `out/verification/qham_qfvm.json`.
 
 ## QMem direct parallel path
 

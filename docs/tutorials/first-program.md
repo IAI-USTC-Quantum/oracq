@@ -1,6 +1,6 @@
 # Your first register program
 
-**English** · <a href="../zh/tutorials/first-program.html">简体中文</a>
+**English** · <a href="../../zh/tutorials/first-program.html">简体中文</a>
 
 This tutorial generates a Bell state. You will use one register, two gate operations, and the reference executor. Afterwards, the same program is saved as RIR and exported as OriginIR-ext.
 
@@ -80,7 +80,7 @@ modules:
     name: bell_pair
     ...
 tag: Program
-version: '0.3'
+version: '0.1'
 
 QINIT 2
 CREG 0

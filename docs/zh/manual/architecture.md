@@ -1,6 +1,6 @@
 # 源码结构
 
-<a href="../../manual/architecture.html">English</a> · **简体中文**
+<a href="../../en/manual/architecture.html">English</a> · **简体中文**
 
 源码分为基础设施、算法库和领域应用。目录名对应代码的职责，算法实现按类别放在独立文件中。
 

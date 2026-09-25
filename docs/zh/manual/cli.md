@@ -1,6 +1,6 @@
 # 命令行
 
-<a href="../../manual/cli.html">English</a> · **简体中文**
+<a href="../../en/manual/cli.html">English</a> · **简体中文**
 
 命令行处理已经保存的 RIR，也提供[数学函数编译](math-functions.md#命令行与案例)入口。RIR 输入自动识别 YAML 与 JSON 两种文本（约定扩展名为 `.rir.yaml`）；写出 RIR 文本时以 `--format yaml|json` 选择，默认 `yaml`。
 

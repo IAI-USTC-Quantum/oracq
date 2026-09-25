@@ -1,6 +1,6 @@
 # 量子数据结构与 KP 推荐系统
 
-<a href="../../manual/qdata.html">English</a> · **简体中文**
+<a href="../../en/manual/qdata.html">English</a> · **简体中文**
 
 {obj}`QVector <oracq.algorithms.input_model.qdata.QVector>` 与 {obj}`QMatrix <oracq.algorithms.input_model.qdata.QMatrix>` 封装 [QFVM](qfvm.md)（arXiv:2102.03557 式 15–22 残差平方和树）与 Kerenidis–Prakash 推荐系统（arXiv:1603.08675 Thm 5.1 + 附录 A.1）共用的量子数据结构，数据面全部经由 [QRAM 指针访问](qmem.md)。API 见 [量子数据结构（qsample 与 sample-and-query）](../api/algorithms/input_model/qdata.rst)。
 

@@ -1,6 +1,6 @@
 # 稀疏矩阵块编码（Sparse Matrix Block Encoding）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.input_model.sparse`](../../api/algorithms/input_model/sparse.rst) · 阶段 V1
 

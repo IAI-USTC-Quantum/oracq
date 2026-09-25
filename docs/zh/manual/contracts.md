@@ -1,6 +1,6 @@
 # 算法自己的约定：从一个 gate 开始
 
-<a href="../../manual/contracts.html">English</a> · **简体中文**
+<a href="../../en/manual/contracts.html">English</a> · **简体中文**
 
 **约定属于算法库，不属于 RIR 的语言类型系统。** 一个对象可以满足多个 Python 协议；上层算法检查自己需要的方法、参数和调用能力。新算法可以在自己的文件中定义新协议，无需修改 oracq 的语法、RIR、序列化器或全局类型目录。
 

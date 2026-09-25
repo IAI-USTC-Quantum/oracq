@@ -1,6 +1,6 @@
 # QSVT 哈密顿模拟（QSVT Hamiltonian Simulation）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · 阶段 V2
 

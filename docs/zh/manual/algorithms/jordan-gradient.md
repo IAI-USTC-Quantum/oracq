@@ -1,6 +1,6 @@
 # Jordan 量子梯度估计（Jordan Quantum Gradient Estimation）
 
-<a href="../../../index.html">English</a> · **简体中文**
+<a href="../../../en/index.html">English</a> · **简体中文**
 
 > 类别 C3 · 模块 [`oracq.algorithms.optimization.gradient`](../../api/algorithms/optimization/gradient.rst) · 阶段 V1
 

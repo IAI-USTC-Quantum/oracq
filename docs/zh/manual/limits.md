@@ -1,6 +1,6 @@
 # 适用范围与验证状态
 
-<a href="../../manual/limits.html">English</a> · **简体中文**
+<a href="../../en/manual/limits.html">English</a> · **简体中文**
 
 oracq 可以表达开放算法、组装模块并生成可执行的小实例。是否适合某个具体问题，还取决于输入模型、规模、数值近似和读出需求。
 

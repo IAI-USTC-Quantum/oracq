@@ -1,6 +1,6 @@
 # Quantum algorithm coverage workboard
 
-**English** · <a href="../zh/development/algorithm-coverage.html">简体中文</a>
+**English** · <a href="../../zh/development/algorithm-coverage.html">简体中文</a>
 
 This document tracks oracq's quantum-algorithm implementation coverage
 relative to the open-source ecosystem, ordering implementation by the
@@ -81,6 +81,6 @@ abstractions).
 - Criteria for picking new papers: the paper defines its input oracles
   explicitly; it can be transcribed mechanically into the protocol-contract
   system; its correctness can be endorsed by the contracts checks.
-- Per-algorithm implementation and validation details live on the <a href="../zh/manual/algorithms/index.html">algorithm
+- Per-algorithm implementation and validation details live on the <a href="../../zh/manual/algorithms/index.html">algorithm
   pages</a>; update the corresponding pages
   when editing the workboard.
