@@ -1,5 +1,5 @@
-资源估计
-============
+Resource estimation
+======================================
 
 ``oracq.infrastructure.estimate``
 

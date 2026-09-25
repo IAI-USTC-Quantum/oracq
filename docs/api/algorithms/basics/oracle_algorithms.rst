@@ -1,5 +1,5 @@
-Oracle 查询算法
-======================
+Oracle query algorithms
+==============================================
 
 ``oracq.algorithms.basics.oracle_algorithms``
 

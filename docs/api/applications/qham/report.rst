@@ -1,5 +1,5 @@
-QHAM 推导报告
-==================
+QHAM derivation report
+============================================
 
 ``oracq.applications.qham.report``
 

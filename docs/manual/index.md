@@ -1,6 +1,12 @@
-# 完整文档
+# Complete documentation
 
-这一部分解释 oracq 的设计与使用规则。阅读顺序从操作、寄存器和 oracle 开始，再进入算法及领域应用。每章可以独立查阅；详细对象定义见 [API 参考](../api/index.rst)。
+**English** · [简体中文](../zh/manual/index.html)
+
+This part explains the design and usage rules of oracq. The recommended reading
+order starts with operations, registers, and oracles, then moves on to
+algorithms and domain applications. Each chapter can be consulted
+independently; detailed object definitions are in the
+[API reference](../api/index.rst).
 
 ```{toctree}
 :maxdepth: 2

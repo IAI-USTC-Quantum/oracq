@@ -1,5 +1,5 @@
-可逆算术
-============
+Reversible arithmetic
+==========================================
 
 ``oracq.algorithms.common.arithmetic``
 

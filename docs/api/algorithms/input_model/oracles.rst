@@ -1,5 +1,5 @@
-Oracle 声明与实现
-========================
+Oracle declarations and implementations
+==============================================================================
 
 ``oracq.algorithms.input_model.oracles``
 

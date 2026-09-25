@@ -1,5 +1,5 @@
-QRAM 指针式读写
-====================
+QRAM pointer-style read/write
+==========================================================
 
 ``oracq.infrastructure.qmem``
 

@@ -1,0 +1,527 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:oracq:rir:0.3",
+  "title": "oracq register-level IR 0.3",
+  "$ref": "#/$defs/Program",
+  "$defs": {
+    "RegType": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "RegType"
+        },
+        "kind": {
+          "enum": [
+            "bits",
+            "uint",
+            "sint",
+            "rational"
+          ]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      },
+      "required": [
+        "tag",
+        "kind",
+        "width"
+      ],
+      "additionalProperties": false
+    },
+    "Register": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Register"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "$ref": "#/$defs/RegType"
+        }
+      },
+      "required": [
+        "tag",
+        "name",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "Span": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Span"
+        },
+        "register": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      },
+      "required": [
+        "tag",
+        "register",
+        "start",
+        "width"
+      ],
+      "additionalProperties": false
+    },
+    "Ref": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Ref"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Span"
+          }
+        },
+        "type": {
+          "$ref": "#/$defs/RegType"
+        }
+      },
+      "required": [
+        "tag",
+        "parts",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "QRAM": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "QRAM"
+        },
+        "address_width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "data_width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        }
+      },
+      "required": [
+        "tag",
+        "address_width",
+        "data_width"
+      ],
+      "additionalProperties": false
+    },
+    "Resource": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Resource"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "$ref": "#/$defs/QRAM"
+        }
+      },
+      "required": [
+        "tag",
+        "name",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "Primitive": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Primitive"
+        },
+        "op": {
+          "enum": [
+            "h",
+            "x",
+            "y",
+            "z",
+            "s",
+            "t",
+            "rx",
+            "ry",
+            "rz",
+            "phase",
+            "gphase",
+            "xor",
+            "swap",
+            "add_const"
+          ]
+        },
+        "operands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ref"
+          }
+        },
+        "angle": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "tag",
+        "op",
+        "operands",
+        "angle",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "Load": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Load"
+        },
+        "resource": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "address": {
+          "$ref": "#/$defs/Ref"
+        },
+        "data": {
+          "$ref": "#/$defs/Ref"
+        }
+      },
+      "required": [
+        "tag",
+        "resource",
+        "address",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "Store": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Store"
+        },
+        "resource": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "address": {
+          "$ref": "#/$defs/Ref"
+        },
+        "data": {
+          "$ref": "#/$defs/Ref"
+        }
+      },
+      "required": [
+        "tag",
+        "resource",
+        "address",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "Call": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Call"
+        },
+        "module": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ref"
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "module",
+        "arguments",
+        "resources"
+      ],
+      "additionalProperties": false
+    },
+    "Repeat": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Repeat"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Instruction"
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "count",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "Control": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Control"
+        },
+        "register": {
+          "$ref": "#/$defs/Ref"
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Instruction"
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "register",
+        "value",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "Adjoint": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Adjoint"
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Instruction"
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "Instruction": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Primitive"
+        },
+        {
+          "$ref": "#/$defs/Load"
+        },
+        {
+          "$ref": "#/$defs/Store"
+        },
+        {
+          "$ref": "#/$defs/Call"
+        },
+        {
+          "$ref": "#/$defs/Repeat"
+        },
+        {
+          "$ref": "#/$defs/Control"
+        },
+        {
+          "$ref": "#/$defs/Adjoint"
+        }
+      ]
+    },
+    "Module": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Module"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "registers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Register"
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Resource"
+          }
+        },
+        "body": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Instruction"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attributes": {
+          "$comment": "oracle_paradigm 是可扩展角色标识；binding_captures 保存逻辑资源名到局部资源名的 JSON 字符串，引用有效性由 validate 检查。开放绑定约束及分析报告不新增 RIR 节点。",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2,
+            "items": false
+          }
+        },
+        "locals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Register"
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "name",
+        "registers",
+        "resources",
+        "body",
+        "attributes"
+      ],
+      "additionalProperties": false
+    },
+    "Program": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "Program"
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "modules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Module"
+          }
+        },
+        "version": {
+          "enum": [
+            "0.1",
+            "0.2",
+            "0.3"
+          ]
+        }
+      },
+      "required": [
+        "tag",
+        "entry",
+        "modules",
+        "version"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "version": {
+                "const": "0.3"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "modules": {
+                "items": {
+                  "required": [
+                    "locals"
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "modules": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "locals"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

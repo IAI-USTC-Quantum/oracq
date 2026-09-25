@@ -1,10 +1,12 @@
-# QRAM 数据结构：指针、偏移与随机写
+# QRAM data structures: pointers, offsets, and random writes
 
-{obj}`QMem <oracq.infrastructure.qmem.QMem>` 把 QRAM 资源抽象成 C 风格的数组访问：基地址、常量与量子偏移、多维视图，以及随机读写。所有寻址都是 Python 生成阶段的糖衣——落到 RIR 里的只有寄存器算术、{obj}`Load <oracq.infrastructure.ir.Load>` 和 {obj}`Store <oracq.infrastructure.ir.Store>`（见[RIR 规范](../reference/rir.md) 3.2 节）。API 见 [QRAM 指针式读写](../api/infrastructure/qmem.rst)。
+**English** · [简体中文](../zh/manual/qmem.html)
 
-## 指针与读
+{obj}`QMem <oracq.infrastructure.qmem.QMem>` abstracts QRAM resources into C-style array access: base addresses, constant and quantum offsets, multidimensional views, and random reads and writes. All of the addressing is Python generation-stage sugar — what lands in the RIR is only register arithmetic, {obj}`Load <oracq.infrastructure.ir.Load>`, and {obj}`Store <oracq.infrastructure.ir.Store>` (see [the RIR specification](../reference/rir.md), section 3.2). The API is documented in [QRAM pointer-style reads and writes](../api/infrastructure/qmem.rst).
 
-{obj}`QMem <oracq.infrastructure.qmem.QMem>` 绑定构造器里已声明的 QRAM 资源。`ptr()` 返回指向 0 号单元的指针，整数加减产生常量偏移；传入寄存器视图则得到持有量子地址的指针。解引用 `load` 是现有 XOR-Load：`|addr⟩|d⟩ ↦ |addr⟩|d ⊕ M[addr]⟩`，叠加地址天然支持。
+## Pointers and reads
+
+{obj}`QMem <oracq.infrastructure.qmem.QMem>` binds a QRAM resource already declared in the builder. `ptr()` returns a pointer to cell 0; integer addition and subtraction produce constant offsets; passing a register view yields a pointer holding a quantum address. Dereferencing with `load` is the existing XOR-Load: `|addr⟩|d⟩ ↦ |addr⟩|d ⊕ M[addr]⟩`, with superposed addresses supported for free.
 
 ```{doctest}
 >>> from oracq import Builder, QRAM, QMem, UInt, simulate
@@ -16,11 +18,11 @@
 [((0, 11), (1+0j))]
 ```
 
-量子偏移（`p + b["idx"]`）和多维展平需要寄存器加法：`QMem` 自动合成逐位进位加法器与移位拼接，地址临时寄存器在解引用后由整体 Adjoint 复净，模块保持酉。地址算术的门成本如实计入[资源估计](resource-estimation.md)。当地址表达式恰为单个全宽寄存器且无常量分量时，不引入任何寻址算术。
+Quantum offsets (`p + b["idx"]`) and multidimensional flattening require register addition: `QMem` automatically synthesizes bit-by-bit carry adders and shift-concatenation; the temporary address registers are cleaned by a whole-block Adjoint after dereferencing, keeping the module unitary. The gate cost of address arithmetic is counted faithfully in [resource estimation](resource-estimation.md). When the address expression is exactly a single full-width register with no constant component, no addressing arithmetic is introduced.
 
-## 多维视图
+## Multidimensional views
 
-`shape` 声明 row-major 展平；下标可以是整数、寄存器视图或切片，量子下标的宽度必须满足 2^width 不超过该维长度。切片返回重新定址的子数组视图。
+`shape` declares row-major flattening; subscripts may be integers, register views, or slices, and the width of a quantum subscript must satisfy 2^width not exceeding that dimension's length. A slice returns a re-addressed subarray view.
 
 ```{doctest}
 >>> b = Builder("grid", {"row": UInt(2), "out": UInt(4)}, {"rom": QRAM(4, 4)})
@@ -31,9 +33,9 @@
 [((3, 14), (1+0j))]
 ```
 
-## 随机写
+## Random writes
 
-`store` 是 RIR 的 `Store` 指令：`M[addr] := data`。存储单元按经典单元建模，随机写不计入门成本（资源估计中单独计入 `qram_writes`）。执行时地址与数据寄存器必须处于确定基矢；叠加地址下的写没有线性语义，执行器会直接报错。结构上 `Store` 不能出现在 {obj}`Control <oracq.infrastructure.ir.Control>` 或 {obj}`Adjoint <oracq.infrastructure.ir.Adjoint>` 体内，含 `Store` 的模块不具备受控与伴随能力。
+`store` is the RIR `Store` instruction: `M[addr] := data`. Memory cells are modeled classically and random writes carry no gate cost (counted separately as `qram_writes` in resource estimation). At execution the address and data registers must be in a definite basis state; a write under a superposed address has no linear semantics and the executor raises immediately. Structurally, `Store` cannot appear inside a {obj}`Control <oracq.infrastructure.ir.Control>` or {obj}`Adjoint <oracq.infrastructure.ir.Adjoint>` body, and modules containing `Store` have neither the controlled nor the adjoint capability.
 
 ```{doctest}
 >>> b = Builder("write", {"addr": UInt(2), "val": UInt(4), "out": UInt(4)}, {"ram": QRAM(2, 4)})
@@ -45,16 +47,16 @@
 [((1, 9, 0), (1+0j))]
 ```
 
-后续 `Load` 读到演化后的内存：上例中单元 1 已写入 9，单元 3 仍为 0。[OriginIR-ext](backends.md#originir-ext) 导出把 `Store` 降低为 `QRAMWRITE` 扩展行；文本执行器（UnifiedQuantum、PySparQ）暂不接受运行期写，遇到含 `Store` 的程序会在执行入口报错，文本导出不受影响。
+A subsequent `Load` reads the evolved memory: in the example above cell 1 now holds 9 while cell 3 is still 0. The [OriginIR-ext](backends.md#originir-ext) export lowers `Store` to the `QRAMWRITE` extension line; the text executors (UnifiedQuantum, PySparQ) do not yet accept runtime writes and raise at the execution entry when a program contains `Store`; text export is unaffected.
 
-## 能力一览
+## Capability overview
 
-| 能力 | 形式 | 降低产物 |
+| Capability | Form | Lowering result |
 |---|---|---|
-| 常量偏移 | `mem.ptr(2) + 3`、`p - 1` | `add_const`（模 2^地址宽度） |
-| 量子指针 | `mem.ptr(b["addr"])` | 直接寻址或移位拼接 |
-| 量子偏移 | `p + b["idx"]` | 与指针区间重叠时合成进位加法器（Toffoli/CNOT） |
-| 多维索引 | `grid[b["row"], 3]` | 移位拼接；各维占据不相交位段时不需加法器 |
-| 子数组视图 | `grid[2:]` | 常量重定址，无指令 |
+| Constant offset | `mem.ptr(2) + 3`, `p - 1` | `add_const` (modulo 2^address width) |
+| Quantum pointer | `mem.ptr(b["addr"])` | direct addressing or shift-concatenation |
+| Quantum offset | `p + b["idx"]` | when overlapping the pointer range, a carry adder is synthesized (Toffoli/CNOT) |
+| Multidimensional indexing | `grid[b["row"], 3]` | shift-concatenation; no adder needed when the dimensions occupy disjoint bit segments |
+| Subarray view | `grid[2:]` | constant re-addressing, no instructions |
 
-完整语义测试见 `tests/core/test_qmem.py`。
+The full semantic tests are in `tests/core/test_qmem.py`.

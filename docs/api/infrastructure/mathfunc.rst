@@ -1,5 +1,5 @@
-数学函数编译入口
-================
+Math-function compilation entry
+==============================================================
 
 ``oracq.infrastructure.mathfunc``
 

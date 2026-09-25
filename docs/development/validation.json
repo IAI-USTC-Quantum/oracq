@@ -5,7 +5,7 @@
     "passed": 253,
     "subtests": 135,
     "skipped": 0,
-    "note": "0.8 时点 passed=144；本次 V1 落地后扩到 253（tests/core 共增 16 用例：witness 自证 11 例 + density/gradient/lowrank 各模块新增见证 5 例，原 237 例保持全绿；src/ 本轮未改动）。subtests 字段保留 0.8 口径以避免与既有 subtest 含义不一致。"
+    "note": "At the 0.8 checkpoint passed=144; after the V1 landing this grew to 253 (tests/core gained 16 cases in total: 11 witness self-tests plus 5 new witnesses across density/gradient/lowrank, with the original 237 cases staying green; src/ was not changed in this round). The subtests field keeps the 0.8 convention to avoid inconsistency with the existing subtest meaning."
   },
   "native": {
     "passed": 29,

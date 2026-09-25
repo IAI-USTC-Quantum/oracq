@@ -1,5 +1,5 @@
-模乘与求阶
-============
+Modular multiplication and order finding
+================================================================================
 
 ``oracq.algorithms.basics.number_theory``
 

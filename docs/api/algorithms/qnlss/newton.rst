@@ -1,5 +1,5 @@
-量子牛顿法
-============
+Quantum Newton method
+==========================================
 
 ``oracq.algorithms.qnlss.newton``
 

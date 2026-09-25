@@ -1,5 +1,5 @@
-算法 API
-============
+Algorithms API
+============================
 
 .. toctree::
    :maxdepth: 1

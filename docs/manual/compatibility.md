@@ -1,8 +1,13 @@
-# 导入路径迁移
+# Import path migration
 
-0.8 将实现移到按职责划分的目录。根包中的常用导出继续可用；旧模块路径通过集中兼容表转发，引用同一个实现。新代码应使用规范路径。
+**English** · [简体中文](../zh/manual/compatibility.html)
 
-| 旧路径 | 规范路径 |
+Release 0.8 moved the implementations into directories organized by
+responsibility. The common exports of the root package remain available; old
+module paths are forwarded through a centralized compatibility table and
+reference the same implementations. New code should use the canonical paths.
+
+| Old path | Canonical path |
 |---|---|
 | `oracq.ir` | [`oracq.infrastructure.ir`](../api/infrastructure/ir.rst) |
 | `oracq.builder` | [`oracq.infrastructure.builder`](../api/infrastructure/builder.rst) |
@@ -49,28 +54,49 @@
 | `oracq.qham.report` | [`oracq.applications.qham.report`](../api/applications/qham/report.rst) |
 | `oracq.qham.stencils` | [`oracq.applications.qham.stencils`](../api/applications/qham/stencils.rst) |
 
-没有独立 API 页的包路径（如 `oracq.infrastructure.backends`、`oracq.applications.qham`）保持原样，可进入其子模块的 API 页查看。
+Package paths without a standalone API page (such as
+`oracq.infrastructure.backends` and `oracq.applications.qham`) stay as-is;
+open the API pages of their submodules to inspect them.
 
-## 拆分的旧入口
+## Split-up legacy entry points
 
-`algorithms.elementary` 中的查询、搜索、QFT、QPE 和矩阵变换分别进入 `oracle_algorithms`、`search`、`fourier`、`estimation` 和 `transforms`。
+The query, search, QFT, QPE, and matrix-transform entry points of
+`algorithms.elementary` moved into `oracle_algorithms`, `search`, `fourier`,
+`estimation`, and `transforms`, respectively.
 
-`algorithms.differential` 中的具体方法进入 `lchs`、`schrodingerization`、`cbmd` 和 `carleman`；通用入口在 `ode`，PDE 适配在 `pde`。
+The concrete methods of `algorithms.differential` moved into `lchs`,
+`schrodingerization`, `cbmd`, and `carleman`; the general entry point is
+`ode`, and the PDE adapter is `pde`.
 
-`algorithms.solvers` 的状态组合工具进入 `state_preparation`，Euler history 进入 `ode`，Trotter 进入 `hamiltonian`。旧工厂仍通过兼容入口可用。
+The state composition utilities of `algorithms.solvers` moved into
+`state_preparation`, the Euler history into `ode`, and Trotter into
+`hamiltonian`. The old factories remain available through the compatibility
+entries.
 
-## 文件格式
+## File formats
 
-RIR 版本仍为 0.3，指令集合与执行语义不变；链接器新增的 `binding_captures`
-是原有标量属性格式中的来源信息，Schema 与语义检查已同步说明其约束。
-Python 类的模块位置与生成器组合发生变化后，模块哈希名可能改变；不要将哈希名字用作应用协议。
+The RIR version is still 0.3, and the instruction set and execution semantics
+are unchanged; the `binding_captures` field newly added to the linker holds
+provenance information inside the existing scalar-attribute format, and the
+schema and semantic checks now state its constraints as well. After the module
+locations and generator compositions of the Python classes changed, module
+hash names may change; do not use hash names as part of an application
+protocol.
 
-## 算法接口命名与资源台账
+## Algorithm interface naming and the resource ledger
 
-{obj}`AlgorithmContract <oracq.algorithms.input_model.contracts.AlgorithmContract>`、{obj}`QLSSSolver <oracq.algorithms.qlss.qlss.QLSSSolver>`、{obj}`QODESolver <oracq.algorithms.qode.ode.QODESolver>` 是新的规范名称；
-{obj}`ProtocolContract <oracq.algorithms.input_model.contracts.ProtocolContract>`、{obj}`QLSSProtocol <oracq.algorithms.qlss.qlss.QLSSProtocol>`、{obj}`QODEProtocol <oracq.algorithms.qode.ode.QODEProtocol>` 保留为同类型别名。
-问题构造器接受提供方协议，构造后的字段仍保存具体角色视图。
+{obj}`AlgorithmContract <oracq.algorithms.input_model.contracts.AlgorithmContract>`,
+{obj}`QLSSSolver <oracq.algorithms.qlss.qlss.QLSSSolver>`, and
+{obj}`QODESolver <oracq.algorithms.qode.ode.QODESolver>` are the new canonical
+names;
+{obj}`ProtocolContract <oracq.algorithms.input_model.contracts.ProtocolContract>`,
+{obj}`QLSSProtocol <oracq.algorithms.qlss.qlss.QLSSProtocol>`, and
+{obj}`QODEProtocol <oracq.algorithms.qode.ode.QODEProtocol>` are kept as
+same-type aliases. Problem builders accept provider protocols, and the
+constructed fields still hold concrete role views.
 
-资源估计的 `rotations` 从列表改为紧凑只读序列。原来的长度、索引与迭代
-读法继续可用；直接修改列表的代码应改为读取 `counts` 或使用报告。
-开放分析中 `qubits` 为 None，已知下界放在 `qubits_lower_bound`。
+The `rotations` of resource estimation changed from a list to a compact
+read-only sequence. The previous length, indexing, and iteration reads keep
+working; code that mutated the list directly should read `counts` instead or
+use the report. In open analyses `qubits` is `None`; known lower bounds are in
+`qubits_lower_bound`.

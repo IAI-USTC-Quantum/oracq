@@ -1,5 +1,5 @@
-结构验证
-============
+Structural validation
+==========================================
 
 ``oracq.infrastructure.validation``
 

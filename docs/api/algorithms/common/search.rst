@@ -1,5 +1,5 @@
-搜索与振幅放大
-==============
+Search and amplitude amplification
+====================================================================
 
 ``oracq.algorithms.common.search``
 

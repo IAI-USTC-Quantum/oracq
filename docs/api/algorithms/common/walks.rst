@@ -1,5 +1,5 @@
-量子行走
-============
+Quantum walks
+==========================
 
 ``oracq.algorithms.common.walks``
 

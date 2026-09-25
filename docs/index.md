@@ -1,12 +1,22 @@
 # oracq
 
-oracq 用 Python 组织量子算法，并生成可保存、可组合的寄存器级中间表示（RIR）。算法可以依赖尚未实现的 oracle；在提供具体实现后，同一份描述可以导出为 OriginIR-ext，或交给 PySparQ 执行（导出与执行细节见[后端与导出](manual/backends.md)）。
+**English** · [简体中文](zh/index.html)
 
-如果你第一次使用这个项目，请先读[核心概念](manual/concepts.md)，再从教程开始。若你正在实现或审查算法，完整文档会说明接口、输入前提、组合规则和后端限制。API 参考直接来自当前源码。
+oracq organizes quantum algorithms in Python and compiles them to a saveable,
+composable register-level intermediate representation (RIR). Algorithms may
+depend on oracle placeholders that are not implemented yet; once concrete
+implementations are supplied, the same description exports to OriginIR-ext or
+runs on PySparQ (see [backends and export](manual/backends.md) for details).
+
+If this is your first encounter with the project, start with the
+[core concepts](manual/concepts.md) and then follow a tutorial. If you are
+implementing or reviewing algorithms, the full manuals explain interfaces,
+input preconditions, composition rules, and backend limitations. The API
+reference is generated directly from the current source.
 
 ```{toctree}
 :maxdepth: 1
-:caption: 完整文档
+:caption: Manuals
 
 manual/index
 reference/index
@@ -15,16 +25,22 @@ api/index
 
 ```{toctree}
 :maxdepth: 2
-:caption: 教程
+:caption: Tutorials
 
 tutorials/index
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: 项目开发
+:caption: Development
 
 development/index
 ```
 
-项目目前提供从 oracle 查询、搜索、估计和 Hamiltonian 演化，到 QLSS、QODE、QFVM 与 QHAM 的组装路径。各实现的成熟度不同；请在选择算法前查看[适用范围与验证状态](manual/limits.md)。
+The project currently provides assembly paths ranging from oracle queries,
+search, estimation, and Hamiltonian evolution to QLSS, QODE, QFVM, and QHAM.
+Maturity varies per implementation; check
+[applicability and validation status](manual/limits.md) before choosing an
+algorithm. The Chinese mirror of this site lives under
+[zh/](zh/index.html); algorithm manual pages are currently Chinese-only there
+while their English translations are in progress.

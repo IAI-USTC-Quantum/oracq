@@ -1,5 +1,5 @@
-量子卷积神经网络
-================
+Quantum convolutional neural networks
+==========================================================================
 
 ``oracq.algorithms.qml.qcnn``
 

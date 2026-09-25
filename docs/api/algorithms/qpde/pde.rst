@@ -1,5 +1,5 @@
-PDE 模型与适配
-==================
+PDE models and adapters
+==============================================
 
 ``oracq.algorithms.qpde.pde``
 

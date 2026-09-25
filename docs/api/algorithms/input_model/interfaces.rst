@@ -1,5 +1,5 @@
-算法结构协议
-============
+Algorithm structure protocols
+==========================================================
 
 ``oracq.algorithms.input_model.interfaces``
 

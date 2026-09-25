@@ -1,5 +1,5 @@
-PREPARE-SELECT 分解
-==================================
+PREPARE-SELECT decomposition
+========================================================
 
 ``oracq.algorithms.common.prepare_select``
 

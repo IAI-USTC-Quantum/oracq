@@ -1,5 +1,5 @@
-OriginIR-ext 后端
-==============================
+OriginIR-ext backend
+========================================
 
 ``oracq.infrastructure.backends.originir``
 

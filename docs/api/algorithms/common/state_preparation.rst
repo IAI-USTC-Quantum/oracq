@@ -1,5 +1,5 @@
-态制备组合
-============
+State-preparation composition
+==========================================================
 
 ``oracq.algorithms.common.state_preparation``
 

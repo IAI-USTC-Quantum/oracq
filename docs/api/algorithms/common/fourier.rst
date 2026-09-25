@@ -1,5 +1,5 @@
-Fourier 变换与算术
-==========================
+Fourier transforms and arithmetic
+==================================================================
 
 ``oracq.algorithms.common.fourier``
 

@@ -1,5 +1,5 @@
-原生实现注册
-============
+Native implementation registry
+============================================================
 
 ``oracq.infrastructure.native``
 

@@ -1,5 +1,5 @@
-谱输入输出原语与算子级优化
-==========================
+Spectral input/output primitives and operator-level optimization
+================================================================================================================================
 
 ``oracq.algorithms.input_model.spectral``
 

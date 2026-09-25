@@ -1,5 +1,5 @@
-量子梯度估计
-============
+Quantum gradient estimation
+======================================================
 
 ``oracq.algorithms.optimization.gradient``
 

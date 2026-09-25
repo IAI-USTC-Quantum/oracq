@@ -1,178 +1,176 @@
-# RIR：模块化寄存器级中间表示
+# RIR: the modular register-level intermediate representation
 
-本规范定义 RIR 0.3。开放声明、能力与绑定的详细规则见[开放 IR](open-ir.md)；Python 生成层中寄存器与视图的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md#寄存器与视图)。
+**English** · [简体中文](../zh/reference/rir.html)
 
-规范日期：2026-09-19。Python API、序列化器、参考执行器与后端适配器必须遵守本文。JSON Schema 只覆盖对象形状；跨节点约束由 validate 检查。
+This specification defines RIR 0.3. Detailed rules for open declarations, capabilities, and binding are in [the open IR](open-ir.md); for an introduction to working with registers and views in the Python generation layer see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md#registers-and-views).
 
-本规范将 RIR 作为一个完整的语言层规范来组织，分为五个部分：
+Specification date: 2026-09-19. The Python API, serializers, reference executor, and backend adapters must comply with this document. The JSON Schema covers object shapes only; cross-node constraints are checked by validate.
 
-- **第 1 部分：设计定位**——RIR 表达什么、不表达什么；
-- **第 2 部分：数据模型**——对象模型、存储类型与位序、寄存器引用与视图；
-- **第 3 部分：指令集合**——七种指令的逐条语义与约束；
-- **第 4 部分：程序级规则**——调用图、文本编码、形式文法、后端降低与私有工作区；
-- **第 5 部分：完整案例**——六个可以直接运行的端到端程序，逐字段对照前四部分的规则。
+This specification organizes RIR as a complete language-layer specification in five parts:
 
-## 第 1 部分：设计定位
+- **Part 1: design positioning** — what RIR expresses and what it does not;
+- **Part 2: data model** — the object model, storage types and bit order, register references and views;
+- **Part 3: instruction set** — the semantics and constraints of each of the seven instructions;
+- **Part 4: program-level rules** — the call graph, text encoding, formal grammar, backend lowering, and private workspaces;
+- **Part 5: complete examples** — six directly runnable end-to-end programs checked field by field against the rules of the first four parts.
 
-### 1.1 设计范围
+## Part 1: Design positioning
 
-RIR 表示已经完成编译期参数求值的量子操作。所有寄存器宽度、整数常量和旋转角度均已具体化。RIR 保留模块定义、模块调用、静态重复、控制及伴随块，不要求展开成量子位级线路。
+### 1.1 Design scope
 
-RIR 的已实现主体由酉操作构成；未实现模块以开放声明表示。它不包含测量、重置、运行期经典反馈或不透明 Python callback。对固定的外部 QRAM 内容，所有合法指令在完整量子空间上具有下文规定的酉语义；唯一的例外是 Store——QRAM 随机写按经典存储单元建模，它演化内存映射本身而不是量子态（见 3.2 节），因此只能出现在模块体的非控制、非伴随位置。
+RIR represents quantum operations whose compile-time parameter evaluation has already completed. All register widths, integer constants, and rotation angles are concrete. RIR keeps module definitions, module calls, static repetition, control, and adjoint blocks, and does not require expansion into qubit-level circuits.
 
-公开工作区和信号寄存器出现在调用接口中；模块还可以通过 locals 声明私有零输入、零输出工作区。结构验证不提供任意辅助位复净证明。
+Implemented bodies in RIR consist of unitary operations; unimplemented modules are represented as open declarations. RIR contains no measurement, reset, runtime classical feedback, or opaque Python callback. For fixed external QRAM contents, every legal instruction has the unitary semantics prescribed below on the full quantum space; the sole exception is Store — a QRAM random write is modeled on classical memory cells and evolves the memory mapping itself rather than the quantum state (see section 3.2) — so it may appear only in non-controlled, non-adjoint positions of a module body.
 
-## 第 2 部分：数据模型
+Public workspaces and signal registers appear in the call interface; a module may additionally declare private zero-input, zero-output workspaces through locals. Structural validation provides no proof of auxiliary-qubit uncomputation in general.
 
-### 2.1 对象模型
+## Part 2: Data model
 
-Program 具有 entry、modules 和 version 三个字段。当前 version 为字符串 "0.3"，读取器也接受 "0.1" 和 "0.2"。entry 必须引用一个已定义模块。
+### 2.1 Object model
 
-Module 具有 name、registers、resources、body、attributes 和 locals。registers 是有序量子参数列表，resources 是有序 QRAM 参数列表，body 是有序指令体，或表示开放声明的 null。attributes 是由键和值组成的有序二元组列表。属性值只允许字符串、整数、有限浮点数或布尔值。
+Program has three fields: entry, modules, and version. The current version is the string "0.3"; readers also accept "0.1" and "0.2". entry must reference a defined module.
 
-模块名在 Program 中唯一。寄存器名和资源名在各自模块内唯一且不能相互冲突。标识符匹配 [A-Za-z_][A-Za-z0-9_]*。模块至少具有一个非空量子接口，寄存器参数本身可以含零宽度项。
+Module has name, registers, resources, body, attributes, and locals. registers is an ordered list of quantum parameters, resources is an ordered list of QRAM parameters, and body is an ordered instruction body, or null for an open declaration. attributes is an ordered list of key/value pairs. Attribute values may only be strings, integers, finite floats, or booleans.
 
-属性不改变指令语义。库可以基于属性约定数学解释。例如 be_alpha 与库规定的零投影布局共同定义块编码的尺度，但执行器不根据属性额外缩放量子态。
+Module names are unique within a Program. Register names and resource names are unique within their module and must not conflict with each other. Identifiers match [A-Za-z_][A-Za-z0-9_]*. A module has at least one non-empty quantum interface; the register parameters themselves may contain zero-width items.
 
-链接器保留属性 `binding_captures`，其值是逻辑资源名到本模块局部资源名的
-JSON 对象字符串。映射必须引用已声明资源，且局部名不重复；validate 检查
-这些约束。它使分批绑定可以复用已捕获资源，并按逻辑名规范化新增资源的
-参数顺序及全部调用实参。原有显式资源参数顺序保持；该属性不改变执行语义。
-没有此属性的历史程序仍可读取。绑定报告和开放成本台账分别保存，不新增 RIR 节点。
+Attributes do not change instruction semantics. Libraries may agree on mathematical interpretations based on attributes. For example, be_alpha together with the library-prescribed zero-projection layout defines the scale of a block encoding, but the executor does not additionally scale the quantum state based on attributes.
 
-### 2.2 存储类型与位序
+The linker preserves the attribute `binding_captures`, whose value is a JSON object string mapping logical resource names to this module's local resource names. The mapping must reference declared resources and the local names must not repeat; validate checks these constraints. It lets batched bindings reuse already-captured resources and canonicalizes, by logical name, the parameter order of newly added resources and of all call arguments. The original explicit resource parameter order is kept; the attribute does not change execution semantics. Historical programs without this attribute remain readable. Binding reports and the open-cost ledger are stored separately, adding no RIR nodes.
 
-Register 由 name 和 RegType 构成。RegType 由 kind 和 width 构成。width 必须是严格的 Python/JSON/YAML 整数，布尔值不能冒充宽度。
+### 2.2 Storage types and bit order
 
-| kind | 位模式解释 |
+A Register consists of name and RegType. A RegType consists of kind and width. width must be a strict Python/JSON/YAML integer; a boolean must not impersonate a width.
+
+| kind | bit-pattern interpretation |
 |---|---|
-| bits | 不指定数值意义的位串，对应 PySparQ General。 |
-| uint | 无符号整数，范围为 0 到 2^width−1。 |
-| sint | 二补码整数，位操作仍作用于原始字。 |
-| rational | 无符号字除以 2^width，对应 PySparQ Rational。 |
+| bits | a bit string with no numeric meaning assigned; corresponds to PySparQ General. |
+| uint | unsigned integer in the range 0 to 2^width−1. |
+| sint | two's-complement integer; bit operations still act on the raw word. |
+| rational | unsigned word divided by 2^width; corresponds to PySparQ Rational. |
 
-一个寄存器或视图的宽度必须处于 0..64。零宽度表示空接口；原生适配器不为它创建实际寄存器。总量子位数和寄存器数量不以 64 为上限。
+The width of a register or view must lie in 0..64. Zero width denotes an empty interface; native adapters create no physical register for it. The total qubit count and the number of registers are not capped at 64.
 
-寄存器下标零表示最低位。假设入口签名依次声明 r0、r1 等寄存器，那么状态向量导出索引满足：
+Register index zero is the least significant bit. Suppose the entry signature declares registers r0, r1, and so on in order; then the exported state-vector index satisfies:
 
 ```text
 index = value(r0) + (value(r1) << width(r0)) + ...
 ```
 
-这个约定只定义向量化和后端物理映射。RIR 本身不保存全局物理位号。
+This convention defines vectorization and backend physical mapping only. RIR itself stores no global physical qubit numbers.
 
-### 2.3 寄存器引用与视图
+### 2.3 Register references and views
 
-Ref 由 parts 和 type 构成。parts 是 Span 的有序列表。Span 具有 register、start 和 width，表示当前模块中一个根寄存器的连续范围。
+A Ref consists of parts and type. parts is an ordered list of Spans. A Span has register, start, and width, denoting a contiguous range of one root register in the current module.
 
-Ref.parts 按低位到高位拼接。各段宽度的和必须等于 Ref.type.width。每个段都必须处于根寄存器范围内。同一 Ref 中的段不能引用重复量子位。
+Ref.parts are concatenated from low bits to high bits. The sum of the segment widths must equal Ref.type.width. Every segment must lie within its root register's range. Segments within one Ref must not reference duplicate qubits.
 
-切片、fuse 和 reinterpret 在 Python 生成阶段形成 Ref，不生成量子指令。切片产生 bits 解释；reinterpret 明确改变解释但不改变位宽或量子状态。fuse 可以跨根寄存器，但合并后的视图仍然不能超过 64 位。
+Slicing, fuse, and reinterpret form Refs at the Python generation stage and generate no quantum instructions. Slicing produces a bits interpretation; reinterpret explicitly changes the interpretation without changing the bit width or the quantum state. fuse may cross root registers, but the merged view still may not exceed 64 bits.
 
-如果 f 是某模块的形式寄存器，调用实参是跨根寄存器的 Ref，那么 f 的局部切片必须映射为该 Ref 相同低位偏移的子视图。映射不能假定实际参数是连续物理量子位。
+If f is a formal register of some module and the call argument is a Ref spanning root registers, then a local slice of f must map to the sub-view of that Ref with the same low-bit offsets. The mapping must not assume that the actual argument is a contiguous run of physical qubits.
 
-RIR 引用采用词法名字绑定。它们是声明式的引用，不是对 Python 变量生命周期或对象唯一引用的证明。
+RIR references use lexical name binding. They are declarative references, not proofs about Python variable lifetimes or unique object references.
 
-## 第 3 部分：指令集合
+## Part 3: Instruction set
 
-所有指令均有确定的参数字段。未知指令不是合法扩展点，必须先修订规范并提供后端行为。
+Every instruction has fixed parameter fields. Unknown instructions are not a legal extension point; the specification must be revised first and backend behavior provided.
 
 ### 3.1 Primitive
 
-Primitive 具有 op、operands、angle 和 value。operands 是 Ref 列表。没有使用的 angle 或 value 必须为 null。
+Primitive has op, operands, angle, and value. operands is a list of Refs. An unused angle or value must be null.
 
-| op | 操作数 | 参数 | 语义 |
+| op | operands | parameters | semantics |
 |---|---|---|---|
-| h、x、y、z、s、t | 一个寄存器视图 | 无 | 对视图的每一位按低位到高位广播标准门。 |
-| rx、ry、rz | 一个寄存器视图 | angle | 对每位施加 exp(−i angle P/2)。 |
-| phase | 一个寄存器视图 | angle | 对每位施加 diag(1, exp(i angle))。 |
-| gphase | 无 | angle | 对当前量子状态乘以 exp(i angle)，必须保留受控时的相对相位。 |
-| xor | 两个同宽视图 | 无 | 保持第一个输入，第二个输入按位异或第一个输入。 |
-| swap | 两个同宽视图 | 无 | 交换两个字的原始位模式。 |
-| add_const | 一个 uint 视图 | value | 对该字执行模 2^width 加法。 |
+| h, x, y, z, s, t | one register view | none | Broadcast the standard gate onto each bit of the view in low-to-high order. |
+| rx, ry, rz | one register view | angle | Apply exp(−i angle P/2) to each bit. |
+| phase | one register view | angle | Apply diag(1, exp(i angle)) to each bit. |
+| gphase | none | angle | Multiply the current quantum state by exp(i angle); the relative phase under control must be preserved. |
+| xor | two views of equal width | none | Keep the first input; the second input is XORed bit-wise with the first input. |
+| swap | two views of equal width | none | Exchange the raw bit patterns of the two words. |
+| add_const | one uint view | value | Perform addition modulo 2^width on the word. |
 
-所有角度均为有限实数，以弧度为单位。add_const 的 value 必须为 0..2^width−1 内的整数。二元操作的两个视图必须完全不重叠。
+All angles are finite real numbers in radians. The value of add_const must be an integer within 0..2^width−1. The two views of a binary operation must not overlap at all.
 
-广播门在 IR 中仍然是单条寄存器级操作，不因为内部有多个物理门就变成多个 RIR 节点。零宽度上的广播、异或、交换和加零均为空操作。
+A broadcast gate remains a single register-level operation in the IR; it does not become multiple RIR nodes just because it contains several physical gates. Broadcast, xor, swap, and adding zero on zero width are all no-ops.
 
-### 3.2 Load 与 Store
+### 3.2 Load and Store
 
-Load 具有 resource、address 和 data。resource 引用当前模块的 QRAM 形式参数。address 和 data 的宽度必须与声明一致，两个视图不能重叠。
+Load has resource, address, and data. resource references a QRAM formal parameter of the current module. The widths of address and data must match the declaration, and the two views must not overlap.
 
-QRAM 类型具有 address_width 与 data_width，两者均为 1..64。内存是由地址到无符号数据字的映射 M，未指定的单元为零。内存数据不写入程序序列化文本，而是作为执行输入另行绑定（绑定文件格式见 [QRAM 内存定义](qram-memory.md)）。不含 Store 的程序中 M 固定不变；含 Store 的程序中 M 按指令序演化。
+The QRAM type has address_width and data_width, both in 1..64. Memory is a mapping M from addresses to unsigned data words, with unspecified cells equal to zero. Memory data is not written into the program serialization text but is bound separately as an execution input (the binding file format is defined in [QRAM memory definition](qram-memory.md)). In a program without Store, M is fixed; in a program with Store, M evolves in instruction order.
 
 ```text
 |address>|data>  ↦  |address>|data XOR M[address]>
 ```
 
-Load 对任意数据目标成立，不要求目标初始为零。Load 自逆，且不修改地址或经典内存。
+Load holds for an arbitrary data target; the target is not required to start at zero. Load is self-inverse and modifies neither the address nor the classical memory.
 
-Store 具有与 Load 相同的 resource、address 和 data 字段及相同的宽度、重叠约束。其语义是随机写：在执行该指令的时刻，地址与数据视图必须处于确定基矢（在完整量子态上取值唯一），随后经典单元被赋值：
+Store has the same resource, address, and data fields as Load and the same width and overlap constraints. Its semantics is a random write: at the moment the instruction executes, the address and data views must be in a definite basis state (their values are unique on the full quantum state); then the classical cell is assigned:
 
 ```text
 M[address] := data
 ```
 
-Store 不改变任何量子位，也不计入后端门成本。存储单元按经典单元建模；叠加地址或叠加数据下的写没有线性语义，执行器遇到时必须报错。结构上 Store 只能出现在模块体或 Repeat 体内；Control 和 Adjoint 体内禁止出现，含 Store 的模块（含经调用可达者）不具备 supports_adjoint 与 supports_controlled 能力。Store 仅在 RIR 0.3 中合法。
+Store changes no qubit and is not counted toward backend gate cost. Storage cells are modeled as classical cells; a write under a superposed address or superposed data has no linear semantics, and an executor must raise an error upon encountering one. Structurally, Store may appear only in a module body or a Repeat body; it is forbidden inside Control and Adjoint bodies, and a module containing Store (including one reachable through calls) has neither the supports_adjoint nor the supports_controlled capability. Store is legal only in RIR 0.3.
 
 ### 3.3 Call
 
-Call 具有 module、arguments 和 resources。module 引用被调 Module。量子实参和资源实参均按被调模块的签名顺序绑定。
+Call has module, arguments, and resources. module references the called Module. Quantum arguments and resource arguments are both bound in the signature order of the called module.
 
-每个量子实参的 kind 和 width 必须与形式参数完全相同。需要改变位解释时，调用方必须显式 reinterpret。所有量子实参之间必须不重叠。
+The kind and width of every quantum argument must be exactly the same as the formal parameter's. When the bit interpretation must change, the caller must reinterpret explicitly. All quantum arguments must be pairwise non-overlapping.
 
-资源实参引用当前模块的资源名字，其 QRAM 类型必须与形式参数完全一致。多个只读资源形式参数允许绑定到同一个实际 QRAM；由于资源绑定指向同一内存映射，经某个形式名执行的 Store 对其他别名可见。资源绑定不绑定量子地址或数据寄存器。
+A resource argument references a resource name of the current module, and its QRAM type must exactly match the formal parameter. Multiple read-only resource formal parameters may bind to the same actual QRAM; since resource bindings point at the same memory mapping, a Store executed through one formal name is visible to the other aliases. Resource binding binds neither the quantum address nor the data register.
 
-调用语义是将被调模块的所有局部引用替换为实际视图，在同一量子状态上执行主体。该定义不要求存储时内联主体。
+The call semantics replaces all local references of the called module with the actual views and executes the body on the same quantum state. This definition does not require inlining the body at storage time.
 
 ### 3.4 Repeat
 
-Repeat 具有 count 和 body。count 为 0..2^63−1 的整数。语义是顺序施加 body 共 count 次。count 为零时是恒等操作。
+Repeat has count and body. count is an integer in 0..2^63−1. The semantics applies body count times in sequence. A count of zero is the identity operation.
 
-即使 count 为零，body 也必须结构合法。序列化和生成阶段不得根据 count 无条件复制指令体。
+Even when count is zero, the body must be structurally legal. Serialization and the generation stage must not unconditionally copy the instruction body according to count.
 
 ### 3.5 Control
 
-Control 具有 register、value 和 body。register 必须是非空视图，value 必须处于其无符号位模式范围。
+Control has register, value, and body. register must be a non-empty view, and value must lie within its unsigned bit-pattern range.
 
-当控制视图等于 value 时施加 body，否则施加恒等。控制寄存器作为量子条件参与相干控制，不被测量或转换成 Python 条件。
+The body applies when the control view equals value; otherwise the identity applies. The control register participates as a quantum condition in coherent control and is neither measured nor turned into a Python conditional.
 
-控制位在整个 body 内受到保护。基元、QRAM 和模块调用的量子实参不能与它们重叠。模块调用采用保守规则，即使被调模块实际上没有修改某个形式参数，也不能将控制位作为该参数传入。Store 不能出现在 Control 体内。
+Control bits are protected throughout the body. Quantum operands of primitives, QRAM, and module calls must not overlap them. Module calls take the conservative rule: even if the called module does not actually modify a formal parameter, control bits still must not be passed as that parameter. Store must not appear inside a Control body.
 
-嵌套控制的视图不能相互重叠。不同控制条件按逻辑合取组合。gphase 不具有操作数，因此允许控制覆盖模块全部量子位；这时语义仍然是受控相位。
+Views of nested controls must not overlap each other. Distinct control conditions combine by logical conjunction. gphase has no operands, so a control is allowed to cover all qubits of a module; the semantics is still a controlled phase.
 
 ### 3.6 Adjoint
 
-Adjoint 具有 body。其语义是将 body 的指令顺序反转，并对每条操作取伴随。rx、ry、rz、phase 和 gphase 的角度取负；add_const 转为模减法；Load、xor、swap、h、x、y、z 自逆；s 和 t 采用相应的逆相位。
+Adjoint has body. Its semantics reverses the order of the body's instructions and takes the adjoint of each operation. The angles of rx, ry, rz, phase, and gphase are negated; add_const becomes modular subtraction; Load, xor, swap, h, x, y, z are self-inverse; s and t take the corresponding inverse phases.
 
-Call 的伴随指向被调模块的逆操作，Repeat 的伴随重复其逆主体，Control 的伴随保持控制条件并对其主体取逆。双重伴随恢复原操作。Store 是非酉副作用，不能出现在 Adjoint 体内；含 Store 的模块不具备伴随能力。
+The adjoint of a Call refers to the inverse of the called module, the adjoint of a Repeat repeats its inverse body, and the adjoint of a Control keeps the control condition and inverts its body. A double adjoint restores the original operation. Store is a non-unitary side effect and must not appear inside an Adjoint body; a module containing Store has no adjoint capability.
 
-这些规则是指令的语义，不要求 RIR 在创建 Adjoint 时立即改写或展开其主体。
+These rules are instruction semantics; RIR is not required to rewrite or expand the body immediately when an Adjoint is created.
 
-## 第 4 部分：程序级规则
+## Part 4: Program-level rules
 
-### 4.1 调用图与模块复用
+### 4.1 Call graph and module reuse
 
-Program 的调用图必须无环。所有声明的模块都要检查，包括不可达模块。所有调用目标都必须存在。当前实现将模块调用深度和结构块嵌套深度限制为 127。
+A Program's call graph must be acyclic. All declared modules are checked, including unreachable ones. All call targets must exist. The current implementation limits module call depth and structural-block nesting depth to 127.
 
-模块在各个调用点共享定义；调用不会复制签名或主体到 Program.modules。Python 生成器使用同一名字给出两个不同定义时必须报错。
+Modules share one definition across call sites; a call does not copy the signature or body into Program.modules. A Python generator using one name for two different definitions must raise an error.
 
-每个调用目标都必须有明确的 Module 记录。该记录可以是开放声明；未定义的名字不等同于未完成的实现。
+Every call target must have an explicit Module record. The record may be an open declaration; an undefined name is not the same as an unfinished implementation.
 
-### 4.2 文本编码（YAML 与 JSON）
+### 4.2 Text encoding (YAML and JSON)
 
-RIR 文本默认采用 YAML；{obj}`dumps(program, format="json") <oracq.infrastructure.serialization.dumps>` 输出等价的规范 JSON，{obj}`loads <oracq.infrastructure.serialization.loads>` 同时接受两种格式（YAML 是 JSON 的超集，两种文本解析得到的对象树逐字段一致）。每个数据类使用具有 tag 字段的对象。tag 的取值对应以下记录名：
+RIR text uses YAML by default; {obj}`dumps(program, format="json") <oracq.infrastructure.serialization.dumps>` emits the equivalent canonical JSON, and {obj}`loads <oracq.infrastructure.serialization.loads>` accepts both formats (YAML is a superset of JSON, and the object trees parsed from the two texts agree field by field). Every data class uses an object with a tag field. The tag values correspond to the following record names:
 
 ```text
 Program, Module, Register, RegType, Span, Ref, QRAM, Resource,
 Primitive, Load, Store, Call, Repeat, Control, Adjoint
 ```
 
-所有字段都必须写出，包括 null、空列表和空 attributes。解码器拒绝多余字段、缺失字段、未知 tag、重复键、非有限浮点数以及未知版本；YAML 路径另拒绝日期等隐式标量类型，需要按字符串处理时必须加引号。
+All fields must be written out, including null, empty lists, and empty attributes. The decoder rejects extra fields, missing fields, unknown tags, duplicate keys, non-finite floats, and unknown versions; the YAML path additionally rejects implicit scalar types such as dates, which must be quoted when they need to be treated as strings.
 
-Python 中的不可变元组编码为数组。反序列化将其恢复为元组，不允许将任意 Python 对象反序列化成可调用代码。
+Immutable Python tuples are encoded as arrays. Deserialization restores them as tuples; deserializing arbitrary Python objects into callable code is not allowed.
 
-以下示例是一条作用于两位整数寄存器的 H 广播指令：
+The following example is an H broadcast instruction acting on a two-bit integer register:
 
 ```yaml
 angle: null
@@ -192,17 +190,17 @@ tag: Primitive
 value: null
 ```
 
-规范 YAML 输出采用 UTF-8、块风格、两空格缩进、按键排序、嵌套序列相对所属键缩进、末尾一个换行，不使用锚点与别名。规范 JSON 输出采用 UTF-8、两空格缩进、按键排序和末尾一个换行。两种格式的模块定义都按模块名排序，签名参数和指令的列表顺序保留。浮点数采用 Python 的有限浮点表示，禁止 NaN 与 Infinity。
+Canonical YAML output uses UTF-8, block style, two-space indentation, key sorting, nested sequences indented relative to their owning key, and one trailing newline, without anchors or aliases. Canonical JSON output uses UTF-8, two-space indentation, key sorting, and one trailing newline. In both formats module definitions are sorted by module name, while the list order of signature parameters and instructions is preserved. Floats use Python's finite float representation; NaN and Infinity are forbidden.
 
-模块 attributes 的顺序也会保留。Builder 按键排序属性；外部直接构造的 IR 应采用相同次序，以获得相同的规范输出。当前规范保证同一 IR 的确定性输出，不要求所有语义等价线路具有相同文本。
+The order of module attributes is also preserved. The Builder sorts attributes by key; externally constructed IR should adopt the same order to obtain the same canonical output. The current specification guarantees deterministic output for one and the same IR; it does not require all semantically equivalent circuits to have identical text.
 
-Schema 文件见 [rir.schema.json](schemas/rir.schema.json)。它描述 YAML 与 JSON 共同的编码对象结构与局部范围；引用解析、别名、元数、跨节点类型、控制保护及调用图规则仍须运行语义验证器。对象形状的形式产生式汇总见 4.3 节。
+The schema file is [rir.schema.json](schemas/rir.schema.json). It describes the encoded object structure and local ranges shared by YAML and JSON; reference resolution, aliasing, arity, cross-node types, control protection, and call-graph rules still require running the semantic validator. A formal production summary of the object shapes is in section 4.3.
 
-### 4.3 形式文法
+### 4.3 Formal grammar
 
-本节以产生式汇总第 2、3 部分与 4.1、4.2 节定义的对象形状，供独立实现对照。文法只覆盖结构与字段；别名、控制保护、调用图和数值范围等语义规则以正文和语义验证器为准。
+This section summarizes the object shapes defined in Parts 2 and 3 and in sections 4.1 and 4.2 as productions, for independent implementations to check against. The grammar covers structure and fields only; semantic rules such as aliasing, control protection, the call graph, and numeric ranges are governed by the body text and the semantic validator.
 
-词法约定：name 匹配 `[A-Za-z_][A-Za-z0-9_]*`；integer 是严格整数，布尔值不能冒充；float 是有限浮点数；string 是任意字符串标量。`∅` 表示字段缺失（开放声明的空体，或未使用的 angle/value）。`X*` 表示有序不可变元组，允许为空。
+Lexical conventions: name matches `[A-Za-z_][A-Za-z0-9_]*`; integer is a strict integer, and a boolean must not impersonate one; float is a finite float; string is an arbitrary string scalar. `∅` denotes an absent field (the empty body of an open declaration, or an unused angle/value). `X*` denotes an ordered immutable tuple, possibly empty.
 
 ```text
 program     = Program { entry: name;
@@ -242,52 +240,52 @@ control     = Control { register: ref; value: integer; body: instruction* } .
 adjoint     = Adjoint { body: instruction* } .
 ```
 
-angle 与 value 是否出现由 op 决定（见 3.1 节），未使用者序列化为 null。开放模块的 body 为 ∅ 且不得声明 locals（见 4.5 节）。版本 "0.1" 与 "0.2" 的 Module 不携带 locals 字段。
+Whether angle and value appear is decided by op (see section 3.1); unused ones serialize as null. An open module's body is ∅ and it must not declare locals (see section 4.5). Modules of versions "0.1" and "0.2" carry no locals field.
 
-主要数值范围：RegType.width 处于 0..64；QRAM 两个宽度处于 1..64；Repeat.count 处于 0..2^63−1；Control.value 处于控制视图的无符号范围；add_const 的 value 处于 0..2^width−1；模块调用深度和结构块嵌套深度不超过 127。
+Main numeric ranges: RegType.width lies in 0..64; the two QRAM widths lie in 1..64; Repeat.count lies in 0..2^63−1; Control.value lies within the unsigned range of the control view; the value of add_const lies in 0..2^width−1; module call depth and structural-block nesting depth do not exceed 127.
 
-文本编码把每条记录映射为携带 "tag" 的对象，字段名与记录字段一致；元组映射为数组，标量与 null 原样传递：
+The text encoding maps each record to an object carrying "tag", with field names identical to the record fields; tuples map to arrays, and scalars and null pass through unchanged:
 
 ```text
 obj(T, f1: v1, …, fn: vn) = { "tag": T, "f1": enc(v1), …, "fn": enc(vn) }
 enc((e1, …, ek)) = [ enc(e1), …, enc(ek) ]
 enc(∅)           = null
-enc(标量)        = 标量
+enc(scalar)      = scalar
 ```
 
-解码要求字段集合与 tag 记录完全一致，并拒绝未知 tag、多余或缺失字段、重复键、非有限数和未知版本（见 4.2 节）。规范输出为 UTF-8、按键排序、两空格缩进、末尾一个换行；YAML 采用块风格，JSON 采用花括号对象。
+Decoding requires the field set to match the tag's record exactly and rejects unknown tags, extra or missing fields, duplicate keys, non-finite numbers, and unknown versions (see section 4.2). Canonical output is UTF-8, key-sorted, two-space indented, with one trailing newline; YAML uses block style and JSON uses braced objects.
 
-### 4.4 后端降低规则
+### 4.4 Backend lowering rules
 
-OriginIR-ext 后端可以将寄存器操作降低为物理位操作，但必须保留模块定义与调用。QRAM 资源按实际绑定进行模块特化。Repeat 可以转换成共享的辅助模块图。Load 降低为以资源名为操作字的 QRAM 查询行；Store 降低为 `QRAMWRITE <资源名> <地址位>, <数据位>` 扩展行，不参与门级计数。下游文本执行器（UnifiedQuantum、PySparQ）暂不接受运行期写，遇到含 Store 的程序必须在执行入口报错；文本导出不受影响。
+The OriginIR-ext backend may lower register operations into physical bit operations, but it must preserve module definitions and calls. QRAM resources specialize modules according to the actual binding. Repeat can be converted into a shared auxiliary module graph. Load lowers to a QRAM query line with the resource name as the operand word; Store lowers to the extension line `QRAMWRITE <resource name> <address bits>, <data bits>` and does not participate in gate-level counting. Downstream text executors (UnifiedQuantum, PySparQ) do not yet accept runtime writes; when they meet a program containing Store they must raise an error at the execution entry. Text export is unaffected.
 
-只有运行具体下游执行器时，才允许按其执行能力遍历或展开模块。下游自身可能展平，但这种处理不能反向改变 RIR 或替代 RIR 的结构序列化。
+Modules may be traversed or expanded according to an executor's capabilities only while actually running a concrete downstream executor. The downstream side may flatten on its own, but such processing must not change RIR in return or replace RIR's structural serialization.
 
-PySparQ 后端将非空入口寄存器映射到原生命名整数寄存器。对视图执行的临时重排或复制必须恢复其临时空间，不得修改 RIR 的根寄存器解释。
+The PySparQ backend maps non-empty entry registers to native named integer registers. Temporary rearrangements or copies performed for a view must restore their temporary space and must not modify RIR's root-register interpretation.
 
-后端可以施加比 IR 更严格的执行预算，例如状态向量位数、QRAM 物化长度和展开次数。遇到限制时必须报错，不能静默截断 Repeat、量子位或内存内容。
+Backends may impose execution budgets stricter than the IR, for example state-vector qubit counts, QRAM materialization lengths, and expansion counts. When a limit is hit they must raise an error; silently truncating Repeat, qubits, or memory contents is not allowed.
 
-### 4.5 模块私有工作寄存器
+### 4.5 Module-private work registers
 
-Module.locals 是有序 Register 数组，不属于公开调用签名。每次调用从零态借入，必须在返回前复净；IR 只检查宽度和引用，复净是实现义务，模拟器提供运行期检查。开放模块不得声明 locals。Adjoint 和 Control 包括完整模块行为，工作区不能跨调用逃逸。OriginIR 导出为模块工作参数，顺序调用复用一段物理工作区；PySparQ 可在模块边界截获 native 实现，跳过其内部工作区与分解。原生注册表不是 IR 的一部分，不能将原生可执行误报为门级闭合。0.1/0.2 旧文本（YAML 或 JSON）仍可读写，其 Module 不含 locals；0.3 显式携带该字段。
+Module.locals is an ordered array of Registers that is not part of the public call signature. Each call borrows them from the zero state and must uncompute them before returning; the IR checks only widths and references, uncomputation is an implementation obligation, and the simulator provides a runtime check. Open modules must not declare locals. Adjoint and Control include the complete module behavior, and workspaces cannot escape across calls. The OriginIR export renders them as module work parameters, and sequential calls reuse one stretch of physical workspace; PySparQ can intercept native implementations at module boundaries, skipping their internal workspaces and decompositions. The native registry is not part of the IR, and a native executable must not be misreported as gate-level closure. Old 0.1/0.2 text (YAML or JSON) remains readable and writable, with its Module carrying no locals; 0.3 carries the field explicitly.
 
 
-## 第 5 部分：完整案例
+## Part 5: Complete examples
 
-以下六个案例都是可以独立运行的完整程序。每例先给出全部生成代码（含逐行注释），再给出 `dumps()` 的规范 YAML 输出——**逐字节来自真实序列化器**，未经删节——最后按字段对照前四部分的规则讲解。建议先读案例 1 建立整体形状，再按特性跳读。
+The six examples below are complete programs that run on their own. Each example first gives the full generation code (with line-by-line comments), then the canonical YAML output of `dumps()` — **byte for byte from the real serializer**, unabridged — and finally a field-by-field explanation against the rules of the first four parts. Read example 1 first for the overall shape, then skip around by feature.
 
-### 案例 1：最小酉程序（Bell 对）
+### Example 1: minimal unitary program (Bell pair)
 
 ```python
 from oracq import Bits, Builder, dumps
 
-# 声明模块：公开接口是一个名为 pair 的两位 bits 寄存器。
+# Declare the module: the public interface is one two-bit bits register named pair.
 b = Builder("bell_pair", {"pair": Bits(2)})
-# 对最低位（下标 0）广播 H 门。
+# Broadcast an H gate over the least significant bit (index 0).
 b.h(b["pair"][0])
-# 逐位 CNOT：源是 pair[0]，目标 pair[1]，得到 Bell 态。
+# Bit-wise CNOT: source pair[0], target pair[1], producing a Bell state.
 b.xor(b["pair"][0], b["pair"][1])
-# 输出规范 YAML；下文 YAML 即此调用的逐字节结果。
+# Emit canonical YAML; the YAML below is the byte-for-byte result of this call.
 print(dumps(b.finish().program()))
 ```
 
@@ -352,26 +350,28 @@ version: '0.3'
 
 ```
 
-讲解：
+Explanation:
 
-- {obj}`Program <oracq.infrastructure.ir.Program>` 只有三个字段：`entry` 指向唯一模块；`modules` 按模块名排序输出（4.2 节）；`version` 为 `"0.3"`。
-- {obj}`Module <oracq.infrastructure.ir.Module>` 的 `registers` 是公开接口（`pair: bits/2`）；`resources`、`locals`、`attributes` 即使为空也必须写出。
-- 第一条 {obj}`Primitive <oracq.infrastructure.ir.Primitive>`：`op=h`，操作数是单个 {obj}`Ref <oracq.infrastructure.ir.Ref>`，其 {obj}`Span(pair, 0, 1) <oracq.infrastructure.ir.Span>` 是根寄存器的最低位。切片产生 bits 解释（2.3 节），因此 `Ref.type.kind` 是 `bits`。
-- 第二条 `Primitive`：`op=xor`，两个同宽操作数——源是 `pair` 的第 0 位、目标是第 1 位，语义为目标按位异或源（3.1 节）。
-- 两条指令未使用的 `angle` 与 `value` 显式写 `null`：规范输出要求所有字段出现（4.2 节）。
+- {obj}`Program <oracq.infrastructure.ir.Program>` has only three fields: `entry` points at the sole module; `modules` is output sorted by module name (section 4.2); `version` is `"0.3"`.
+- The `registers` of the {obj}`Module <oracq.infrastructure.ir.Module>` are the public interface (`pair: bits/2`); `resources`, `locals`, and `attributes` must be written out even when empty.
+- The first {obj}`Primitive <oracq.infrastructure.ir.Primitive>`: `op=h`, the operand is a single {obj}`Ref <oracq.infrastructure.ir.Ref>` whose {obj}`Span(pair, 0, 1) <oracq.infrastructure.ir.Span>` is the lowest bit of the root register. Slicing produces a bits interpretation (section 2.3), so `Ref.type.kind` is `bits`.
+- The second `Primitive`: `op=xor` with two equal-width operands — the source is bit 0 and the target is bit 1 of `pair`; the semantics is target XOR-equals source (section 3.1).
+- The unused `angle` and `value` of both instructions are explicitly `null`: canonical output requires all fields to appear (section 4.2).
 
-### 案例 2：切片、拼接与类型再解释
+### Example 2: slicing, fusing, and type reinterpretation
 
 ```python
 from oracq import Bits, Builder, UInt, fuse, dumps
 
 b = Builder("views", {"x": UInt(4), "y": Bits(2)})
-# 切片 x[1:3] 产生 bits 视图；add_const 需要 uint，
-# 因此显式 reinterpret。加法按 2 位视图模 4 进位，不触及 x 的高两位。
+# Slicing x[1:3] yields a bits view; add_const needs a uint,
+# so reinterpret explicitly. The addition carries modulo 4 on the 2-bit
+# view and leaves the high two bits of x untouched.
 b.add_const(b["x"][1:3].reinterpret("uint"), 3)
-# 跨根寄存器拼接：y 占低位、x 的低两位占高位，再解释为 sint。
+# Fuse across root registers: y occupies the low bits and the low two bits
+# of x the high bits, then reinterpret as sint.
 word = fuse(b["y"], b["x"][:2]).reinterpret("sint")
-# 对 4 位视图广播 H。
+# Broadcast H over the 4-bit view.
 b.h(word)
 print(dumps(b.finish().program()))
 ```
@@ -437,23 +437,25 @@ version: '0.3'
 
 ```
 
-讲解：
+Explanation:
 
-- `add_const` 的操作数 `Ref` 只有一段 `Span(x, start=1, width=2)`——`x` 的中间两位。`Ref.type.kind` 为 `uint`：切片天然产生 `bits`，`uint` 是显式 `reinterpret` 的结果。加法按 2 位视图模 4 进位，`x` 的高两位不受影响；`value=3` 落在 `0..2^2-1` 内（3.1 节）。
-- `h` 的操作数 `Ref` 含两段 `Span`：先是 `y(0..2)`、后是 `x(0..2)`。`parts` 按低位到高位拼接（2.3 节），所以 `y` 占低位、`x` 的低两位占高位，段宽之和 2+2 必须等于 `type.width=4`。
-- `kind: sint` 同样来自 `reinterpret`：只改变数值解释，不改变任何量子位或位宽。
+- The `add_const` operand `Ref` has a single `Span(x, start=1, width=2)` — the middle two bits of `x`. `Ref.type.kind` is `uint`: slicing naturally yields `bits`, and `uint` is the result of an explicit `reinterpret`. The addition carries modulo 4 on the 2-bit view, and the high two bits of `x` are unaffected; `value=3` lies within `0..2^2-1` (section 3.1).
+- The `h` operand `Ref` holds two `Span`s: first `y(0..2)`, then `x(0..2)`. `parts` are concatenated from low bits to high bits (section 2.3), so `y` occupies the low bits and the low two bits of `x` the high bits; the sum of the segment widths, 2+2, must equal `type.width=4`.
+- `kind: sint` likewise comes from `reinterpret`: it changes only the numeric interpretation, no qubit and no bit width.
 
-### 案例 3：模块调用与 QRAM 资源绑定
+### Example 3: module call and QRAM resource binding
 
 ```python
 from oracq import Bits, Builder, QRAM, dumps
 
-# 被调模块：声明 QRAM 形式资源 table(2,3)，body 是一条 Load。
+# The called module: declares the QRAM formal resource table(2,3);
+# its body is one Load.
 lookup = Builder("lookup", {"address": Bits(2), "data": Bits(3)},
                  resources={"table": QRAM(2, 3)})
 lookup.qram("table", lookup["address"], lookup["data"])
-# 调用模块：声明自己的实际资源 mem(2,3)；把地址推入叠加后调用 lookup，
-# 形式资源 table 绑定到实际资源 mem。
+# The calling module: declares its own actual resource mem(2,3); after
+# pushing the address into superposition it calls lookup,
+# binding the formal resource table to the actual resource mem.
 demo = Builder("demo", {"address": Bits(2), "data": Bits(3)},
                resources={"mem": QRAM(2, 3)})
 demo.h(demo["address"])
@@ -584,29 +586,30 @@ version: '0.3'
 
 ```
 
-讲解：
+Explanation:
 
-- `Program` 含两个模块，按名字排序（`demo` 在 `lookup` 前）；{obj}`Call <oracq.infrastructure.ir.Call>` 通过名字引用被调模块，定义不复制进调用点（4.1 节）。
-- `lookup` 声明形式资源 `table: QRAM(2,3)`，body 只有一条 {obj}`Load <oracq.infrastructure.ir.Load>`：`|address>|data> ↦ |address>|data XOR M[address]>`（3.2 节）。
-- `demo` 声明自己的实际资源 `mem: QRAM(2,3)`。`Call` 节点的 `arguments` 按被调签名顺序（`address`、`data`）逐个绑定实参视图；`resources: ["mem"]` 表示把 `lookup` 的形式资源 `table` 绑到 `demo` 的实际资源 `mem`——两者的 QRAM 类型必须完全一致（3.3 节）。
-- `lookup` 内部的 `Load` 引用的是形式名 `table`；名字替换发生在调用点，而数据表本身仍留待执行期另行绑定（3.2 节）。
-- 调用不展开：`demo` 的 body 只有广播 `h` 和一条 `Call`；`lookup` 的定义原样留在 `modules` 表中，供多个调用点共享。
+- The `Program` holds two modules sorted by name (`demo` before `lookup`); a {obj}`Call <oracq.infrastructure.ir.Call>` references the called module by name, and the definition is not copied into the call site (section 4.1).
+- `lookup` declares the formal resource `table: QRAM(2,3)`; its body is a single {obj}`Load <oracq.infrastructure.ir.Load>`: `|address>|data> ↦ |address>|data XOR M[address]>` (section 3.2).
+- `demo` declares its own actual resource `mem: QRAM(2,3)`. The `Call` node's `arguments` bind the argument views one by one in the callee's signature order (`address`, `data`); `resources: ["mem"]` binds `lookup`'s formal resource `table` to `demo`'s actual resource `mem` — the two QRAM types must match exactly (section 3.3).
+- The `Load` inside `lookup` references the formal name `table`; the name replacement happens at the call site, while the data table itself is still left to be bound separately at execution time (section 3.2).
+- The call is not expanded: `demo`'s body is just the broadcast `h` and one `Call`; `lookup`'s definition stays in the `modules` table as-is, shared by multiple call sites.
 
-### 案例 4：结构化控制与私有工作区
+### Example 4: structured control and a private workspace
 
 ```python
 from oracq import Bits, Builder, UInt, dumps
 
 b = Builder("structured", {"word": UInt(4), "flag": Bits(1)})
-# 私有工作区：零入零出，不属于公开调用签名。
+# Private workspace: zero in, zero out; not part of the public call signature.
 scratch = b.local("scratch", Bits(2))
 b.h(b["word"])
-# flag 等于 1 时受控执行"借用-使用-复净"三步 XOR。
+# When flag equals 1, controlled execution of the three-step
+# borrow–use–uncompute XOR.
 with b.control(b["flag"], 1):
-    b.xor(b["word"][:2], scratch)   # scratch ^= word 低两位（借用）
-    b.xor(scratch, b["word"][2:])   # word 高两位 ^= scratch（使用）
-    b.xor(b["word"][:2], scratch)   # scratch ^= word 低两位（复净归零）
-# 静态重复 3 次，每次是符号伴随的 rz(0.5)。
+    b.xor(b["word"][:2], scratch)   # scratch ^= low two bits of word (borrow)
+    b.xor(scratch, b["word"][2:])   # high two bits of word ^= scratch (use)
+    b.xor(b["word"][:2], scratch)   # scratch ^= low two bits of word (uncompute back to zero)
+# Statically repeat 3 times; each pass is the adjoint of rz(0.5).
 with b.repeat(3):
     with b.adjoint():
         b.rz(b["word"][0], 0.5)
@@ -770,22 +773,23 @@ version: '0.3'
 
 ```
 
-讲解：
+Explanation:
 
-- `locals` 含 `scratch`（`bits/2`）：模块私有工作区，不属于公开签名；每次调用从零态借入、返回前必须复净，执行器在模块返回时检查（4.5 节）。
-- {obj}`Control <oracq.infrastructure.ir.Control>` 节点：`register` 是 `flag`（`bits/1`），`value=1`——`flag` 等于 1 时执行 body，否则恒等。控制位在整个 body 内受保护：body 中所有操作数都不与 `flag` 重叠（3.5 节）。
-- body 的三条 `xor` 是"借用—使用—复净"模式：`scratch ^= word[:2]`；`word[2:] ^= scratch`；`scratch ^= word[:2]`。第三条执行后 `scratch` 回到零。
-- {obj}`Repeat <oracq.infrastructure.ir.Repeat>` 节点 `count=3`，body 只有一个 {obj}`Adjoint <oracq.infrastructure.ir.Adjoint>`，其 body 是一条 `rz(0.5)`。结构块按数据嵌套保存，序列化绝不按 count 复制指令体（3.4 节、4.2 节）；`Adjoint` 的语义等价于 `rz(-0.5)`，但 IR 不改写体（3.6 节）。
-- 根寄存器 `word` 是 `uint/4`，但 `xor` 的操作数切片是 `bits`——再次体现"切片产生 bits"的规则。
+- `locals` contains `scratch` (`bits/2`): a module-private workspace outside the public signature; each call borrows it from the zero state and must uncompute it before returning, and the executor checks this when the module returns (section 4.5).
+- The {obj}`Control <oracq.infrastructure.ir.Control>` node: `register` is `flag` (`bits/1`) and `value=1` — the body executes when `flag` equals 1 and is the identity otherwise. The control bit is protected throughout the body: no operand in the body overlaps `flag` (section 3.5).
+- The body's three `xor`s form the borrow–use–uncompute pattern: `scratch ^= word[:2]`; `word[2:] ^= scratch`; `scratch ^= word[:2]`. After the third one, `scratch` is back to zero.
+- The {obj}`Repeat <oracq.infrastructure.ir.Repeat>` node has `count=3`; its body holds a single {obj}`Adjoint <oracq.infrastructure.ir.Adjoint>` whose body is one `rz(0.5)`. Structural blocks are stored nested as data, and serialization never copies the instruction body by count (sections 3.4 and 4.2); the `Adjoint` is semantically equivalent to `rz(-0.5)`, but the IR does not rewrite the body (section 3.6).
+- The root register `word` is `uint/4`, yet the `xor` operand slices are `bits` — the slicing-yields-bits rule once more.
 
-### 案例 5：开放声明（oracle 槽位）
+### Example 5: open declaration (an oracle slot)
 
 ```python
 from oracq import Bits, dumps
 from oracq.algorithms.input_model.oracles import declare
 
-# 开放声明：body 为 null 的 oracle 槽位；范式 database_xor，
-# 默认声明伴随与受控能力，实现状态 unresolved。
+# An open declaration: an oracle slot with body null; paradigm database_xor,
+# adjoint and controlled capabilities declared by default,
+# implementation status unresolved.
 op = declare("BooleanFunction", {"address": Bits(3), "data": Bits(1)},
              paradigm="database_xor")
 print(dumps(op.program()))
@@ -826,27 +830,27 @@ version: '0.3'
 
 ```
 
-讲解：
+Explanation:
 
-- `body` 为 `null`：这是一个开放模块，表示 oracle 槽位而非已实现线路（2.1 节、4.1 节）。
-- `attributes` 按键排序：`oracle_paradigm="database_xor"` 声明九种命名范式之一；`supports_adjoint` / `supports_controlled` 是能力声明，{obj}`bind <oracq.infrastructure.linking.bind>` 链接实现时会核对实现方是否真的具备；`implementation_status="unresolved"` 记录实现状态。属性不改变指令语义（2.1 节）；能力与绑定的完整规则见[开放 IR](open-ir.md)。
-- 寄存器接口照常声明（`address: bits/3`、`data: bits/1`）：调用方按签名使用这个槽位，即使实现尚不存在。
-- 开放模块不得声明 `locals`；本例 `locals` 为空列表（4.5 节）。
+- `body` is `null`: this is an open module representing an oracle slot rather than an implemented circuit (sections 2.1 and 4.1).
+- `attributes` are key-sorted: `oracle_paradigm="database_xor"` declares one of the nine named paradigms; `supports_adjoint` / `supports_controlled` are capability declarations that {obj}`bind <oracq.infrastructure.linking.bind>` verifies against the implementation when linking; `implementation_status="unresolved"` records the implementation status. Attributes do not change instruction semantics (section 2.1); the full rules for capabilities and binding are in [the open IR](open-ir.md).
+- The register interface is declared as usual (`address: bits/3`, `data: bits/1`): callers use this slot through its signature even though no implementation exists yet.
+- An open module must not declare `locals`; here `locals` is an empty list (section 4.5).
 
-### 案例 6：QRAM 随机写与读回（指针式访问）
+### Example 6: QRAM random write and read-back (pointer-style access)
 
 ```python
 from oracq import Builder, QRAM, QMem, UInt, dumps, simulate
 
 b = Builder("store_load", {"addr": UInt(2), "val": UInt(4)}, {"ram": QRAM(2, 4)})
-mem = QMem(b, "ram")            # 把资源 ram 绑定为数组视图
-mem[b["addr"]].store(b["val"])  # 随机写：M[addr] := val
-mem[b["addr"]].load(b["val"])   # XOR-Load：val ^= M[addr]
+mem = QMem(b, "ram")            # bind the resource ram as an array view
+mem[b["addr"]].store(b["val"])  # random write: M[addr] := val
+mem[b["addr"]].load(b["val"])   # XOR-Load: val ^= M[addr]
 print(dumps(b.finish().program()))
 print(simulate(b.finish().program(), {"ram": [0, 0, 0, 0]}, initial={"addr": 2, "val": 13}).amplitudes)
 ```
 
-地址表达式恰好是单个全宽寄存器且无常量分量时，{obj}`QMem <oracq.infrastructure.qmem.QMem>` 直接以该寄存器为 Load/Store 地址，不引入寻址算术。`dumps()` 输出：
+When the address expression is exactly a single full-width register with no constant component, {obj}`QMem <oracq.infrastructure.qmem.QMem>` uses that register directly as the Load/Store address and introduces no addressing arithmetic. `dumps()` outputs:
 
 ```yaml
 entry: store_load
@@ -929,9 +933,9 @@ version: '0.3'
 
 ```
 
-讲解：
+Explanation:
 
-- `body` 依次为一条 {obj}`Store <oracq.infrastructure.ir.Store>` 和一条 `Load`：Store 先把经典单元 `M[addr]` 赋值为 `val`（3.2 节），随后的 XOR-Load 读回新值，模拟器输出 `(2, 13)`。
-- 两条指令的 `address`/`data` 宽度与 {obj}`QRAM(2, 4) <oracq.infrastructure.ir.QRAM>` 声明逐一相符；Store 位于模块体顶层，满足「不出现在 Control/Adjoint 体内」的结构约束（3.5、3.6 节）。
-- 含 Store 的模块不具备 `supports_adjoint`/`supports_controlled` 能力；本例没有被控或伴随调用，验证通过（4.1 节、开放 IR）。
-- `QMem` 的指针、偏移与多维视图是 Python 生成阶段的寻址糖衣：地址表达式物化为寄存器算术后，落在 IR 里的仍然只是 Primitive、Load 与 Store（第 1 部分设计定位）。
+- The `body` is a {obj}`Store <oracq.infrastructure.ir.Store>` followed by a `Load`: the Store first assigns the classical cell `M[addr]` the value `val` (section 3.2), and the subsequent XOR-Load reads the new value back; the simulator outputs `(2, 13)`.
+- The `address`/`data` widths of both instructions match the {obj}`QRAM(2, 4) <oracq.infrastructure.ir.QRAM>` declaration one by one; the Store sits at the top level of the module body, satisfying the structural constraint of never appearing inside a Control/Adjoint body (sections 3.5 and 3.6).
+- A module containing Store has neither the `supports_adjoint` nor the `supports_controlled` capability; this example has no controlled or adjoint calls, so validation passes (section 4.1 and the open IR).
+- `QMem`'s pointers, offsets, and multidimensional views are addressing sugar at the Python generation stage: once the address expressions are materialized as register arithmetic, what lands in the IR is still only Primitive, Load, and Store (Part 1, design positioning).

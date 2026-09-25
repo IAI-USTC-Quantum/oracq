@@ -1,5 +1,5 @@
-Roe 经典数学公式
-====================
+Roe classical math formulas
+======================================================
 
 ``oracq.applications.roe_formulas``
 

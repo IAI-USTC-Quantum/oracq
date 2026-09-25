@@ -1,5 +1,5 @@
-结构化差分端口
-==============
+Structured finite-difference ports
+====================================================================
 
 ``oracq.applications.qham.stencils``
 

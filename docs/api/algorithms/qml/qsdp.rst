@@ -1,5 +1,5 @@
-量子半定规划框架
-================
+Quantum semidefinite programming framework
+====================================================================================
 
 ``oracq.algorithms.qml.qsdp``
 

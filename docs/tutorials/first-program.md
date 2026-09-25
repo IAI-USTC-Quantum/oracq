@@ -1,32 +1,34 @@
-# 第一个寄存器程序
+# Your first register program
 
-这篇教程生成一个 Bell 态。你会用到一个寄存器、两条门操作和参考执行器。完成后，再把同一程序保存为 RIR 和 OriginIR-ext。
+**English** · [简体中文](../zh/tutorials/first-program.html)
 
-## 定义操作
+This tutorial generates a Bell state. You will use one register, two gate operations, and the reference executor. Afterwards, the same program is saved as RIR and exported as OriginIR-ext.
 
-{obj}`Bits(2) <oracq.infrastructure.ir.Bits>` 定义一个两位寄存器。我们先让低位进入叠加态，再以它为控制，对高位做 XOR。
+## Defining the operations
+
+{obj}`Bits(2) <oracq.infrastructure.ir.Bits>` defines a two-bit register. We first put the low bit into a superposition, then use it as the control of an XOR applied to the high bit.
 
 ```{testcode}
 from oracq import Bits, Builder, simulate
 
-# 声明一个名为 bell_pair 的模块，公开接口是一个名为 pair 的两位 bits 寄存器。
+# Declare a module named bell_pair whose public interface is a two-bit bits register named pair.
 b = Builder("bell_pair", {"pair": Bits(2)})
-# 对 pair 的第 0 位（最低位）广播 H 门：|0> -> (|0>+|1>)/sqrt(2)。
+# Broadcast an H gate over bit 0 (the least significant bit) of pair: |0> -> (|0>+|1>)/sqrt(2).
 b.h(b["pair"][0])
-# 以第 0 位为源、第 1 位为目标做 XOR（逐位 CNOT）：得到 (|00>+|11>)/sqrt(2)。
+# XOR (bitwise CNOT) with bit 0 as source and bit 1 as target: yields (|00>+|11>)/sqrt(2).
 b.xor(b["pair"][0], b["pair"][1])
-# 结束构建，得到不可变的 Operation（含模块与指令体）。
+# Finish building and obtain an immutable Operation (module plus instruction body).
 operation = b.finish()
-# 取出其中的 RIR Program：entry 指向 bell_pair，modules 里只有这一个模块。
+# Take out its RIR Program: entry points to bell_pair, and modules holds exactly this one module.
 program = operation.program()
-# 用无依赖的参考执行器模拟，返回稀疏振幅。
+# Simulate with the dependency-free reference executor; it returns sparse amplitudes.
 state = simulate(program)
-# 打印执行结果，下面的输出块会逐字复现这行打印。
+# Print the execution result; the output block below reproduces this print verbatim.
 print(state.amplitudes)
 
-# 振幅键是入口寄存器按声明顺序拼接出的整数元组；(0,) 即 00，(3,) 即 11。
+# Amplitude keys are integer tuples formed by concatenating the entry registers in declaration order; (0,) is 00 and (3,) is 11.
 assert set(state.amplitudes) == {(0,), (3,)}
-# 两个基态的幅度都应为 1/sqrt(2)。
+# Both basis states should have magnitude 1/sqrt(2).
 assert abs(state.amplitudes[(0,)] - 2**-0.5) < 1e-12
 assert abs(state.amplitudes[(3,)] - 2**-0.5) < 1e-12
 ```
@@ -35,26 +37,26 @@ assert abs(state.amplitudes[(3,)] - 2**-0.5) < 1e-12
 {(0,): (0.7071067811865475+0j), (3,): (0.7071067811865475+0j)}
 ```
 
-{obj}`Builder <oracq.infrastructure.builder.Builder>` 逐条收集上面的调用，`finish()` 返回不可变的 {obj}`Operation <oracq.infrastructure.builder.Operation>`。打印出的字典就是执行结果：键是入口寄存器的整数值组成的元组，`0` 表示 `00`，`3` 表示 `11`；`0.7071067811865475` 是 `1/√2` 的双精度表示。
+{obj}`Builder <oracq.infrastructure.builder.Builder>` collects the calls above one by one, and `finish()` returns the immutable {obj}`Operation <oracq.infrastructure.builder.Operation>`. The printed dictionary is the execution result: keys are tuples of the entry registers' integer values, with `0` meaning `00` and `3` meaning `11`; `0.7071067811865475` is the double-precision rendering of `1/√2`.
 
-## 保存和导出
+## Saving and exporting
 
 ```{testcode}
 from oracq import dumps, loads, export_originir
 
-# 序列化为规范 YAML：按键排序、两空格缩进，模块与指令结构原样保留。
+# Serialize to canonical YAML: keys sorted, two-space indentation, module and instruction structure preserved as is.
 text = dumps(program)
-# 打印全文；输出块里用 ... 省略了重复的中段。
+# Print the whole text; the output block abbreviates the repeated middle section with ...
 print(text)
-# 反序列化回 Program 对象；解码是严格的，并会重新跑语义校验。
+# Deserialize back into a Program object; decoding is strict and re-runs semantic validation.
 restored = loads(text)
-# 往返应逐字节等价：寄存器名、视图和模块结构都不丢失。
+# The round trip must be equal: register names, views, and module structure are all preserved.
 assert restored == program
-# 导出为模块化 OriginIR-ext 文本。
+# Export as modular OriginIR-ext text.
 artifact = export_originir(restored)
-# 文本里应出现 DEF 模块定义：导出不会内联调用、不会展开成平坦门列表。
+# The text should contain a DEF module definition: export neither inlines calls nor flattens them into a bare gate list.
 assert "DEF" in artifact.text
-# 打印 OriginIR-ext 文本；文本自带结尾换行，故 end=""。
+# Print the OriginIR-ext text; it already ends with a trailing newline, hence end="".
 print(artifact.text, end="")
 ```
 
@@ -89,13 +91,13 @@ ENDDEF
 m_bell_pair_d029b74cecc4332d414ece8a(q[0], q[1])
 ```
 
-{obj}`dumps <oracq.infrastructure.serialization.dumps>` 生成前半段的文本，{obj}`loads <oracq.infrastructure.serialization.loads>` 解码时会重新执行 {obj}`validate <oracq.infrastructure.validation.validate>` 的语义校验；{obj}`export_originir <oracq.infrastructure.backends.originir.export_originir>` 返回的 {obj}`OriginIRArtifact <oracq.infrastructure.backends.originir.OriginIRArtifact>` 携带后半段的文本。前半段是规范 YAML 的骨架：{obj}`Program <oracq.infrastructure.ir.Program>` 持有模块表，模块的 `body` 里是指令，指令操作数用 `register`、`start` 等字段保留寄存器名与视图；`...` 之外的内容与实际打印逐字一致。后半段是 OriginIR-ext 文本：`QINIT 2` 声明两位量子寄存器，`CREG 0` 表示没有经典寄存器；`DEF m_bell_pair_<指纹>` 定义模块，后缀是由模块内容确定的指纹，同一模块只会导出一份定义；最后一行把入口量子位 `q[0], q[1]` 绑定到模块形参。导出不会先把所有调用复制成一个平坦门列表。
+{obj}`dumps <oracq.infrastructure.serialization.dumps>` produces the text in the first half, and {obj}`loads <oracq.infrastructure.serialization.loads>` re-runs the semantic validation of {obj}`validate <oracq.infrastructure.validation.validate>` while decoding; the {obj}`OriginIRArtifact <oracq.infrastructure.backends.originir.OriginIRArtifact>` returned by {obj}`export_originir <oracq.infrastructure.backends.originir.export_originir>` carries the text in the second half. The first half is the skeleton of canonical YAML: the {obj}`Program <oracq.infrastructure.ir.Program>` holds the module table, a module's `body` holds the instructions, and an instruction's operands keep the register names and views in fields such as `register` and `start`; everything outside the `...` matches the actual print verbatim. The second half is OriginIR-ext text: `QINIT 2` declares a two-qubit register and `CREG 0` says there is no classical register; `DEF m_bell_pair_<fingerprint>` defines the module — the suffix is a fingerprint determined by the module's content, and a given module is exported with only one definition — and the last line binds the entry qubits `q[0], q[1]` to the module's formal parameters. The export does not first copy all calls into a flat gate list.
 
-{obj}`simulate <oracq.infrastructure.execution.simulate>` 适合这种小规模检查。需要实际后端时，仍使用同一个 {obj}`Program <oracq.infrastructure.ir.Program>`，改为调用 {obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` 或 {obj}`run_originir <oracq.infrastructure.backends.originir.run_originir>`。
+{obj}`simulate <oracq.infrastructure.execution.simulate>` is well suited to small-scale checks like this one. When a real backend is needed, keep using the same {obj}`Program <oracq.infrastructure.ir.Program>` and call {obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` or {obj}`run_originir <oracq.infrastructure.backends.originir.run_originir>` instead.
 
-## 相关页面
+## Related pages
 
-- 手册：[核心概念](../manual/concepts.md)、[架构](../manual/architecture.md)、[后端与导出](../manual/backends.md)
-- 规范：[RIR 规范](../reference/rir.md)（JSON 结构与 OriginIR-ext 文法）
-- API 参考：[RIR 对象](../api/infrastructure/ir.rst)、[模块构造器](../api/infrastructure/builder.rst)、[寄存器参考执行器](../api/infrastructure/execution.rst)、[RIR 序列化](../api/infrastructure/serialization.rst)
-- 继续教程：[给算法替换 oracle](oracle-binding.md)、[运行与修改算法展示目录](gallery.md)
+- Manual: [Operations, registers, and the generation process](../manual/concepts.md), [Source code structure](../manual/architecture.md), [Export and execution backends](../manual/backends.md)
+- Specification: [RIR specification](../reference/rir.md) (JSON structure and the OriginIR-ext grammar)
+- API reference: [RIR objects](../api/infrastructure/ir.rst), [module builder](../api/infrastructure/builder.rst), [register reference executor](../api/infrastructure/execution.rst), [RIR serialization](../api/infrastructure/serialization.rst)
+- Continue with: [Replacing an algorithm's oracle](oracle-binding.md), [Running and modifying the algorithm gallery](gallery.md)

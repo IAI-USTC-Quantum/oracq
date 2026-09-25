@@ -1,5 +1,5 @@
-QRAM YAML 内存格式
-============================
+QRAM YAML memory format
+==============================================
 
 ``oracq.infrastructure.qram_schema``
 

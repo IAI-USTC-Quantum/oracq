@@ -1,5 +1,5 @@
-寄存器布局
-============
+Register layout
+==============================
 
 ``oracq.infrastructure.layout``
 

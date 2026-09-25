@@ -1,5 +1,5 @@
-重复码与错误恢复
-================
+Repetition codes and error recovery
+======================================================================
 
 ``oracq.algorithms.qec.error_correction``
 

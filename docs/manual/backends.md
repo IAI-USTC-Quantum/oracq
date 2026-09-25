@@ -1,25 +1,62 @@
-# 导出与执行后端
+# Export and execution backends
 
-oracq 将导出和执行分开。{obj}`export_originir <oracq.infrastructure.backends.originir.export_originir>` 与 {obj}`export_toffoli_u3_cz <oracq.infrastructure.backends.basis.export_toffoli_u3_cz>` 只生成描述，不需要安装量子模拟器。各后端的 API 参考页：[OriginIR-ext](../api/infrastructure/backends/originir.rst)、[严格门集 basis](../api/infrastructure/backends/basis.rst)、[PySparQ](../api/infrastructure/backends/pysparq.rst)、[参考执行器](../api/infrastructure/execution.rst) 与 [读出](../api/infrastructure/readout.rst)。
+**English** · [简体中文](../zh/manual/backends.html)
+
+oracq separates export from execution.
+{obj}`export_originir <oracq.infrastructure.backends.originir.export_originir>`
+and
+{obj}`export_toffoli_u3_cz <oracq.infrastructure.backends.basis.export_toffoli_u3_cz>`
+only produce descriptions and do not require a quantum simulator to be
+installed. API reference pages for each backend: [OriginIR-ext](../api/infrastructure/backends/originir.rst),
+[strict gate set basis](../api/infrastructure/backends/basis.rst),
+[PySparQ](../api/infrastructure/backends/pysparq.rst), [reference executor](../api/infrastructure/execution.rst),
+and [readout](../api/infrastructure/readout.rst).
 
 ## OriginIR-ext
 
-导出器保留 `DEF`、模块调用和 `QRAMDECL`。寄存器操作在导出时降低为具体门；{obj}`Repeat <oracq.infrastructure.ir.Repeat>` 使用可复用的辅助定义表达。QRAM 内存以外部资源形式传入，不嵌入 RIR。
+The exporter preserves `DEF`, module calls, and `QRAMDECL`. Register
+operations are lowered to concrete gates at export time;
+{obj}`Repeat <oracq.infrastructure.ir.Repeat>` is expressed through a reusable
+auxiliary definition. QRAM memory is passed in as an external resource and is
+not embedded in the RIR.
 
-`export_toffoli_u3_cz` 将普通门降低到 Toffoli、U3 和 CZ，QRAM 仍保留为独立资源指令。它没有展开物理 QRAM 的器件网络。
+`export_toffoli_u3_cz` lowers ordinary gates to Toffoli, U3, and CZ; QRAM
+remains a standalone resource instruction. It does not expand the device
+network of a physical QRAM.
 
-{obj}`run_originir <oracq.infrastructure.backends.originir.run_originir>` 使用 UnifiedQuantum 执行。该后端的解析器会展开 DEF，因此执行前有展开预算；这不改变保存的模块化 RIR。
+{obj}`run_originir <oracq.infrastructure.backends.originir.run_originir>`
+executes with UnifiedQuantum. That backend's parser expands `DEF`s, so there
+is an expansion budget before execution; this does not change the saved
+modular RIR.
 
 ## PySparQ
 
-{obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` 按寄存器事件执行模块。{obj}`NativeRegistry <oracq.infrastructure.native.NativeRegistry>` 可以在模块边界调用自定义原生算子，适合大型可逆算术。原生实现与门级主体分别管理：只有原生实现的开放 oracle 可以用于相应模拟，但不会因此获得门级导出能力。
+{obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>`
+executes modules as register events.
+{obj}`NativeRegistry <oracq.infrastructure.native.NativeRegistry>` can invoke
+custom native operators at module boundaries, which suits large reversible
+arithmetic. Native implementations and gate-level bodies are managed
+separately: an open oracle with only a native implementation can be used in
+the corresponding simulation, but this does not grant gate-level export
+capability.
 
-动态算子需要匹配的 PySparQ ABI 和 C++17 编译器。具体接口行为与已审阅的版本见[后端兼容说明](../reference/backend-compatibility.md)。
+Dynamic operators require a matching PySparQ ABI and a C++17 compiler. For
+concrete interface behavior and the reviewed versions see
+[Backend compatibility notes](../reference/backend-compatibility.md).
 
-## 参考执行器
+## Reference executor
 
-{obj}`simulate <oracq.infrastructure.execution.simulate>` 是只依赖标准库的小型寄存器执行器。它便于检查位序、相位、XOR 语义和辅助位状态。状态数量、步数及小幅度截断都有限制，不能把它的可运行规模视为真实硬件资源估计。
+{obj}`simulate <oracq.infrastructure.execution.simulate>` is a small register
+executor that depends only on the standard library. It is convenient for
+checking bit order, phases, XOR semantics, and ancilla states. The number of
+states, the number of steps, and small-amplitude truncation are all bounded;
+do not treat the scale it can run as a real-hardware resource estimate.
 
-## 读出
+## Readout
 
-RIR 核心不含测量和重置。最终测量、后选择和统计处理在宿主层完成；需要动态 OriginIR 时，可以显式使用读出适配。带 syndrome 的[纠错恢复电路](algorithms/repetition-codes.md)会保留错误信息，重新使用这些寄存器前需要适当的宿主处理。
+The RIR core contains no measurement or reset. Final measurement,
+post-selection, and statistical processing happen at the host layer; when
+dynamic OriginIR is needed, the readout adapter can be used explicitly.
+Error-recovery circuits with syndromes ([repetition codes](../zh/manual/algorithms/repetition-codes.html))
+keep the error information, and appropriate host processing is required
+before these registers are reused.

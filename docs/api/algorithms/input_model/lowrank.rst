@@ -1,5 +1,5 @@
-化学低秩分解块编码
-==================
+Chemistry low-rank decomposition block encodings
+================================================================================================
 
 ``oracq.algorithms.input_model.lowrank``
 

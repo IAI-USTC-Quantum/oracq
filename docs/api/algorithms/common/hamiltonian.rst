@@ -1,5 +1,5 @@
-Hamiltonian 演化
-============================
+Hamiltonian evolution
+==========================================
 
 ``oracq.algorithms.common.hamiltonian``
 

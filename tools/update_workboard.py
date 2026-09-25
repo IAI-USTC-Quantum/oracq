@@ -1,4 +1,4 @@
-"""根据实现证据与案例报告刷新工作面板。"""
+"""Refresh the workboard from implementation evidence and case reports."""
 
 import json
 from pathlib import Path
@@ -47,24 +47,27 @@ def main():
 
 def render(board, cases):
     lines = [
-        "# 范式实现工作面板",
+        "# Paradigm Implementation Workboard",
         "",
-        f"更新时间：{board['updated']}。本轮验收表达、开放 IR、绑定和后端描述可达性；数学正确性留待下一阶段。",
+        f"Updated: {board['updated']}. This round accepts expressiveness, open IR, "
+        "binding, and backend-description reachability; mathematical correctness "
+        "is deferred to the next stage.",
         "",
-        "| 编号 | 工作项 | 状态 | 证据 |",
+        "| ID | Work item | Status | Evidence |",
         "|---|---|---|---|",
     ]
     for task in board["tasks"]:
-        evidence = "、".join(f"[{Path(p).name}](../{p})" for p in task.get("evidence", []))
+        evidence = ", ".join(f"[{Path(p).name}](../{p})" for p in task.get("evidence", []))
         lines.append(f"| {task['id']} | {task['title']} | {task['status']} | {evidence} |")
     lines += [
         "",
-        "## 案例产物",
+        "## Case artifacts",
         "",
-        "每个目录提供 open.rir.yaml、partial.rir.yaml、closed.rir.yaml、bindings.json、memory.json 和 program.originir。"
-        "它们是可重新生成的描述产物，保存在被 Git 忽略的 out/catalog。",
+        "Each directory provides open.rir.yaml, partial.rir.yaml, closed.rir.yaml, "
+        "bindings.json, memory.json, and program.originir. They are regenerable "
+        "description artifacts stored in the Git-ignored out/catalog.",
         "",
-        "| 案例 | 开放槽 | 绑定后模块 | OriginIR DEF | 原生解析 | 产物 |",
+        "| Case | Open slots | Bound modules | OriginIR DEF | Native parse | Artifacts |",
         "|---|---:|---:|---:|---|---|",
     ]
     for row in cases:
@@ -72,30 +75,33 @@ def render(board, cases):
         links = " / ".join(
             f"[{label}](../out/catalog/{name}/{file})"
             for label, file in [
-                ("开放", "open.rir.yaml"),
-                ("部分绑定", "partial.rir.yaml"),
-                ("闭合", "closed.rir.yaml"),
+                ("open", "open.rir.yaml"),
+                ("partial", "partial.rir.yaml"),
+                ("closed", "closed.rir.yaml"),
                 ("OriginIR", "program.originir"),
-                ("报告", "report.json"),
+                ("report", "report.json"),
             ]
         )
         lines.append(
             f"| {name} | {len(row['unresolved'])} | {row['closed_modules']} | "
-            f"{row['originir_definitions']} | {'通过' if row['native_parsed'] else '待验收'} | {links} |"
+            f"{row['originir_definitions']} | {'passed' if row['native_parsed'] else 'pending'} | {links} |"
         )
     lines += [
         "",
-        "## 覆盖与限制",
+        "## Coverage and limitations",
         "",
-        "- [旧案例逐项映射](coverage.md)包含 61 个正例和 16 个负例；这里不是旧源码/CLIR 的等价证明。",
-        "- QFVM 具体样例使用玩具物理查表核；完整 Roe 可以继续保留为开放声明。",
-        "- QHAM 当前具体组装是 m=1 提升；更高阶数学构造留在下一阶段。",
-        "- 当前绑定针对固定宽度和 alpha 的接口；更换这些常量需要重新运行 Python 生成器。",
-        "- 所有应用均标记 correctness=not_assessed；没有因为尚未完成精度或收敛证明而阻断组装。",
+        "- The [legacy case mapping](coverage.md) covers 61 positive and 16 negative cases; it is not a proof of equivalence with the legacy source/CLIR.",
+        "- The concrete QFVM samples use toy physics lookup kernels; the full Roe operator can remain an open declaration.",
+        "- The current concrete QHAM assembly is the m=1 lifting; higher-order mathematical constructions are deferred to the next stage.",
+        "- Current bindings target interfaces with fixed widths and alpha; changing those constants requires rerunning the Python generators.",
+        "- All applications are marked correctness=not_assessed; assembly is not blocked by pending accuracy or convergence proofs.",
         "",
-        "## 下一阶段验证顺序",
+        "## Next-stage validation order",
         "",
-        "先检查普通 oracle 的矩阵和位语义，再检查 BE 与 state prep，随后是 Costa 初态/反射/filtering，最后验证 QODE/PDE、Roe 物理核与 QHAM 的条件输出和外层行为。",
+        "Check matrix and bit semantics of plain oracles first, then block encodings "
+        "and state preparation, followed by the Costa initial state/reflection/filtering, "
+        "and finally validate QODE/PDE, the Roe physics kernels, and QHAM's conditional "
+        "outputs and outer-loop behavior.",
         "",
     ]
     (ROOT / "docs/archive/workboard.md").write_text("\n".join(lines))

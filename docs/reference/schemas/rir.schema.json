@@ -416,7 +416,7 @@
           ]
         },
         "attributes": {
-          "$comment": "oracle_paradigm 是可扩展角色标识；binding_captures 保存逻辑资源名到局部资源名的 JSON 字符串，引用有效性由 validate 检查。开放绑定约束及分析报告不新增 RIR 节点。",
+          "$comment": "oracle_paradigm is an extensible role identifier; binding_captures holds a JSON string mapping logical resource names to local resource names, whose reference validity is checked by validate. Open-binding constraints and analysis reports add no RIR nodes.",
           "type": "array",
           "items": {
             "type": "array",

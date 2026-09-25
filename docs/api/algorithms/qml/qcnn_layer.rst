@@ -1,5 +1,5 @@
-量子卷积神经网络的量子构件
-==========================
+Quantum building blocks of QCNNs
+================================================================
 
 ``oracq.algorithms.qml.qcnn_layer``
 

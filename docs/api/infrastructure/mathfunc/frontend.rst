@@ -1,5 +1,5 @@
-Python 数学函数前端
-==========================
+Python math-function frontend
+==========================================================
 
 ``oracq.infrastructure.mathfunc.frontend``
 

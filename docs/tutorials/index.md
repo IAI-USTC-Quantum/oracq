@@ -1,6 +1,8 @@
-# 教程
+# Tutorials
 
-教程按一个个可完成的任务组织。每篇说明要准备什么输入、为什么这样构造，以及如何检查运行结果。前四篇只使用核心包；调用真实模拟器时会单独说明环境要求。环境准备见[安装与环境](../manual/installation.md)；寄存器、程序与绑定等背景概念见[核心概念](../manual/concepts.md)。
+**English** · [简体中文](../zh/tutorials/index.html)
+
+The tutorials are organized around tasks you can complete one by one. Each one explains which inputs to prepare, why they are constructed that way, and how to check the results. The first four use only the core package; wherever a real simulator is invoked, the environment requirements are stated separately. For environment setup see [Installation and environment](../manual/installation.md); for background concepts such as registers, programs, and binding see [Operations, registers, and the generation process](../manual/concepts.md).
 
 ```{toctree}
 :maxdepth: 1

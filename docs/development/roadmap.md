@@ -1,16 +1,36 @@
-# 目录整理与算法扩展面板
+# Repository reorganization and the algorithm expansion panel
 
-本轮先整理代码和文档，再扩展一批可实际生成线路的算法。所有工作在 oracq 仓库内完成，保留已有未提交改动。
+**English** · [简体中文](../zh/development/roadmap.html)
 
-| 阶段 | 内容 | 状态 |
+This round first reorganizes code and documentation, then expands a batch of
+algorithms that can actually generate circuits. All work happens inside the
+oracq repository, preserving existing uncommitted changes.
+
+| Stage | Scope | Status |
 |---|---|---|
-| R1 | infrastructure / algorithms / applications 分层；拆开 elementary、solvers、differential，保留旧导入兼容 | 已完成 |
-| R2 | Sphinx + MyST + API 文档；完整文档与教程分开，历史记录归档 | 已完成 |
-| R3 | oracle 查询、Fourier 算术、搜索与振幅放大、估计、变分算法、量子行走、数论、简单纠错 | 已完成 |
-| R4 | 新算法数学见证、旧案例回归、真实后端验证、严格文档构建、打包与迁移验收 | 已完成 |
+| R1 | Layering into infrastructure / algorithms / applications; split up elementary, solvers, differential while keeping legacy import compatibility | Done |
+| R2 | Sphinx + MyST + API documentation; manuals separated from tutorials, historical records archived | Done |
+| R3 | Oracle queries, Fourier arithmetic, search and amplitude amplification, estimation, variational algorithms, quantum walks, number theory, simple error correction | Done |
+| R4 | Mathematical witnesses for new algorithms, regression of old cases, real-backend validation, strict documentation builds, packaging and migration acceptance | Done |
 
-算法文件按用途命名：oracle_algorithms.py、fourier.py、search.py、estimation.py、variational.py、walks.py、number_theory.py、error_correction.py，以及现有的 hamiltonian.py、qlss.py、lchs.py、schrodingerization.py、cbmd.py、carleman.py、qham.py。
+Algorithm files are named by purpose: oracle_algorithms.py, fourier.py,
+search.py, estimation.py, variational.py, walks.py, number_theory.py,
+error_correction.py, plus the existing hamiltonian.py, qlss.py, lchs.py,
+schrodingerization.py, cbmd.py, carleman.py, qham.py.
 
-首批新增实现包含 Bernstein–Vazirani、Simon 采样与 GF(2) 后处理、QFT 加法、通用振幅放大、Hadamard/Swap test、标准振幅估计、MaxCut QAOA、VQE 测量电路、参数化 ansatz、周期 coined walk、模乘求阶及因子后处理、三位 bit/phase flip 编解码。门级输出和算法适用范围分别记录，不把小型模乘表的实现当作可扩展的 Shor 算术。
+The first batch of new implementations covers Bernstein–Vazirani; Simon
+sampling with GF(2) post-processing; QFT addition; general amplitude
+amplification; Hadamard/Swap tests; standard amplitude estimation; MaxCut
+QAOA; VQE measurement circuits; parameterized ansatz; the periodic coined
+walk; modular multiplication for order finding and factor post-processing;
+and three-bit bit/phase-flip encoding and decoding. Gate-level output and
+each algorithm's scope of applicability are recorded separately — the small
+modular-multiplication-table implementation is not treated as scalable Shor
+arithmetic.
 
-文档使用中文完整句子说明问题、输入、步骤和结果。以用户任务组织教程；规范给出明确契约；API 从源码生成。构建要求无 Sphinx warning，教程可运行。现有阶段报告移入 archive，保留引用但不混入主阅读路径。
+The documentation states the problem, inputs, steps, and results in complete
+Chinese sentences. Tutorials are organized around user tasks; specifications
+give explicit contracts; the API is generated from source. Builds must be
+free of Sphinx warnings, and tutorials must run. Existing stage reports moved
+into archive, keeping their references without mixing them into the main
+reading path.

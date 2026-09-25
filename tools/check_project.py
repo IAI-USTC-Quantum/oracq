@@ -1,4 +1,4 @@
-"""集中运行工程检查；真实后端必须由显式解释器提供，失败即退出。"""
+"""Run the engineering checks in one place; the real backend must be provided by an explicit interpreter, and any failure exits immediately."""
 
 import argparse
 import json
@@ -11,14 +11,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def backend_interpreter(path):
-    """保留虚拟环境解释器的路径；resolve 会把它解引用为基础 Python。"""
+    """Keep the path of the virtual-environment interpreter; resolve would dereference it to the base Python."""
     return os.path.abspath(path)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend-python", type=Path)
-    parser.add_argument("--docs", action="store_true", help="构建 Sphinx HTML 并执行教程")
+    parser.add_argument("--docs", action="store_true", help="build the Sphinx HTML and run the tutorials")
     parser.add_argument("--output", type=Path, default=ROOT / "out/checks/latest")
     args = parser.parse_args()
     output = args.output.resolve()
@@ -66,36 +66,41 @@ def main():
                     "docs_search",
                     [sys.executable, "-m", "unittest", "discover", "-s", "tests/docs", "-v"],
                 ),
-                (
-                    "sphinx_html",
-                    [
-                        sys.executable,
-                        "-m",
-                        "sphinx",
-                        "-W",
-                        "--keep-going",
-                        "-b",
-                        "html",
-                        "docs",
-                        str(output / "docs/html"),
-                    ],
-                ),
-                (
-                    "sphinx_doctest",
-                    [
-                        sys.executable,
-                        "-m",
-                        "sphinx",
-                        "-W",
-                        "--keep-going",
-                        "-b",
-                        "doctest",
-                        "docs",
-                        str(output / "docs/doctest"),
-                    ],
-                ),
             ]
         )
+        for lang, tree in (("en", "docs"), ("zh", "docs/zh")):
+            commands.extend(
+                [
+                    (
+                        f"sphinx_html_{lang}",
+                        [
+                            sys.executable,
+                            "-m",
+                            "sphinx",
+                            "-W",
+                            "--keep-going",
+                            "-b",
+                            "html",
+                            tree,
+                            str(output / f"docs/{lang}"),
+                        ],
+                    ),
+                    (
+                        f"sphinx_doctest_{lang}",
+                        [
+                            sys.executable,
+                            "-m",
+                            "sphinx",
+                            "-W",
+                            "--keep-going",
+                            "-b",
+                            "doctest",
+                            tree,
+                            str(output / f"docs/{lang}-doctest"),
+                        ],
+                    ),
+                ]
+            )
     if args.backend_python is not None:
         commands.append(("research_workflow_native", [
             backend_interpreter(args.backend_python), "-B", "examples/research_workflow.py",

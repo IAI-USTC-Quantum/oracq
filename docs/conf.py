@@ -1,4 +1,9 @@
-"""Sphinx 配置；仅导入纯 Python 源码，不伪造可选后端。"""
+"""Sphinx configuration for the English documentation tree.
+
+Only pure-Python sources are imported here; optional backends are never faked.
+The Chinese mirror tree lives under ``zh/`` with its own ``zh/conf.py`` and is
+excluded from this build.
+"""
 
 import sys
 import tomllib
@@ -11,7 +16,7 @@ project = "oracq"
 author = "oracq developers"
 copyright = "2026, oracq developers"
 release = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
-language = "zh_CN"
+language = "en"
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
@@ -23,14 +28,14 @@ extensions = [
     "sphinxcontrib.mermaid",
     "search_support",
 ]
-html_search_language = "oracq"
+html_search_language = "en"
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
-exclude_patterns = ["archive/**", "_build/**", "README.md"]
+exclude_patterns = ["archive/**", "_build/**", "README.md", "zh/**"]
 myst_enable_extensions = ["dollarmath", "amsmath", "colon_fence", "deflist", "fieldlist"]
 myst_fence_as_directive = ["mermaid"]
 myst_heading_anchors = 4
 html_theme = "furo"
-html_title = "oracq 文档"
+html_title = "oracq documentation"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 html_theme_options = {
@@ -44,7 +49,8 @@ autosummary_generate = True
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 napoleon_use_ivar = True
-# 注解中的内建 type（如 ``tuple[type, ...]``）会与多个 ``*.type`` 属性目标产生
-# 歧义引用提示；Sphinx 仅在多个目标间做展示选择，这里抑制该类别提示。
-suppress_warnings = ["ref.python"]
+# Built-in ``type`` in annotations (e.g. ``tuple[type, ...]``) collides with
+# several ``*.type`` attribute targets; Sphinx only picks among duplicates for
+# display, so this hint class is suppressed here.
+suppress_warnings = ["ref.python", "myst.xref_missing"]
 doctest_global_setup = "from oracq import *"

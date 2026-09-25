@@ -1,65 +1,184 @@
-# 编写文档
+# Writing documentation
 
-文档分为完整文档和教程。完整文档解释稳定的规则、接口和限制；教程围绕一个具体任务，给出输入、代码、结果解释和下一步。API 参考由源码生成。
+**English** · [简体中文](../zh/development/writing-docs.html)
 
-## 写作要求
+The documentation is bilingual. The English pages under
+`docs/{manual,tutorials,reference,development}/` are the primary source, and a
+Chinese mirror with the identical layout lives under `docs/zh/`: every page
+keeps the same relative path in both trees, and a page edited on one side must
+be synchronized on the other. The API pages are generated into both trees
+(`docs/api` and `docs/zh/api`); the algorithm manual pages are currently
+Chinese-only (68 pages under `docs/zh/manual/algorithms/`) with an English
+index placeholder at `manual/algorithms/index.md`.
 
-先说明读者要解决的问题，再解释为什么采用这些步骤。使用完整句子和具体对象名称，避免让读者从开发日志里推断当前行为。术语第一次出现时给出含义；保留必要的数学定义，但不要用缩写代替解释。
+Documentation splits into manuals and tutorials. Manuals explain stable rules,
+interfaces, and limitations; a tutorial centers on one concrete task and gives
+the input, the code, an interpretation of the results, and the next step. The
+API reference is generated from the source.
 
-当前行为直接写成当前规则。历史设计、阶段计划和已放弃的路线放入 `archive`。对未完成的算法，准确说明缺少哪一部分，例如相位求解、统计读出或数值误差验证。
+## Writing requirements
 
-## 可执行教程
+State the problem the reader is trying to solve first, then explain why these
+steps are taken. Use complete sentences and concrete object names; do not make
+the reader infer current behavior from development logs. Give the meaning of a
+term at its first appearance; keep the necessary mathematical definitions, but
+do not use abbreviations in place of explanations.
 
-MyST 的 `testcode` 块会由 Sphinx doctest builder 执行。优先用断言检查稳定的数学结果，避免依赖随机采样或格式不稳定的打印输出。输出确定时，可在 `testcode` 后配一个 `testoutput` 块展示执行结果，构建会逐字校验；长输出可用 `...`（ELLIPSIS）省略中段。教程示例应尽量配对执行结果输出，帮助读者在运行前看到预期结果。
+Write current behavior directly as current rules. Historical designs, stage
+plans, and abandoned routes go into `archive`. For unfinished algorithms,
+state exactly which part is missing, for example phase solving, statistical
+readout, or numerical error validation.
+
+## Language switcher
+
+Every page carries a language-switcher line directly under its H1: English
+pages use `**English** · [简体中文](<relative path>)`, Chinese pages use
+`[English](<relative path>) · **简体中文**` (the Chinese side is prepended
+automatically by `tools/add_switchers.py`). Cross-tree targets always use the
+`.html` form — for example
+`[简体中文](../zh/development/contributing.html)` from this directory — so
+the link resolves in the built HTML of the other tree.
+
+## Executable tutorials
+
+MyST `testcode` blocks are executed by the Sphinx doctest builder. Prefer
+assertions that check stable mathematical results and avoid depending on
+random sampling or print output with unstable formatting. When the output is
+deterministic, follow the `testcode` block with a `testoutput` block showing
+the executed result; the build verifies it verbatim, and long output can be
+elided with `...` (ELLIPSIS). Tutorial examples should be paired with their
+executed output wherever possible, so readers see the expected result before
+running anything.
 
 ```bash
-uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
+uv run python tools/build_docs.py --lang all --builder doctest
 ```
 
-## 交叉链接
+Both language trees build through `tools/build_docs.py --lang all`: the
+English tree `docs` builds to `out/docs/en` and the Chinese tree `docs/zh`
+builds to `out/docs/zh`, each with warnings treated as errors.
 
-正文首次提到公开 API 对象时，用 MyST 的 `{obj}` 角色链接到 API 参考，目标写全限定路径（与 `docs/api/toplevel.rst` 的 `:obj:` 一致），例如 `` {obj}`Builder <oracq.infrastructure.builder.Builder>` ``。不要用根包短路径（如 `oracq.Builder`）；同一对象只链第一次出现；代码块内一律不加链接。
+## Cross-linking
 
-页面之间的链接沿用相对 markdown 链接：教程和手册用 `[量子线性系统](../../api/algorithms/qlss/qlss.rst)` 这样的真实路径指向 API 页，用 `[核心概念](concepts.md)` 指向手册页，可用 `#标题锚点` 深链（`myst_heading_anchors = 4`）。算法页「相关链接」中的同族/同组链接必须对称：A 链接 B，B 也要链接 A。有教程演示该算法时，「相关链接」加一行教程回链，格式如下：
+When running text first mentions a public API object, link it to the API
+reference with the MyST `{obj}` role, writing the target as the
+fully-qualified path (consistent with the `:obj:` targets in
+`docs/api/toplevel.rst`), for example
+`` {obj}`Builder <oracq.infrastructure.builder.Builder>` ``. Do not use short
+root-package paths (such as `oracq.Builder`); link only the first occurrence
+of an object; never add links inside code blocks.
+
+Links between pages keep using relative markdown links: tutorials and manuals
+point at API pages with real paths such as
+`[quantum linear systems](../api/algorithms/qlss/qlss.rst)`, and at manual
+pages with `[core concepts](../manual/concepts.md)`; `#heading-anchor` deep
+links work (`myst_heading_anchors = 4`). The same-family / same-group links
+in an algorithm page's "Related links" section must be symmetric: if A links
+to B, B must also link to A. When a tutorial demonstrates the algorithm, add a
+tutorial back-link line to "Related links" in this format:
 
 ```markdown
-- 教程：[为同一个线性问题替换 QODE 方法](../../tutorials/differential-equations.md)
+- Tutorial: [swap the QODE method for the same linear problem](../../tutorials/differential-equations.md)
 ```
 
-教程页尾固定一个「相关页面」小节，列出相关手册章节、参考页、算法页与 API 页。
+Tutorial pages end with a fixed "Related pages" section listing the related
+manual chapters, reference pages, algorithm pages, and API pages.
 
-细颗粒密度标准：核心概念与 API 名在正文首次出现时必须带链接，不允许长期裸奔。API 对象用 `{obj}`；概念、章节与规范内容用相对链接，指到具体小节时加标题锚点（如 `[寄存器与视图](concepts.md#寄存器与视图)`）。算法页的引用行把模块路径链接到对应 API 页，「接口与输入模型」的签名块下加一行「API 入口：」列出 `{obj}` 入口；「相关链接」中的「概念：」行指向该算法核心依赖的手册概念页。枢纽页（concepts、operators、qdata、qmem、contracts）与规范页（reference）至少被各自的消费页面回链，避免成为孤儿页。新增页面按同一标准补链，不要只链到目录首页。
+Fine-grained link density: core concepts and API names must carry a link at
+their first mention in running text; leaving them bare over the long term is
+not allowed. API objects use `{obj}`; concepts, chapters, and specification
+content use relative links, adding a heading anchor when pointing at a
+specific subsection (e.g.
+`[registers and views](../manual/concepts.md#registers-and-views)`). On an
+algorithm page, the citation line links the module path to the corresponding
+API page; under the signature block in "Interface and input model", an
+"API entries:" line lists the `{obj}` entry points; the "Concepts:" line in
+"Related links" points at the manual concept pages the algorithm critically
+depends on. Hub pages (concepts, operators, qdata, qmem, contracts) and the
+specification pages (reference) must be back-linked by their consumer pages,
+so they do not become orphans. New pages add links under the same standard —
+do not link only to the section index.
 
-所有 `{obj}` 目标与相对链接由 `tests/docs/test_xrefs.py` 校验（目标可导入/文件存在/锚点存在于目标页标题），构建配置中的 `suppress_warnings = ["ref.python"]` 使失效的 py-domain 引用不会在 `-W` 构建中报错，必须依赖该测试兜底。
+All `{obj}` targets and relative links are validated by
+`tests/docs/test_xrefs.py` (target importable / file exists / anchor present
+among the target page's headings); `suppress_warnings = ["ref.python"]` in the
+build configuration keeps dead py-domain references from failing the `-W`
+build, so that test is the safety net.
 
-## API 页面
+## API pages
 
-公开模块按分类列在 `docs/api/`。新增模块后运行：
+Public modules are listed by category under `docs/api/` (Chinese titles under
+`docs/zh/api/`). After adding a module, run:
 
 ```bash
-uv run python tools/generate_api_docs.py
-uv run sphinx-build -W --keep-going -b html docs out/docs/html
+uv run python tools/generate_api_docs.py --lang all
+uv run python tools/build_docs.py --lang all
 ```
 
-生成器还会从根包 `oracq.__all__` 产出 `docs/api/toplevel.rst`（包总览页，按定义模块分组链接到各模块页）；新增根导出名字或调整 `__all__` 后同样需要重跑生成器。生成器内 `TITLES` 表维护每个模块的中文页标题，新模块记得补一条。旧导入路径只保留兼容，不出现在 API 文档中。
+The generator also produces `docs/api/toplevel.rst` (and its Chinese twin
+`docs/zh/api/toplevel.rst`) from the root package's `oracq.__all__` — the
+package-overview page that links to each module page grouped by defining
+module; after adding a root export name or adjusting `__all__`, rerun the
+generator the same way. The `TITLES` and `TITLES_ZH` tables inside the
+generator maintain each module's page title per language; remember to add an
+entry for a new module. Legacy import paths are kept for compatibility only
+and never appear in the API documentation.
 
-API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必须继续在执行入口导入，以便在核心环境中构建文档。完整使用方式参见 [Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html)。
+The API pages import the actual source through autodoc, with no mock imports.
+Optional backends must keep being imported at the execution entry points, so
+the documentation can be built in the core environment. See
+[Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html)
+for full usage.
 
-## 中文与 API 名称搜索
+## Chinese and API-name search
 
-本站在 `docs/_ext/search_support.py` 中维护一致的索引与查询分词：中文使用字和二元片段，Python 标识符保留完整名称及下划线分段。该扩展避免所用 Sphinx 版本的中文 stemmer 脚本不匹配问题，不修改第三方安装目录。搜索规则改动后应同时运行 `tests/docs` 和浏览器查询检查。
+Both language trees maintain consistent indexing and query tokenization in
+`docs/_ext/search_support.py`: Chinese uses characters and bigram segments,
+while Python identifiers keep full names plus underscore-separated segments.
+The extension works around the Chinese stemmer-script mismatch of the Sphinx
+version in use and does not modify third-party installation directories.
+After changing the search rules, run both `tests/docs` and browser query
+checks.
 
-## 算法页面
+## Algorithm pages
 
-`docs/manual/algorithms/` 下每个算法一页，由 `index.md` 的 glob toctree 自动收录；写新页不需要改 `index.md`。文件名用 kebab-case（如 `qsvt-matrix-inversion.md`），与入口函数或算法英文名对应。
+Each algorithm gets one page under `docs/zh/manual/algorithms/`, collected
+automatically by the glob toctree in that directory's `index.md`; writing a
+new page requires no change to `index.md`. File names are kebab-case (e.g.
+`qsvt-matrix-inversion.md`), matching the entry function or the algorithm's
+English name. These pages are currently Chinese-only (68 pages); the English
+tree carries a placeholder index at `docs/manual/algorithms/index.md` that
+links into the Chinese catalog until the translations land.
 
-页面首行下方用一行引用注明类别与所属模块（`> 类别 Cn · 模块 oracq.algorithms.<module> · 阶段 Vn`），类别与阶段取值必须与 `validation-coverage.md` 一致。正文固定六节：
+Directly under the page's first line, a one-line blockquote records the
+category and owning module
+(`> 类别 Cn · 模块 oracq.algorithms.<module> · 阶段 Vn`; in English
+`> Category Cn · module oracq.algorithms.<module> · stage Vn`); the category
+and stage values must agree with `validation-coverage.md`. The body has six
+fixed sections:
 
-1. **概述**：问题陈述、数学定义（可用 MyST dollarmath）、文献依据。文献只写 `docs/manual` 现有内容或源码 docstring 明确引用的，不许编造。
-2. **接口与输入模型**：入口函数签名（以源码为准）、input model 类型（词汇见 `algorithm-coverage.md`）、返回对象属性表。
-3. **实现要点**：生成策略、寄存器布局、设计决策与适用边界；未实现的部分准确说明缺什么。
-4. **验证方案**：类别与判定准则（引 `validation-plan.md` §2）、三层证据位置（`tests/core/<file>:<TestClass.test_method>`）、见证技术与实测口径（容差、实测值）。本节事实必须与 `validation-coverage.md` 一致。
-5. **已知缺口与计划阶段**：与 `validation-coverage.md` 缺口列一致。
-6. **相关链接**：源码模块、API 参考页（`docs/api/algorithms/` 下，先确认实际文件名再链接）、`../../development/validation-coverage.md`。
+1. **Overview**: problem statement, mathematical definitions (MyST dollarmath
+   allowed), literature basis. Cite only literature already present in
+   `docs/manual` or explicitly referenced by source docstrings — never invent
+   references.
+2. **Interface and input model**: entry-function signature (as in the source),
+   the input model type (vocabulary in `algorithm-coverage.md`), and a table
+   of the returned object's attributes.
+3. **Implementation notes**: generation strategy, register layout, design
+   decisions and applicability boundary; for unimplemented parts, state
+   exactly what is missing.
+4. **Validation approach**: category and acceptance criteria (citing
+   `validation-plan.md` §2), the locations of the three evidence layers
+   (`tests/core/<file>:<TestClass.test_method>`), the witness technique and
+   the measured figures (tolerances, measured values). The facts in this
+   section must agree with `validation-coverage.md`.
+5. **Known gaps and planned stage**: consistent with the gap column of
+   `validation-coverage.md`.
+6. **Related links**: source module, API reference page (under
+   `docs/api/algorithms/`, confirm the actual file name before linking), and
+   `../../development/validation-coverage.md`.
 
-维护约定：新增算法必须同时新增本页，并同步 `validation-coverage.md` 与 `algorithm-coverage.md`；三者描述的类别、阶段、缺口与证据位置必须一致。
+Maintenance agreement: adding an algorithm must add its page at the same time
+and synchronize `validation-coverage.md` and `algorithm-coverage.md`; the
+category, stage, gaps, and evidence locations described by the three must
+agree.

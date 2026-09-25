@@ -1,5 +1,5 @@
-量子数据结构（qsample 与 sample-and-query）
-====================================================================
+Quantum data structures (qsample and sample-and-query)
+============================================================================================================
 
 ``oracq.algorithms.input_model.qdata``
 

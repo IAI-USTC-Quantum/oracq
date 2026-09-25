@@ -1,5 +1,5 @@
-数学函数降低
-============
+Math-function lowering
+============================================
 
 ``oracq.infrastructure.mathfunc.lowering``
 

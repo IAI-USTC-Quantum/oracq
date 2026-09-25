@@ -1,5 +1,5 @@
-Quantikz 线路导出
-==========================
+Quantikz circuit export
+==============================================
 
 ``oracq.infrastructure.backends.quantikz``
 

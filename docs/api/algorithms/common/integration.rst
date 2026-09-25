@@ -1,5 +1,5 @@
-量子求和与积分
-==============
+Quantum summation and integration
+==================================================================
 
 ``oracq.algorithms.common.integration``
 

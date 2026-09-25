@@ -1,5 +1,5 @@
-KP 量子推荐系统
-==================
+KP quantum recommendation system
+================================================================
 
 ``oracq.algorithms.qml.recommendation``
 

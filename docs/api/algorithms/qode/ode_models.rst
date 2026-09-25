@@ -1,5 +1,5 @@
-线性 ODE 输入模型
-======================
+Linear ODE input models
+==============================================
 
 ``oracq.algorithms.qode.ode_models``
 

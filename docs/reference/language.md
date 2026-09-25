@@ -1,69 +1,71 @@
-# 语言与算法库约定
+# Language and algorithm library conventions
 
-本规范对应 oracq 0.8。它定义 Python 生成层与 RIR 之间的边界。RIR 对象及指令语义见 [RIR 0.3](rir.md)，数学函数图见 [MIR 0.1](math-ir.md)。生成阶段的操作入门见手册[操作、寄存器与生成过程](../manual/concepts.md)。
+**English** · [简体中文](../zh/reference/language.html)
 
-## Python 生成层
+This specification corresponds to oracq 0.8. It defines the boundary between the Python generation layer and RIR. For RIR objects and instruction semantics see [RIR 0.3](rir.md); for the mathematical function graph see [MIR 0.1](math-ir.md). For an introduction to operations during the generation stage see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md).
 
-Python 是算法的书写环境。生成函数可以使用普通参数、函数、闭包和类来选择实现。生成结束后，量子程序由 {obj}`Operation <oracq.infrastructure.builder.Operation>` 和 {obj}`Program <oracq.infrastructure.ir.Program>` 表示；其中不能保留任意 Python 回调作为未定义的量子指令。
+## The Python generation layer
 
-普通 {obj}`Builder <oracq.infrastructure.builder.Builder>` 流程不解析 Python 语法树。{obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 是独立的受限数学函数前端，用于将纯数学计算降低成可逆 XOR 操作。它的可接受语法、数值格式和近似配置由数学函数文档规定。
+Python is the authoring environment for algorithms. Generation functions may use ordinary parameters, functions, closures, and classes to select implementations. Once generation finishes, the quantum program is represented by {obj}`Operation <oracq.infrastructure.builder.Operation>` and {obj}`Program <oracq.infrastructure.ir.Program>`; arbitrary Python callbacks must not remain in them as undefined quantum instructions.
 
-生成参数决定具体结构，例如寄存器位宽、重复次数、积分节点、截断阶和旋转角度。RIR 中没有通用的符号形状求解机制。
+The ordinary {obj}`Builder <oracq.infrastructure.builder.Builder>` flow does not parse the Python syntax tree. {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` is a separate restricted mathematical-function front end that lowers pure mathematical computation into reversible XOR operations. Its accepted syntax, numeric formats, and approximation configuration are specified in the math-functions documentation.
 
-## 操作与模块
+Generation parameters fix the concrete structure, for example register bit widths, repetition counts, quadrature nodes, truncation orders, and rotation angles. RIR has no general symbolic shape-resolution mechanism.
 
-`Operation` 包含入口 Module 及其依赖定义。`Operation.program()` 收集模块、检查同名冲突并形成 Program。模块定义共享，调用不复制被调主体。
+## Operations and modules
 
-寄存器与资源是模块的公开接口。私有工作区通过 `Module.locals` 声明，从零态借入并在返回前复净。结构验证检查引用和宽度，复净仍是实现义务；模拟器可以检查实际返回状态。
+An `Operation` contains the entry Module and its dependency definitions. `Operation.program()` collects modules, checks for name conflicts, and forms a Program. Module definitions are shared; a call does not copy the callee body.
 
-所有调用必须引用已存在的模块记录。未完成实现使用 `body=None`；空指令体是已实现的恒等操作。详见[开放声明与绑定](open-ir.md)。
+Registers and resources are a module's public interface. Private workspaces are declared through `Module.locals`, borrowed from the zero state and uncomputed before return. Structural validation checks references and widths; uncomputation remains an implementation obligation, and the simulator can check the actual returned state.
 
-## 算法协议
+All calls must reference an existing module record. Unfinished implementations use `body=None`; an empty instruction body is an implemented identity operation. See [open declarations and binding](open-ir.md) for details.
 
-算法库可以使用 Python 结构协议描述所需方法。一个对象可以同时满足多个协议，算法不得仅凭一个排他的字符串标签推断所有能力。
+## Algorithm protocols
 
-常见方法包括 `unitary()`、`state_preparation()`、{obj}`block_encoding() <oracq.algorithms.input_model.operators.block_encoding>`、`sparse_access()` 和 `trotter_list()`。新增算法可以在自己的模块中定义协议，无需扩展 RIR。
+Algorithm libraries may use Python structural protocols to describe the required methods. One object can satisfy several protocols at once; an algorithm must not infer all capabilities from a single exclusive string tag.
 
-{obj}`requires <oracq.algorithms.input_model.contracts.requires>` 检查对象是否提供协议接口。具体算法调用相应方法后，还应检查返回值、布局、归一化常数和所需调用能力。方法存在不构成数学正确性的证明。
+Common methods include `unitary()`, `state_preparation()`, {obj}`block_encoding() <oracq.algorithms.input_model.operators.block_encoding>`, `sparse_access()`, and `trotter_list()`. New algorithms can define protocols in their own modules without extending RIR.
 
-算法生成器的结果同样可以满足协议。例如 QLSS 返回对象提供 `state_oracle()`；Hamiltonian 演化实现可以返回 BE。带成功信号的态 oracle 不自动等同于无后选择的干净态制备。
+{obj}`requires <oracq.algorithms.input_model.contracts.requires>` checks whether an object provides a protocol interface. After a concrete algorithm invokes the corresponding method, it should also check the returned value, the layout, the normalization constant, and the required call capabilities. The existence of a method is not proof of mathematical correctness.
 
-## 矩阵表示与归一化
+Results of algorithm generators can likewise satisfy protocols. For example, a QLSS return object provides `state_oracle()`; a Hamiltonian evolution implementation can return a BE. A state oracle with a success signal is not automatically the same as a clean state preparation without post-selection.
 
-BlockEncoding 的标准量子接口为 `target` 和 `signal`，并具有有限正数 `alpha`。其矩阵解释是零信号角块等于目标矩阵除以 alpha。
+## Matrix representation and normalization
 
-组合器必须传播归一化常数。乘积的 alpha 相乘；加权和的 alpha 为各项系数绝对值与各自 alpha 乘积之和。复系数的相位和受控操作中的全局相位必须保留。
+The standard quantum interface of a BlockEncoding is `target` and `signal`, with a finite positive `alpha`. Its matrix interpretation is that the zero-signal corner block equals the target matrix divided by alpha.
 
-完整 unitary 可以视为 alpha=1、零信号空间的 BE，也可以通过作用于零态定义态制备。对原始 Operation 使用这些视图时，全部公开量子寄存器都属于完整空间。若需把 work 排除在态的目标之外，调用方必须显式声明其零输入及复净约定。
+Combinators must propagate normalization constants. The alpha of a product is the product of the alphas; the alpha of a weighted sum is the sum of each term's absolute coefficient times its own alpha. The phases of complex coefficients and the global phases inside controlled operations must be preserved.
 
-## 数据访问
+A complete unitary can be viewed as a BE with alpha=1 on the zero-signal space, and it can also define a state preparation through its action on the zero state. When these views are used on a raw Operation, all public quantum registers belong to the complete space. If a work register must be excluded from the target of the state, the caller must explicitly declare its zero input and uncomputation conventions.
 
-XOR database 保持 address，并将查询字 XOR 到 data，不能把查询视为覆盖赋值。QRAM 资源声明与内存内容分开；同一个只读资源可以在多个模块中复用。
+## Data access
 
-稀疏位置访问、元素数值查询、行态制备和 block encoding 是不同接口。适配器必须明确需要的数据结构、辅助寄存器和归一化。没有从任意 BE 自动恢复高效稀疏 oracle 的通用保证。
+An XOR database keeps the address unchanged and XORs the queried word into data; a query must not be treated as an overwriting assignment. QRAM resource declarations are separate from memory contents; the same read-only resource can be reused across multiple modules.
 
-## 调用能力
+Sparse position access, element value queries, row state preparation, and block encoding are distinct interfaces. An adapter must state explicitly the data structures, auxiliary registers, and normalization it requires. There is no general guarantee of recovering an efficient sparse oracle from an arbitrary BE.
 
-`supports_adjoint` 和 `supports_controlled` 是既有 RIR 能力字段。有效能力由当前模块及其依赖保守合取；控制或伴随上下文中的调用必须具备相应能力。
+## Call capabilities
 
-Hermitian、耗散、谱界、稀疏度和复净等数学性质由算法及实现方声明。它们不自动成为新的语言类型，也不由字段名证明成立。
+`supports_adjoint` and `supports_controlled` are existing RIR capability fields. The effective capability is the conservative conjunction of the current module and its dependencies; a call inside a controlled or adjoint context must possess the corresponding capability.
 
-## 精度与读出
+Mathematical properties such as Hermiticity, dissipation, spectral bounds, sparsity, and uncomputation are declared by algorithms and implementers. They do not automatically become new language types, nor are they proven true by a field name.
 
-语言核心不定义通用 eps 类型。算法可以用 eps、字长、阶数或其他参数选择具体生成方法，并将配置记录在宿主结果或模块属性中。
+## Precision and readout
 
-近似矩阵、归一化解态、成功概率和物理范数必须区分。语言不自动执行测量、后选择、幅值估计或经典参数优化。宿主读出工具可以显式完成这些步骤。
+The language core does not define a universal eps type. Algorithms can use eps, word lengths, orders, or other parameters to choose a concrete generation method and record the configuration in host results or module attributes.
 
-## 序列化与后端
+Approximate matrices, normalized solution states, success probabilities, and physical norms must be kept distinct. The language does not automatically perform measurement, post-selection, amplitude estimation, or classical parameter optimization. Host readout tools can carry out these steps explicitly.
 
-RIR 文本（YAML 或 JSON）只能包含规定的记录与标量属性。序列化保持模块、调用、Repeat、Control 和 Adjoint，不以始终展开的门列表作为中间表示。
+## Serialization and backends
 
-OriginIR-ext 导出保留 DEF 与 QRAMDECL；严格门集降低在模块内生成 Toffoli、U3 和 CZ。PySparQ 可以在寄存器和模块边界执行。可选原生实现不进入 RIR，也不使一个没有门级主体的模块自动获得门级导出能力。
+RIR text (YAML or JSON) may contain only the prescribed records and scalar attributes. Serialization preserves modules, calls, Repeat, Control, and Adjoint; an always-expanded gate list is not used as the intermediate representation.
 
-后端可以施加更严格的执行预算，超限时必须报错。任何预算限制都不能通过静默截断程序来处理。
+OriginIR-ext export preserves DEF and QRAMDECL; strict-gate-set lowering produces Toffoli, U3, and CZ inside modules. PySparQ can execute at register and module boundaries. Optional native implementations do not enter RIR, nor do they automatically give a module without a gate-level body a gate-level export capability.
 
-## 版本与兼容
+Backends may impose stricter execution budgets and must raise an error when a limit is exceeded. No budget limitation may be handled by silently truncating the program.
 
-包版本与中间表示版本独立。当前包为 0.8，RIR 为 0.3，MIR、PDE 和 QCL plan 均为 0.1。旧 RIR 0.1/0.2 继续按规定读取；新的源码目录不改变这些格式。
+## Versions and compatibility
 
-旧 Python 导入路径通过兼容层转发到规范实现。新应用应使用 `infrastructure`、`algorithms` 和 `applications` 中的规范路径，详见[迁移说明](../manual/compatibility.md)。
+Package versions and intermediate-representation versions are independent. The current package is 0.8, RIR is 0.3, and MIR, PDE, and the QCL plan are all 0.1. Old RIR 0.1/0.2 continue to be read as specified; the new source layout does not change these formats.
+
+Old Python import paths are forwarded to the canonical implementations through the compatibility layer. New applications should use the canonical paths in `infrastructure`, `algorithms`, and `applications`; see the [migration notes](../manual/compatibility.md).

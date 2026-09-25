@@ -1,5 +1,5 @@
-数学核生成
-============
+Math kernel generation
+============================================
 
 ``oracq.infrastructure.mathfunc.numeric``
 

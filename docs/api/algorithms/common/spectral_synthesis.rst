@@ -1,5 +1,5 @@
-谱线路的算子级合成优化
-======================
+Operator-level synthesis optimization of spectral circuits
+====================================================================================================================
 
 ``oracq.algorithms.common.spectral_synthesis``
 

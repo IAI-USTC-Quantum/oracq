@@ -1,10 +1,12 @@
-# 量子数据结构与 KP 推荐系统
+# Quantum data structures and the KP recommendation system
 
-{obj}`QVector <oracq.algorithms.input_model.qdata.QVector>` 与 {obj}`QMatrix <oracq.algorithms.input_model.qdata.QMatrix>` 封装 [QFVM](qfvm.md)（arXiv:2102.03557 式 15–22 残差平方和树）与 Kerenidis–Prakash 推荐系统（arXiv:1603.08675 Thm 5.1 + 附录 A.1）共用的量子数据结构，数据面全部经由 [QRAM 指针访问](qmem.md)。API 见 [量子数据结构（qsample 与 sample-and-query）](../api/algorithms/input_model/qdata.rst)。
+**English** · [简体中文](../zh/manual/qdata.html)
 
-## QVector：qsample 向量
+{obj}`QVector <oracq.algorithms.input_model.qdata.QVector>` and {obj}`QMatrix <oracq.algorithms.input_model.qdata.QMatrix>` package the quantum data structures shared by [QFVM](qfvm.md) (arXiv:2102.03557 Eqs. 15–22 residual sum-of-squares tree) and the Kerenidis–Prakash recommendation system (arXiv:1603.08675 Thm 5.1 + Appendix A.1), with the entire data plane accessed through [QRAM pointers](qmem.md). The API is documented in [quantum data structures (qsample and sample-and-query)](../api/algorithms/input_model/qdata.rst).
 
-平方范数二叉树：叶存分量平方，内部节点缓存 RY 旋转角字（θ = 2·acos(√(S_left/S_node))）。量子侧按层制备归一化态，每层两次 QRAM 查询；符号经 1 位 bank 的相位反冲写入。经典侧单点更新只重算叶到根的路径。
+## QVector: the qsample vector
+
+A squared-norm binary tree: leaves store squared components and internal nodes cache RY rotation angle words (θ = 2·acos(√(S_left/S_node))). The quantum side prepares the normalized state level by level with two QRAM queries per level; signs are written via phase kickback on a 1-bit bank. On the classical side, a single-point update recomputes only the leaf-to-root path.
 
 ```{doctest}
 >>> from oracq import QVector, simulate
@@ -15,9 +17,9 @@
 [0.6, 0.8]
 ```
 
-## QMatrix：sample-and-query 矩阵
+## QMatrix: the sample-and-query matrix
 
-条目 bank 支持任意叠加查询（地址按 (行, 列) 二维指针寻址）；每行一棵 QVector 树给出 Ũ: |i⟩|0⟩→|i⟩|Ā_i⟩；行范数根树给出 Ṽ: |0⟩|j⟩→|Ã⟩|j⟩。条目限非负定点值。
+The entry bank supports queries in arbitrary superposition (addresses use a two-dimensional (row, column) pointer); one QVector tree per row gives Ũ: |i⟩|0⟩→|i⟩|Ā_i⟩; the row-norm root tree gives Ṽ: |0⟩|j⟩→|Ã⟩|j⟩. Entries are restricted to non-negative fixed-point values.
 
 ```{doctest}
 >>> from oracq import QMatrix, simulate
@@ -29,9 +31,9 @@
 [((2, 8), (1+0j))]
 ```
 
-## KP 量子推荐系统
+## The KP quantum recommendation system
 
-{obj}`kp_recommendation <oracq.algorithms.qml.recommendation.kp_recommendation>` 按论文 Lemma 5.3 构造 W = Ũ R₁ Ũ⁻¹ · Ṽ R₀ Ṽ⁻¹（R₀/R₁ 为零基矢反射），对其做相位估计：cos(θᵢ/2) = σᵢ/‖A‖_F。逐相位字估计 σ̂ 并按阈值翻 flag（Alg 2 的确定性投影），逆相位估计后测 (flag, item)；flag=1 分支的条目分布即推荐采样分布。镜像相位 2^p−t 与 t 对应同一奇异值（W 特征值成对 e^{±iθ}）。
+{obj}`kp_recommendation <oracq.algorithms.qml.recommendation.kp_recommendation>` builds W = Ũ R₁ Ũ⁻¹ · Ṽ R₀ Ṽ⁻¹ per Lemma 5.3 of the paper (R₀/R₁ are reflections about the zero basis vectors) and runs phase estimation on it: cos(θᵢ/2) = σᵢ/‖A‖_F. σ̂ is estimated phase word by phase word and the flag flips against the threshold (the deterministic projection of Alg 2); after inverse phase estimation, (flag, item) is measured; the entry distribution of the flag=1 branch is exactly the recommendation sampling distribution. The mirror phase 2^p−t and t correspond to the same singular value (the eigenvalues of W come in pairs e^{±iθ}).
 
 ```{doctest}
 >>> from oracq import KPRecommendationConfig, QMatrix, simulate, kp_recommendation
@@ -43,8 +45,8 @@
 (1.0, {0: 0.8, 1: 0.2})
 ```
 
-秩一矩阵下推荐分布精确落在主奇异向量 v₁²=(0.8, 0.2) 上（残差为角量化误差）。带小扰动的矩阵上，阈值 σ 滤掉小奇异值分量，成功概率低于 1，条件分布趋近 v₁²——数值验证见 `tests/core/test_recommendation.py`。已声明的假设：非负定点条目、角字量化、无幅度放大（KP §6 的变时放大记为后续工作）。
+For a rank-one matrix the recommendation distribution lands exactly on the principal singular vector v₁²=(0.8, 0.2) (the residual is the angle-quantization error). On matrices with small perturbations, the threshold σ filters out small-singular-value components, the success probability drops below 1, and the conditional distribution approaches v₁² — numerical validation is in `tests/core/test_recommendation.py`. Declared assumptions: non-negative fixed-point entries, angle-word quantization, and no amplitude amplification (the variable-time amplification of KP §6 is noted as future work).
 
-## QFVM 的 QMem 直连路径
+## The QMem direct path of QFVM
 
-`applications/qfvm_qmem.py` 把 QFVM 的数据访问重写到同一套语法糖上：三守恒量合并为 (场, 单元) 状态表 {obj}`QMem(b, "state", shape=(3, n)) <oracq.infrastructure.qmem.QMem>`，邻居 cell±1 用模 2^cell_width 的指针算术实现周期边界；几何表按 (槽位, 列) 二维寻址；残差态由 QVector 树制备。模块直接声明 QRAM 形式资源，不再经过抽象槽位与 {obj}`bind <oracq.infrastructure.linking.bind>`。电路语义（可逆 Roe 算术、九槽位几何、补齐对角、原地位置置换）与既有 `applications/qfvm.py` 路径一致，等价性由 `tests/core/test_qfvm_qmem.py` 在 {obj}`simulate <oracq.infrastructure.execution.simulate>` 上逐振幅对拍；槽位-绑定主路径的逐行讲解见 [QFVM 输入模型与求解器替换](qfvm.md#qmem-直连并行路径)。
+`applications/qfvm_qmem.py` rewrites QFVM's data access onto the same syntactic sugar: the three conserved quantities merge into a (field, cell) state table {obj}`QMem(b, "state", shape=(3, n)) <oracq.infrastructure.qmem.QMem>`, neighbors cell±1 implement the periodic boundary through pointer arithmetic modulo 2^cell_width; the geometry table is addressed two-dimensionally by (slot, column); the residual state is prepared by a QVector tree. Modules declare QRAM-form resources directly, no longer going through abstract slots and {obj}`bind <oracq.infrastructure.linking.bind>`. The circuit semantics (reversible Roe arithmetic, nine-slot geometry, padding diagonal, in-place position permutation) match the existing `applications/qfvm.py` path; equivalence is cross-checked amplitude by amplitude on {obj}`simulate <oracq.infrastructure.execution.simulate>` by `tests/core/test_qfvm_qmem.py`. For the line-by-line walkthrough of the slot-binding main path see [QFVM input models and solver replacement](qfvm.md#qmem-direct-parallel-path).

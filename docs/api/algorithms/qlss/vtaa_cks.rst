@@ -1,5 +1,5 @@
-VTAA-CKS 变时线性系统求解器
-====================================
+VTAA-CKS variable-time linear-system solver
+======================================================================================
 
 ``oracq.algorithms.qlss.vtaa_cks``
 

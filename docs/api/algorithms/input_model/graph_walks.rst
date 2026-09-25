@@ -1,5 +1,5 @@
-图行走搜索
-============
+Graph-walk search
+==================================
 
 ``oracq.algorithms.input_model.graph_walks``
 

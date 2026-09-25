@@ -1,31 +1,33 @@
-# Oracle 与算子表示
+# Oracles and operator representations
 
-选择输入表示时，应先问上层算法需要怎样访问数据。一个矩阵的 BE、稀疏位置查询和数值 XOR 查询，提供的是不同能力。
+**English** · [简体中文](../zh/manual/operators.html)
 
-| 表示 | 可读取的信息 | 主要用途 |
+When choosing an input representation, first ask how the higher-level algorithm needs to access the data. A BE of a matrix, a sparse position query, and a numeric XOR query provide different capabilities.
+
+| Representation | Readable information | Primary use |
 |---|---|---|
-| {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>` | width、signal_qubits、alpha、capabilities | 线性算子组合、QLSS 和演化 |
-| {obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>` | width、work_width、零输入和复净约定 | 初态、右端态与反射 |
-| {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>` | address_width、data_width | 可逆数据访问 |
-| {obj}`SparseAccess <oracq.algorithms.input_model.oracles.SparseAccess>` | 位置/元素两个操作、sparsity、value_width | CKS 输入及稀疏适配 |
-| {obj}`Operation <oracq.infrastructure.builder.Operation>` | 公开寄存器、资源与模块依赖 | 完整量子操作 |
+| {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>` | width, signal_qubits, alpha, capabilities | linear-operator composition, QLSS, and evolution |
+| {obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>` | width, work_width, zero-input and clean-work conventions | initial states, right-hand-side states, and reflections |
+| {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>` | address_width, data_width | reversible data access |
+| {obj}`SparseAccess <oracq.algorithms.input_model.oracles.SparseAccess>` | the two operations position/entry, sparsity, value_width | CKS input and sparse adaptation |
+| {obj}`Operation <oracq.infrastructure.builder.Operation>` | public registers, resources, and module dependencies | complete quantum operations |
 
-同一个对象可以提供多种视图。例如完整 unitary `U` 可以制备 `U|0>`，也可以作为 alpha=1 的 BE 参加 LCU。算法通过方法和 Python 协议检查这些能力，约定详见[算法自己的约定](contracts.md)。
+One object can provide multiple views. For example, a full unitary `U` can prepare `U|0>` and also take part in an LCU as a BE with alpha=1. Algorithms check these capabilities through methods and Python protocols; for the conventions see [the conventions owned by algorithms](contracts.md).
 
-## 归一化常数
+## Normalization constants
 
-若零信号角块满足 `⟨0|U_A|0⟩=A/alpha_A`，那么 alpha 是组合所必需的量。乘积的 alpha 相乘；LCU 的 alpha 为各项 `abs(coefficient)*alpha` 之和。
+If the zero-signal corner block satisfies `⟨0|U_A|0⟩=A/alpha_A`, then alpha is the quantity composition requires. The alpha of a product multiplies; the alpha of an LCU is the sum of `abs(coefficient)*alpha` over the terms.
 
-这个常数不会让执行器额外缩放量子态。它描述实际线路的成功角块。修改 alpha 时必须重新生成依赖它的分支权重和角度。
+This constant does not make the executor additionally scale the quantum state. It describes the success corner block of the actual circuit. When modifying alpha, the branch weights and angles depending on it must be regenerated.
 
-## 数据字与幅度
+## Data words and amplitudes
 
-XOR database 返回位模式，不直接提供幅度访问。{obj}`diagonal_block_encoding <oracq.algorithms.input_model.oracles.diagonal_block_encoding>` 的输入是角度字，所编码的对角元为 `alpha*cos(angle/2)`。一般矩阵元需要相应的数值到幅度转换。
+An XOR database returns bit patterns and does not directly provide amplitude access. The input of {obj}`diagonal_block_encoding <oracq.algorithms.input_model.oracles.diagonal_block_encoding>` is an angle word, and the encoded diagonal entry is `alpha*cos(angle/2)`. General matrix elements need a corresponding numeric-to-amplitude conversion.
 
-稀疏输入还需要明确位置 oracle 的可逆形式。当前 CKS 位置接口原地置换 index；保留 index 的 XOR 表不能直接替代它。
+Sparse input additionally requires an explicit reversible form of the position oracle. The current CKS position interface permutes index in place; an XOR table that preserves index cannot directly replace it.
 
-## 开放 oracle
+## Open oracles
 
-使用 {obj}`abstract_block_encoding <oracq.algorithms.input_model.oracles.abstract_block_encoding>`、{obj}`abstract_state_prep <oracq.algorithms.input_model.oracles.abstract_state_prep>`、{obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>` 或 {obj}`abstract_sparse_access <oracq.algorithms.input_model.oracles.abstract_sparse_access>` 可以先写算法，再提供实现。开放状态只影响是否能执行或导出，结构检查仍然有效。
+Using {obj}`abstract_block_encoding <oracq.algorithms.input_model.oracles.abstract_block_encoding>`, {obj}`abstract_state_prep <oracq.algorithms.input_model.oracles.abstract_state_prep>`, {obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>`, or {obj}`abstract_sparse_access <oracq.algorithms.input_model.oracles.abstract_sparse_access>`, you can write the algorithm first and provide implementations later. The open state only affects executability or exportability; structural checks remain valid.
 
-完整的绑定例子见[教程：替换 oracle](../tutorials/oracle-binding.md)，API 见[oracle 目录](../api/algorithms/input_model/oracles.rst) 与 [BE 组合](../api/algorithms/input_model/block_encoding.rst)。
+For a complete binding example see the [tutorial: replacing oracles](../tutorials/oracle-binding.md); for the API see the [oracle catalog](../api/algorithms/input_model/oracles.rst) and [BE composition](../api/algorithms/input_model/block_encoding.rst).

@@ -1,6 +1,8 @@
-# 搜索一个元素，并估计成功概率
+# Search for an element and estimate the success probability
 
-[Grover 搜索](../manual/algorithms/grover.md)使用相位 oracle 标记好状态。下面在四个基态中标记 `3`，一次迭代后读取该状态。
+**English** · [简体中文](../zh/tutorials/search-and-estimation.html)
+
+[Grover search](../zh/manual/algorithms/grover.html) marks good states with a phase oracle. Below we mark `3` among four basis states and read that state out after one iteration.
 
 ```{testcode}
 from oracq.algorithms.input_model.oracles import phase_marks
@@ -17,11 +19,11 @@ assert abs(state.amplitudes[(3, 0)] - 1) < 1e-12
 {(3, 0): (0.9999999999999996-1.8369701987210287e-16j)}
 ```
 
-{obj}`grover <oracq.algorithms.common.search.grover>` 接收 {obj}`phase_marks <oracq.algorithms.input_model.oracles.phase_marks>` 声明的相位 oracle。打印出的字典只有一个基态：键 `(3, 0)` 表示 target 读数为 `3`、signal 为零，幅度的模方约等于 `1`（虚部是浮点噪声）。输出含 target 和 signal。这里 signal 为空接口，结果字为零；更复杂的输入制备可能有工作寄存器。
+{obj}`grover <oracq.algorithms.common.search.grover>` takes the phase oracle declared by {obj}`phase_marks <oracq.algorithms.input_model.oracles.phase_marks>`. The printed dictionary holds a single basis state: the key `(3, 0)` means the target reads `3` and the signal is zero, and the squared magnitude of the amplitude is approximately `1` (the imaginary part is floating-point noise). The output contains the target and the signal. Here the signal is an empty interface and the result word is zero; a more elaborate input preparation may carry work registers.
 
-## 估计概率
+## Estimating the probability
 
-标准[振幅估计](../manual/algorithms/qae.md)对 Grover iterate 做相位估计，入口是 {obj}`amplitude_estimation <oracq.algorithms.common.estimation.amplitude_estimation>`。它接收初态制备和好状态集合，输出 phase 寄存器。下面的初态在 `0` 和 `1` 上均匀分布，故好状态 `1` 的概率为 `1/2`。
+Standard [amplitude estimation](../zh/manual/algorithms/qae.html) runs phase estimation on the Grover iterate; its entry point is {obj}`amplitude_estimation <oracq.algorithms.common.estimation.amplitude_estimation>`. It takes an initial-state preparation and a set of good states and outputs a phase register. The initial state below is uniform over `0` and `1`, so the good state `1` has probability `1/2`.
 
 ```{testcode}
 from oracq.algorithms.input_model.oracles import uniform_state
@@ -30,8 +32,9 @@ from oracq.algorithms.common.estimation import amplitude_estimation, amplitude_f
 operation = amplitude_estimation(uniform_state(1), [1], precision=3)
 state = simulate(operation.program())
 phases = {key[2] for key in state.amplitudes}
-# 解码值与 1/2 只差浮点末位，不同平台的三角函数库在末位上可能不同；
-# 打印前舍入到 12 位，输出在各平台逐字一致。
+# The decoded values differ from 1/2 only in the last floating-point bit, and trig libraries on
+# different platforms may differ in that bit; round to 12 digits before printing so the output
+# is verbatim-identical on every platform.
 print({value: round(amplitude_from_phase(value, 3), 12) for value in sorted(phases)})
 assert phases == {2, 6}
 assert all(abs(amplitude_from_phase(value, 3) - 0.5) < 1e-12 for value in phases)
@@ -41,10 +44,10 @@ assert all(abs(amplitude_from_phase(value, 3) - 0.5) < 1e-12 for value in phases
 {2: 0.5, 6: 0.5}
 ```
 
-初态由 {obj}`uniform_state <oracq.algorithms.input_model.oracles.uniform_state>` 制备。打印出的字典把两个相位字经 {obj}`amplitude_from_phase <oracq.algorithms.common.estimation.amplitude_from_phase>` 解码回概率：`2` 和 `6` 都给出约 `1/2`，未舍入的解码值与 `1/2` 的差异在浮点末位，来自有限精度读出的舍入。一般情况下，有限精度的相位读出会产生近似估计；多次采样和统计处理在宿主侧进行。
+The initial state is prepared by {obj}`uniform_state <oracq.algorithms.input_model.oracles.uniform_state>`. The printed dictionary decodes the two phase words back into probabilities via {obj}`amplitude_from_phase <oracq.algorithms.common.estimation.amplitude_from_phase>`: both `2` and `6` give approximately `1/2`; the unrounded decoded values differ from `1/2` only in the last floating-point bit, which comes from the rounding of a finite-precision readout. In general, a finite-precision phase readout yields an approximate estimate; repeated sampling and statistical post-processing happen on the host side.
 
-## 相关页面
+## Related pages
 
-- 算法页：[Grover 搜索](../manual/algorithms/grover.md)、[振幅放大](../manual/algorithms/amplitude-amplification.md)、[振幅估计](../manual/algorithms/qae.md)、[相位估计](../manual/algorithms/qpe.md)
-- API 参考：[搜索与振幅放大](../api/algorithms/common/search.rst)、[相位、振幅与重叠估计](../api/algorithms/common/estimation.rst)、[Oracle 声明与实现](../api/algorithms/input_model/oracles.rst)
-- 继续教程：[运行与修改算法展示目录](gallery.md)（覆盖本例两个算法的更多案例）
+- Algorithm pages: [Grover search](../zh/manual/algorithms/grover.html), [amplitude amplification](../zh/manual/algorithms/amplitude-amplification.html), [amplitude estimation](../zh/manual/algorithms/qae.html), [phase estimation](../zh/manual/algorithms/qpe.html)
+- API reference: [Search and amplitude amplification](../api/algorithms/common/search.rst), [Phase, amplitude, and overlap estimation](../api/algorithms/common/estimation.rst), [Oracle declarations and implementations](../api/algorithms/input_model/oracles.rst)
+- Continue with: [Running and modifying the algorithm gallery](gallery.md) (further cases covering both algorithms of this example)

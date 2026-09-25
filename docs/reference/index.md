@@ -1,6 +1,8 @@
-# 规范参考
+# Specification reference
 
-这些文档定义对象格式和组合语义。实现或验证底层工具时，以此处的规则和对应测试为依据。
+**English** · [简体中文](../zh/reference/index.html)
+
+These documents define object formats and composition semantics. When implementing or validating the underlying tools, treat the rules here and the corresponding tests as authoritative.
 
 ```{toctree}
 :maxdepth: 2

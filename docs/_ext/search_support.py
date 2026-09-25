@@ -1,4 +1,4 @@
-"""中英文与 Python 标识符的搜索分词，两端使用相同规则。"""
+"""Search tokenization shared by indexing and querying, covering Chinese text and Python identifiers."""
 
 import re
 

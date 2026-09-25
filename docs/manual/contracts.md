@@ -1,30 +1,32 @@
-# 算法自己的约定：从一个 gate 开始
+# Conventions owned by algorithms: starting from one gate
 
-**约定属于算法库，不属于 RIR 的语言类型系统。** 一个对象可以满足多个 Python 协议；上层算法检查自己需要的方法、参数和调用能力。新算法可以在自己的文件中定义新协议，无需修改 oracq 的语法、RIR、序列化器或全局类型目录。
+**English** · [简体中文](../zh/manual/contracts.html)
 
-本章说明算法如何声明、检查和适配输入。完整可运行示例：[examples/algorithm_contracts.py](../../examples/algorithm_contracts.py)。较长的数学组装说明仍见 [QPDE/QODE 指南](differential-equations.md)。
+**Conventions belong to the algorithm library, not to the RIR language's type system.** An object can satisfy multiple Python protocols at once; higher-level algorithms check the methods, parameters, and invocation capabilities they need. A new algorithm can define new protocols in its own file without modifying the oracq syntax, the RIR, the serializers, or a global type catalog.
 
-## 1. 协议与算法生成器
+This chapter explains how algorithms declare, check, and adapt inputs. Complete runnable example: [examples/algorithm_contracts.py](../../examples/algorithm_contracts.py). For the longer mathematical assembly guide, see the [QPDE/QODE guide](differential-equations.md).
 
-新代码使用 {obj}`AlgorithmContract <oracq.algorithms.input_model.contracts.AlgorithmContract>`、{obj}`QLSSSolver <oracq.algorithms.qlss.qlss.QLSSSolver>` 和 {obj}`QODESolver <oracq.algorithms.qode.ode.QODESolver>`。旧名称
-{obj}`ProtocolContract <oracq.algorithms.input_model.contracts.ProtocolContract>`、{obj}`QLSSProtocol <oracq.algorithms.qlss.qlss.QLSSProtocol>`、{obj}`QODEProtocol <oracq.algorithms.qode.ode.QODEProtocol>` 是相同类型的兼容别名。
-Python Protocol 描述访问接口；求解器负责生成，契约负责检查，RIR 开放模块
-负责保存尚未提供的实现。这些机制分别作用于生成与链接边界。
+## 1. Protocols and algorithm generators
 
-Python 的 `typing.Protocol` 表示“一个对象满足什么接口”；库中的 QLSS/QODE protocol 表示“可替换的算法生成器”。二者相关但不同：
+New code uses {obj}`AlgorithmContract <oracq.algorithms.input_model.contracts.AlgorithmContract>`, {obj}`QLSSSolver <oracq.algorithms.qlss.qlss.QLSSSolver>`, and {obj}`QODESolver <oracq.algorithms.qode.ode.QODESolver>`. The old names
+{obj}`ProtocolContract <oracq.algorithms.input_model.contracts.ProtocolContract>`, {obj}`QLSSProtocol <oracq.algorithms.qlss.qlss.QLSSProtocol>`, and {obj}`QODEProtocol <oracq.algorithms.qode.ode.QODEProtocol>` are compatibility aliases of the same types.
+A Python protocol describes the access interface; the solver is responsible for generation, the contract for checking, and open RIR modules
+for holding implementations that have not been provided yet. These mechanisms act on the generation and linking boundaries, respectively.
+
+Python's `typing.Protocol` states "which interface an object satisfies"; the QLSS/QODE protocols in the library mean "replaceable algorithm generators". The two are related but different:
 
 ```text
-输入对象满足某个 Python 接口
-    → 算法生成器检查输入、选择实现
-    → 生成新的 oracle/操作
-    → 生成结果又满足某些 Python 接口
+the input object satisfies some Python interface
+    -> the algorithm generator checks the input and selects an implementation
+    -> new oracles/operations are generated
+    -> the generated result again satisfies some Python interfaces
 ```
 
-这些步骤发生在 Python 生成阶段，不是量子线路执行时的类型分派。RIR 仍保存寄存器、门、{obj}`Call <oracq.infrastructure.ir.Call>`、{obj}`Repeat <oracq.infrastructure.ir.Repeat>` 和开放声明，不保存 Python 回调。
+These steps happen during the Python generation stage, not as type dispatch at quantum-circuit execution time. The RIR still stores registers, gates, {obj}`Call <oracq.infrastructure.ir.Call>`, {obj}`Repeat <oracq.infrastructure.ir.Repeat>`, and open declarations; it does not store Python callbacks.
 
-## 2. 一个 gate 同时是 unitary、state preparation 和 LCU 输入
+## 2. One gate is simultaneously a unitary, a state preparation, and an LCU input
 
-下面是完整代码片段：
+Here is the complete code snippet:
 
 ```python
 from oracq import Bits, Builder, identity, requires
@@ -40,28 +42,28 @@ requires(gate, StatePreparationProtocol)
 requires(gate, BlockEncodingProtocol)
 
 initial = gate.state_preparation()   # U|0> = |1>
-encoded_u = gate.block_encoding()  # U 自身：alpha=1、零信号位
-sum_encoding = lcu([(1, gate), (1, identity(1))])  # 编码 U+I，alpha=2
+encoded_u = gate.block_encoding()  # U itself: alpha=1, zero signal bits
+sum_encoding = lcu([(1, gate), (1, identity(1))])  # encodes U+I, alpha=2
 ```
 
-这里没有给 `gate` 挂三个字符串标签。{obj}`Operation <oracq.infrastructure.builder.Operation>` 提供了三个实际方法，因此结构协议成立：`unitary()`、`state_preparation()`、{obj}`block_encoding() <oracq.algorithms.input_model.operators.block_encoding>`。
+`gate` is not given three string labels here. {obj}`Operation <oracq.infrastructure.builder.Operation>` provides three actual methods, so the structural protocols hold: `unitary()`, `state_preparation()`, and {obj}`block_encoding() <oracq.algorithms.input_model.operators.block_encoding>`.
 
-**默认把 Operation 的全部公开寄存器视为完整 unitary 的目标空间。** 多个寄存器按签名顺序从低位到高位拼接。如果一个操作公开了 2 位 target 和 3 位 work，把整个 Operation 当作 unitary 态制备时，得到的是 5 位态，不会擅自认为那 3 位可以消失。
+**By default, all public registers of an Operation are treated as the target space of the full unitary.** Multiple registers are concatenated from the least significant to the most significant position in signature order. If an operation exposes a 2-bit target and 3 bits of work, treating the whole Operation as a unitary state preparation yields a 5-bit state; it is not silently assumed that those 3 bits can disappear.
 
-如果你知道 work 在零输入制备后复净，可以显式缩小态的目标解释：
+If you know the work is clean after a zero-input preparation, you can explicitly narrow the target interpretation of the state:
 
 ```python
 from oracq.algorithms.input_model.oracles import StatePreparation
 
-# operation 的接口必须恰好是 q / tmp。
+# the operation's interface must be exactly q / tmp.
 # prep = StatePreparation.from_unitary(operation, target="q", work="tmp", clean_work=True)
 ```
 
-`clean_work=True` 是你对这个实现的算法承诺，语言不证明它。默认的全公开寄存器适配无需这个承诺；当前 BE/state-prep 便捷包装器的单个 target 仍受 64 位限制。
+`clean_work=True` is your algorithmic promise about this implementation; the language does not prove it. The default all-public-registers adaptation needs no such promise; the single target of the current BE/state-prep convenience wrappers is still limited to 64 bits.
 
-这也澄清“任意 unitary 能否作为 b”：它一定定义了某个 `b=U|0>`。是否是你要解的问题中的那个 b，由应用定义；是否支持 QLSS 所需的 inverse/controlled，由具体 QLSS 检查。
+This also clarifies "whether an arbitrary unitary can serve as b": it always defines some `b=U|0>`. Whether that is the b of the problem you want to solve is defined by the application; whether it supports the inverse/controlled forms needed by QLSS is checked by the concrete QLSS.
 
-## 3. QLSS 直接接收这个 gate 作为 b
+## 3. QLSS accepts this gate directly as b
 
 ```python
 from oracq import BlockSystem, LinearSystem, SpectralPromise, identity
@@ -77,7 +79,7 @@ report.require()
 result = solver(problem)
 ```
 
-{obj}`BlockSystem <oracq.algorithms.qlss.qlss.BlockSystem>` 通过 `state_preparation()` 把 gate 取得为初态接口。Costa 的需求可直接查看：
+{obj}`BlockSystem <oracq.algorithms.qlss.qlss.BlockSystem>` obtains the gate as an initial-state interface through `state_preparation()`. Costa's requirements can be inspected directly:
 
 ```python
 print(solver.contract.to_dict())
@@ -85,36 +87,35 @@ print(report.to_dict())
 print([p.__name__ for p in solver.provides])  # ['StateOracleProtocol']
 ```
 
-当前 Costa 组合入口要求 A 能提供 BE，或能提供可显式转换的 CKS 稀疏输入；b 能提供零输入、干净工作区的态制备；输入必须同宽，并支持组合中实际需要的 adjoint/controlled。谱界依然是问题的数学声明。
+The current Costa composition entry requires A to provide a BE, or CKS sparse input that can be converted explicitly; b to provide a state preparation with zero input and a clean workspace; the inputs must have the same width and support the adjoint/controlled forms actually needed by the composition. Spectral bounds remain a mathematical declaration of the problem.
 
-`result.state_oracle()` 得到输出态 oracle。输出 state oracle 包含成功信号，不会自动变成“没有后选择的干净初态制备”；若下一步只需要它的完整物理 unitary，可显式取 `result.operation`，此时其全部信号寄存器也属于完整空间。
+`result.state_oracle()` yields the output state oracle. The output state oracle carries a success signal; it does not automatically become "a clean initial-state preparation without post-selection". If the next step only needs its full physical unitary, you can explicitly take `result.operation`, in which case all of its signal registers also belong to the full space.
 
-`check` 不运行 QLSS 内核或量子模拟。它可以调用输入对象的方法取得/生成具体访问视图，因此自定义适配方法应当确定、无外部副作用；构造昂贵时可由对象自己缓存结果。
+`check` does not run the QLSS kernel or a quantum simulation. It may call methods of the input objects to obtain/generate concrete access views, so custom adaptation methods should be deterministic and free of external side effects; when construction is expensive, the object itself may cache the result.
 
-`contract.resolve(**inputs)` 返回本次取得的视图与报告。算法应使用
-`resolved.get(name, ViewType)` 取得这些已检查视图，避免检查后再次调用提供方。
-一次求解入口复用本次视图；独立调用 `check()` 后再调用求解器属于两次操作，
-不会共享隐藏缓存。适配入口检查可调用性及可获取的无参签名，提供方方法体内
-发生的异常保留原始 traceback。
+`contract.resolve(**inputs)` returns the views and reports obtained this time. Algorithms should use
+`resolved.get(name, ViewType)` to obtain these already-checked views, avoiding calling the provider again after the check.
+One solve entry reuses the views of that call; calling `check()` independently and then calling the solver counts as two operations
+and does not share a hidden cache. Adaptation entries check callability and the parameterless signature that can be obtained; exceptions raised inside provider method bodies keep their original traceback.
 
-## 4. A 的参数从哪里读
+## 4. Where A's parameters are read from
 
-已有 BE 包装类保留原 API，并增加只读别名：
+Existing BE wrapper classes keep their original API and add read-only aliases:
 
-| 读取 | 含义 |
+| Read | Meaning |
 |---|---|
-| `A.width` / `A.main_qubit` | 目标寄存器位数 |
-| `A.signal_qubits` / `A.anc_qubit` | BE 公开信号位数，不包含模块私有 locals 的资源峰值 |
-| `A.alpha` | 当前编码的归一化常数 |
-| `A.capabilities.adjoint` / `.controlled` | 从整个依赖图推导的有效调用能力 |
-| `A.spec` | 可转 JSON 的描述快照，含寄存器、资源和 open/closed 状态 |
-| `A.type` | 描述性角色名，例如 `block_encoding`；不作为唯一类型或分派依据 |
+| `A.width` / `A.main_qubit` | bit width of the target register |
+| `A.signal_qubits` / `A.anc_qubit` | number of public signal bits of the BE, excluding the resource peak of module-private locals |
+| `A.alpha` | normalization constant of the current encoding |
+| `A.capabilities.adjoint` / `.controlled` | effective invocation capabilities derived from the whole dependency graph |
+| `A.spec` | JSON-serializable description snapshot covering registers, resources, and open/closed state |
+| `A.type` | descriptive role name such as `block_encoding`; not a unique type or a dispatch basis |
 
-如果 A 是自己的算子对象，先通过 `A.block_encoding()` 取得该算法所需的具体视图，再读取这些参数。算法根据接口方法工作，不需要向一个中央枚举追加类型名。
+If A is your own operator object, first obtain the concrete view this algorithm needs through `A.block_encoding()`, then read these parameters. Algorithms work against interface methods; there is no need to append type names to a central enumeration.
 
-CKS 输入是位置操作和元素操作的集合：`SparseAccess.sparse_access()` 返回自身；其 `spec.components` 分别描述 position/entry，参数中记录 sparsity 和 value_width。整个集合的 `anc_qubit=None`，避免把两个不同查询操作伪装成同一个 unitary 的总辅助位数。
+The CKS input is a collection of a position operation and an entry operation: `SparseAccess.sparse_access()` returns itself; its `spec.components` describe position/entry respectively, with sparsity and value_width recorded in the parameters. The collection as a whole has `anc_qubit=None`, avoiding the pretense that two different query operations are the total ancilla count of one and the same unitary.
 
-## 5. 不继承 oracq，也可以提供新输入
+## 5. Providing new inputs without inheriting from oracq
 
 ```python
 from oracq import identity, requires
@@ -128,11 +129,11 @@ A = MyMatrix()
 requires(A, BlockEncodingProtocol)
 ```
 
-算法库使用 `@runtime_checkable typing.Protocol` 做结构检查；`MyMatrix` 没有继承基类，也没有注册。
+The algorithm library performs structural checks with `@runtime_checkable typing.Protocol`; `MyMatrix` inherits from no base class and performs no registration.
 
-{obj}`requires <oracq.algorithms.input_model.contracts.requires>` 检查接口存在，不证明方法签名或返回值的数学含义。具体算法调用 `block_encoding()` 后仍检查返回的 BE 类型、宽度、alpha 和所需能力。例如返回一个字符串会得到 `INPUT_ADAPTER` 报告，不会因为“恰好有同名方法”就被接受。
+{obj}`requires <oracq.algorithms.input_model.contracts.requires>` checks that the interface exists; it does not prove the method signature or the mathematical meaning of the return value. After calling `block_encoding()`, a concrete algorithm still checks the returned BE type, width, alpha, and required capabilities. For example, returning a string produces an `INPUT_ADAPTER` report; it is not accepted merely because "a method with the same name happens to exist".
 
-新约定可以完全放在应用里：
+New conventions can live entirely inside the application:
 
 ```python
 from typing import Protocol, runtime_checkable
@@ -145,26 +146,26 @@ class HasDiagonal(Protocol):
 def my_diagonal_algorithm(operator):
     requires(operator, HasDiagonal, path="my_diagonal_algorithm.operator")
     values = operator.diagonal_values()
-    # 本算法继续检查长度、值域，并生成自己的操作。
+    # this algorithm continues to check length and value range, and generates its own operations.
     return values
 ```
 
-这里的 `HasDiagonal` 不是新的语言类型，导出器从来不需要知道它。
+`HasDiagonal` here is not a new language type; exporters never need to know about it.
 
-## 6. Hermitian、Trotterizable 与 QSP 分别表示什么
+## 6. What Hermitian, Trotterizable, and QSP each mean
 
-数学算符与实现它的物理 unitary 必须分清：非 Hermitian 的 A 也可以有 unitary 的 block encoding `U_A`，但不能据此把 A 当作 Hermitian Hamiltonian。
+Mathematical operators and the physical unitaries implementing them must be kept apart: a non-Hermitian A can still have a unitary block encoding `U_A`, but A must not be treated as a Hermitian Hamiltonian on that basis.
 
-当前 [hamiltonian.py](../api/algorithms/common/hamiltonian.rst) 定义了这一类算法自己的接口：
+The current [hamiltonian.py](../api/algorithms/common/hamiltonian.rst) defines the interface owned by this family of algorithms:
 
-| 协议 | 提供的内容 | 由谁判断 |
+| Protocol | What it provides | Who judges |
 |---|---|---|
-| {obj}`HermitianProtocol <oracq.algorithms.common.hamiltonian.HermitianProtocol>` | `.hermitian` 声明 | HamSim 要求其为 True，数学真实性由实现方负责 |
-| {obj}`BlockEncodingProtocol <oracq.algorithms.input_model.interfaces.BlockEncodingProtocol>` | `.block_encoding()` | BE/QSP 型实现取得访问模型与 alpha |
-| {obj}`TrotterizableProtocol <oracq.algorithms.common.hamiltonian.TrotterizableProtocol>` | `.trotter_list()` | Trotter 实现取得有序的带系数分解 |
-| {obj}`EvolvableProtocol <oracq.algorithms.common.hamiltonian.EvolvableProtocol>` | `.evolution(t)` | 单项提供 `exp(-it H_j)` 的具体酉演化 |
+| {obj}`HermitianProtocol <oracq.algorithms.common.hamiltonian.HermitianProtocol>` | the `.hermitian` declaration | HamSim requires it to be True; mathematical truthfulness is the implementer's responsibility |
+| {obj}`BlockEncodingProtocol <oracq.algorithms.input_model.interfaces.BlockEncodingProtocol>` | `.block_encoding()` | BE/QSP-style implementations obtain the access model and alpha |
+| {obj}`TrotterizableProtocol <oracq.algorithms.common.hamiltonian.TrotterizableProtocol>` | `.trotter_list()` | Trotter implementations obtain the ordered, coefficient-carrying decomposition |
+| {obj}`EvolvableProtocol <oracq.algorithms.common.hamiltonian.EvolvableProtocol>` | `.evolution(t)` | a single term provides the concrete unitary evolution of `exp(-it H_j)` |
 
-一个对象可以同时满足其中几个协议。下面的对象只有 Trotter 访问，没有 BE：
+One object can satisfy several of these protocols at once. The object below has only Trotter access and no BE:
 
 ```python
 from oracq.algorithms.common.hamiltonian import PauliOperator, TrotterTerm, hamiltonian_simulation
@@ -181,15 +182,15 @@ class MyHamiltonian:
 evolution = hamiltonian_simulation(MyHamiltonian(), 0.4, steps=3)
 ```
 
-此处 `H=Σ c_j H_j`；生成器按列表顺序调用各项 `evolution(c_j*t/steps)`，再用 RIR {obj}`Repeat(steps) <oracq.infrastructure.ir.Repeat>` 保留重复结构。返回 {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`，alpha=1。一般非对易情况下这是乘积公式近似，精度由配置与算法分析负责。
+Here `H=Σ c_j H_j`; the generator calls `evolution(c_j*t/steps)` for each term in list order, then keeps the repeated structure with the RIR {obj}`Repeat(steps) <oracq.infrastructure.ir.Repeat>`. It returns a {obj}`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>` with alpha=1. In the generally non-commuting case this is a product-formula approximation; accuracy is the responsibility of the configuration and the algorithm analysis.
 
-{obj}`TrotterTerm <oracq.algorithms.common.hamiltonian.TrotterTerm>` 不只是一个矩阵名字。当前实现要求单项演化返回具体 `Operation`，其非零公开寄存器只有 `target`，且所有项同宽。需要辅助寄存器的精确 HamSim 可以后续扩展这个算法的契约；不能把有后选择信号的一般 Taylor BE 冒充精确单项酉演化。
+{obj}`TrotterTerm <oracq.algorithms.common.hamiltonian.TrotterTerm>` is more than a matrix name. The current implementation requires each single-term evolution to return a concrete `Operation` whose only non-zero public register is `target`, and all terms must have the same width. Exact HamSim that needs ancilla registers can extend this algorithm's contract later; a general Taylor BE with post-selection signals must not be passed off as an exact single-term unitary evolution.
 
-{obj}`hamiltonian_simulation(method="auto") <oracq.algorithms.common.hamiltonian.hamiltonian_simulation>` 当前优先选择可用的 Trotter 分解，否则尝试 BE/QSP 路径。`method="qsp"` 要求注入实际的 `qsp(BE,time)->BlockEncoding` 生成器；库内目前没有通用 QSP-HamSim 内核，缺失时明确报错。这是局部、可替换的选择策略，不是“所有 Hermitian 输入都由语言自动实现 QSP”。具体 QSP 的额外前提仍由被注入实现负责检查。
+{obj}`hamiltonian_simulation(method="auto") <oracq.algorithms.common.hamiltonian.hamiltonian_simulation>` currently prefers an available Trotter decomposition and otherwise tries the BE/QSP path. `method="qsp"` requires injecting an actual `qsp(BE,time)->BlockEncoding` generator; the library currently ships no general QSP-HamSim kernel and fails explicitly when it is missing. This is a local, replaceable selection strategy, not "the language automatically implements QSP for every Hermitian input". Additional premises of the concrete QSP are still checked by the injected implementation.
 
-{obj}`EncodedOperator(encoding, hermitian=False) <oracq.algorithms.common.hamiltonian.EncodedOperator>` 可以表示非 Hermitian 算子并提供 BE；HamSim 会拒绝它，QODE 则可以消费其 BE，并按自身方法检查条件。
+{obj}`EncodedOperator(encoding, hermitian=False) <oracq.algorithms.common.hamiltonian.EncodedOperator>` can represent a non-Hermitian operator and provide a BE; HamSim rejects it, while QODE can consume its BE and check the conditions with its own methods.
 
-## 7. LCHS、Schrödingerization 各自负责约定
+## 7. LCHS and Schrödingerization each own their conventions
 
 ```python
 from oracq import QODEProblem, identity, scale
@@ -208,29 +209,29 @@ state = lchs.solve(problem, 0.1)
 other = schrodinger.solve(problem, 0.1)
 ```
 
-{obj}`QODEProblem <oracq.algorithms.qode.ode.QODEProblem>` 与 `QODESolver` 是普通算法库对象。LCHS/CBMD 的问题级 `solve` 要求显式 `dissipative=True`；Schrödingerization 不要求这个声明，但仍需应用保证辅助网格与恢复区有效。`check().ok` 的含义是结构与声明满足需求，绝不是已经证明 PDE 的性质。
+{obj}`QODEProblem <oracq.algorithms.qode.ode.QODEProblem>` and `QODESolver` are ordinary algorithm-library objects. The problem-level `solve` of LCHS/CBMD requires an explicit `dissipative=True`; Schrödingerization does not require this declaration, but the application must still guarantee a valid auxiliary grid and recovery region. `check().ok` means the structure and declarations satisfy the requirements — never that properties of the PDE have been proven.
 
-旧 `(G, initial, time)` 调用仍兼容，照旧由调用者承担数学前提；新应用推荐 `.solve(QODEProblem(...),time)`，这样未声明耗散和明确非耗散不会被无声地接受。没有给 RIR 增加一个“耗散矩阵”类型。
+The old `(G, initial, time)` call remains compatible, with the mathematical premises still borne by the caller as before; new applications are encouraged to use `.solve(QODEProblem(...),time)`, so that undeclared dissipation and explicitly non-dissipative inputs are not silently accepted. No "dissipative matrix" type was added to the RIR.
 
-Carleman 自己要求多线性系数端口 `F_p` 的布局与初态范数，再把生成的线性系统交给所选 QODE protocol。提升系统不一定耗散，需要时显式移位；这些数学边界仍见 [QPDE/QODE 指南](differential-equations.md)。
+Carleman itself requires the layout of the multilinear coefficient ports `F_p` and the initial-state norm, then hands the generated linear system to the selected QODE protocol. The lifted system is not necessarily dissipative; shift explicitly when needed. These mathematical boundaries are still covered in the [QPDE/QODE guide](differential-equations.md).
 
-## 8. requires、报告、绑定各做一件事
+## 8. requires, reports, and binding each do one thing
 
-`requires(value, Interface)` 是最小工具，用来写算法自己的检查。需要聚合错误和展示契约时，可用 {obj}`InputRequirement <oracq.algorithms.input_model.contracts.InputRequirement>` 与 `AlgorithmContract`，把本算法接受的 Python 协议类及适配函数传进去。它们不依赖闭合的字符串类型集合。
+`requires(value, Interface)` is the minimal tool for writing an algorithm's own checks. When you need to aggregate errors and display contracts, use {obj}`InputRequirement <oracq.algorithms.input_model.contracts.InputRequirement>` and `AlgorithmContract`, passing in the Python protocol classes this algorithm accepts together with adaptation functions. They do not depend on a closed set of string types.
 
-报告中的错误含 `code/path/expected/actual/message`。常见错误有 `INPUT_PROTOCOL`（缺接口）、`INPUT_ADAPTER`（取得视图失败）、`INPUT_WIDTH`、`INPUT_CAPABILITY`、`INPUT_PROMISE`、`OUTPUT_LAYOUT`。`report.require()` 会一次抛出全部已发现的问题，异常仍是 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` 的子类，方便旧代码兼容。
+Errors in the report contain `code/path/expected/actual/message`. Common errors include `INPUT_PROTOCOL` (missing interface), `INPUT_ADAPTER` (failed to obtain a view), `INPUT_WIDTH`, `INPUT_CAPABILITY`, `INPUT_PROMISE`, and `OUTPUT_LAYOUT`. `report.require()` raises all discovered problems at once; the exception remains a subclass of {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` for compatibility with older code.
 
-{obj}`bind <oracq.infrastructure.linking.bind>` 继续只负责已有 RIR 槽位的 ABI、alpha、调用能力和资源连接。它不负责认识 `HermitianProtocol`、`TrotterizableProtocol` 或你的新数学性质；声明的数学真实性仍由算法及实现方负责。同签名/alpha 可晚绑定，否则重新运行宿主生成器。
+{obj}`bind <oracq.infrastructure.linking.bind>` continues to handle only the ABI, alpha, invocation capabilities, and resource wiring of existing RIR slots. It is not responsible for knowing `HermitianProtocol`, `TrotterizableProtocol`, or your new mathematical properties; the mathematical truthfulness of declarations remains with the algorithms and implementers. Same-signature/alpha allows late binding; otherwise rerun the host generator.
 
-`A.spec` / `contract.to_dict()` / `report.to_dict()` 是检查报告，可存 JSON，但不是另一套可执行 IR。运行实现仍通过 `dumps/loads` 保存 RIR，恢复入口操作可用 `Operation.from_program(program)`。协议对象、缓存和任意宿主方法不会被偷偷序列化。
+`A.spec` / `contract.to_dict()` / `report.to_dict()` are check reports that can be stored as JSON, but they are not another executable IR. Running implementations are still saved through `dumps/loads` on the RIR; entry operations can be restored with `Operation.from_program(program)`. Protocol objects, caches, and arbitrary host methods are never silently serialized.
 
-## 9. 运行与工程边界
+## 9. Running and engineering boundaries
 
 ```bash
 PYTHONPATH=src .venv/bin/python examples/algorithm_contracts.py
 PYTHONPATH=src .venv/bin/python -m oracq inspect out/algorithm-contracts/qlss.closed.rir.yaml
 ```
 
-示例输出包括接受/拒绝报告、开放/闭合 QLSS、同一 unitary 的 LCU、两个 QODE 描述和 Trotter 的模块化 OriginIR。
+The example output includes accept/reject reports, an open and a closed QLSS, an LCU of the same unitary, two QODE descriptions, and the modular OriginIR of the Trotter run.
 
-算法约定在 Python 层扩展，RIR 格式仍为 0.3。生产使用边界与完整验收方式见 [工程成熟度](limits.md)：语言与组装检查接受工程测试；Costa/CKS、LCHS、Schrödingerization、Carleman、QHAM 的完整数值正确性仍是实验状态。尚不能把整套量子求解算法称为已认证的生产求解器。
+Algorithm conventions extend at the Python layer while the RIR format stays at 0.3. For production-use boundaries and the full acceptance procedure see [engineering maturity](limits.md): the language and assembly checks pass engineering tests; the full numerical correctness of Costa/CKS, LCHS, Schrödingerization, Carleman, and QHAM remains experimental. The quantum solving stack as a whole cannot yet be called a certified production solver.

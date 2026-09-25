@@ -1,5 +1,5 @@
-变分算法电路
-============
+Variational algorithm circuits
+============================================================
 
 ``oracq.algorithms.optimization.variational``
 

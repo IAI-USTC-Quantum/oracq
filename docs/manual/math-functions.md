@@ -1,6 +1,8 @@
-# 普通数学函数自动生成可逆量子模块
+# Automatically generating reversible quantum modules from ordinary math functions
 
-先编写纯 Python 数学函数，再调用 {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 生成可逆量子模块。函数仍可用于经典计算；量子侧由编译器处理临时寄存器、别名复制、结果 XOR 和反算。[QFVM](qfvm.md) 的 Roe face 已采用这条路径。
+**English** · [简体中文](../zh/manual/math-functions.html)
+
+First write a pure Python math function, then call {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` to generate a reversible quantum module. The function remains usable for classical computation; on the quantum side the compiler handles temporary registers, alias copying, result XOR, and uncomputation. The [QFVM](qfvm.md) Roe face already uses this path.
 
 ```python
 from oracq import FixedFormat, compile_function, export_toffoli_u3_cz
@@ -19,7 +21,7 @@ program = compiled.program()
 originir = export_toffoli_u3_cz(program).text
 ```
 
-该模块的接口为 rho、momentum、energy、out、status；gamma 是生成期参数。调用方式与其他 {obj}`Operation <oracq.infrastructure.builder.Operation>` 相同：
+The module's interface is rho, momentum, energy, out, status; gamma is a generation-time parameter. It is invoked like any other {obj}`Operation <oracq.infrastructure.builder.Operation>`:
 
 ```python
 from oracq import Builder, Bits
@@ -28,21 +30,21 @@ b = Builder("flow_pressure", {
     "rho": Bits(12), "momentum": Bits(12), "energy": Bits(12),
     "value": Bits(12), "flags": Bits(2),
 })
-# 输入通常先来自 QRAM。下面的 Call 不会在 RIR 中自动展开。
+# Inputs usually come from QRAM first. The Call below is not automatically expanded in the RIR.
 b.call(operation, rho=b["rho"], momentum=b["momentum"],
        energy=b["energy"], out=b["value"], status=b["flags"])
 application = b.finish().program()
 ```
 
-输入保持不变，结果 XOR 写入目标寄存器，是本功能的公开契约。它计算有限字长下的函数实现 F_tilde；不会声称有限电路精确表示任意连续数学函数。
+Inputs stay unchanged and the result is XORed into the target register — that is the public contract of this feature. It computes a finite-word-length implementation F_tilde of the function; it never claims that a finite circuit exactly represents an arbitrary continuous mathematical function.
 
-## 已实现的数学范围
+## The implemented mathematical scope
 
-- 实数：四则运算、负号、绝对值、比较、条件选择、整数常量幂及一般幂；现有恢复除法和逐双位平方根电路复用。
-- 实函数：sqrt、exp、log、log10、sin、cos、tan、asin、acos、atan、sinh、cosh、tanh、asinh、acosh、atanh。
-- 复数：加减乘除、绝对值、实部/虚部、conjugate，以及上述 cmath 函数的复数分解；另有 phase、polar、rect。
-- 补充分解：atan2 的幅值比与象限选择、hypot、多项式 Clenshaw 递推、复数代数组合、按分支选择的状态电路。
-- 源码组合：纯 helper、静态有界 range、多个返回值和静态 tuple。helper 保留独立 MIR/RIR 模块。
+- Real numbers: the four arithmetic operations, negation, absolute value, comparisons, conditional selection, integer constant powers, and general powers; reuses the existing restoring division and digit-by-digit square-root circuits.
+- Real functions: sqrt, exp, log, log10, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh.
+- Complex numbers: addition, subtraction, multiplication, division, absolute value, real/imaginary parts, conjugate, and complex decompositions of the cmath functions above; additionally phase, polar, rect.
+- Supplementary decompositions: magnitude-ratio and quadrant selection for atan2, hypot, the polynomial Clenshaw recursion, complex algebraic combinations, and status circuits selected by branch.
+- Source composition: pure helpers, statically bounded ranges, multiple return values, and static tuples. Helpers remain separate MIR/RIR modules.
 
 ```python
 import cmath
@@ -63,41 +65,41 @@ print(compiled.input_layout)   # z_real, z_imag
 print(compiled.output_layout)  # out_real, out_imag
 ```
 
-普通无注解参数默认实数；可用 inputs 显式指定 real/complex/bool。{obj}`Index <oracq.infrastructure.mathfunc.graph.Index>`(width) 为 QFVM 行列索引等无符号整数提供较短的公开寄存器，进入计算时自动转换到定点表示。常量默认参数视为生成期参数；显式放入 inputs 后也可成为量子输入。多结果可用 output_names 指定名称，例如 Roe 的 left/right。
+Ordinary unannotated parameters default to real; inputs can explicitly specify real/complex/bool. {obj}`Index <oracq.infrastructure.mathfunc.graph.Index>`(width) provides shorter public registers for unsigned integers such as QFVM row/column indices, automatically converted to the fixed-point representation on entry. Parameters with default values are treated as generation-time parameters; placed explicitly into inputs they can also become quantum inputs. Multiple results can be named with output_names, for example Roe's left/right.
 
-Python 的 cmath 在分支切线上区分有符号零；当前定点编码没有该信息。因此这里提供函数族和可替换的近似实现，不承诺完整浮点/分支兼容。[对应的 cmath 行为见官方文档](https://docs.python.org/3/library/cmath.html)。
+Python's cmath distinguishes signed zeros on branch cuts; the current fixed-point encoding does not carry that information. This is why a family of functions and replaceable approximate implementations are provided here, without promising full float/branch compatibility. [See the official documentation for the corresponding cmath behavior](https://docs.python.org/3/library/cmath.html).
 
-## 近似与状态
+## Approximation and status
 
-{obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`.degree 控制实函数的 Chebyshev 多项式阶数；intervals 可替换每个数学核的区间。默认区间见 [numeric.py](../api/infrastructure/mathfunc/numeric.rst) 的 BOUNDS。配置必须覆盖各个**中间数学核输入**，不只是最外层函数的输入。状态会标记超出区间或发生定义域/字长问题的路径。当前没有自动区间推导、误差证明或最优算术电路选择。
+{obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`.degree controls the Chebyshev polynomial degree of real functions; intervals can replace the interval of every math kernel. The default intervals are the BOUNDS in [numeric.py](../api/infrastructure/mathfunc/numeric.rst). The configuration must cover every **intermediate math-kernel input**, not just the outermost function's input. The status flags paths that leave the interval or hit domain/word-length problems. There is currently no automatic interval derivation, error proof, or optimal arithmetic-circuit selection.
 
-函数系数通过 degree+1 个经典采样点生成，然后执行量子乘加递推，没有预先枚举每个输入对应的函数值。字长、近似阶数、区间和系数进入生成配置/模块属性，eps 仍不进入语言核心。
+Function coefficients are generated from degree+1 classical sample points, followed by a quantum multiply-accumulate recursion; the function value for every input is never enumerated in advance. Word lengths, approximation degrees, intervals, and coefficients go into the generation configuration/module attributes; eps still does not enter the language core.
 
 ```python
 def safe_inverse(x):
     return 0.0 if x == 0 else 1.0 / x
 ```
 
-这个函数在 x=0 时不会因未选中分支的除零而设置最终 domain 标志。两分支电路可以被计算，但其结果和状态按量子条件选择，所有中间位最后反算。
+At x=0 this function does not set the final domain flag due to a division by zero on the unselected branch. Both branch circuits may be computed, but their results and status are selected by the quantum condition, and all intermediate bits are uncomputed at the end.
 
-## 中间表示与后端
+## Intermediate representations and backends
 
-完整链路为 Python 纯函数 → [MIR 0.1](../reference/math-ir.md) → RIR 0.3 → 模块化 OriginIR-ext / PySparQ。MIR 可独立 JSON 往返，再由 {obj}`lower_math_ir <oracq.infrastructure.mathfunc.lower_math_ir>` 按其他配置降低。最终 RIR 不含 Python callback；带数学核和 helper 的调用继续保留为 {obj}`Module <oracq.infrastructure.ir.Module>`/{obj}`Call <oracq.infrastructure.ir.Call>`。
+The full chain is Python pure function → [MIR 0.1](../reference/math-ir.md) → RIR 0.3 → modular OriginIR-ext / PySparQ. The MIR round-trips through JSON independently and can then be lowered by {obj}`lower_math_ir <oracq.infrastructure.mathfunc.lower_math_ir>` under a different configuration. The final RIR contains no Python callbacks; calls carrying math kernels and helpers remain {obj}`Module <oracq.infrastructure.ir.Module>`/{obj}`Call <oracq.infrastructure.ir.Call>`.
 
-现有 {obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>` 会识别生成模块内部的算术/布尔实现。PySparQ 在这些模块边界执行真实自定义 C++ 算子，跳过内部 Boolean 工作区。原生路径与门级路径使用同一组算术网络，并已通过实际执行检查。这里没有用 Python 原函数的直接求值冒充量子模拟。
+The existing {obj}`arithmetic_native_registry <oracq.algorithms.common.arithmetic.arithmetic_native_registry>` recognizes the arithmetic/Boolean implementations inside generated modules. PySparQ executes real custom C++ operators at these module boundaries, skipping the internal Boolean workspaces. The native path and the gate-level path use the same arithmetic networks and have been checked by actual execution. The direct evaluation of the original Python function is never passed off as quantum simulation here.
 
 ```python
 from oracq import arithmetic_native_registry, run_pysparq
 state = run_pysparq(
     application,
     native_registry=arithmetic_native_registry(application),
-    memory=memory,  # 若入口声明了 QRAM
+    memory=memory,  # if the entry declared a QRAM
 )
 ```
 
-QFVM 仍查询原始守恒量；[roe_formulas.py](../api/applications/roe_formulas.rst) 是普通经典公式，{obj}`roe_face <oracq.applications.roe.roe_face>` 通过 compile_function 生成原 ABI 的模块。经典 Riemann 更新和 QRAM 数据结构继续与量子矩阵元计算分离。
+QFVM still queries the raw conserved quantities; [roe_formulas.py](../api/applications/roe_formulas.rst) holds ordinary classical formulas, and {obj}`roe_face <oracq.applications.roe.roe_face>` generates a module with the original ABI through compile_function. The classical Riemann update and the QRAM data structures remain separated from the quantum matrix-element computation.
 
-## 命令行与案例
+## Command line and cases
 
 ```bash
 oracq compile-function examples/math_functions.py \
@@ -110,33 +112,33 @@ oracq emit out/pressure.rir.yaml --basis toffoli-u3-cz -o out/pressure.originir
 PYTHONPATH=src .venv/bin/python tools/build_math_functions.py
 ```
 
---inputs 接收 JSON 类型映射，例如 '{"z":"complex"}' 或 '{"row":{"index":2},"x":"real"}'。不支持的源语句会给出 {obj}`FunctionCompileError <oracq.infrastructure.mathfunc.frontend.FunctionCompileError>`；这不是可以编译任意 Python 程序的工具。
+--inputs takes a JSON type mapping such as '{"z":"complex"}' or '{"row":{"index":2},"x":"real"}'. Unsupported source statements raise {obj}`FunctionCompileError <oracq.infrastructure.mathfunc.frontend.FunctionCompileError>`; this is not a tool that can compile arbitrary Python programs.
 
-out/math-functions/ 包含 pressure、roe_speed、phase_response、guarded_reciprocal、polynomial、自动 Roe face 与接入后的 QFVM，共七组产物。见 [实施面板](../development/contributing.md) 与 [验证记录](../archive/function-compiler-validation.json)。
+out/math-functions/ contains pressure, roe_speed, phase_response, guarded_reciprocal, polynomial, the automatic Roe face, and the wired-up QFVM — seven groups of artifacts. See the [implementation board](../development/contributing.md) and the [validation records](../archive/function-compiler-validation.json).
 
-数学精度、复杂分支切线、Roe 数值结果和资源优化仍待核验。现有测试覆盖编译、类型、可逆更新、模块复用和真实后端消费。
+Mathematical accuracy, complicated branch cuts, Roe numerical results, and resource optimization are still to be verified. Existing tests cover compilation, typing, reversible updates, module reuse, and real-backend consumption.
 
-## 数值验证
+## Numerical validation
 
-论文级数值实验见 `tests/verification/verify_mathfunc.py`（真实后端执行，无模拟替身）。实验设计：本页 5 个函数（pressure、roe_speed、phase_response、guarded_reciprocal、polynomial）与 `roe_formulas.frozen_roe_face` 经 `compile_function` 编译为 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`(6,2)/(8,3) 两种格式（gamma、order、entropy_delta 等默认参数作生成期常量，roe_face 的 row/col 为 Index(2)、输出 left/right 双寄存器），在 rir-pysparq 上以叠加态一次穷举输入域——单输入函数全域 2^6/2^8 分支；多输入函数逐轴纤维穷举加联合立方体；roe_face 另做 row×col 全 16 组联合（含越界索引 3）与六实轴全幅值 16 点网格。期望值由独立的定点语义逐比特仿真（_Fx：mul/div/sqrt 幅度向零截断、add/sub 模 wrap、status 位 0 = 定义域失效、位 1 = 值域/字长越界、helper 调用合并全部参数旗标）与 float64 原式双层给出；phase_response 的初等核按模块属性 `math_approximation` 的 Chebyshev 系数逐比特复现（degree=3），另报系数配方与真函数的方法误差。status 旗标逐分支核对；reference / adapter-pysparq 在代表性程序上振幅级三方对拍。编译函数工作区实测 358–2178 量子比特，远超 OriginIR-ext 的 24 比特预算，故不走态向量路径。
+Paper-grade numerical experiments are in `tests/verification/verify_mathfunc.py` (real-backend execution, no mock substitutes). Experiment design: the 5 functions of this page (pressure, roe_speed, phase_response, guarded_reciprocal, polynomial) plus `roe_formulas.frozen_roe_face` are compiled by `compile_function` into both {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`(6,2)/(8,3) formats (default parameters such as gamma, order, and entropy_delta act as generation-time constants; roe_face's row/col are Index(2) with left/right dual output registers), then exhaust the input domain in one superposition on rir-pysparq — single-input functions cover all 2^6/2^8 branches of the full domain; multi-input functions are exhausted axis by axis in fibers plus a joint cube; roe_face additionally runs the full 16-combination row×col joint (including the out-of-range index 3) and a 16-point full-magnitude grid on six real axes. Expected values come from two layers: an independent bit-exact simulation of the fixed-point semantics (_Fx: mul/div/sqrt magnitudes truncated toward zero, add/sub modular wrap, status bit 0 = domain failure, bit 1 = range/word-length overflow, helper calls merge all parameter flags) and the original float64 expression. phase_response's elementary kernels reproduce the Chebyshev coefficients of the module attribute `math_approximation` bit for bit (degree=3), with the method error of the coefficient recipe versus the true function reported separately. Status flags are checked branch by branch; reference / adapter-pysparq are cross-checked three ways at the amplitude level on representative programs. Compiled function workspaces measure 358–2178 qubits, far exceeding the 24-qubit budget of OriginIR-ext, so the state-vector path is not used.
 
-| 案例 | 规模 | 后端路径 | 指标 | 数值 |
+| Case | Scale | Backend path | Metric | Value |
 |---|---|---|---|---|
-| `polynomial-exhaustive-6.2/8.3` | 64 / 256 分支全域 | rir-pysparq | max_error | 0 / 0（逐比特一致；旗标 44 / 197 分支全部符合值域越界预测） |
-| `guarded-reciprocal-exhaustive-6.2/8.3` | 64 / 256 分支全域 | rir-pysparq | max_error | 0.235 / 0.123（0.94 / 0.98 量子，即除法截断界 1 量子内；全域无旗标，x=0 守护生效） |
-| `pressure-fibers-6.2/8.3` | 3 轴 × 64 / 256 分支 | rir-pysparq | max_error / method_error | 0 / 0（常量量化偏差 1.4 / 0.578；rho=0 除零旗标与越界旗标逐分支符合） |
-| `roe-speed-fibers-6.2/8.3` | 4 轴 × 64 / 256 分支 | rir-pysparq | max_error / method_error | 0 / 0（含 sqrt 截断仿真；rho≤0 定义域旗标逐分支符合） |
-| `phase-response-fibers-6.2/8.3` | 2–3 轴 × 64 / 256 分支 | rir-pysparq | max_error / method_error | 0 / 0（对照系数配方；方法误差 1.770 / 1.349 为 degree=3 核固有近似误差；z=±i 除零与核区间越界旗标逐分支符合） |
-| `phase-response-kernel-method` | 4001 点稠密网格 | 经典对照 | method_error（exp/sin/cos） | 0.148 / 0.195 / 0.364 |
-| `roe-face-index-joint-6.2/8.3` | row×col 16 组 | rir-pysparq | max_error | 0 / 0（含越界索引 3 → 0.0；双输出 left/right） |
-| `roe-face-fibers-6.2/8.3` | 6 轴 × 16 点全幅值网格 | rir-pysparq | max_error | 0 / 0（rho≤0、c2≤0 定义域旗标逐分支符合） |
-| `cross-backend-*`（6 案例） | 16–64 分支 | rir-pysparq / reference / adapter-pysparq | max_pairwise_deviation | 0.0（三方振幅完全一致） |
-| `basis-determinism-6.2` | 6 函数各 1 物理点 | rir-pysparq | error / failures | 0 / 0（单基态入 → 单基态出，输入保持） |
+| `polynomial-exhaustive-6.2/8.3` | 64 / 256 branches, full domain | rir-pysparq | max_error | 0 / 0 (bit-exact; flags on 44 / 197 branches all match the range-overflow prediction) |
+| `guarded-reciprocal-exhaustive-6.2/8.3` | 64 / 256 branches, full domain | rir-pysparq | max_error | 0.235 / 0.123 (0.94 / 0.98 quanta, i.e. within the 1-quantum division-truncation bound; no flags on the full domain, the x=0 guard works) |
+| `pressure-fibers-6.2/8.3` | 3 axes × 64 / 256 branches | rir-pysparq | max_error / method_error | 0 / 0 (constant-quantization deviation 1.4 / 0.578; rho=0 division-by-zero flags and overflow flags match branch by branch) |
+| `roe-speed-fibers-6.2/8.3` | 4 axes × 64 / 256 branches | rir-pysparq | max_error / method_error | 0 / 0 (including sqrt-truncation simulation; rho≤0 domain flags match branch by branch) |
+| `phase-response-fibers-6.2/8.3` | 2–3 axes × 64 / 256 branches | rir-pysparq | max_error / method_error | 0 / 0 (against the coefficient recipe; method errors 1.770 / 1.349 are the inherent approximation error of the degree=3 kernels; z=±i division-by-zero and kernel-interval overflow flags match branch by branch) |
+| `phase-response-kernel-method` | 4001-point dense grid | classical comparison | method_error (exp/sin/cos) | 0.148 / 0.195 / 0.364 |
+| `roe-face-index-joint-6.2/8.3` | row×col, 16 combinations | rir-pysparq | max_error | 0 / 0 (including out-of-range index 3 → 0.0; dual outputs left/right) |
+| `roe-face-fibers-6.2/8.3` | 6 axes × 16-point full-magnitude grid | rir-pysparq | max_error | 0 / 0 (rho≤0, c2≤0 domain flags match branch by branch) |
+| `cross-backend-*` (6 cases) | 16–64 branches | rir-pysparq / reference / adapter-pysparq | max_pairwise_deviation | 0.0 (three-way amplitudes fully identical) |
+| `basis-determinism-6.2` | 1 physical point for each of 6 functions | rir-pysparq | error / failures | 0 / 0 (single basis state in → single basis state out, inputs preserved) |
 
-复现命令：
+Reproduction command:
 
 ```bash
-PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_mathfunc.py
+PYTHONPATH=src <interpreter with pysparq+uniqc> tests/verification/verify_mathfunc.py
 ```
 
-产物：`out/verification/mathfunc.json`（28 个案例全过，总运行约 185 秒，VERIFY_WORKERS 控制并行度）。
+Artifacts: `out/verification/mathfunc.json` (all 28 cases pass; total runtime about 185 seconds; VERIFY_WORKERS controls the parallelism).

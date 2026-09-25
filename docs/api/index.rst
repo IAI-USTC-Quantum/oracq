@@ -1,7 +1,7 @@
-API 参考
-========
+API Reference
+==========================
 
-API 从规范源码路径生成。旧路径只保留导入兼容，不重复列出。
+API pages are generated from the canonical source paths. Legacy paths are kept for import compatibility only and are not listed twice.
 
 .. toctree::
    :maxdepth: 2

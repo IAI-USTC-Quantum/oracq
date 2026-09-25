@@ -1,13 +1,103 @@
-"""按规范源码目录生成 Sphinx API 页面，并从根包 __all__ 生成顶层总览页。
+"""Generate Sphinx API pages from the canonical source tree and a top-level
+overview page from the root package __all__.
 
-旧导入路径只保留兼容，不出现在 API 文档中。
+Two language trees are generated: ``docs/api`` (English titles) and
+``docs/zh/api`` (Chinese titles). Both document the same modules; page bodies
+come from the English docstrings in the source.
+
+Legacy import paths are kept for compatibility only and never appear in the
+API documentation.
 """
 
+import argparse
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TITLES = {
+    "oracle_algorithms": "Oracle query algorithms",
+    "fourier": "Fourier transforms and arithmetic",
+    "search": "Search and amplitude amplification",
+    "estimation": "Phase, amplitude, and overlap estimation",
+    "variational": "Variational algorithm circuits",
+    "walks": "Quantum walks",
+    "graph_walks": "Graph-walk search",
+    "number_theory": "Modular multiplication and order finding",
+    "error_correction": "Repetition codes and error recovery",
+    "hamiltonian": "Hamiltonian evolution",
+    "qlss": "Quantum linear systems",
+    "vtaa_cks": "VTAA-CKS variable-time linear-system solver",
+    "newton": "Quantum Newton method",
+    "ode": "QODE assembly interface",
+    "lchs": "LCHS",
+    "schrodingerization": "Schrödingerization",
+    "carleman": "Carleman linearization",
+    "cbmd": "CBMD",
+    "sde": "SDE/Fokker–Planck input models",
+    "qham": "QHAM",
+    "qsvt": "QSVT standard transforms",
+    "spectral": "Spectral input/output primitives and operator-level optimization",
+    "spectral_synthesis": "Operator-level synthesis optimization of spectral circuits",
+    "lowrank": "Chemistry low-rank decomposition block encodings",
+    "dqi": "DQI decoding quantum interference optimization",
+    "recommendation": "KP quantum recommendation system",
+    "gradient": "Quantum gradient estimation",
+    "integration": "Quantum summation and integration",
+    "qpca": "QPCA quantum principal component analysis",
+    "qsdp": "Quantum semidefinite programming framework",
+    "qcnn": "Quantum convolutional neural networks",
+    "qcnn_layer": "Quantum building blocks of QCNNs",
+    "density": "Density-matrix input models and Gibbs states",
+    "data_loading": "Select-Swap QROM data loading",
+    "qdata": "Quantum data structures (qsample and sample-and-query)",
+    "contracts": "Algorithm contracts and reports",
+    "interfaces": "Algorithm structure protocols",
+    "operators": "Operator wrappers and basic composition",
+    "block_encoding": "Block-encoding composition",
+    "oracles": "Oracle declarations and implementations",
+    "arithmetic": "Reversible arithmetic",
+    "prepare_select": "PREPARE-SELECT decomposition",
+    "sparse": "Sparse-access adapters",
+    "pde": "PDE models and adapters",
+    "ode_models": "Linear ODE input models",
+    "state_preparation": "State-preparation composition",
+    "transforms": "Matrix transform sequences",
+    "ir": "RIR objects",
+    "builder": "Module builder",
+    "serialization": "RIR serialization",
+    "validation": "Structural validation",
+    "linking": "Binding and capability analysis",
+    "execution": "Register reference executor",
+    "native": "Native implementation registry",
+    "layout": "Register layout",
+    "readout": "Host readout",
+    "qmem": "QRAM pointer-style read/write",
+    "qram_schema": "QRAM YAML memory format",
+    "estimate": "Resource estimation",
+    "originir": "OriginIR-ext backend",
+    "pysparq": "PySparQ backend",
+    "basis": "Toffoli / U3 / CZ lowering",
+    "quantikz": "Quantikz circuit export",
+    "strict": "Strict netlist export",
+    "mathfunc": "Math-function compilation entry",
+    "frontend": "Python math-function frontend",
+    "graph": "MIR objects",
+    "lowering": "Math-function lowering",
+    "numeric": "Math kernel generation",
+    "qfvm": "QFVM application",
+    "qfvm_qmem": "QFVM direct QMem data path",
+    "flow_data": "Flow fields and QRAM data",
+    "roe": "Roe matrix-element generation",
+    "roe_formulas": "Roe classical math formulas",
+    "gallery": "Algorithm gallery",
+    "catalog": "Reference workload catalog",
+    "linearization": "QHAM finite closure",
+    "reference": "Spatial discretization and classical reference",
+    "stencils": "Structured finite-difference ports",
+    "report": "QHAM derivation report",
+    "examples": "QHAM PDE examples",
+}
+TITLES_ZH = {
     "oracle_algorithms": "Oracle 查询算法",
     "fourier": "Fourier 变换与算术",
     "search": "搜索与振幅放大",
@@ -92,9 +182,46 @@ TITLES = {
 }
 GROUPS = ("infrastructure", "algorithms", "applications")
 GROUP_TITLES = {
+    "infrastructure": "Infrastructure API",
+    "algorithms": "Algorithms API",
+    "applications": "Domain Applications API",
+}
+GROUP_TITLES_ZH = {
     "infrastructure": "基础设施 API",
     "algorithms": "算法 API",
     "applications": "领域应用 API",
+}
+STRINGS = {
+    "en": {
+        "titles": TITLES,
+        "group_titles": GROUP_TITLES,
+        "toplevel_title": "oracq package overview",
+        "toplevel_intro": [
+            "The root package ``oracq`` re-exports the public API ({count} names).",
+            "Names are grouped by their defining module; module titles link to the "
+            "corresponding API page and members link to their full descriptions there.",
+        ],
+        "joiner": ", ",
+        "dash": "—",
+        "api_title": "API Reference",
+        "api_intro": (
+            "API pages are generated from the canonical source paths. Legacy paths "
+            "are kept for import compatibility only and are not listed twice."
+        ),
+    },
+    "zh": {
+        "titles": TITLES_ZH,
+        "group_titles": GROUP_TITLES_ZH,
+        "toplevel_title": "oracq 包总览",
+        "toplevel_intro": [
+            "根包 ``oracq`` 汇总导出公开 API（共 {count} 个名字）。",
+            "名字按定义模块分组；模块标题链接到对应 API 页，成员链接到模块页内的完整说明。",
+        ],
+        "joiner": "、",
+        "dash": "——",
+        "api_title": "API 参考",
+        "api_intro": "API 从规范源码路径生成。旧路径只保留导入兼容，不重复列出。",
+    },
 }
 
 
@@ -102,8 +229,9 @@ def _underline(title: str, char: str) -> str:
     return char * max(12, len(title) * 2)
 
 
-def write_toplevel(docs: Path, modules: dict[str, dict]) -> None:
-    """从根包 __all__ 生成顶层总览页，名字按定义模块归组。"""
+def write_toplevel(docs: Path, modules: dict[str, dict], strings: dict) -> None:
+    """Generate the top-level overview page from the root package __all__,
+    grouping names by their defining module."""
     sys.path.insert(0, str(ROOT / "src"))
     import importlib
 
@@ -122,39 +250,39 @@ def write_toplevel(docs: Path, modules: dict[str, dict]) -> None:
                     module = candidate
                     break
         if module is None:
-            raise SystemExit(f"根 __all__ 中的 {name} 未定位到任何规范模块")
+            raise SystemExit(f"{name} from the root __all__ was not located in any canonical module")
         grouped[module.split(".")[1]].setdefault(module, []).append(name)
 
     lines = [
-        "oracq 包总览",
-        _underline("oracq 包总览", "="),
-        "",
-        f"根包 ``oracq`` 汇总导出公开 API（共 {len(oracq.__all__)} 个名字）。",
-        "名字按定义模块分组；模块标题链接到对应 API 页，成员链接到模块页内的完整说明。",
+        strings["toplevel_title"],
+        _underline(strings["toplevel_title"], "="),
         "",
     ]
+    lines += [line.format(count=len(oracq.__all__)) for line in strings["toplevel_intro"]]
+    lines.append("")
     for group in GROUPS:
         modules_in_group = grouped[group]
         if not modules_in_group:
             continue
-        title = GROUP_TITLES[group]
+        title = strings["group_titles"][group]
         lines += [title, _underline(title, "-"), ""]
         for module in sorted(modules_in_group):
             info = modules[module]
             names = modules_in_group[module]
-            refs = "、".join(
+            refs = strings["joiner"].join(
                 f":obj:`{name} <{module}.{name}>`" for name in names
             )
             lines += [
                 f":doc:`{info['title']} <{info['doc']}>`",
-                f"    ``{module}`` —— {refs}",
+                f"    ``{module}`` {strings['dash']} {refs}",
                 "",
             ]
     (docs / "toplevel.rst").write_text("\n".join(lines), encoding="utf-8")
 
 
-def main():
-    docs = ROOT / "docs/api"
+def generate_language(docs: Path, lang: str) -> int:
+    strings = STRINGS[lang]
+    titles = strings["titles"]
     docs.mkdir(parents=True, exist_ok=True)
     groups = {}
     modules: dict[str, dict] = {}
@@ -169,7 +297,7 @@ def main():
             module = "oracq." + ".".join(parts)
             target = docs.joinpath(*parts).with_suffix(".rst")
             target.parent.mkdir(parents=True, exist_ok=True)
-            title = TITLES.get(parts[-1], parts[-1])
+            title = titles.get(parts[-1], parts[-1])
             modules[module] = {"title": title, "doc": "/".join(parts)}
             target.write_text(
                 title
@@ -186,7 +314,7 @@ def main():
             )
             pages.append(target.relative_to(docs / group).with_suffix("").as_posix())
         groups[group] = pages
-        title = GROUP_TITLES[group]
+        title = strings["group_titles"][group]
         (docs / group / "index.rst").write_text(
             title
             + "\n"
@@ -195,15 +323,31 @@ def main():
             + "".join("   " + page + "\n" for page in pages),
             encoding="utf-8",
         )
-    write_toplevel(docs, modules)
+    write_toplevel(docs, modules, strings)
     (docs / "index.rst").write_text(
-        "API 参考\n========\n\n"
-        "API 从规范源码路径生成。旧路径只保留导入兼容，不重复列出。\n\n"
-        ".. toctree::\n   :maxdepth: 2\n\n"
+        strings["api_title"]
+        + "\n"
+        + "=" * max(12, len(strings["api_title"]) * 2)
+        + "\n\n"
+        + strings["api_intro"]
+        + "\n\n.. toctree::\n   :maxdepth: 2\n\n"
         "   toplevel\n   infrastructure/index\n   algorithms/index\n   applications/index\n",
         encoding="utf-8",
     )
-    print("Generated", sum(map(len, groups.values())), "API pages + toplevel")
+    return sum(map(len, groups.values()))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--lang", choices=["en", "zh", "all"], default="all")
+    args = parser.parse_args()
+    langs = ["en", "zh"] if args.lang == "all" else [args.lang]
+    total = 0
+    for lang in langs:
+        docs = ROOT / "docs/api" if lang == "en" else ROOT / "docs/zh/api"
+        count = generate_language(docs, lang)
+        print(f"Generated {count} API pages + toplevel ({lang}) -> {docs.relative_to(ROOT)}")
+        total += count
 
 
 if __name__ == "__main__":

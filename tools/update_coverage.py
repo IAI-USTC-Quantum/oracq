@@ -1,4 +1,5 @@
-"""把旧语言用例逐项映射到新范式案例；不声称逐字翻译或 golden 等价。"""
+"""Map legacy language cases to the new paradigm cases one by one; no claim of
+verbatim translation or golden equivalence."""
 
 import json
 from pathlib import Path
@@ -77,22 +78,22 @@ def positive(case):
 def main():
     inventory = json.loads((ROOT / "docs/archive/case-inventory.json").read_text())
     changes = {
-        "ancilla-clean": "工作区显式进入接口；不继承旧版 clean_ancilla 静态证明。",
-        "measure-reset": "由显式宿主 ReadoutAction 生成末端测量和重置；不混入酉 oracle 主体。",
-        "reinterpret-fixed": "定点解释作为存储位模式和库元数据，不内建数值精度证明。",
-        "fixed-point-add": "可逆算术接口与小型查表实现；RNE/溢出算法语义待下一阶段。",
+        "ancilla-clean": "Workspaces enter through an explicit interface; the legacy clean_ancilla static proof is not inherited.",
+        "measure-reset": "Terminal measurement and reset are produced by an explicit host ReadoutAction; not mixed into the unitary oracle body.",
+        "reinterpret-fixed": "Fixed-point interpretation is a stored bit pattern plus library metadata; no built-in numerical accuracy proof.",
+        "fixed-point-add": "Reversible arithmetic interface with a small lookup implementation; RNE/overflow algorithm semantics are deferred to the next stage.",
     }
     negative = {
-        "unbound-require-program": "现在允许保存开放 IR，在后端导出时报告缺口。",
-        "oracle-takes-operation": "由 Python 高阶生成函数承担，旧语法限制不继承。",
-        "partial-application": "允许 Python 绑定和闭包；生成后 IR 不保留 Python callback。",
-        "require-in-program": "require 文本语法不迁移，依赖通过 Python 参数和显式绑定表达。",
-        "require-mid-body": "require 文本语法不迁移。",
-        "isometry-nonzero-input": "零输入是接口契约，本阶段不证明零态。",
-        "isometry-adjoint-cap": "等距角色可以提供 unitary 扩张；无声明逆能力时拒绝逆调用。",
-        "ancilla-not-clean": "所有工作区显式持有；不继承未实现的自动复净判定。",
-        "fused-source-use": "逻辑视图不进行持久冻结；同次调用的重叠和控制修改仍拒绝。",
-        "measure-in-if": "量子结果读出在宿主层，RIR 没有动态经典分支。",
+        "unbound-require-program": "Saving an open IR is now allowed; gaps are reported at backend export.",
+        "oracle-takes-operation": "Handled by Python higher-order generator functions; the legacy syntax restriction is not inherited.",
+        "partial-application": "Python binding and closures are allowed; the generated IR keeps no Python callback.",
+        "require-in-program": "The require text syntax is not migrated; dependencies are expressed through Python parameters and explicit binding.",
+        "require-mid-body": "The require text syntax is not migrated.",
+        "isometry-nonzero-input": "Zero input is an interface contract; the zero state is not proven at this stage.",
+        "isometry-adjoint-cap": "An isometry role may provide a unitary extension; inverse calls are rejected unless inverse capability is declared.",
+        "ancilla-not-clean": "All workspaces are explicitly held; the unimplemented automatic clean-up check is not inherited.",
+        "fused-source-use": "Logical views are not persistently frozen; overlapping and controlled modifications within one call are still rejected.",
+        "measure-in-if": "Quantum-result readout lives in the host layer; RIR has no dynamic classical branching.",
     }
     rows = []
     for original in inventory["cases"]:
@@ -102,14 +103,14 @@ def main():
             row["examples"] = positive(row["case"])
             row["status"] = "paradigm_mapped"
             row["note"] = changes.get(
-                key, "映射到可生成范式案例；未执行旧 .qec 或比较旧 CLIR golden。"
+                key, "Mapped to a generable paradigm case; the legacy .qec was not executed and no legacy CLIR golden was compared."
             )
         else:
             row["examples"] = []
             row["status"] = (
                 "intentional_design_change" if key in negative else "structural_rejection"
             )
-            row["note"] = negative.get(key, "对应 RIR 的签名、类型、别名、常量或调用图验证。")
+            row["note"] = negative.get(key, "Corresponds to RIR signature, type, alias, constant, or call-graph validation.")
             row["evidence"] = ["tests/core/test_language.py", "tests/core/test_open_ir.py"]
         assert all(example in CASES for example in row["examples"])
         rows.append(row)
@@ -122,11 +123,14 @@ def main():
     }
     (ROOT / "docs/archive/coverage.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     lines = [
-        "# 旧案例与新范式覆盖矩阵",
+        "# Legacy Case to New Paradigm Coverage Matrix",
         "",
-        "本表覆盖 61 个正例和 16 个负例。映射证明有对应的表达和组装路径，不表示旧源码逐字迁移、旧 golden 等价或算法正确性认证。",
+        "This table covers 61 positive and 16 negative cases. A mapping proves a "
+        "corresponding expression and assembly path; it does not certify verbatim "
+        "migration of the legacy source, legacy golden equivalence, or algorithmic "
+        "correctness.",
         "",
-        "| 旧用例 | 状态 | 新例子/证据 | 说明 |",
+        "| Legacy case | Status | New examples/evidence | Note |",
         "|---|---|---|---|",
     ]
     for row in rows:
@@ -134,8 +138,11 @@ def main():
         lines.append(f"| {row['case']} | {row['status']} | {evidence} | {row['note']} |")
     lines += [
         "",
-        "六组参考负载分别由 qfvm_gate/qram、be_algebra、arithmetic、costa/sparse、oracle 目录与 qham_qode/qpde 覆盖。"
-        "Roe 物理核、一般高阶 QHAM、严格 QSVT 相位与 PDE 收敛证明保留为下一阶段工作，已定义对应的开放接口。",
+        "The six reference workload groups are covered by qfvm_gate/qram, be_algebra, "
+        "arithmetic, costa/sparse, the oracle catalog, and qham_qode/qpde respectively. "
+        "The Roe physics kernels, general higher-order QHAM, strict QSVT phases, and "
+        "PDE convergence proofs remain next-stage work with matching open interfaces "
+        "already defined.",
         "",
     ]
     (ROOT / "docs/archive/coverage.md").write_text("\n".join(lines))

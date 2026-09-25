@@ -1,8 +1,10 @@
-# 给算法替换 oracle
+# Replacing an algorithm's oracle
 
-我们先编写一个不知道函数实现的 Bernstein–Vazirani 程序，再给它绑定门实现。这样可以看清“算法已经完整”和“输入 oracle 尚未完成”之间的区别。
+**English** · [简体中文](../zh/tutorials/oracle-binding.html)
 
-## 先声明输入
+We first write a Bernstein–Vazirani program that does not know its function implementation, then bind a gate implementation to it. This makes the difference between "the algorithm itself is complete" and "the input oracle is still unfinished" visible.
+
+## Declare the input first
 
 ```{testcode}
 from oracq.algorithms.input_model.oracles import abstract_database
@@ -19,9 +21,9 @@ assert [item.name for item in unresolved(opened)] == ["BooleanFunction"]
 ['BooleanFunction']
 ```
 
-{obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>` 声明一个尚无实现的抽象数据库，{obj}`bernstein_vazirani <oracq.algorithms.basics.oracle_algorithms.bernstein_vazirani>` 在它上面组装算法。打印出的列表就是 {obj}`unresolved <oracq.infrastructure.linking.unresolved>` 找到的尚未绑定开放槽名字：算法本体已经完整，缺的只是名为 `BooleanFunction` 的输入实现。该声明提供三位地址和一位 XOR 结果。算法假设函数具有 `f(x)=s·x XOR c` 的形式；声明本身不证明这个前提。
+{obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>` declares an abstract database that has no implementation yet, and {obj}`bernstein_vazirani <oracq.algorithms.basics.oracle_algorithms.bernstein_vazirani>` assembles the algorithm on top of it. The printed list is exactly the names of the still-unbound open slots found by {obj}`unresolved <oracq.infrastructure.linking.unresolved>`: the algorithm body is already complete; the only thing missing is the input implementation named `BooleanFunction`. The declaration provides a three-bit address and a one-bit XOR result. The algorithm assumes the function has the form `f(x)=s·x XOR c`; the declaration itself does not prove that premise.
 
-## 绑定门实现
+## Bind a gate implementation
 
 ```{testcode}
 from oracq.algorithms.basics.oracle_algorithms import affine_boolean_oracle
@@ -43,18 +45,18 @@ assert abs(probability - 1) < 1e-12
 0.9999999999999989
 ```
 
-门实现由 {obj}`affine_boolean_oracle <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>` 用普通可逆门给出；打印出的振幅只在 input 读数为 `5` 的分支上非零；value 位上的 `±1/√2` 相位差来自仿射偏置，第二行的总概率约等于 `1`。读取 input 得到 `5`，即低位在前解释的秘密位串。仿射偏置改变了相位，但不影响该结果。
+The gate implementation is provided by {obj}`affine_boolean_oracle <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>` using ordinary reversible gates; the printed amplitudes are nonzero only on branches where the input reads `5`; the `±1/√2` phase difference on the value bit comes from the affine bias, and the total probability on the second line is approximately `1`. Reading the input yields `5`, the secret bit string interpreted with the least significant bit first. The affine bias changes the phase but not this outcome.
 
-## 换成 QRAM
+## Swap in a QRAM
 
-同一开放槽可以绑定 {obj}`qram_database(3,1) <oracq.algorithms.input_model.oracles.qram_database>`。使用 {obj}`Binding(..., {"table": "truth"}) <oracq.infrastructure.linking.Binding>` 将其资源映射到入口，运行时再提供 `truth` 表。
+The same open slot can be bound to {obj}`qram_database(3,1) <oracq.algorithms.input_model.oracles.qram_database>`. Use {obj}`Binding(..., {"table": "truth"}) <oracq.infrastructure.linking.Binding>` to map its resources to the entry, then supply the `truth` table at run time.
 
-门实现和 QRAM 实现必须兑现同一 XOR 语义。{obj}`bind <oracq.infrastructure.linking.bind>` 检查接口与能力，函数的数学形式仍由应用负责。
+The gate implementation and the QRAM implementation must honor the same XOR semantics. {obj}`bind <oracq.infrastructure.linking.bind>` checks interfaces and capabilities; the mathematical form of the function remains the application's responsibility.
 
-## 相关页面
+## Related pages
 
-- 手册：[输入与算子](../manual/operators.md)（oracle 范式与视图）
-- 规范：[开放 IR](../reference/open-ir.md)（开放声明、分批绑定与资源捕获）
-- 算法页：[Bernstein–Vazirani](../manual/algorithms/bernstein-vazirani.md)、[XOR 数据库视图](../manual/algorithms/xor-database.md)
-- API 参考：[Oracle 声明与实现](../api/algorithms/input_model/oracles.rst)、[绑定与能力分析](../api/infrastructure/linking.rst)
-- 继续教程：[从论文访问模型到实现比较](algorithm-research.md)
+- Manual: [Oracles and operator representations](../manual/operators.md) (the oracle paradigm and views)
+- Specification: [Open IR](../reference/open-ir.md) (open declarations, batched binding, and resource capture)
+- Algorithm pages: [Bernstein–Vazirani](../zh/manual/algorithms/bernstein-vazirani.html), [XOR database views](../zh/manual/algorithms/xor-database.html)
+- API reference: [Oracle declarations and implementations](../api/algorithms/input_model/oracles.rst), [Binding and capability analysis](../api/infrastructure/linking.rst)
+- Continue with: [From a paper's access model to implementation comparison](algorithm-research.md)

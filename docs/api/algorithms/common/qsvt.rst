@@ -1,5 +1,5 @@
-QSVT 标准变换
-==================
+QSVT standard transforms
+================================================
 
 ``oracq.algorithms.common.qsvt``
 

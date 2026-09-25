@@ -1,5 +1,5 @@
-密度矩阵输入模型与 Gibbs 态
-==================================
+Density-matrix input models and Gibbs states
+========================================================================================
 
 ``oracq.algorithms.input_model.density``
 

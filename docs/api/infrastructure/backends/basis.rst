@@ -1,5 +1,5 @@
-Toffoli / U3 / CZ 降低
-========================================
+Toffoli / U3 / CZ lowering
+====================================================
 
 ``oracq.infrastructure.backends.basis``
 

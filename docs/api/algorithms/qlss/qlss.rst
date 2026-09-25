@@ -1,5 +1,5 @@
-量子线性系统
-============
+Quantum linear systems
+============================================
 
 ``oracq.algorithms.qlss.qlss``
 

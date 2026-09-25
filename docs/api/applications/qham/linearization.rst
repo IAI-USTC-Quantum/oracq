@@ -1,5 +1,5 @@
-QHAM 有限闭包
-==================
+QHAM finite closure
+======================================
 
 ``oracq.applications.qham.linearization``
 

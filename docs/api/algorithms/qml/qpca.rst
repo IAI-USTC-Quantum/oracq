@@ -1,5 +1,5 @@
-QPCA 量子主成分分析
-========================
+QPCA quantum principal component analysis
+==================================================================================
 
 ``oracq.algorithms.qml.qpca``
 

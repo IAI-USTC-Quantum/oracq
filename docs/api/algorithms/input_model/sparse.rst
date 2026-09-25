@@ -1,5 +1,5 @@
-稀疏访问适配
-============
+Sparse-access adapters
+============================================
 
 ``oracq.algorithms.input_model.sparse``
 

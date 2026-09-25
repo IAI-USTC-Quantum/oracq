@@ -1,5 +1,5 @@
-算法契约与报告
-==============
+Algorithm contracts and reports
+==============================================================
 
 ``oracq.algorithms.input_model.contracts``
 

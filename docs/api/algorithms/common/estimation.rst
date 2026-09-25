@@ -1,5 +1,5 @@
-相位、振幅与重叠估计
-====================
+Phase, amplitude, and overlap estimation
+================================================================================
 
 ``oracq.algorithms.common.estimation``
 

@@ -1,30 +1,52 @@
-# 适用范围与验证状态
+# Applicability boundaries and validation status
 
-oracq 可以表达开放算法、组装模块并生成可执行的小实例。是否适合某个具体问题，还取决于输入模型、规模、数值近似和读出需求。
+**English** · [简体中文](../zh/manual/limits.html)
 
-| 层次 | 已验证的内容 | 尚不能据此推断的结论 |
+oracq can express open algorithms, assemble modules, and generate executable
+small instances. Whether it suits a specific problem also depends on the
+input model, the scale, the numerical approximation, and the readout
+requirements.
+
+| Layer | What has been validated | What cannot be inferred from it |
 |---|---|---|
-| [RIR](../reference/rir.md) | 序列化、布局、别名、控制保护、模块调用和开放绑定 | 任意量子算法的数学正确性 |
-| [基础算法](algorithms/index.md) | 小规模矩阵/概率见证与真实后端复幅度对拍 | 大规模运行成本或量子优势 |
-| [算术与数学函数](math-functions.md) | 有限位模式下的可逆构造及部分数值见证 | 所有字长和近似区间的统一误差界 |
-| [Hamiltonian 方法](algorithms/hamiltonian-simulation.md) | Pauli 演化、Trotter 组合和接口检查 | 通用 QSP 内核与自动误差配置 |
-| [QLSS/QODE/QPDE](differential-equations.md) | 输入适配、模块化生成、部分真实执行 | 全部求解精度、成功通道和收敛保证 |
-| [QHAM](qham.md) | 有限 HAM 截断的代数闭包和小型执行 | 对原始 PDE 的自动收敛认证 |
+| [RIR](../reference/rir.md) | Serialization, layout, aliasing, control guards, module calls, and open bindings | Mathematical correctness of arbitrary quantum algorithms |
+| [Basic algorithms](../zh/manual/algorithms/index.html) | Small-scale matrix/probability witnesses cross-checked against real-backend complex amplitudes | Large-scale running cost or quantum advantage |
+| [Arithmetic and math functions](math-functions.md) | Reversible constructions under finite bit patterns plus some numerical witnesses | Uniform error bounds over all word lengths and approximation intervals |
+| [Hamiltonian methods](../zh/manual/algorithms/hamiltonian-simulation.html) | Pauli evolution, Trotter composition, and interface checks | General QSP kernels and automatic error configuration |
+| [QLSS/QODE/QPDE](differential-equations.md) | Input adaptation, modular generation, and partial real execution | Full solver accuracy, success channels, and convergence guarantees |
+| [QHAM](qham.md) | Algebraic closure at finite HAM truncation and small executions | Automatic convergence certification against the original PDE |
 
-## 规模限制
+## Scale limits
 
-单个寄存器或合并视图最多 64 位。部分算法便捷接口把 target 或 signal 放在一个寄存器中，因此会先达到这个限制；RIR 本身可以使用多个寄存器。
+A single register or fused view is at most 64 bits. Some algorithm
+convenience interfaces place the target or signal in one register and
+therefore hit this limit first; the RIR itself can use multiple registers.
 
-[参考执行器](backends.md#参考执行器)和后端适配器有步数、状态数量与 QRAM 物化预算。OriginIR 下游解析器会展开模块。某个程序能够保持紧凑的 RIR，并不意味着它在当前模拟器中也能低成本执行。
+The [reference executor](backends.md#reference-executor) and the backend
+adapters have step-count, state-count, and QRAM materialization budgets.
+Downstream OriginIR parsers expand modules. That a program can keep a compact
+RIR does not mean it can also run cheaply in the current simulators.
 
-## 数学声明
+## Mathematical claims
 
-`Hermitian`、耗散、稀疏度、元素界、谱界和辅助位复净等声明由相应算法处理。[Python 协议](contracts.md)可以检查接口存在和返回值形状，不能证明声明的数学真实性。
+Claims such as `Hermitian`, dissipation, sparsity, element bounds, spectral
+bounds, and ancilla re-cleaning are handled by the corresponding algorithms.
+The [Python protocols](contracts.md) can check that interfaces exist and that
+return shapes match, but cannot prove the mathematical truth of a claim.
 
-`eps` 不是语言核心类型。使用者应保存生成配置，并在具体应用中验证空间离散、数值表示、算法截断和后选择读出的误差。
+`eps` is not a language-core type. Users should keep the generation
+configuration and validate, in the concrete application, the errors of spatial
+discretization, numerical representation, algorithmic truncation, and
+post-selected readout.
 
-## 结果与读出
+## Results and readout
 
-一个输出态 oracle 可能含有成功信号。归一化方向、成功概率和原始向量的物理范数是不同的信息。测量或后选择后，不能仅根据 target 的幅度就恢复完整经典场值。
+An output-state oracle may carry a success signal. The normalization
+direction, the success probability, and the physical norm of the original
+vector are different pieces of information. After measurement or
+post-selection, the full classical field values cannot be recovered from the
+target amplitudes alone.
 
-新算法的接口、见证范围和文档构建结果记录在[本版验收记录](../development/validation.md)。
+The interfaces, witness coverage, and documentation build results of the new
+algorithms are recorded in the [validation record of this
+release](../development/validation.md).

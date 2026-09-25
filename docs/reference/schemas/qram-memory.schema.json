@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:oracq:qram-memory:0.2",
-  "title": "oracq QRAM 内存定义 0.2",
+  "title": "oracq QRAM memory definition 0.2",
   "type": "object",
   "properties": {
     "qram_segments": {

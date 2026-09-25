@@ -1,5 +1,5 @@
-MIR 对象
-============
+MIR objects
+======================
 
 ``oracq.infrastructure.mathfunc.graph``
 

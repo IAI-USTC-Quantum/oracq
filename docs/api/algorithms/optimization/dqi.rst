@@ -1,5 +1,5 @@
-DQI 解码量子干涉优化
-========================
+DQI decoding quantum interference optimization
+============================================================================================
 
 ``oracq.algorithms.optimization.dqi``
 

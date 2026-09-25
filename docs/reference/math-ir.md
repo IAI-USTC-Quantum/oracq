@@ -1,42 +1,44 @@
-# MIR 0.1：纯数学函数图
+# MIR 0.1: the pure mathematical function graph
 
-MIR 是 Python 纯函数前端与 RIR 之间的生成层表示。它可以独立 JSON 往返，完整格式见 [Schema](schemas/math-ir.schema.json)。它不替代 RIR 0.3，也不把 Python 回调写入量子 IR。函数写法、已实现的数学范围与数值验证见手册[普通数学函数自动生成可逆量子模块](../manual/math-functions.md)。
+**English** · [简体中文](../zh/reference/math-ir.html)
 
-## 对象与类型
+MIR is the generation-layer representation between the Python pure-function front end and RIR. It round-trips through JSON independently; the full format is in the [Schema](schemas/math-ir.schema.json). It neither replaces RIR 0.3 nor writes Python callbacks into the quantum IR. For how to write functions, the implemented mathematical coverage, and numerical validation see the manual chapter [Automatically generating reversible quantum modules from ordinary math functions](../manual/math-functions.md).
 
-{obj}`MathProgram <oracq.infrastructure.mathfunc.graph.MathProgram>` 包含 version="0.1"、entry 和 functions。每个 {obj}`MathFunction <oracq.infrastructure.mathfunc.graph.MathFunction>` 包含唯一 name、源码 label、parameters、有序 nodes 和 returns。函数图无递归，helper 调用保留为 call 节点。
+## Objects and types
 
-参数类型为 real、complex、bool 或 index。index 另带 1..64 的无符号位宽；其他参数 width=0，具体量子字长由 lowering 的 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>` 决定。{obj}`Index <oracq.infrastructure.mathfunc.graph.Index>` 在进入数学计算时转换为当前定点表示，格式必须容纳它的完整范围。值节点只有 real、complex、bool 三类；复数 lowering 到两个独立实数寄存器。
+A {obj}`MathProgram <oracq.infrastructure.mathfunc.graph.MathProgram>` contains version="0.1", entry, and functions. Each {obj}`MathFunction <oracq.infrastructure.mathfunc.graph.MathFunction>` contains a unique name, a source-code label, parameters, ordered nodes, and returns. The function graph has no recursion; helper calls are kept as call nodes.
 
-{obj}`MathNode <oracq.infrastructure.mathfunc.graph.MathNode>` 包含 op、kind、args 和 data。节点编号为其在 nodes 中的位置，args 只能引用编号更小的节点。returns 是非空节点编号数组；返回 tuple 在这里表示多个独立结果，不允许递归嵌套 tuple 输出。函数参数、节点类型、元数、调用接口以及 DAG 均由 MathProgram.validate 核对。
+Parameter types are real, complex, bool, or index. index additionally carries an unsigned bit width in 1..64; other parameters have width=0, and the concrete quantum word length is decided by the lowering's {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`. An {obj}`Index <oracq.infrastructure.mathfunc.graph.Index>` converts to the current fixed-point representation when entering mathematical computation, and the format must accommodate its full range. Value nodes come in only three kinds: real, complex, and bool; complex lowers to two independent real registers.
 
-| op | 参数 / data | 结果 |
+A {obj}`MathNode <oracq.infrastructure.mathfunc.graph.MathNode>` contains op, kind, args, and data. A node's number is its position in nodes, and args may only reference nodes with smaller numbers. returns is a non-empty array of node numbers; a returned tuple here means several independent results — recursively nested tuple outputs are not allowed. Function parameters, node types, arities, call interfaces, and the DAG are all checked by MathProgram.validate.
+
+| op | args / data | result |
 |---|---|---|
-| input | data=[参数名] | 参数的数学类型；index 转 real |
-| const | data=[实数或布尔]；复数为 [实部,虚部] | 声明的有限数值类型 |
-| add/sub/mul/div/pow | 两个数值节点 | real 或提升到 complex |
-| neg/conj | 一个数值节点 | 与输入同类型 |
-| real/imag/abs | 一个数值节点 | real |
-| lt/eq | 两个可比较节点 | bool；complex 不支持 lt |
-| and/or/not | 布尔节点 | bool |
-| complex | 两个 real 节点 | complex |
-| select | bool、true 值、false 值 | 两分支的公共类型 |
-| intrinsic | data=[数学函数名] | 按内建签名 |
-| call | data=[函数符号,返回索引]，args 按形参顺序 | 被调函数对应返回类型 |
+| input | data=[parameter name] | the parameter's mathematical type; index converts to real |
+| const | data=[real or boolean]; complex as [real part, imaginary part] | the declared finite numeric type |
+| add/sub/mul/div/pow | two numeric nodes | real, or promoted to complex |
+| neg/conj | one numeric node | same type as the input |
+| real/imag/abs | one numeric node | real |
+| lt/eq | two comparable nodes | bool; lt is unsupported for complex |
+| and/or/not | boolean nodes | bool |
+| complex | two real nodes | complex |
+| select | bool, true value, false value | the common type of the two branches |
+| intrinsic | data=[mathematical function name] | per the built-in signature |
+| call | data=[function symbol, return index], args in formal-parameter order | the callee's corresponding return type |
 
-同一 helper 的同参数调用与公共表达式可以复用。一个多结果调用在 MIR 中具有不同返回索引，lowering 将它们合并为一次 RIR Call。Python 的静态 range 循环在有界生成阶段展开成 SSA；这不改变 helper 模块或已有 RIR Repeat 的保留规则。
+Calls to the same helper with the same arguments and common subexpressions can be reused. A multi-result call has distinct return indices in MIR, and lowering merges them into a single RIR Call. Python's static range loops are unrolled into SSA during the bounded generation stage; this does not change the retention rules for helper modules or for existing RIR Repeat.
 
-## 有限数值与生成配置
+## Finite numerics and generation configuration
 
-MIR 表达函数结构；生成配置包括 FixedFormat 和 {obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`。前者指定二补码字长/小数位，后者指定数学核阶数与近似区间。这些参数及采样得到的系数记录在 RIR 属性中。相同数学图在不同配置下得到不同的 RIR 模块符号，可同时组装。
+MIR expresses function structure; the generation configuration comprises FixedFormat and {obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`. The former specifies the two's-complement word length/fraction bits; the latter specifies the math-kernel order and approximation interval. These parameters and the sampled coefficients are recorded in RIR attributes. The same mathematical graph under different configurations yields different RIR module symbols that can be assembled side by side.
 
-lowering 使用现有定点加减乘除/开方等 Boolean 电路。非多项式实函数采用 Chebyshev 采样系数与 Clenshaw 递推；采样数由阶数决定，独立于输入位模式总数，不生成整个函数的真值表。复数函数以实数核和代数关系分解。
+Lowering uses the existing Boolean circuits for fixed-point add/subtract/multiply/divide/square-root and the like. Non-polynomial real functions use sampled Chebyshev coefficients with the Clenshaw recursion; the sample count is decided by the order, is independent of the number of input bit patterns, and never generates a truth table of the whole function. Complex functions decompose into real kernels and algebraic relations.
 
-具体量子电路精确实现其有限布尔函数 F_tilde 的可逆扩张；F_tilde 与理想数学函数 F 的接近程度不由本语言证明。整数常量幂采用平方-乘，绝对指数上限 128；一般实数幂采用 exp(y log(x))，实数路径要求正底数。复数路径使用选定的复对数分支。
+The concrete quantum circuit implements exactly the reversible extension of its finite Boolean function F_tilde; how close F_tilde is to the ideal mathematical function F is not proven by this language. Integer constant powers use square-and-multiply with an absolute exponent bound of 128; general real powers use exp(y log(x)), and the real path requires a positive base. The complex path uses a chosen branch of the complex logarithm.
 
-## 输出和状态
+## Outputs and status
 
-公开接口为输入端口、输出端口和 status[2]：
+The public interface is input ports, output ports, and status[2]:
 
 ```text
 |inputs, outputs, status, 0_private>
@@ -44,18 +46,18 @@ lowering 使用现有定点加减乘除/开方等 Boolean 电路。非多项式�
      status XOR flags(inputs), 0_private>
 ```
 
-输出不是赋值覆盖；非零输出同样合法。编译器将所需中间量计算到私有 locals，复制结果和标志后反算，输入端口保持不变。结构检查不构成复净证明；现有实现用小规模参考与真实后端检查这条契约。
+Outputs are not overwriting assignments; a non-zero output is equally legal. The compiler computes the needed intermediates into private locals, copies out the results and flags, and then uncomputes, leaving the input ports unchanged. Structural checks do not constitute a proof of uncomputation; the current implementation checks this contract with small-scale references and real backends.
 
-status[0] 记录定义域失效，例如除零、实数负数开方和非正实数取对数。status[1] 汇总底层溢出/常量越界以及数学核超出配置区间。它们不是精度界，也不表示 IEEE NaN/Inf。
+status[0] records domain failures, such as division by zero, square roots of negative reals, and logarithms of non-positive reals. status[1] aggregates underlying overflows/out-of-range constants and math kernels leaving the configured interval. They are neither precision bounds nor IEEE NaN/Inf indicators.
 
-select 的结果状态为条件状态 OR 被选中分支状态。未选中分支虽在可逆实现中计算和反算，其定义域标志不污染最终状态。helper 的返回状态是其所有返回值的状态合并，调用者再合并已求值实参的状态。无返回依赖的死计算可以消除；不模拟 Python 浮点异常时序。
+The result status of select is the condition status OR the selected branch's status. Although the unselected branch is computed and uncomputed in the reversible implementation, its domain flags do not pollute the final status. A helper's return status is the merge of the statuses of all its return values, and the caller then merges the statuses of the already-evaluated arguments. Dead computations with no return dependency can be eliminated; Python floating-point exception timing is not simulated.
 
-没有 IEEE 有符号零，复函数在切线上的边界约定无法逐位复现 Python cmath；当前零虚部采用非负一侧的约定。复杂分支切线、近似精度和全域状态行为待核验。
+There is no IEEE signed zero, and the boundary conventions of complex functions on branch cuts cannot reproduce Python cmath bit for bit; the current convention adopts the non-negative side for zero imaginary parts. Complex branch cuts, approximation precision, and whole-domain status behavior remain to be verified.
 
-## 前端边界
+## Front-end boundary
 
-{obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 读取普通 Python 函数源码并解释受限 AST；不执行待编译函数，也不使用动态 eval/exec。源码字符串可指定 entry；没有指定时使用最后一个 def。支持数值常量、局部赋值/解包、算术、比较、条件表达式、结构化 if、静态有界 range、tuple 返回、纯 helper 和白名单 math/cmath 调用。
+{obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` reads the source of an ordinary Python function and interprets a restricted AST; it does not execute the function being compiled, nor does it use dynamic eval/exec. The source string may designate entry; when none is given, the last def is used. Supported are numeric constants, local assignment/unpacking, arithmetic, comparisons, conditional expressions, structured if, static bounded range, tuple returns, pure helpers, and whitelisted math/cmath calls.
 
-拒绝 I/O、对象突变、任意对象方法、动态循环、递归、异常处理、生成器、lambda 及不能读取源码的可调用对象。闭包和显式 constants 只捕获有限数值。源码不可用时可传 def 字符串。math 和 cmath 别名以及 from 导入均可识别；数学 intrinsic 当前用位置参数。
+Rejected are I/O, object mutation, arbitrary object methods, dynamic loops, recursion, exception handling, generators, lambdas, and callables whose source cannot be read. Closures and explicit constants capture only finite numerics. When source is unavailable, a def string can be passed instead. math and cmath aliases and from-imports are recognized; math intrinsics currently take positional arguments.
 
-数学函数名目录依据 [Python cmath 文档](https://docs.python.org/3/library/cmath.html)，AST 节点依据 [Python AST 文档](https://docs.python.org/3/library/ast.html)。支持的语法/数值子集和定点行为由本规范限定，不能视作任意 Python 或完整 cmath 兼容实现。
+The mathematical function-name catalog follows the [Python cmath documentation](https://docs.python.org/3/library/cmath.html), and AST nodes follow the [Python AST documentation](https://docs.python.org/3/library/ast.html). The supported syntax/numeric subset and the fixed-point behavior are delimited by this specification and must not be taken as an arbitrary-Python or complete-cmath compatible implementation.

@@ -1,5 +1,5 @@
-Block encoding 组合
-==================================
+Block-encoding composition
+====================================================
 
 ``oracq.algorithms.input_model.block_encoding``
 

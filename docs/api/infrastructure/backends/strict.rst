@@ -1,5 +1,5 @@
-严格网表导出
-============
+Strict netlist export
+==========================================
 
 ``oracq.infrastructure.backends.strict``
 

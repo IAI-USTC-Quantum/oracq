@@ -1,5 +1,5 @@
-算法展示目录
-============
+Algorithm gallery
+==================================
 
 ``oracq.applications.gallery``
 

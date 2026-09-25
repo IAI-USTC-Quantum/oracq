@@ -1,5 +1,5 @@
-SDE/Fokker–Planck 输入模型
-============================================
+SDE/Fokker–Planck input models
+============================================================
 
 ``oracq.algorithms.qode.sde``
 
