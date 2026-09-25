@@ -1,11 +1,11 @@
-"RIR v0.3: immutable, serializable register-level operation graph."
+"RIR v0.1: immutable, serializable register-level operation graph."
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TypeAlias
 
-VERSION = "0.3"
+VERSION = "0.1"
 """Current RIR specification version; the default ``version`` value for newly created ``Program`` objects."""
 
 

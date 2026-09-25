@@ -57,6 +57,7 @@ modules:
         resources:
           - values
         tag: Call
+    locals: []
     name: demo
     registers:
       - name: address
@@ -105,6 +106,7 @@ modules:
             width: 3
         resource: table
         tag: Load
+    locals: []
     name: lookup_2_3
     registers:
       - name: address
@@ -154,6 +156,7 @@ modules:
         resources:
           - memory
         tag: Call
+    locals: []
     name: wrapped_lookup
     registers:
       - name: a

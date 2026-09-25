@@ -451,7 +451,8 @@
         "registers",
         "resources",
         "body",
-        "attributes"
+        "attributes",
+        "locals"
       ],
       "additionalProperties": false
     },
@@ -473,11 +474,7 @@
           }
         },
         "version": {
-          "enum": [
-            "0.1",
-            "0.2",
-            "0.3"
-          ]
+          "const": "0.1"
         }
       },
       "required": [
@@ -486,42 +483,7 @@
         "modules",
         "version"
       ],
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "version": {
-                "const": "0.3"
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "modules": {
-                "items": {
-                  "required": [
-                    "locals"
-                  ]
-                }
-              }
-            }
-          },
-          "else": {
-            "properties": {
-              "modules": {
-                "items": {
-                  "not": {
-                    "required": [
-                      "locals"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        }
-      ]
+      "additionalProperties": false
     }
   }
 }

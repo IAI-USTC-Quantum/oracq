@@ -164,8 +164,7 @@ def dumps(program: ir.Program, *, format: Literal["yaml", "json"] = "yaml") -> s
     newline; module definitions are sorted by module name, with signature
     parameters and instruction order preserved. YAML uses block style, indents
     nested sequences relative to their owning key, and uses no anchors or
-    aliases; floats must be finite. Module nodes of versions ``0.1`` and
-    ``0.2`` omit the ``locals`` field. Open bodies stay null, and binding-origin
+    aliases; floats must be finite. Open bodies stay null, and binding-origin
     attributes such as binding_captures are saved as-is; binding and resource
     analysis reports are not mixed into executable nodes.
 
@@ -182,10 +181,6 @@ def dumps(program: ir.Program, *, format: Literal["yaml", "json"] = "yaml") -> s
     validate(program)
     canonical = replace(program, modules=tuple(sorted(program.modules, key=lambda m: m.name)))
     data = encode(canonical)
-    if program.version in {"0.1", "0.2"}:
-        # The canonical shape of encode(Program) is known: the top level is a dict and modules is a list of module dicts.
-        for module in cast("list[dict[str, object]]", cast("dict[str, object]", data)["modules"]):
-            module.pop("locals")
     if format == "json":
         return (
             json.dumps(data, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2) + "\n"
@@ -219,8 +214,7 @@ def loads(text: str) -> ir.Program:
     first parsed as strict JSON, falling back to YAML on failure (YAML is a
     superset of JSON); other text is parsed as YAML. Both paths reject
     duplicate keys and non-finite numbers; the YAML path additionally rejects
-    implicit scalar types such as dates. Module nodes of versions ``0.1`` and
-    ``0.2`` are completed automatically with an empty ``locals``.
+    implicit scalar types such as dates.
 
     Args:
         text: YAML or JSON text produced by ``dumps``.
@@ -248,10 +242,6 @@ def loads(text: str) -> ir.Program:
         else:
             data = yaml.load(stripped, Loader=_StrictLoader)
         _check_values(data)
-        if isinstance(data, dict) and data.get("version") in {"0.1", "0.2"}:
-            for module in data.get("modules", []):
-                if isinstance(module, dict):
-                    module.setdefault("locals", [])
         program = decode(data)
         if not isinstance(program, ir.Program):
             raise ir.ValidationError("the root node must be a Program")

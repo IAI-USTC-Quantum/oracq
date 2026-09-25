@@ -94,6 +94,7 @@
           "tag": "Call"
         }
       ],
+      "locals": [],
       "name": "demo",
       "registers": [
         {
@@ -168,6 +169,7 @@
           "tag": "Load"
         }
       ],
+      "locals": [],
       "name": "lookup_2_3",
       "registers": [
         {
@@ -247,6 +249,7 @@
           "tag": "Call"
         }
       ],
+      "locals": [],
       "name": "wrapped_lookup",
       "registers": [
         {

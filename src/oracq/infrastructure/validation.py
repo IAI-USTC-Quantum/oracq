@@ -126,7 +126,7 @@ def capture_map(module: Module) -> dict[str, str]:
 def _validate(program: Program) -> Program:
     """Run all cross-node structural checks on the program and return it unchanged on success."""
     require(isinstance(program, Program) and type(program.modules) is tuple, "an immutable Program is required")
-    require(program.version in {"0.1", "0.2", VERSION}, f"unsupported RIR version: {program.version}")
+    require(program.version == VERSION, f"unsupported RIR version: {program.version}")
     name(program.entry)
     modules = program.module_map
     require(len(modules) == len(program.modules), "duplicate module name")
@@ -155,7 +155,6 @@ def _validate(program: Program) -> Program:
             if capability in attributes:
                 require(type(attributes[capability]) is bool, "capability fields must be booleans")
         require(type(module.locals) is tuple, "local register list must be immutable")
-        require(program.version == VERSION or not module.locals, "legacy RIR does not support local registers")
         if module.body is None:
             require(not module.locals, "open declarations cannot define a private workspace")
         all_registers = module.registers + module.locals
@@ -247,7 +246,6 @@ def _validate(program: Program) -> Program:
                     require(node.data.width == spec.data_width, "QRAM data width mismatch")
                 elif isinstance(node, Store):
                     require(unitary, "Store is a non-unitary side effect and cannot appear inside a Control or Adjoint body")
-                    require(program.version == VERSION, "legacy RIR does not support Store")
                     require(node.resource in resources, "QRAM resource is not declared")
                     spec = resources[node.resource]
                     distinct((node.address, node.data), protected)
@@ -289,7 +287,6 @@ def _validate(program: Program) -> Program:
                     raise ValidationError(f"unknown instruction type: {type(node).__name__}")
 
         if module.body is None:
-            require(program.version != "0.1", "RIR 0.1 does not support open declarations")
             require(
                 isinstance(attributes.get("oracle_paradigm"), str),
                 "open declarations must specify oracle_paradigm",
