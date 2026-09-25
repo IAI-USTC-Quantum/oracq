@@ -1,4 +1,4 @@
-"""Deutsch–Jozsa、Bernstein–Vazirani 与 Simon 查询算法。"""
+"""Deutsch–Jozsa, Bernstein–Vazirani, and Simon query algorithms."""
 
 from __future__ import annotations
 
@@ -12,16 +12,18 @@ from oracq.infrastructure.ir import Bits, ValidationError
 
 
 def deutsch_jozsa(function: XorDatabase) -> Operation:
-    """生成 D-J 查询电路；调用者声明函数是常量或平衡函数。
+    """Generate the D-J query circuit; the caller asserts the function is constant or balanced.
 
     Args:
-        function: 一位结果的 XOR database，须满足常量或平衡承诺。
+        function: An XOR database with one-bit results, satisfying the
+            constant or balanced promise.
 
     Returns:
-        Operation: 寄存器 input 与 answer 的查询电路；读出 input 判定常量/平衡。
+        Operation: Query circuit with registers input and answer; read out
+        input to decide constant versus balanced.
     """
     if function.data_width != 1:
-        raise ValidationError("D-J oracle 必须只有一个结果位")
+        raise ValidationError("the D-J oracle must have exactly one result bit")
     b = Builder(
         _name("deutsch_jozsa", function.operation),
         {"input": Bits(function.address_width), "answer": Bits(1)},
@@ -41,15 +43,18 @@ def deutsch_jozsa(function: XorDatabase) -> Operation:
 
 
 def bernstein_vazirani(function: XorDatabase) -> Operation:
-    """生成 Bernstein–Vazirani 秘密字符串读出电路。
+    """Generate the Bernstein–Vazirani secret string readout circuit.
 
     Args:
-        function: 一位结果的 XOR database，调用者保证 f(x)=s·x XOR c。
+        function: An XOR database with one-bit results; the caller guarantees
+            f(x)=s·x XOR c.
 
     Returns:
-        Operation: 公开 input 和 answer。满足输入前提时，读取 input 得到 s。
+        Operation: Exposes input and answer. When the input promise holds,
+        reading input yields s.
 
-    Oracle 可以保留为开放声明，后续绑定 gate 或 QRAM 实现。"""
+    The oracle may stay as an open declaration, with a gate or QRAM
+    implementation bound later."""
     from dataclasses import replace
 
     from oracq.infrastructure.builder import Operation
@@ -68,15 +73,16 @@ def bernstein_vazirani(function: XorDatabase) -> Operation:
 
 
 def affine_boolean_oracle(width: int, secret: int, *, bias: int = 0) -> XorDatabase:
-    """构造 BV 的普通门 oracle，secret 的第 i 位对应地址第 i 位。
+    """Build a plain gate oracle for BV; bit i of secret corresponds to bit i of the address.
 
     Args:
-        width: 地址寄存器位宽，取 1..64。
-        secret: 秘密字符串的整数编码，取 0..2^width−1。
-        bias: 常数偏置 c，取 0 或 1。
+        width: Address register bit width, in 1..64.
+        secret: Integer encoding of the secret string, in 0..2^width−1.
+        bias: Constant bias c, either 0 or 1.
 
     Returns:
-        XorDatabase: 实现 f(x)=s·x XOR c 的门级 XOR database 句柄。
+        XorDatabase: Gate-level XOR database handle implementing f(x)=s·x
+        XOR c.
     """
     positive_integer(width, "affine_boolean_oracle.width", maximum=64)
     positive_integer(secret, "affine_boolean_oracle.secret", minimum=0, maximum=(1 << width) - 1)
@@ -93,17 +99,20 @@ def affine_boolean_oracle(width: int, secret: int, *, bias: int = 0) -> XorDatab
 
 
 def simon_sample(function: XorDatabase) -> Operation:
-    """生成一次 Simon 采样电路。
+    """Generate one Simon sampling circuit.
 
     Args:
-        function: XOR database，调用者保证具有非零 XOR 周期的二对一映射。
+        function: An XOR database; the caller guarantees a two-to-one map
+            with a nonzero XOR period.
 
     Returns:
-        Operation: 公开 input 和 output。只读取 input 即可获得周期正交约束。
+        Operation: Exposes input and output. Reading input alone yields an
+        orthogonality constraint on the period.
 
-    输出寄存器无需在电路中提前测量；重复采样后的消元在经典侧进行。"""
+    The output register need not be measured inside the circuit; elimination
+    over repeated samples happens on the classical side."""
     if not isinstance(function, XorDatabase):
-        raise ValidationError("Simon 需要 XOR database")
+        raise ValidationError("Simon requires an XOR database")
     b = Builder(
         _name("simon_sample", function.operation),
         {"input": Bits(function.address_width), "output": Bits(function.data_width)},
@@ -121,14 +130,16 @@ def simon_sample(function: XorDatabase) -> Operation:
 
 
 def simon_nullspace(samples: Iterable[int], width: int) -> tuple[int, ...]:
-    """求 Simon 样本约束在 GF(2) 上的零空间。
+    """Compute the GF(2) null space of the Simon sample constraints.
 
     Args:
-        samples: 按 little endian 编码的整数样本。
-        width: 秘密字符串的位宽。
+        samples: Integer samples encoded in little endian.
+        width: Bit width of the secret string.
 
     Returns:
-        tuple: 零空间基向量。只有一维零空间时才能直接确定非零周期；样本不足时保留多个基向量。"""
+        tuple: Null space basis vectors. Only a one-dimensional null space
+        determines the nonzero period directly; with insufficient samples
+        several basis vectors remain."""
     positive_integer(width, "simon.width", maximum=64)
     rows = []
     for sample in samples:

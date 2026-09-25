@@ -1,18 +1,25 @@
-"""Oracle 目录与查询算法的论文级数值验证。
+"""Publication-grade numerical validation of the oracle catalog and query algorithms.
 
-验证对象：src/oracq/algorithms/oracles.py 与 oracle_algorithms.py。
+Validation targets: src/oracq/algorithms/oracles.py and oracle_algorithms.py.
 
-- XOR database：gate 真值表在逐基态与全叠加两种模式下穷举全部输入域，
-  QRAM 绑定、abstract 声明的 gate/QRAM 双绑定一致性，四条后端路径对拍；
-- Bernstein–Vazirani（论文点名算法）：3–8 bit 多规模 × 多秘密串 × 两种偏置，
-  originir-ext 与 rir-pysparq 两条主路径（外加 reference 与 adapter 对拍），
-  恢复串等于秘密串的概率精确为 1；含开放声明 → 绑定的端到端路线；
-- Deutsch–Jozsa：常量/平衡函数族判定（含 BooleanNetwork 编译 oracle 的
-  端到端路线，顺带对拍 boolean-networks 的线路语义与经典求值）；
-- Simon：采样分布的相位敏感逐点对拍 + GF(2) 消元恢复周期（含宽位 CNOT
-  线性 oracle 路线）。
+- XOR database: the gate truth table exhausts the whole input domain in both
+  per-basis-state and full-superposition modes; QRAM binding and gate/QRAM
+  dual-binding consistency of abstract declarations; four backend paths
+  cross-checked;
+- Bernstein-Vazirani (an algorithm named in the paper): 3-8 bit multiple
+  scales x multiple secret strings x both biases, two primary paths
+  (originir-ext and rir-pysparq, plus reference and adapter cross-checks),
+  with the probability of recovering the secret string exactly 1; includes
+  the open-declaration -> binding end-to-end route;
+- Deutsch-Jozsa: constant/balanced function-family decisions (including the
+  end-to-end route of a BooleanNetwork-compiled oracle, which also
+  cross-checks the circuit semantics of boolean-networks against classical
+  evaluation);
+- Simon: phase-sensitive pointwise comparison of the sampling distribution +
+  GF(2) elimination to recover the period (including the wide-width CNOT
+  linear-oracle route).
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_oracles.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_oracles.py
 """
 
 from __future__ import annotations
@@ -50,17 +57,17 @@ from oracq.algorithms.input_model.oracles import (
 )
 
 # ---------------------------------------------------------------------------
-# 与库实现无关的经典参考工具
+# Classical reference tools independent of the library implementation
 # ---------------------------------------------------------------------------
 
 
 def _dot(a, b):
-    """GF(2) 点积。"""
+    """GF(2) dot product."""
     return (a & b).bit_count() & 1
 
 
 def _pseudo_table(address_width, data_width, seed):
-    """确定性 xorshift64* 伪随机真值表（独立构造，不复用库代码）。"""
+    """Deterministic xorshift64* pseudo-random truth table (independently constructed, no library code reused)."""
     state = seed | 1
     mask64 = (1 << 64) - 1
     words = []
@@ -73,7 +80,7 @@ def _pseudo_table(address_width, data_width, seed):
 
 
 def _gf2_independent(vectors, count):
-    """按最高位主元消元，确定性选取 count 个线性无关向量。"""
+    """Deterministic selection of count linearly independent vectors by highest-bit pivot elimination."""
     pivots = {}
     chosen = []
     for vector in vectors:
@@ -92,10 +99,11 @@ def _gf2_independent(vectors, count):
 
 
 def _db_program(db_operation, *, superpose=(), initial=None, name="drive"):
-    """XOR database 驱动程序。
+    """XOR database driver.
 
-    harness 的 basis/superposition 助手不穿线 QRAM 资源，这里显式按名映射，
-    同时支持基态初值与部分寄存器叠加的组合。
+    The harness basis/superposition helpers do not thread QRAM resources, so
+    they are mapped explicitly by name here; combinations of basis-state
+    initial values and partial-register superposition are supported.
     """
     module = db_operation.module
     b = Builder(
@@ -118,7 +126,7 @@ def _db_program(db_operation, *, superpose=(), initial=None, name="drive"):
 
 
 def _xor_expected(address_width, data_width, table):
-    """全叠加下 XOR database 的精确参考态：|a,d> → |a, d XOR table[a]> 均匀叠加。"""
+    """Exact reference state of the XOR database under full superposition: |a,d> -> |a, d XOR table[a]> uniform superposition."""
     uniform = 1 / math.sqrt(1 << (address_width + data_width))
     return {
         (a, d ^ table[a]): uniform
@@ -128,7 +136,7 @@ def _xor_expected(address_width, data_width, table):
 
 
 def _bv_expected(secret, bias):
-    """BV/DJ 相位反冲电路的闭式末态：input 集中于 s，answer 留在 |->。"""
+    """Closed-form final state of the BV/DJ phase-kickback circuit: input concentrated on s, answer left in |->."""
     sign = 1.0 if bias == 0 else -1.0
     root = 1 / math.sqrt(2)
     return {(secret, 0): sign * root, (secret, 1): -sign * root}
@@ -142,19 +150,19 @@ def _input_marginal(state_probs, input_index=0):
 
 
 def _origin_input_probability(vector, input_width, target):
-    """从 OriginIR 全振幅态向量汇总 input == target 的概率（input 在低位）。"""
+    """Sum the probability of input == target from the OriginIR full-amplitude state vector (input in the low bits)."""
     mask = (1 << input_width) - 1
     return sum(abs(v) ** 2 for i, v in enumerate(vector) if (i & mask) == target)
 
 
 # ---------------------------------------------------------------------------
-# A 组：XOR database 真值表语义
+# Group A: XOR database truth-table semantics
 # ---------------------------------------------------------------------------
 
 
 def verify_xor_gate_basis(report):
-    """基态模式：逐点穷举全部 (address, data) 初态，输出必须恰为单一基态。"""
-    # (2,3) 全路径；(3,2) 走 reference + rir-pysparq 控制运行总量
+    """Basis-state mode: pointwise exhaustive sweep over all (address, data) initial states; the output must be a single basis state."""
+    # (2,3) on all paths; (3,2) on reference + rir-pysparq to control total runtime
     configs = [
         (2, 3, [5, 7, 0, 3], ("reference", "rir-pysparq", "originir-ext")),
         (3, 2, [1, 0, 3, 2, 0, 1, 2, 3], ("reference", "rir-pysparq")),
@@ -189,13 +197,13 @@ def verify_xor_gate_basis(report):
             paths=list(paths),
             parameters={"address_width": aw, "data_width": dw, "inputs": 1 << (aw + dw)},
             metrics={"failures": failures},
-            criterion="全部 2^(aw+dw) 个基态初态输出恰为 |a, d XOR table[a]>（failures == 0）",
+            criterion="all 2^(aw+dw) basis-state inputs output exactly |a, d XOR table[a]> (failures == 0)",
             passed=failures == 0,
         )
 
 
 def verify_xor_gate_superposition(report):
-    """叠加模式：一次运行穷举全部输入域，四路径与经典置换逐振幅对拍。"""
+    """Superposition mode: one run exhausts the whole input domain; four paths cross-checked amplitude by amplitude against the classical permutation."""
     for aw, dw, seed in ((2, 3, 11), (3, 4, 17), (4, 3, 23)):
         table = _pseudo_table(aw, dw, seed)
         db = gate_database(aw, dw, table)
@@ -215,13 +223,13 @@ def verify_xor_gate_superposition(report):
             paths=["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
             parameters={"address_width": aw, "data_width": dw, "branches": len(expected)},
             metrics={"max_error": worst},
-            criterion="叠加分支与经典置换逐振幅一致（max_error < 1e-9）",
+            criterion="superposition branches match the classical permutation amplitude by amplitude (max_error < 1e-9)",
             passed=worst < 1e-9,
         )
 
 
 def verify_xor_qram(report):
-    """QRAM 绑定：叠加穷举 + 非零 data 初值的基态抽点。"""
+    """QRAM binding: superposition sweep + basis-state spot checks with non-zero initial data."""
     aw, dw = 3, 4
     table = _pseudo_table(aw, dw, 29)
     db = qram_database(aw, dw)
@@ -246,13 +254,13 @@ def verify_xor_qram(report):
         paths=["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
         parameters={"address_width": aw, "data_width": dw, "branches": len(expected)},
         metrics={"max_error": worst, "basis_failures": failures},
-        criterion="QRAM 叠加逐振幅一致（max_error < 1e-9）且基态抽点全部命中",
+        criterion="QRAM superposition matches amplitude by amplitude (max_error < 1e-9) and all basis-state spot checks hit",
         passed=worst < 1e-9 and failures == 0,
     )
 
 
 def verify_xor_binding_consistency(report):
-    """abstract 声明的 gate / QRAM 双绑定一致性（验证矩阵 V4 缺口的参数化对拍）。"""
+    """gate / QRAM dual-binding consistency of an abstract declaration (the parameterized cross-check of the validation-matrix V4 gap)."""
     aw, dw = 3, 2
     table = _pseudo_table(aw, dw, 31)
     slot = abstract_database("Mem", aw, dw)
@@ -288,13 +296,13 @@ def verify_xor_binding_consistency(report):
         paths=["reference", "rir-pysparq", "originir-ext"],
         parameters={"address_width": aw, "data_width": dw, "bindings": ["gate", "qram"]},
         metrics={"max_error": worst},
-        criterion="同一开放声明的两种绑定与经典置换两两一致（max_error < 1e-9）",
+        criterion="both bindings of the same open declaration pairwise match the classical permutation (max_error < 1e-9)",
         passed=worst < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# B 组：Bernstein–Vazirani（论文点名，优先）
+# Group B: Bernstein-Vazirani (named in the paper, prioritized)
 # ---------------------------------------------------------------------------
 
 
@@ -306,7 +314,7 @@ def _bv_secrets(width):
 
 
 def verify_bv_recovery(report):
-    """3–8 bit 多规模：全秘密串 × 偏置实例，四路径恢复概率精确为 1。"""
+    """3-8 bit multiple scales: all secret strings x bias instances; the four-path recovery probability is exactly 1."""
     for width in range(3, 9):
         secrets = _bv_secrets(width)
         worst = {"p_success": 1.0, "tvd": 0.0, "max_error": 0.0}
@@ -350,13 +358,13 @@ def verify_bv_recovery(report):
                 "tvd": worst["tvd"],
                 "max_error": worst["max_error"],
             },
-            criterion="全部实例读出串 == 秘密串（success_probability > 1 - 1e-9，tvd < 1e-9）",
+            criterion="all instances read out the secret string (success_probability > 1 - 1e-9, tvd < 1e-9)",
             passed=worst["p_success"] > 1 - 1e-9 and worst["tvd"] < 1e-9,
         )
 
 
 def verify_bv_oracle_truth_table(report):
-    """affine_boolean_oracle 自身的真值表穷举：f(x) = s·x XOR c 逐分支对拍。"""
+    """Truth-table exhaustive check of affine_boolean_oracle itself: f(x) = s.x XOR c compared branch by branch."""
     for width, secret, bias in ((4, 0b1011, 1), (8, 0xA5, 0)):
         oracle = affine_boolean_oracle(width, secret, bias=bias)
         table = [_dot(secret, x) ^ bias for x in range(1 << width)]
@@ -376,13 +384,13 @@ def verify_bv_oracle_truth_table(report):
             paths=["reference", "rir-pysparq", "originir-ext"],
             parameters={"width": width, "secret": secret, "bias": bias},
             metrics={"max_error": worst},
-            criterion="oracle 叠加分支与 s·x XOR c 逐振幅一致（max_error < 1e-9）",
+            criterion="oracle superposition branches match s.x XOR c amplitude by amplitude (max_error < 1e-9)",
             passed=worst < 1e-9,
         )
 
 
 def verify_bv_open_binding(report):
-    """开放声明 → gate/QRAM 绑定的端到端恢复（docs 描述的开放 oracle 路线）。"""
+    """Open declaration -> gate/QRAM binding end-to-end recovery (the open-oracle route described in the docs)."""
     width = 4
     for secret, bias in ((0b1011, 1), (0b0110, 0)):
         slot = abstract_database("BVFunction", width, 1)
@@ -431,13 +439,13 @@ def verify_bv_open_binding(report):
                 "bindings": ["gate", "qram"],
             },
             metrics={"success_probability": p_min, "max_error": deviation},
-            criterion="两种绑定恢复概率均为 1 且与闭式态一致（p > 1 - 1e-9，max_error < 1e-9）",
+            criterion="both bindings recover with probability 1 and match the closed-form state (p > 1 - 1e-9, max_error < 1e-9)",
             passed=p_min > 1 - 1e-9 and deviation < 1e-9,
         )
 
 
 # ---------------------------------------------------------------------------
-# C 组：Deutsch–Jozsa
+# Group C: Deutsch-Jozsa
 # ---------------------------------------------------------------------------
 
 
@@ -454,7 +462,7 @@ def _dj_functions(width):
 
 
 def verify_dj_decision(report):
-    """常量/平衡函数族：P(input==0) 须精确等于 1（常量）或 0（平衡）。"""
+    """Constant/balanced function families: P(input==0) must be exactly 1 (constant) or 0 (balanced)."""
     for width in (2, 3, 4, 5):
         worst_p0, decision_errors, worst_state = 0.0, 0, 0.0
         for label, table in _dj_functions(width).items():
@@ -475,7 +483,7 @@ def verify_dj_decision(report):
             worst_p0 = max(worst_p0, abs(p0 - expected_p0))
             if (p0 > 0.5) != constant:
                 decision_errors += 1
-            # 常量与线性平衡（parity = s·x，s 全 1）有闭式末态，做相位敏感对拍
+            # Constant and linearly balanced (parity = s.x with s all ones) have closed-form final states; phase-sensitive comparison
             if label == "const0":
                 closed = _bv_expected(0, 0)
             elif label == "const1":
@@ -499,13 +507,13 @@ def verify_dj_decision(report):
                 "decision_errors": decision_errors,
                 "closed_form_max_error": worst_state,
             },
-            criterion="判定全部正确且 P(input=0) 偏差 < 1e-9（闭式情形逐振幅 < 1e-9）",
+            criterion="all decisions correct with P(input=0) deviation < 1e-9 (closed-form cases amplitude by amplitude < 1e-9)",
             passed=decision_errors == 0 and worst_p0 < 1e-9 and worst_state < 1e-9,
         )
 
 
 def _network_database(net, input_name, output_name, width):
-    """把 BooleanNetwork 编译产物包装成 XOR database 接口（输出为 XOR 拷贝语义）。"""
+    """Wrap a BooleanNetwork compilation product into the XOR database interface (output has XOR-copy semantics)."""
     net_op = net.operation()
     b = Builder("net_db", {"address": Bits(width), "data": Bits(1)})
     b.call(net_op, **{input_name: b["address"], output_name: b["data"]})
@@ -513,7 +521,7 @@ def _network_database(net, input_name, output_name, width):
 
 
 def verify_dj_boolean_network(report):
-    """BooleanNetwork 编译 oracle 的 DJ 端到端 + 线路语义对经典求值穷举。"""
+    """DJ end to end with a BooleanNetwork-compiled oracle + circuit semantics exhaustively vs classical evaluation."""
     parity_net = BooleanNetwork()
     xs = parity_net.input("x", 3)
     parity_net.outputs["out"] = [parity_net.xor(parity_net.xor(xs[0], xs[1]), xs[2])]
@@ -526,7 +534,7 @@ def verify_dj_boolean_network(report):
     ):
         database = _network_database(net, "x", "out", 3)
         table = [net.evaluate(x=a)["out"] for a in range(8)]
-        # 线路语义穷举：叠加一次运行对照 net.evaluate 的全部 16 个分支
+        # Circuit-semantics exhaustive sweep: one superposition run against all 16 branches of net.evaluate
         sweep = _db_program(database.operation, superpose=("address", "data"), name="net_sw")
         expected = _xor_expected(3, 1, table)
         worst = amplitude_error(rir_pysparq(sweep), expected)
@@ -534,7 +542,7 @@ def verify_dj_boolean_network(report):
         worst = max(
             worst, statevector_error(vector, amplitudes_to_statevector(expected, [3, 1]))
         )
-        # DJ 判定
+        # DJ decision
         program = deutsch_jozsa(database).program()
         p0 = _input_marginal(probabilities(rir_pysparq(program))).get(0, 0.0)
         expected_p0 = 1.0 if constant else 0.0
@@ -546,18 +554,18 @@ def verify_dj_boolean_network(report):
             paths=["rir-pysparq", "originir-ext"],
             parameters={"width": 3, "constant": constant, "branches": 16},
             metrics={"max_error": worst, "p_zero_error": p0_error},
-            criterion="网络线路与经典求值逐分支一致且 DJ 判定正确（误差 < 1e-9）",
+            criterion="network circuit matches classical evaluation branch by branch and the DJ decision is correct (error < 1e-9)",
             passed=worst < 1e-9 and p0_error < 1e-9,
         )
 
 
 # ---------------------------------------------------------------------------
-# D 组：Simon
+# Group D: Simon
 # ---------------------------------------------------------------------------
 
 
 def _simon_table(n, s):
-    """周期恰为 s 的二对一线性函数真值表（独立构造 + 经典穷举自证）。"""
+    """Truth table of a two-to-one linear function with period exactly s (independently constructed + self-checked by classical exhaustion)."""
     pivot = (s & -s).bit_length() - 1
 
     def f(x):
@@ -571,7 +579,7 @@ def _simon_table(n, s):
 
 
 def _simon_cnot_oracle(n, s):
-    """线性 Simon 函数的 CNOT 实现（宽位时替代真值表以降低门数）。"""
+    """CNOT realization of a linear Simon function (replaces the truth table at wide widths to reduce the gate count)."""
     pivot = (s & -s).bit_length() - 1
     b = Builder(f"simon_linear_{n}_{s}", {"address": Bits(n), "data": Bits(n - 1)})
     for j in range(n - 1):
@@ -583,7 +591,7 @@ def _simon_cnot_oracle(n, s):
 
 
 def _simon_expected(n, s, table):
-    """Simon 采样电路的精确联合分布（含相位）：支持集 2^{2n-2} 个等幅基态。"""
+    """Exact joint distribution (phases included) of the Simon sampling circuit: 2^{2n-2} equal-amplitude basis states in the support."""
     pivot = (s & -s).bit_length() - 1
     representative = {}
     for x, value in enumerate(table):
@@ -600,14 +608,14 @@ def _simon_expected(n, s, table):
 
 
 def verify_simon(report):
-    """采样分布相位敏感对拍 + 消元恢复周期（3–8 bit）。"""
+    """Phase-sensitive comparison of the sampling distribution + elimination recovering the period (3-8 bit)."""
     for n in range(3, 9):
-        use_cnot = n >= 7  # 真值表门数随 2^n 增长，宽位走 CNOT 线性实现
+        use_cnot = n >= 7  # the truth table's gate count grows as 2^n; wide widths use the CNOT linear realization
         secrets = sorted({1, (1 << n) - 1, (0x9E3779B97F4A7C15 & ((1 << n) - 1)) | 1})
         worst_amp, worst_tvd, recoveries, attempts = 0.0, 0.0, 0, 0
         case_paths = ["rir-pysparq"] if use_cnot else ["reference", "rir-pysparq"]
         if not use_cnot and n <= 5:
-            case_paths.append("originir-ext")  # 稠密小实例走 UniQC 全振幅
+            case_paths.append("originir-ext")  # dense small instances go through UniQC full amplitude
         for s in secrets:
             table = _simon_table(n, s)
             oracle = (
@@ -624,8 +632,8 @@ def verify_simon(report):
                 probs = probabilities(state)
                 worst_tvd = max(worst_tvd, tvd(probs, expected_probs))
                 if any(_dot(y, s) for (y, _value) in probs):
-                    worst_tvd = math.inf  # 支持集越出 s 的正交子空间
-                # 用该路径自身的采样支持集做端到端消元恢复
+                    worst_tvd = math.inf  # support escapes the subspace orthogonal to s
+                # End-to-end elimination recovery using this path's own sampling support
                 support = sorted({y for (y, _value), p in probs.items() if p > 1e-15})
                 samples = _gf2_independent(support, n - 1)
                 attempts += 1
@@ -650,19 +658,19 @@ def verify_simon(report):
                 "recoveries": recoveries,
                 "recovery_attempts": attempts,
             },
-            criterion="联合分布逐振幅一致且每次采样消元都恢复周期（recoveries == attempts）",
+            criterion="joint distribution matches amplitude by amplitude and every sampled elimination recovers the period (recoveries == attempts)",
             passed=worst_amp < 1e-9 and worst_tvd < 1e-9 and recoveries == attempts,
         )
 
 
 def verify_simon_rank_deficiency(report):
-    """样本不足时零空间保持多维且周期落在其张成内（信息性指标）。"""
+    """With insufficient samples the null space stays multidimensional and the period lies in its span (informative metric)."""
     n, s = 4, 0b1011
     table = _simon_table(n, s)
     program = simon_sample(gate_database(n, n - 1, table)).program()
     state = rir_pysparq(program)
     support = sorted({y for (y, _v), p in probabilities(state).items() if p > 1e-15})
-    samples = _gf2_independent(support, n - 2)  # 少一个独立样本
+    samples = _gf2_independent(support, n - 2)  # one independent sample short
     basis = simon_nullspace(samples, n)
     span = {0}
     for vector in basis:
@@ -673,7 +681,7 @@ def verify_simon_rank_deficiency(report):
         paths=["rir-pysparq"],
         parameters={"width": n, "secret": s, "independent_samples": len(samples)},
         metrics={"nullspace_dim": len(basis), "secret_in_span": in_span},
-        criterion="零空间恰好多出一维且 s 在其张成内",
+        criterion="the null space has exactly one extra dimension and s lies in its span",
         passed=len(basis) == 2 and in_span,
     )
 
@@ -681,8 +689,8 @@ def verify_simon_rank_deficiency(report):
 def run():
     report = Report(
         "oracles",
-        "XOR database 三种绑定、BV/DJ/Simon 查询算法在四条真实后端路径上的"
-        "穷举式与端到端数值验证（BV 覆盖 3–8 bit 多规模双路径）。",
+        "Exhaustive and end-to-end numerical validation of the three XOR database bindings and the BV/DJ/Simon query algorithms "
+        "on four real backend paths (BV covers 3-8 bit multiple scales on dual paths).",
     )
     verify_xor_gate_basis(report)
     verify_xor_gate_superposition(report)

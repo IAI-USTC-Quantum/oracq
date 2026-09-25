@@ -1,9 +1,9 @@
-"""输入模型变体教程：四个求解器家族 × 结构化 / 谱嵌入 / QRAM 数据路径。
+"""Input-model variant tutorial: four solver families × structured / spectral-embedding / QRAM data paths.
 
-运行：PYTHONPATH=src python examples/input_models.py
-产物只记录结构证据（开放槽位、资源、闭合与导出），求解精度属于后续验证项。
-每个家族在同一问题实例下展示不同的输入模型：结构化门端口（基线）、
-谱嵌入（Pauli 精确展开）、以及数据路径走开放角数据库/QRAM 资源的变体。
+Run: PYTHONPATH=src python examples/input_models.py
+The artifacts record structural evidence only (open slots, resources, closure and export); solution accuracy is a later validation item.
+Each family shows different input models on the same problem instance: structured gate ports (baseline),
+spectral embedding (exact Pauli expansion), and variants whose data path goes through open angle databases/QRAM resources.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def save_case(
     *,
     notes: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
-    """同时留下开放/部分绑定/闭合产物；不内联 oracle 主体。"""
+    """Leave open/partially-bound/closed artifacts side by side; oracle bodies are not inlined."""
     folder = root / name
     folder.mkdir(parents=True, exist_ok=True)
     opened = state.operation.program()
@@ -118,7 +118,7 @@ def save_case(
 
 
 def polynomial_from_bindings(bindings: QHAMBindings) -> PolynomialODE:
-    """教程宿主适配器：按次数合并 PDE 多线性端口，交给 Carleman。"""
+    """Tutorial host adapter: merge the PDE multi-linear ports by degree and hand them to Carleman."""
     grouped = defaultdict(list)
     for _, port in bindings.ports:
         grouped[port.arity].append((1, port.encoding))
@@ -133,7 +133,7 @@ def polynomial_from_bindings(bindings: QHAMBindings) -> PolynomialODE:
 def reopen_coefficients(
     problem: PolynomialODE, label: str
 ) -> tuple[PolynomialODE, dict[str, Operation | Binding]]:
-    """把具体系数 BE 重新声明为开放槽位；返回 (PolynomialODE, 绑定)。"""
+    """Re-declare the concrete coefficient block encodings as open slots; returns (PolynomialODE, bindings)."""
     coefficient_slots, bindings = [], {}
     for order, coefficient in problem.coefficients:
         name = label + "F" + str(order)
@@ -148,13 +148,13 @@ def reopen_coefficients(
     bindings[label + "Initial"] = problem.initial.operation
     return (
         PolynomialODE(problem.width, tuple(coefficient_slots), initial_slot, problem.initial_norm),
-        # 字典不变性：实际值域为 Operation，按声明的联合类型传出。
+        # Dict invariance: the actual value type is Operation; pass it out under the declared union type.
         cast("dict[str, Operation | Binding]", bindings),
     )
 
 
 def main() -> None:
-    """按四个求解器家族装配输入模型变体并落盘对比产物与索引。"""
+    """Assemble input-model variants for the four solver families and write the comparison artifacts and index to disk."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/input-models"))
     args = parser.parse_args()
@@ -167,7 +167,7 @@ def main() -> None:
     schrodinger = linear_qode("schrodingerization", hamiltonian_function=kernel)
     cbmd = linear_qode("cbmd", hamiltonian_function=kernel)
 
-    # ---- QHAM 家族：强迫 Burgers（order 2, eta=-0.4），输入模型三种 ----------
+    # ---- QHAM family: forced Burgers (order 2, eta=-0.4), three input models ----------
     u = Field("u")
     pde = PolynomialPDE.from_equations(
         {"u": 0.1 * u.d("x", 2) - u * u.d("x") + Known("forcing")},
@@ -177,20 +177,20 @@ def main() -> None:
     grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
     space = Discretization(pde, grid, {"forcing": [0.05, 0, -0.05, 0]})
 
-    # 1. 结构化门端口 + 门初态：基线（与 examples/general_qham.py 相同输入）。
+    # 1. Structured gate ports + gate initial state: baseline (same input as examples/general_qham.py).
     initial = space.encode_fields({"u": [0.1, 0.2, 0, -0.1]})
     stencil_bindings = structured_fd_bindings(space, initial)
     model = qham_input_model(plan, stencil_bindings, eta=-0.4)
     records.append(write("qham_stencil_gate", model.solve(schrodinger, 0.01)))
 
-    # 2. 谱嵌入端口：基础端口矩阵的精确 Pauli-LCU 展开 + 门初态。
+    # 2. Spectral-embedding ports: exact Pauli-LCU expansion of the base port matrices + gate initial state.
     spectral_bindings = gate_bindings(space, initial)
     model = qham_input_model(plan, spectral_bindings, eta=-0.4)
     records.append(write("qham_spectral_ports", model.solve(schrodinger, 0.01)))
 
-    # 3+4. 系数数据留在开放角数据库槽位、初态声明为槽位：同一份开放程序
-    # 分别绑定 gate 数据库与 QRAM 数据库（运行时角表单独提供）。
-    # QRAM 角表当前仅接受非负幅度，故这一对案例使用非负剖面。
+    # 3+4. Coefficient data stays in open angle-database slots and the initial state is declared as a slot: the same open
+    # program is bound to a gate database and to a QRAM database respectively (the runtime angle tables are provided separately).
+    # QRAM angle tables currently accept only non-negative amplitudes, so this pair of cases uses a non-negative profile.
     profile = [0.1, 0.2, 0.15, 0.05]
     qinitial = space.encode_fields({"u": profile})
     encoder = partial(qram_coefficient_encoding, angle_width=8)
@@ -233,12 +233,12 @@ def main() -> None:
     }
     records.append(write("qham_coeff_qram", state, qram_dict, memory=qram_memory))
 
-    # ---- Carleman 家族：无粘性 Burgers，cutoff=2，输入模型三种 -------------
+    # ---- Carleman family: inviscid Burgers, cutoff=2, three input models -------------
     pde_c = PolynomialPDE.from_equations({"u": 0.1 * u.d("x", 2) - u * u.d("x")})
     space_c = Discretization(pde_c, grid)
     initial_c = space_c.encode_fields({"u": profile})
 
-    # 5. 结构化门端口（槽位重新抽象，同 ode_input_models 案例 6 的模式）。
+    # 5. Structured gate ports (slots re-abstracted, same pattern as case 6 in ode_input_models).
     concrete = polynomial_from_bindings(structured_fd_bindings(space_c, initial_c))
     problem, rebind = reopen_coefficients(concrete, "Burgers")
     records.append(
@@ -249,7 +249,7 @@ def main() -> None:
         )
     )
 
-    # 6. 谱嵌入端口（Pauli-LCU 基础端口矩阵）。
+    # 6. Spectral-embedding ports (Pauli-LCU base port matrices).
     concrete = polynomial_from_bindings(gate_bindings(space_c, initial_c))
     problem, rebind = reopen_coefficients(concrete, "Spectral")
     records.append(
@@ -260,7 +260,7 @@ def main() -> None:
         )
     )
 
-    # 7. 空间变化粘性：系数走开放角数据库 + QRAM 初态。
+    # 7. Spatially varying viscosity: coefficients through an open angle database + QRAM initial state.
     pde_nu = PolynomialPDE.from_equations(
         {"u": 0.1 * Known("nu") * u.d("x", 2) - u * u.d("x")}, label="burgers_nu"
     )
@@ -269,7 +269,7 @@ def main() -> None:
         structured_fd_bindings(space_nu, initial_c, coefficient_encoder=encoder)
     )
     problem, rebind = reopen_coefficients(concrete, "QramBurgers")
-    # 初态槽位按 QRAM 制备的寄存器布局声明（gate 实现的 work 宽度为 0）。
+    # The initial-state slot is declared with the register layout of the QRAM preparation (the gate implementation has work width 0).
     del rebind["QramBurgersInitial"]
     qinit_slot = abstract_state_prep("QramBurgersInitial", concrete.width, 10)
     problem = PolynomialODE(
@@ -303,7 +303,7 @@ def main() -> None:
         )
     )
 
-    # ---- LCHS / CBMD：给定生成元的谱嵌入（与 given_sparse 案例同矩阵） ------
+    # ---- LCHS / CBMD: spectral embedding of a given generator (same matrix as the given_sparse case) ------
     a_matrix = [[1, -0.5], [-0.5, 1]]
     spectral_be = matrix_pauli_encoding(a_matrix)
     initial_slot = abstract_state_prep("SpectralInitial", 1, work_width=3)
@@ -324,7 +324,7 @@ def main() -> None:
             )
         )
 
-    # 谱嵌入 + QRAM PREPARE：Pauli 系数从 QRAM 角度表加载。A = I - 0.5 X。
+    # Spectral embedding + QRAM PREPARE: Pauli coefficients loaded from a QRAM angle table. A = I - 0.5 X.
     terms = [(1.0, "I"), (-0.5, "X")]
     qprep = qram_prepare([1.0, -0.5], angle_width=8)
     qbe = lcu_prepare_select(terms, prepare=qprep.preparation)
@@ -349,8 +349,8 @@ def main() -> None:
             )
         )
 
-    # ---- LCHS / CBMD：QRAM 网格离散化 ---------------------------------------
-    # 四点周期环 Laplacian 的稀疏访问（位置 + 条目表来自 QRAM）+ QRAM 初态。
+    # ---- LCHS / CBMD: QRAM grid discretization ---------------------------------------
+    # Sparse access of the four-point periodic-ring Laplacian (location + entry tables from QRAM) + QRAM initial state.
     fmt = FixedFormat(4, 1)
     access = abstract_sparse_access("RingStencil", 2, fmt.width, sparsity=3)
     laplacian = real_symmetric_sparse_encoding(access, fmt, 2.0, diagonal_nonnegative=True)
@@ -393,7 +393,7 @@ def main() -> None:
             write(family + "_qram_grid", state, grid_bindings, memory=grid_memory)
         )
 
-    # ---- CBMD：QHAM 开放系数输入经耗散移位（输入模型跨家族复用） ------------
+    # ---- CBMD: QHAM open-coefficient input through a dissipative shift (input model reused across families) ------------
     model = qham_input_model(plan, open_bindings, eta=-0.4)
     state = model.dissipative_shift().solve(cbmd, 0.01)
     records.append(

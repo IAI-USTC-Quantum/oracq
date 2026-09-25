@@ -1,8 +1,9 @@
-"""运行全部论文级数值验证组，产物写入 out/verification/。
+"""Run all paper-grade numerical validation groups; artifacts are written to out/verification/.
 
-需要同时安装 pysparq 与 uniqc 的解释器（真实后端，不使用替身）：
+Requires an interpreter with both pysparq and uniqc installed (a real
+backend, no mock substitutes):
 
-    PYTHONPATH=src <含 pysparq+uniqc 的 python> tools/run_verification.py [--group arithmetic]...
+    PYTHONPATH=src <python with pysparq+uniqc> tools/run_verification.py [--group arithmetic]...
 """
 
 import argparse
@@ -20,7 +21,7 @@ def discover():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--group", action="append", choices=discover(), help="只运行指定组")
+    parser.add_argument("--group", action="append", choices=discover(), help="run only the specified groups")
     args = parser.parse_args()
     groups = args.group or discover()
     sys.path.insert(0, str(ROOT / "src"))

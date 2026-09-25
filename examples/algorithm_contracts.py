@@ -1,4 +1,4 @@
-"""从一个 gate 到 QLSS、LCU、HamSim：算法自己的 Python 协议。"""
+"""From a single gate to QLSS, LCU, and HamSim: algorithms as Python protocols."""
 
 from __future__ import annotations
 
@@ -47,22 +47,22 @@ from oracq.algorithms.qode.ode import linear_qode
 
 @runtime_checkable
 class HasDiagonal(Protocol):
-    """完全属于本应用的协议，语言无需知道它。"""
+    """A protocol that belongs entirely to this application; the language does not need to know it."""
 
     def diagonal_values(self) -> tuple[float, ...]: ...
 
 
 class GivenMatrix:
     def __init__(self) -> None:
-        """构造宿主对象，把矩阵 A 声明为名为 GivenA 的开放块编码。"""
+        """Construct the host object, declaring matrix A as an open block encoding named GivenA."""
         self.encoding = abstract_block_encoding("GivenA", 1, 0, 1.0)
 
     def block_encoding(self) -> BlockEncoding:
-        """返回构造时声明的开放块编码。"""
+        """Return the open block encoding declared at construction time."""
         return self.encoding
 
     def diagonal_values(self) -> tuple[float, float]:
-        """返回矩阵 A 的对角元。"""
+        """Return the diagonal entries of matrix A."""
         return (1.0, 1.0)
 
 
@@ -70,12 +70,12 @@ class MyHamiltonian:
     hermitian = True
 
     def trotter_list(self) -> tuple[TrotterTerm, ...]:
-        """返回由 I 与 X 两项构成的 Trotter 分解。"""
+        """Return the Trotter decomposition consisting of an I term and an X term."""
         return (TrotterTerm(0.3, PauliOperator("I")), TrotterTerm(0.7, PauliOperator("X")))
 
 
 def main() -> None:
-    """逐项演示协议检查与求解，并落盘 QLSS、QODE 与 HamSim 的产物。"""
+    """Demonstrate protocol checking and solving step by step, and write the QLSS, QODE, and HamSim artifacts to disk."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/algorithm-contracts"))
     root = parser.parse_args().output
@@ -87,8 +87,8 @@ def main() -> None:
     assert isinstance(gate, UnitaryProtocol)
     assert isinstance(gate, StatePreparationProtocol)
     assert isinstance(gate, BlockEncodingProtocol)
-    # gate 在运行时满足 BlockEncoding/StatePreparation 协议（上方 isinstance 断言）；
-    # 构造器按具体视图类型标注，这里按已知形状收窄。
+    # The gate satisfies the BlockEncoding/StatePreparation protocols at runtime (isinstance assertions above);
+    # the builder annotates by concrete view type, so narrow to the known shape here.
     encoded_sum = lcu(((1, cast(BlockEncoding, gate)), (1, identity(1))))
 
     a = GivenMatrix()

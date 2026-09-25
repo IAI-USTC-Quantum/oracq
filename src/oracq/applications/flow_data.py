@@ -1,4 +1,4 @@
-"经典 Roe Riemann 局部更新与可查询 QRAM 数据结构；不保存矩阵元表。"
+"Classical Roe Riemann local updates and a queryable QRAM data structure; no matrix element table is stored."
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ from oracq.infrastructure.ir import ValidationError
 
 @dataclass(frozen=True)
 class MemoryPatch:
-    """一次更新返回的不可变写入记录。
+    """Immutable write record returned by an update.
 
     Attributes:
-        version: 应用写入之后的存储版本号；无实际写入时保持不变。
-        changes: 实际发生变化的存储项，按 bank 名映射地址到整数值。
-        recomputed_faces: 本次更新重算 Riemann 通量的界面编号；存储层直写时为空。
-        recomputed_cells: 本次更新重算残差的单元编号；存储层直写时为空。
+        version: Storage version after applying the writes; unchanged when nothing is actually written.
+        changes: Storage items that actually changed, mapping addresses to integer values by bank name.
+        recomputed_faces: Face indices whose Riemann fluxes were recomputed by this update; empty for direct storage-layer writes.
+        recomputed_cells: Cell indices whose residuals were recomputed by this update; empty for direct storage-layer writes.
     """
 
     version: int
@@ -29,29 +29,30 @@ class MemoryPatch:
 
 
 class QRAMStore:
-    """带版本号的多 bank 经典整数存储，作为可查询 QRAM 的数据源。
+    """Versioned multi-bank classical integer storage serving as the data source of a queryable QRAM.
 
     Attributes:
-        banks: 按 bank 名组织的存储内容；每个 bank 是地址到整数值的映射。
-        version: 版本号；每次产生实际写入的 apply 调用自增一。
+        banks: Storage contents organized by bank name; each bank maps addresses to integer values.
+        version: The version number; incremented once per apply call that produces actual writes.
     """
 
     def __init__(self) -> None:
-        """初始化空的多 bank 存储与零版本号。"""
+        """Initialize an empty multi-bank store with version zero."""
         self.banks: dict[str, dict[int, int]] = {}
         self.version: int = 0
 
     def apply(self, changes: Mapping[str, Mapping[int, int]]) -> MemoryPatch:
-        """写入一批更新并返回实际发生的写入记录。
+        """Apply a batch of updates and return the record of writes that actually happened.
 
-        与当前存储值相同（未写地址按零计）的项不会记入结果；存在实际写入时
-        版本号自增。
+        Items equal to the current stored value (unwritten addresses count as
+        zero) are not recorded in the result; the version increments when actual
+        writes exist.
 
         Args:
-            changes: 写入内容，按 bank 名映射地址到整数值。
+            changes: Writes to apply, mapping addresses to integer values by bank name.
 
         Returns:
-            MemoryPatch: 写入后的版本号与实际写入项，不含重算范围。
+            MemoryPatch: The post-write version and actual writes, excluding recomputation ranges.
         """
         actual: dict[str, dict[int, int]] = {}
         for bank, cells in changes.items():
@@ -65,31 +66,30 @@ class QRAMStore:
         return MemoryPatch(self.version, actual)
 
     def snapshot(self) -> dict[str, dict[int, int]]:
-        """返回全部 bank 内容的独立副本。
+        """Return an independent copy of all bank contents.
 
         Returns:
-            dict: 每个 bank 的地址到值映射的拷贝，修改快照不影响存储。
+            dict: A copy of each bank's address-to-value mapping; modifying the snapshot does not affect the store.
         """
         return {k: dict(v) for k, v in self.banks.items()}
 
     def materialize_changed(
         self, patch: MemoryPatch, factory: Callable[[str, Mapping[int, int]], object]
     ) -> dict[str, object]:
-        """当前 PySparQ 无写入接口：只重建发生变化的 bank 对象，不宣称物理局部写入。
+        """PySparQ currently exposes no write interface: only the bank objects that changed are rebuilt, with no claim of physical in-place writes.
 
         Args:
-            patch: 增量写入记录，只有其 ``changes`` 涉及的 bank 被重建。
-            factory: 按 bank 名与其地址到值的映射构造宿主侧 bank 对象的工厂。
+            patch: The incremental write record; only banks touched by its ``changes`` are rebuilt.
+            factory: Factory that builds a host-side bank object from a bank name and its address-to-value mapping.
 
         Returns:
-            dict[str, object]: 重建后的 bank 名到新 bank 对象的映射；未发生
-            变化的 bank 不在其中。
+            dict[str, object]: Mapping of rebuilt bank names to new bank objects; unchanged banks are absent.
         """
         return {bank: factory(bank, self.banks[bank]) for bank in patch.changes}
 
 
 def _matmul(a: Sequence[Sequence[float]], b: Sequence[Sequence[float]]) -> list[list[float]]:
-    """计算两个矩阵的乘积。"""
+    """Compute the product of two matrices."""
     return [
         [sum(x * y for x, y in zip(row, col, strict=True)) for col in zip(*b, strict=True)]
         for row in a
@@ -97,13 +97,13 @@ def _matmul(a: Sequence[Sequence[float]], b: Sequence[Sequence[float]]) -> list[
 
 
 def _inverse3(a: Sequence[Sequence[float]]) -> list[list[float]]:
-    """用带部分主元的 Gauss 消元求 3x3 矩阵的逆。"""
+    """Invert a 3x3 matrix by Gaussian elimination with partial pivoting."""
     aug = [list(row) + [float(i == j) for j in range(3)] for i, row in enumerate(a)]
     for j in range(3):
         pivot = max(range(j, 3), key=lambda i: abs(aug[i][j]))
         aug[j], aug[pivot] = aug[pivot], aug[j]
         if abs(aug[j][j]) < 1e-15:
-            raise ValidationError("Roe 特征矩阵奇异")
+            raise ValidationError("The Roe eigenvector matrix is singular")
         scale = aug[j][j]
         aug[j] = [x / scale for x in aug[j]]
         for i in range(3):
@@ -120,29 +120,30 @@ def riemann_flux(
     gamma: float = 1.4,
     entropy_delta: float = 0.125,
 ) -> tuple[float, float, float]:
-    """计算单个界面上的经典 Roe 近似 Riemann 通量。
+    """Compute the classical Roe approximate Riemann flux on a single face.
 
-    以左右守恒状态的 Roe 平均构造特征向量矩阵 ``R``，特征值 ``u-c``、``u``、
-    ``u+c`` 取熵修正后的绝对值，组装 ``|A| = R*diag(|lambda|)*R**-1`` 参与
-    通量公式。
+    The eigenvector matrix ``R`` is built from the Roe average of the left and
+    right conserved states; the eigenvalues ``u-c``, ``u`` and ``u+c`` take
+    entropy-fixed absolute values, and ``|A| = R*diag(|lambda|)*R**-1`` is
+    assembled into the flux formula.
 
     Args:
-        left: 左侧单元的守恒变量三元组，依次为密度、动量、能量。
-        right: 右侧单元的守恒变量三元组，分量顺序同 ``left``。
-        gamma: 比热比。
-        entropy_delta: Harten 熵修正阈值；绝对值小于它的特征值改用平滑值。
+        left: The conserved variable triple of the left cell: density, momentum then energy.
+        right: The conserved variable triple of the right cell, ordered as in ``left``.
+        gamma: Ratio of specific heats.
+        entropy_delta: Harten entropy fix threshold; eigenvalues with smaller absolute value use the smoothed value instead.
 
     Returns:
-        tuple: 三个守恒分量的数值通量 ``0.5*(f_l+f_r) - 0.5*|A|*(u_r-u_l)``。
+        tuple: The numerical flux of the three conserved components ``0.5*(f_l+f_r) - 0.5*|A|*(u_r-u_l)``.
 
     Raises:
-        ValidationError: 任一侧密度非正，或 Roe 平均的声速平方非正。
+        ValidationError: Density non-positive on either side, or the Roe-averaged squared sound speed non-positive.
     """
     def primitive(state: Sequence[float]) -> tuple[float, float, float, list[float]]:
-        """换算单侧守恒状态为流速、压强、焓与通量向量。"""
+        """Convert a one-sided conserved state to velocity, pressure, enthalpy and the flux vector."""
         rho, m, e = state
         if rho <= 0:
-            raise ValidationError("经典流场密度必须为正")
+            raise ValidationError("The classical flow field density must be positive")
         u = m / rho
         p = (gamma - 1) * (e - 0.5 * m * u)
         return u, p, (e + p) / rho, [m, m * u + p, u * (e + p)]
@@ -153,7 +154,7 @@ def riemann_flux(
     u, h = (wl * ul + wr * ur) / (wl + wr), (wl * hl + wr * hr) / (wl + wr)
     c2 = (gamma - 1) * (h - 0.5 * u * u)
     if c2 <= 0:
-        raise ValidationError("经典 Roe 声速平方必须为正")
+        raise ValidationError("The classical Roe squared sound speed must be positive")
     c = math.sqrt(c2)
     r: list[list[float]] = [[1, 1, 1], [u - c, u, u + c], [h - u * c, 0.5 * u * u, h + u * c]]
     vals = [
@@ -172,7 +173,7 @@ def riemann_flux(
 
 
 class RoeFlowData:
-    """周期一维网格，三分量补齐到四分量；符号叶子+平方范数/角度二叉树。"""
+    """Periodic one-dimensional grid; three components padded to four; sign leaves plus a squared-norm and angle binary tree."""
 
     def __init__(
         self,
@@ -184,19 +185,18 @@ class RoeFlowData:
         angle_width: int = 10,
         dx: float = 1.0,
     ) -> None:
-        """初始化周期网格并做首次全量更新。
+        """Initialize the periodic grid and perform the first full update.
 
         Args:
-            states: 各单元的守恒变量三元组（密度、动量、能量），单元数须为
-                不少于 4 的二次幂。
-            fmt: 守恒量定点格式；省略时使用 ``FixedFormat(10, 5)``。
-            gamma: 比热比。
-            entropy_delta: Harten 熵修正阈值。
-            angle_width: 残差角度树的旋转角字位宽。
-            dx: 网格步长，须为正。
+            states: The conserved variable triple (density, momentum, energy) of each cell; the number of cells must be a power of two of at least 4.
+            fmt: Fixed-point format of the conserved variables; defaults to ``FixedFormat(10, 5)``.
+            gamma: Ratio of specific heats.
+            entropy_delta: Harten entropy fix threshold.
+            angle_width: Bit width of the rotation angle words in the residual angle tree.
+            dx: Grid step size; must be positive.
 
         Raises:
-            ValidationError: 单元数、分量数或 dx 非法。
+            ValidationError: Invalid cell count, component count or dx.
         """
         fmt = fmt or FixedFormat(10, 5)
         self.states: list[tuple[float, float, float]] = [
@@ -204,7 +204,7 @@ class RoeFlowData:
         ]
         n = len(states)
         if n < 4 or n & (n - 1) or any(len(x) != 3 for x in states) or dx <= 0:
-            raise ValidationError("流场需要至少四个、数量为二次幂的三分量单元和正 dx")
+            raise ValidationError("The flow field requires at least four power-of-two three-component cells and a positive dx")
         self.fmt: FixedFormat = fmt
         self.gamma: float = gamma
         self.delta: float = entropy_delta
@@ -220,28 +220,30 @@ class RoeFlowData:
     def update(
         self, changed: Mapping[int, Sequence[float]], *, initialize: bool = False
     ) -> MemoryPatch:
-        """用给定的单元新值执行一次局部更新并写入 QRAM 存储。
+        """Perform one local update with the given new cell values and write it into the QRAM store.
 
-        只重算受影响界面（含周期邻居）的 Riemann 通量及其相邻单元的残差；
-        守恒量、符号、右端平方范数二叉树与角度各 bank 同步维护。
+        Only the Riemann fluxes on affected faces (including periodic neighbors)
+        and the residuals of their adjacent cells are recomputed; the
+        conserved-variable, sign, right-hand-side squared-norm tree and angle
+        banks are maintained in sync.
 
         Args:
-            changed: 单元编号到新守恒变量三元组的映射。
-            initialize: 为 True 时残差对全部单元重算，仅用于构造时的首次填充。
+            changed: Mapping of cell indices to new conserved variable triples.
+            initialize: When True, residuals are recomputed for all cells; used only for the initial fill at construction.
 
         Returns:
-            MemoryPatch: 本次实际写入与重算范围，同时保存为 ``last_patch``。
+            MemoryPatch: The actual writes and recomputation ranges of this call, also saved as ``last_patch``.
 
         Raises:
-            ValidationError: 单元编号越界或分量数不是三。
+            ValidationError: Cell index out of range or component count not equal to three.
         """
         for cell, values in changed.items():
             if not 0 <= cell < self.n or len(values) != 3:
-                raise ValidationError("流场局部更新的地址/分量无效")
+                raise ValidationError("The flow field local update received an invalid address or component")
         changed = {cell: tuple(map(float, values)) for cell, values in changed.items()}
 
         def state_at(cell: int) -> tuple[float, float, float]:
-            """取单元本次新值，未更新时回退到当前状态。"""
+            """Return the new value of a cell for this call, falling back to the current state when untouched."""
             return cast("tuple[float, float, float]", changed.get(cell, self.states[cell]))
 
         faces = sorted({face for cell in changed for face in ((cell - 1) % self.n, cell)})
@@ -255,7 +257,7 @@ class RoeFlowData:
             )
 
         def flux_at(face: int) -> tuple[float, float, float]:
-            """取界面通量，优先使用本次重算结果。"""
+            """Return the face flux, preferring the result recomputed in this call."""
             return updates[face] if face in updates else self.fluxes[face]
 
         cells = sorted({cell for face in faces for cell in (face, (face + 1) % self.n)})
@@ -310,5 +312,5 @@ class RoeFlowData:
 
     @property
     def rhs_norm(self) -> float:
-        """残差场的 L2 范数，即平方和二叉树根节点值开平方。"""
+        """L2 norm of the residual field, i.e. the square root of the squared-sum tree root."""
         return math.sqrt(self.tree[1])

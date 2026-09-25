@@ -1,23 +1,24 @@
-"用于自动推导的 PDE 案例；参数与空间离散保持分离。"
+"PDE examples for automated derivation; parameters and spatial discretization are kept separate."
 
 from oracq.applications.qham.pde import Field, Known, PolynomialPDE
 
 
 def example_pde(name: str) -> PolynomialPDE:
-    """按名字返回内置的示例 PDE。
+    """Return a built-in example PDE by name.
 
-    可用案例为 ``burgers``、``kdv``、``reaction``、``coupled`` 和
-    ``vector_burgers_2d``；除 ``vector_burgers_2d`` 使用 ``("x", "y")``
-    空间轴外，其余均为一维。
+    The available examples are ``burgers``, ``kdv``, ``reaction``,
+    ``coupled``, and ``vector_burgers_2d``; all are one-dimensional except
+    ``vector_burgers_2d``, which uses the ``("x", "y")`` spatial axes.
 
     Args:
-        name: 案例名。
+        name: Example name.
 
     Returns:
-        PolynomialPDE: 对应案例的 PDE，``label`` 即案例名。
+        PolynomialPDE: The PDE of the matching example; ``label`` is the
+        example name.
 
     Raises:
-        ValueError: 案例名未知。
+        ValueError: The example name is unknown.
     """
     u, v = Field("u"), Field("v")
     if name == "burgers":
@@ -47,4 +48,4 @@ def example_pde(name: str) -> PolynomialPDE:
             axes=("x", "y"),
             label=name,
         )
-    raise ValueError("未知 PDE 案例：" + name)
+    raise ValueError("unknown PDE example: " + name)

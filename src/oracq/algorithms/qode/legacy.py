@@ -1,4 +1,4 @@
-"""早期演化工厂的兼容实现；新代码使用各方法的专门入口。"""
+"""Compatibility implementations of the early evolution factories; new code should use the dedicated entry points of each method."""
 
 from __future__ import annotations
 
@@ -25,28 +25,29 @@ def make_lchs_qode(
     times: Iterable[float],
     weights: Iterable[complex],
 ) -> Callable[[BlockEncoding, StatePreparation, float], StateOracle]:
-    """把 Hamiltonian 模拟协议包装成 LCHS 加权和的 QODE 生成函数。
+    """Wrap a Hamiltonian simulation protocol into an LCHS weighted-sum QODE generation function.
 
     Args:
-        ham_sim: Hamiltonian 模拟协议，接受块编码与时长并返回实现操作。
-        times: 离散求积时刻序列。
-        weights: 与 ``times`` 等长的复权重序列。
+        ham_sim: Hamiltonian simulation protocol taking a block encoding and a duration and returning the implementing operation.
+        times: Discrete quadrature time sequence.
+        weights: Complex weight sequence of the same length as ``times``.
 
     Returns:
-        callable: 形如 ``(generator, initial, final_time) -> StateOracle`` 的生成函数，
-        各时刻演化按权重经 LCU 组合后作用到初态。
+        callable: A generation function of the form ``(generator, initial, final_time) -> StateOracle``
+        that combines the per-time evolutions via an LCU with the given weights and applies
+        the result to the initial state.
 
     Raises:
-        ValidationError: ``times`` 与 ``weights`` 长度不一致。
+        ValidationError: ``times`` and ``weights`` have different lengths.
     """
     times, weights = tuple(times), tuple(weights)
     if len(times) != len(weights):
-        raise ValidationError("LCHS 离散时间与权重长度不同")
+        raise ValidationError("LCHS discrete times and weights have different lengths")
 
     def generate(
         generator: BlockEncoding, initial: StatePreparation, final_time: float
     ) -> StateOracle:
-        """按权重对各时刻演化做 LCU 加权求和并作用到初态。"""
+        """LCU-weight the per-time evolutions by the weights and apply the sum to the initial state."""
         terms: list[tuple[complex, BlockEncoding]] = []
         for weight, time in zip(weights, times, strict=True):
             op = ham_sim(generator, time * final_time)
@@ -62,26 +63,27 @@ def make_schrodingerisation_qode(
     *,
     extra_width: int = 1,
 ) -> Callable[[BlockEncoding, StatePreparation, float], StateOracle]:
-    """显式保留 Hamiltonian lift 的实现边界，随后组装演化和物理通道。
+    """Keep the implementation boundary of the Hamiltonian lift explicit, then assemble the evolution and the physical channel.
 
     Args:
-        embedding: Hamiltonian lift；把生成元块编码映射为扩大 ``extra_width`` 位
-            的块编码。
-        ham_sim: 形如 (BE, time) 返回 Operation 的哈密顿量模拟实现。
-        extra_width: lift 增加的辅助位数，取正整数，缺省为 1。
+        embedding: Hamiltonian lift; maps the generator block encoding to a block encoding
+            enlarged by ``extra_width`` bits.
+        ham_sim: Hamiltonian simulation implementation of the form (BE, time) returning an Operation.
+        extra_width: Auxiliary bits added by the lift; a positive integer, defaulting to 1.
 
     Returns:
-        Callable[[BlockEncoding, StatePreparation, float], StateOracle]: 接受生成元、
-        初态与末时刻，输出物理通道读出态 oracle 的生成函数。
+        Callable[[BlockEncoding, StatePreparation, float], StateOracle]: A generation function
+        taking the generator, the initial state, and the final time, and outputting the
+        physical-channel readout state oracle.
     """
 
     def generate(
         generator: BlockEncoding, initial: StatePreparation, final_time: float
     ) -> StateOracle:
-        """组装 lift 后的演化并读出物理通道子空间。"""
+        """Assemble the post-lift evolution and read out the physical channel subspace."""
         hamiltonian = embedding(generator)
         if hamiltonian.width != generator.width + extra_width:
-            raise ValidationError("Schrodingerisation lift 的寄存器宽度不符")
+            raise ValidationError("Schrodingerisation lift register width mismatch")
         evolution = ham_sim(hamiltonian, final_time)
         encoded = BlockEncoding(annotate(evolution, "block_encoding", be_alpha=1.0))
         lifted_state = apply_be_to_state(encoded, extend_initial(initial, extra_width))

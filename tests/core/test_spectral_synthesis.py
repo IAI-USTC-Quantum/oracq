@@ -1,8 +1,9 @@
-"""算子级优化的语义与资源验证（arXiv:2509.08807 附录 D）。
+"""Semantic and resource validation of operator-level optimization (arXiv:2509.08807 appendix D).
 
-每项优化断言两件事：编码对象（矩阵/态）逐元素不变；逻辑资源下降
-（Toffoli 计数或受控层数）。merge_similar 保持的是被编码矩阵
-alpha*corner，子归一化 alpha 本身按合并代数收紧。
+Each optimization asserts two things: the encoded object (matrix/state) is unchanged
+element by element; the logical resources drop (Toffoli count or controlled-layer
+count). merge_similar preserves the encoded matrix alpha*corner; the
+sub-normalization alpha itself tightens according to the merging algebra.
 """
 
 import unittest
@@ -95,7 +96,7 @@ class FanoutSpectralDiagonalTests(unittest.TestCase):
             self.assertAlmostEqual(plain, merged, places=11)
 
     def test_removes_controlled_rotations(self):
-        """fan-out 形式的 RIR 中不存在包裹旋转门的 Control 节点（结构断言）。"""
+        """Structural assertion: the fan-out-form RIR contains no Control nodes wrapping rotation gates."""
         from oracq.infrastructure.ir import Control, Primitive
 
         def controlled_rotations(body):

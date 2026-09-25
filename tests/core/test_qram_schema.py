@@ -1,4 +1,4 @@
-"""qram YAML 内存定义的解析、写出现场与错误矩阵。"""
+"""Parsing, dump scenarios, and the error matrix for qram YAML memory definitions."""
 
 import tempfile
 import unittest
@@ -29,7 +29,7 @@ qram_segments:
 
 
 def load_program():
-    """入口含单个 QRAM(2,3) 资源的装载程序。"""
+    """Entry program containing a single QRAM(2,3) resource."""
     b = Builder("main", {"a": UInt(2), "d": UInt(3)}, {"values": QRAM(2, 3)})
     b.qram("values", b["a"], b["d"])
     return b.finish().program()
@@ -108,79 +108,79 @@ class QramYamlTests(unittest.TestCase):
     def test_parse_rejects_bad_documents(self):
         fields = "address_length: 1, word_length: 1"
         cases = {
-            "顶层缺少 qram_segments": "{}",
-            "顶层多余键": "qram_segments: []\nextra: 1",
-            "顶层不是映射": "- 1",
-            "段列表不是列表": "qram_segments: 3",
-            "段不是映射": "qram_segments: [1]",
-            "段缺少字段": f"qram_segments: [{{name: a, {fields}, type: uint}}]",
-            "段多余字段": (
+            "top level missing qram_segments": "{}",
+            "extra top-level key": "qram_segments: []\nextra: 1",
+            "top level not a mapping": "- 1",
+            "segment list not a list": "qram_segments: 3",
+            "segment not a mapping": "qram_segments: [1]",
+            "segment missing field": f"qram_segments: [{{name: a, {fields}, type: uint}}]",
+            "segment extra field": (
                 f"qram_segments: [{{name: a, {fields}, type: uint, data: [0], extra: 1}}]"
             ),
-            "段名为空": f"qram_segments: [{{name: '', {fields}, type: uint, data: [0]}}]",
-            "段名重复": (
+            "empty segment name": f"qram_segments: [{{name: '', {fields}, type: uint, data: [0]}}]",
+            "duplicate segment name": (
                 f"qram_segments: [{{name: a, {fields}, type: uint, data: [0]}}, "
                 f"{{name: a, {fields}, type: uint, data: [0]}}]"
             ),
-            "address_length 为零": (
+            "address_length is zero": (
                 "qram_segments: [{name: a, address_length: 0, word_length: 1, "
                 "type: uint, data: [0]}]"
             ),
-            "word_length 为 65": (
+            "word_length is 65": (
                 "qram_segments: [{name: a, address_length: 1, word_length: 65, "
                 "type: uint, data: [0]}]"
             ),
-            "address_length 为布尔": (
+            "address_length is boolean": (
                 "qram_segments: [{name: a, address_length: true, word_length: 1, "
                 "type: uint, data: [0]}]"
             ),
-            "word_length 为字符串": (
+            "word_length is string": (
                 'qram_segments: [{name: a, address_length: 1, word_length: "1", '
                 "type: uint, data: [0]}]"
             ),
-            "数据类型不受支持": (
+            "unsupported data type": (
                 f"qram_segments: [{{name: a, {fields}, type: float, data: [0]}}]"
             ),
-            "data 不是数组": f"qram_segments: [{{name: a, {fields}, type: uint, data: 1}}]",
-            "uint 字溢出": (
+            "data not a list": f"qram_segments: [{{name: a, {fields}, type: uint, data: 1}}]",
+            "uint word overflow": (
                 "qram_segments: [{name: a, address_length: 1, word_length: 3, "
                 "type: uint, data: [8]}]"
             ),
-            "uint 字为负": (
+            "uint word negative": (
                 f"qram_segments: [{{name: a, {fields}, type: uint, data: [-1]}}]"
             ),
-            "uint 字为布尔": (
+            "uint word is boolean": (
                 f"qram_segments: [{{name: a, {fields}, type: uint, data: [true]}}]"
             ),
-            "uint 字为字符串": (
+            "uint word is string": (
                 f"qram_segments: [{{name: a, {fields}, type: uint, data: [x]}}]"
             ),
-            "数组超长": (
+            "data list too long": (
                 f"qram_segments: [{{name: a, {fields}, type: uint, data: [0, 0, 0]}}]"
             ),
-            "sint 低于下界": (
+            "sint below lower bound": (
                 "qram_segments: [{name: a, address_length: 1, word_length: 3, "
                 "type: sint, data: [-5]}]"
             ),
-            "sint 达到上界": (
+            "sint at upper bound": (
                 "qram_segments: [{name: a, address_length: 1, word_length: 3, "
                 "type: sint, data: [4]}]"
             ),
-            "fixedpoint 为负": (
+            "fixedpoint negative": (
                 "qram_segments: [{name: a, address_length: 1, word_length: 3, "
                 "type: fixedpoint, data: [-0.1]}]"
             ),
-            "fixedpoint 达到 1": (
+            "fixedpoint equals 1": (
                 "qram_segments: [{name: a, address_length: 1, word_length: 3, "
                 "type: fixedpoint, data: [1]}]"
             ),
-            "fixedpoint 为布尔": (
+            "fixedpoint is boolean": (
                 f"qram_segments: [{{name: a, {fields}, type: fixedpoint, data: [true]}}]"
             ),
-            "fixedpoint 为字符串": (
+            "fixedpoint is string": (
                 f"qram_segments: [{{name: a, {fields}, type: fixedpoint, data: [x]}}]"
             ),
-            "非法 YAML": "qram_segments: [unclosed",
+            "invalid YAML": "qram_segments: [unclosed",
         }
         for label, document in cases.items():
             with self.subTest(label=label), self.assertRaises(ValidationError):

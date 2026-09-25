@@ -1,8 +1,8 @@
-"""DQI（解码量子干涉优化）的结构见证与小实例数值对拍。
+"""Structural witnesses and small-instance numerical cross-checks for DQI (decoded quantum interferometry).
 
-数值部分验证论文（arXiv:2408.08292）的结论：测量 syndrome 寄存器得到赋值 x
-的概率正比于 ``K_l(u(x))**2``，其中 u(x) 是未满足约束数、``K_l`` 是 Krawtchouk
-多项式。
+The numerical part verifies the conclusion of the paper (arXiv:2408.08292): measuring the
+syndrome register yields assignment x with probability proportional to ``K_l(u(x))**2``,
+where u(x) is the number of unsatisfied constraints and ``K_l`` is a Krawtchouk polynomial.
 """
 
 import math
@@ -43,15 +43,15 @@ def distribution(state, index):
     return result
 
 
-# 全部 7 个非零行的 n=3 实例，右端项由赋值 x*=0b101 植入；
-# 行两两不同且非零，因此权重 1 的错误都可唯一译码。
+# An n=3 instance using all 7 nonzero rows, with the right-hand side planted from assignment x*=0b101;
+# rows are pairwise distinct and nonzero, so weight-1 errors are all uniquely decodable.
 PLANTED = XorSatInstance(
     ((0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2)),
     (1, 0, 1, 1, 0, 1, 0),
     3,
 )
 
-# B 取单位阵的 m=n=5 实例，任意权重都可唯一译码。
+# An m=n=5 instance with B the identity; every weight is uniquely decodable.
 IDENTITY = XorSatInstance(tuple((j,) for j in range(5)), (1, 0, 1, 1, 0), 5)
 
 
@@ -59,7 +59,7 @@ class DqiTests(unittest.TestCase):
     def check_distribution(self, instance, weight):
         operation = dqi(instance, bruteforce_decoder(instance, max_weight=weight), weight=weight)
         state = simulate(operation.program())
-        # 所有权重不超过 weight 的错误都被唯一译码，error 寄存器确定性复净。
+        # All errors of weight ≤ weight are uniquely decoded; the error register is deterministically uncomputed.
         self.assertAlmostEqual(distribution(state, 0).get(0, 0), 1, places=12)
         measured = distribution(state, 1)
         expected = expected_distribution(instance, weight)
@@ -73,7 +73,7 @@ class DqiTests(unittest.TestCase):
 
     def test_planted_instance_beats_random_guessing(self):
         satisfied = self.check_distribution(PLANTED, 1)
-        # 随机猜测的期望满足数是 m/2 = 3.5；公式给出 6.5。
+        # Random guessing has expected satisfied count m/2 = 3.5; the formula gives 6.5.
         self.assertAlmostEqual(satisfied, 6.5, places=10)
         self.assertGreater(satisfied, PLANTED.num_constraints / 2)
 
@@ -82,7 +82,7 @@ class DqiTests(unittest.TestCase):
         expected = expected_distribution(IDENTITY, 2)
         reference = sum(p * IDENTITY.satisfied_count(x) for x, p in expected.items())
         self.assertAlmostEqual(satisfied, reference, places=10)
-        # identity 译码器不提供优势，期望恰好回到随机基线 m/2（允许浮点抖动）。
+        # The identity decoder gives no advantage: the expectation returns exactly to the random baseline m/2 (floating-point jitter allowed).
         self.assertGreaterEqual(satisfied, IDENTITY.num_constraints / 2 - 1e-9)
 
     def test_dicke_state_weight_and_uniformity(self):

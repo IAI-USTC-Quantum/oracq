@@ -1,15 +1,20 @@
-"""量子卷积神经网络（QCNN，arXiv:1911.01117，ICLR 2020）的实现。
+"""Implementation of the quantum convolutional neural network (QCNN, arXiv:1911.01117, ICLR 2020).
 
-论文把 CNN 的卷积写为 im2col 矩阵乘 A^l F^l = Y^{l+1}（Eq. 5-7），
-量子侧用 QRAM 加载行/列向量、Hadamard 型电路估计内积（Eq. 16-19），
-幅度估计把 P_pq 编码进寄存器后经算术恢复 Y_pq=(2P-1)||A_p|| ||F_q||
-（Eq. 22-25），布尔电路实现 capReLu（带上限 C 的 ReLU），条件旋转把
-像素值转入幅度（Eq. 28-29），幅度放大与 l_inf 层析采样后按在线覆写规则
-写回下一层 QRAM 并同时完成池化（§5.2.2）。
+The paper writes the CNN convolution as an im2col matrix product
+A^l F^l = Y^{l+1} (Eq. 5-7); on the quantum side, QRAM loads the row/column
+vectors, a Hadamard-type circuit estimates the inner product (Eq. 16-19),
+amplitude estimation encodes P_pq into a register and arithmetic recovers
+Y_pq=(2P-1)||A_p|| ||F_q|| (Eq. 22-25), Boolean circuits implement capReLu
+(a ReLU with cap C), conditional rotation moves pixel values into amplitudes
+(Eq. 28-29), and after amplitude amplification and l_inf tomography sampling
+the values are written back into the next layer's QRAM under the online
+overwrite rule while pooling completes at the same time (§5.2.2).
 
-本文件先给出经典基底：层规格、im2col、经典前向镜像与行树 QRAM（含
-池化覆写规则）；量子构件在 qcnn_layer.py 中按论文 §5.1 逐式实现。
-两个文件的语义验证见 tests/core/test_qcnn.py。
+This file provides the classical substrate first: the layer specification,
+im2col, the classical forward mirror, and the row-tree QRAM (including the
+pooling overwrite rule); the quantum building blocks are implemented
+equation by equation in qcnn_layer.py per §5.1 of the paper. The semantic
+validation of both files lives in tests/core/test_qcnn.py.
 """
 
 from __future__ import annotations
@@ -21,17 +26,17 @@ from typing import cast
 
 
 def tensor_get(x: Sequence[float], shape: tuple[int, int, int], i: int, j: int, d: int) -> float:
-    """读取通道在后（H×W×D）行主序扁平张量在 (i, j, d) 处的元素。
+    """Read the element at (i, j, d) of a row-major flat tensor with channels last (H×W×D).
 
     Args:
-        x: 按行主序扁平存储的张量数据。
-        shape: 形如 ``(H, W, D)`` 的形状元组。
-        i: 行坐标。
-        j: 列坐标。
-        d: 通道坐标。
+        x: Tensor data stored flat in row-major order.
+        shape: Shape tuple of the form ``(H, W, D)``.
+        i: Row coordinate.
+        j: Column coordinate.
+        d: Channel coordinate.
 
     Returns:
-        对应元素值，即 ``x[(i*W+j)*D+d]``。
+        The element value, i.e. ``x[(i*W+j)*D+d]``.
     """
     h, w, _ = shape
     return x[(i * w + j) * shape[2] + d]
@@ -39,7 +44,7 @@ def tensor_get(x: Sequence[float], shape: tuple[int, int, int], i: int, j: int, 
 
 @dataclass(frozen=True)
 class ConvSpec:
-    """单层卷积规格：输入 H×W×D，核 h×w×D×D'，cap C 与 P×P 池化。"""
+    """Single convolution layer specification: input H×W×D, kernel h×w×D×D', cap C, and P×P pooling."""
 
     input_shape: tuple[int, int, int]
     kernel_shape: tuple[int, int, int, int]
@@ -48,46 +53,49 @@ class ConvSpec:
     pool_kind: str = "max"
 
     def __post_init__(self) -> None:
-        """校验核/输入通道一致性、cap、pool 与 pool_kind 的取值约束。"""
+        """Validate kernel/input channel consistency and the value constraints of cap, pool, and pool_kind."""
         _h, _w, d, _dp = self.kernel_shape
         if self.input_shape[2] != d:
-            raise ValueError("核通道数与输入通道数不匹配")
+            raise ValueError("the kernel channel count does not match the input channel count")
         if self.cap <= 0 or self.pool < 1:
-            raise ValueError("cap 必须为正，pool 至少为 1")
+            raise ValueError("cap must be positive and pool must be at least 1")
         if self.pool_kind not in {"max", "average"}:
-            raise ValueError("pool_kind 必须是 max 或 average")
+            raise ValueError("pool_kind must be max or average")
 
     @property
     def output_shape(self) -> tuple[int, int, int]:
-        """有效卷积的输出形状，即 ``(H-kh+1, W-kw+1, D')``。"""
+        """Output shape of the valid convolution, i.e. ``(H-kh+1, W-kw+1, D')``."""
         h, w = self.input_shape[:2]
         kh, kw = self.kernel_shape[:2]
         return (h - kh + 1, w - kw + 1, self.kernel_shape[3])
 
     @property
     def pooled_shape(self) -> tuple[int, int, int]:
-        """池化后的输出形状；``pool`` 为 1 时与 ``output_shape`` 相同。
+        """Output shape after pooling; identical to ``output_shape`` when ``pool`` is 1.
 
         Raises:
-            ValueError: 输出空间维度不能被池化窗口整除。
+            ValueError: The output spatial dimensions are not divisible by the
+                pooling window.
         """
         if self.pool == 1:
             return self.output_shape
         h, w, d = self.output_shape
         if h % self.pool or w % self.pool:
-            raise ValueError("输出空间维度必须能被池化窗口整除")
+            raise ValueError("the output spatial dimensions must be divisible by the pooling window")
         return (h // self.pool, w // self.pool, d)
 
 
 def im2col(x: Sequence[float], spec: ConvSpec) -> list[list[float]]:
-    """把输入张量展开为 A^l（Eq. 6）：每行是一个感受野的按通道堆叠。
+    """Unroll the input tensor into A^l (Eq. 6): each row is one receptive field stacked by channel.
 
     Args:
-        x: 按行主序扁平存储的输入张量数据（H×W×D）。
-        spec: 卷积层规格，决定感受野尺寸与通道数。
+        x: Input tensor data stored flat in row-major order (H×W×D).
+        spec: Convolution layer specification, determining the receptive field
+            size and the channel counts.
 
     Returns:
-        list[list[float]]: 每行一个感受野、按 (d, ki, kj) 顺序堆叠的展开矩阵。
+        list[list[float]]: The unrolled matrix, one receptive field per row,
+        stacked in (d, ki, kj) order.
     """
     h, w, _ = spec.input_shape
     kh, kw, d, _ = spec.kernel_shape
@@ -106,20 +114,23 @@ def im2col(x: Sequence[float], spec: ConvSpec) -> list[list[float]]:
 def _kernel_value(
     kernel: Sequence[float], spec: ConvSpec, ki: int, kj: int, dd: int, q: int
 ) -> float:
-    """按卷积核下标 (ki, kj, dd, q) 查询核系数。"""
+    """Look up a kernel coefficient by the kernel index (ki, kj, dd, q)."""
     kh, kw, d, dp = spec.kernel_shape
     return kernel[((ki * kw + kj) * d + dd) * dp + q]
 
 
 def kernel_columns(kernel: Sequence[float], spec: ConvSpec) -> list[list[float]]:
-    """F^l 的列（Eq. 6）：每列一个核的按 (d, ki, kj) 顺序向量化。
+    """Columns of F^l (Eq. 6): each column is one kernel vectorized in (d, ki, kj) order.
 
     Args:
-        kernel: 卷积核系数的扁平序列，与规格的核形状一致。
-        spec: 卷积层规格，决定核数量与向量化顺序。
+        kernel: Flat sequence of convolution kernel coefficients, matching the
+            kernel shape of the specification.
+        spec: Convolution layer specification, determining the kernel count
+            and the vectorization order.
 
     Returns:
-        list[list[float]]: 每列对应一个输出通道核的系数向量。
+        list[list[float]]: Coefficient vectors, one column per output-channel
+        kernel.
     """
     kh, kw, d, dp = spec.kernel_shape
     columns = []
@@ -136,14 +147,14 @@ def kernel_columns(kernel: Sequence[float], spec: ConvSpec) -> list[list[float]]
 
 
 def cap_relu(value: float, cap: float) -> float:
-    """capReLU（论文 §5.1.6）：min(max(x, 0), cap)。
+    """capReLU (paper §5.1.6): min(max(x, 0), cap).
 
     Args:
-        value: 待激活的标量。
-        cap: 激活上限，必须为正。
+        value: Scalar to activate.
+        cap: Activation cap, must be positive.
 
     Returns:
-        float: 截断到 [0, cap] 的激活值。
+        float: The activation value clamped to [0, cap].
     """
     return min(max(value, 0.0), cap)
 
@@ -151,15 +162,17 @@ def cap_relu(value: float, cap: float) -> float:
 def convolution_forward(
     x: Sequence[float], kernel: Sequence[float], spec: ConvSpec
 ) -> list[list[float]]:
-    """经典镜像：A F = Y 后 capReLU，再按 Eq. 39 池化。
+    """Classical mirror: A F = Y followed by capReLU, then pooling per Eq. 39.
 
     Args:
-        x: 按行主序扁平存储的输入张量数据。
-        kernel: 卷积核系数的扁平序列。
-        spec: 卷积层规格，决定感受野、激活上限与池化方式。
+        x: Input tensor data stored flat in row-major order.
+        kernel: Flat sequence of convolution kernel coefficients.
+        spec: Convolution layer specification, determining the receptive
+            field, the activation cap, and the pooling kind.
 
     Returns:
-        list[list[float]]: 池化后的输出矩阵，行对应空间位置、列对应输出通道。
+        list[list[float]]: The pooled output matrix, rows for spatial
+        positions and columns for output channels.
     """
     a = im2col(x, spec)
     f = kernel_columns(kernel, spec)
@@ -173,14 +186,15 @@ def convolution_forward(
 
 
 def pool_tensor(y_rows: Sequence[Sequence[float]], spec: ConvSpec) -> list[list[float]]:
-    """把 (H^{l+1}W^{l+1})×D^{l+1} 的行主序矩阵按 Eq. 39 池化。
+    """Pool the (H^{l+1}W^{l+1})×D^{l+1} row-major matrix per Eq. 39.
 
     Args:
-        y_rows: 卷积输出矩阵，每行一个空间位置。
-        spec: 卷积层规格，pool 为 1 时原样返回。
+        y_rows: Convolution output matrix, one spatial position per row.
+        spec: Convolution layer specification; returned as-is when pool is 1.
 
     Returns:
-        list[list[float]]: 池化后的矩阵，max 取窗口高值、average 取窗口均值。
+        list[list[float]]: The pooled matrix; max takes the window high value
+        and average the window mean.
     """
     if spec.pool == 1:
         return cast("list[list[float]]", y_rows)
@@ -206,20 +220,22 @@ def pool_tensor(y_rows: Sequence[Sequence[float]], spec: ConvSpec) -> list[list[
 
 
 class QCNNQRAM:
-    """论文 §5.2 的 QRAM 数据结构（经典侧）：每行一棵部分范数树。
+    """The QRAM data structure of paper §5.2 (classical side): one partial-norm tree per row.
 
-    树为 1-based 完全二叉堆：叶存行元素，内部节点存平方部分和；支持
-    ``|p>|0> → |p>|A_p>`` 语义所需的行值与行范数查询，以及 §5.2.2 的在线
-    池化覆写（max 保高值、average 均摊）。
+    The tree is a 1-based complete binary heap: leaves store row elements and
+    internal nodes store squared partial sums; it supports the row-value and
+    row-norm queries needed by the ``|p>|0> → |p>|A_p>`` semantics, as well as
+    the online pooling overwrite of §5.2.2 (max keeps the high value, average
+    spreads it).
     """
 
     def __init__(self, rows: Sequence[Sequence[float]]) -> None:
-        """由等长行序列构建 QRAM，为每行写入一棵平方部分和树。"""
+        """Build the QRAM from a sequence of equal-length rows, writing one squared-partial-sum tree per row."""
         if not rows:
-            raise ValueError("QRAM 至少需要一行")
+            raise ValueError("the QRAM requires at least one row")
         self.width: int = len(rows[0])
         if any(len(r) != self.width for r in rows):
-            raise ValueError("所有行必须等长")
+            raise ValueError("all rows must have the same length")
         self.count: int = len(rows)
         leaf_start = 1
         while leaf_start < self.width:
@@ -235,7 +251,7 @@ class QCNNQRAM:
                 self._write(p, r, value)
 
     def _write(self, p: int, r: int, value: float) -> None:
-        """写入 ``(p, r)`` 处的值并自底向上更新该行的平方部分和树。"""
+        """Write the value at ``(p, r)`` and update that row's squared-partial-sum tree bottom-up."""
         self.leaves[p][r] = value
         node = self.leaf_start + r
         self.trees[p][node] = value * value
@@ -245,43 +261,46 @@ class QCNNQRAM:
             node //= 2
 
     def row(self, p: int) -> list[float]:
-        """返回第 ``p`` 行的取值列表（内部存储引用，非拷贝）。
+        """Return the list of values of row ``p`` (a reference to internal storage, not a copy).
 
         Args:
-            p: 行编号，取 0..行数−1。
+            p: Row index, in 0..number of rows − 1.
 
         Returns:
-            list[float]: 该行各列的当前取值。
+            list[float]: Current values of each column in that row.
         """
         return self.leaves[p]
 
     def norm(self, p: int) -> float:
-        """第 ``p`` 行的欧几里得范数，取平方部分和树根节点的平方根。
+        """Euclidean norm of row ``p``, the square root of the root of the squared-partial-sum tree.
 
         Args:
-            p: 行编号，取 0..行数−1。
+            p: Row index, in 0..number of rows − 1.
 
         Returns:
-            float: 该行向量的欧几里得范数。
+            float: Euclidean norm of that row vector.
         """
         return math.sqrt(self.trees[p][1])
 
     def update_with_pooling(
         self, p: int, r: int, value: float, kind: str, state: int | None = None
     ) -> int | None:
-        """在线覆写（§5.2.2）：max 仅当新值更高时写，average 均摊。
+        """Online overwrite (§5.2.2): max writes only when the new value is higher, average spreads it.
 
-        state 为该 (p, r) 的累计计数（average 池化需要）；返回新状态。
+        state is the accumulated count at (p, r) (needed by average pooling);
+        the new state is returned.
 
         Args:
-            p: 行编号，取 0..行数−1。
-            r: 列编号，取 0..行宽−1。
-            value: 覆写候选值。
-            kind: 池化方式，取 ``max`` 或 ``average``。
-            state: 该位置的累计计数；仅 average 池化使用。
+            p: Row index, in 0..number of rows − 1.
+            r: Column index, in 0..row width − 1.
+            value: Candidate value to overwrite with.
+            kind: Pooling kind, ``max`` or ``average``.
+            state: Accumulated count at this position; used by average
+                pooling only.
 
         Returns:
-            int | None: 更新后的累计计数；max 池化时原样返回。
+            int | None: The updated accumulated count; returned unchanged
+            under max pooling.
         """
         if kind == "max":
             if value > self.leaves[p][r]:

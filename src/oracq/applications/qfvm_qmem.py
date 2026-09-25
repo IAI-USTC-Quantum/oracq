@@ -1,11 +1,15 @@
-"""QFVM 数据路径的 QMem 直连重写：状态表/几何表经指针式二维寻址，残差树用 QVector。
+"""Direct QMem rewrite of the QFVM data path: state and geometry tables use pointer-style two-dimensional addressing, and the residual tree uses QVector.
 
-电路结构与 applications/qfvm.py 同构（可逆 Roe 算术、九槽位几何、补齐对角、
-原地位置置换全部保持），但不再经过抽象数据库槽位与 bind：模块直接声明
-QRAM 形式资源，三守恒量合并为一张 (场, 单元) 状态表，邻居 cell±1 用模 2^cell_width
-的指针算术实现周期边界，几何表按 (列, 槽位) 二维寻址，残差态由 QVector
-（平方范数树 + 符号反冲）制备。语义与既有路径等价性由 tests/core/test_qfvm_qmem.py
-在 simulate 上逐振幅对拍。
+The circuit structure is isomorphic to applications/qfvm.py (reversible Roe
+arithmetic, nine-slot geometry, padding diagonal and in-place position
+permutation are all preserved), but it no longer goes through abstract
+database slots and bind: modules declare QRAM-form resources directly, the
+three conserved variables are merged into a single (field, cell) state table,
+neighbors cell±1 realize the periodic boundary through pointer arithmetic
+modulo 2^cell_width, the geometry table is addressed two-dimensionally by
+(column, slot), and the residual state is prepared by QVector (squared-norm
+tree plus sign kickback). Semantic equivalence with the existing path is
+cross-checked amplitude by amplitude on simulate by tests/core/test_qfvm_qmem.py.
 """
 
 from __future__ import annotations
@@ -27,7 +31,7 @@ from oracq.infrastructure.qmem import QMem, QPtr
 
 
 def _geometry_refs(ref: Ref, inputs: RoeQfvmInputs) -> list[Ref]:
-    """按声明宽度把几何表字切分为七段连续视图。"""
+    """Slice a geometry table word into seven contiguous views by their declared widths."""
     sizes = (inputs.width, 4, inputs.cell_width, 2, 2, 2, 1)
     refs: list[Ref] = []
     offset = 0
@@ -45,18 +49,19 @@ def qfvm_qmem_physical(
     mass: float = 1.0,
     dx: float = 1.0,
 ) -> Operation:
-    """矩阵元物理计算：状态表按 (场, 邻居单元) 二维寻址，周期邻居用模加指针。
+    """Physical computation of matrix elements: the state table is addressed two-dimensionally by (field, neighbor cell), periodic neighbors use modular-addition pointers.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，提供单元编号位宽与定点格式。
-        gamma: 比热比。
-        entropy_delta: Roe 熵修正系数。
-        mass: 质量项，只作用于中心块的分量对角。
-        dx: 网格步长。
+        inputs: The slot set declared by ``roe_qfvm_inputs``, providing the cell index width and fixed-point format.
+        gamma: Ratio of specific heats.
+        entropy_delta: Roe entropy fix coefficient.
+        mass: The mass term, applied only to the component diagonal of the center block.
+        dx: Grid step size.
 
     Returns:
-        Operation: 寄存器为 source、row、col、band、value、status 的矩阵元
-        计算电路，status 聚合各算术节点的失效旗标。
+        Operation: The matrix element computation circuit with registers
+        source, row, col, band, value, status; status aggregates the failure
+        flags of the arithmetic nodes.
     """
     cw, fmt = inputs.cell_width, inputs.fmt
     b = Builder(
@@ -98,7 +103,7 @@ def qfvm_qmem_physical(
         left, right, flag = g.local(), g.local(), g.local(2)
         b.call(
             face,
-            **dict(  # type: ignore[arg-type]  # 动态关键字分发：mypy 无法排除 resources 形参
+            **dict(  # type: ignore[arg-type]  # dynamic keyword dispatch: mypy cannot rule out the resources parameter
                 zip(
                     ("rho_l", "m_l", "e_l", "rho_r", "m_r", "e_r"),
                     words[i] + words[i + 1],
@@ -126,13 +131,13 @@ def qfvm_qmem_physical(
 
 
 def qfvm_qmem_location(inputs: RoeQfvmInputs) -> Operation:
-    """CKS 原地位置置换：九个结构槽位经 (列, 槽位) 二维几何寻址。
+    """CKS in-place position permutation: nine structural slots addressed through the two-dimensional (column, slot) geometry.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，决定坐标与几何表字位宽。
+        inputs: The slot set declared by ``roe_qfvm_inputs``, determining the coordinate and geometry word widths.
 
     Returns:
-        Operation: 寄存器为 column、index、work 的原地稀疏位置置换电路。
+        Operation: The in-place sparse position permutation circuit with registers column, index, work.
     """
     n = inputs.width
     b = Builder(
@@ -184,19 +189,21 @@ def qfvm_qmem_location(inputs: RoeQfvmInputs) -> Operation:
 def qfvm_qmem_entry(
     inputs: RoeQfvmInputs, *, padding_value: float = 1.0, **entry_options: float
 ) -> Operation:
-    """任意坐标矩阵元 oracle：与 qfvm_sparse_access 的 entry 同语义，数据面直连 QMem。
+    """Arbitrary-coordinate matrix element oracle: same semantics as the entry of qfvm_sparse_access, with the data plane wired directly to QMem.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
-        padding_value: 补齐对角值，须为定点格式可精确表示的正数。
-        **entry_options: 透传给 ``qfvm_qmem_physical`` 的算术选项（gamma、mass 等）。
+        inputs: The slot set declared by ``roe_qfvm_inputs``.
+        padding_value: The padding diagonal value; must be a positive number exactly representable in the fixed-point format.
+        **entry_options: Arithmetic options forwarded to ``qfvm_qmem_physical`` (gamma, mass and so on).
 
     Returns:
-        Operation: 寄存器为 row、column、data 的矩阵元 XOR 电路；结构域外
-        条目为零，算术失效条目归零，补齐坐标写 padding 对角。
+        Operation: The matrix element XOR circuit with registers row, column,
+        data; entries outside the structural domain are zero, entries with
+        failed arithmetic are zeroed, and padded coordinates write the padding
+        diagonal.
     """
     if padding_value <= 0 or inputs.fmt.decode(inputs.fmt.encode(padding_value)) != padding_value:
-        raise ValidationError("补齐对角值必须是定点格式可精确表示的正数")
+        raise ValidationError("The padding diagonal value must be a positive number exactly representable in the fixed-point format")
     n = inputs.width
     physical = qfvm_qmem_physical(inputs, **entry_options)
     b = Builder(
@@ -260,7 +267,7 @@ def qfvm_qmem_entry(
 
 
 class RoeQmemData:
-    """经典侧流场数据：复用 RoeFlowData 的物理量与残差，量子面重组为 QMem bank。"""
+    """Classical-side flow field data: reuses the physical quantities and residuals of RoeFlowData and reorganizes the quantum plane into QMem banks."""
 
     def __init__(
         self,
@@ -273,20 +280,19 @@ class RoeQmemData:
         dx: float = 1.0,
         name: str = "residual",
     ) -> None:
-        """初始化流场并组装残差 QVector。
+        """Initialize the flow field and assemble the residual QVector.
 
         Args:
-            states: 各单元的守恒变量三元组（密度、动量、能量），单元数须为
-                不少于 4 的二次幂。
-            fmt: 守恒量定点格式；省略时使用 ``FixedFormat(10, 5)``。
-            angle_width: 残差 QVector 的旋转角字位宽。
-            gamma: 比热比。
-            entropy_delta: Harten 熵修正阈值。
-            dx: 网格步长，须为正。
-            name: 残差 QVector 的 QRAM bank 命名前缀。
+            states: The conserved variable triple (density, momentum, energy) of each cell; the number of cells must be a power of two of at least 4.
+            fmt: Fixed-point format of the conserved variables; defaults to ``FixedFormat(10, 5)``.
+            angle_width: Bit width of the rotation angle words of the residual QVector.
+            gamma: Ratio of specific heats.
+            entropy_delta: Harten entropy fix threshold.
+            dx: Grid step size; must be positive.
+            name: Naming prefix of the QRAM banks of the residual QVector.
 
         Raises:
-            ValidationError: 流场单元数、分量数或 dx 非法。
+            ValidationError: Invalid flow field cell count, component count or dx.
         """
         fmt = fmt or FixedFormat(10, 5)
         self.flow: RoeFlowData = RoeFlowData(
@@ -304,7 +310,7 @@ class RoeQmemData:
 
     @property
     def state_bank(self) -> dict[int, int]:
-        """(场, 单元) 状态表：地址 = field·n + cell，字为守恒量定点编码。"""
+        """(field, cell) state table: address = field*n + cell, and the word is the fixed-point encoding of the conserved variable."""
         banks = self.flow.store.snapshot()
         table: dict[int, int] = {}
         for field, key in enumerate(("rho", "momentum", "energy")):
@@ -313,16 +319,18 @@ class RoeQmemData:
         return table
 
     def memories(self, inputs: RoeQfvmInputs) -> Mapping[str, Sequence[int] | Mapping[int, int]]:
-        """导出 QMem 直连数据路径的全部运行时内存表。
+        """Export all runtime memory tables of the QMem direct data path.
 
         Args:
-            inputs: ``roe_qfvm_inputs`` 声明的槽位集合，决定几何表布局。
+            inputs: The slot set declared by ``roe_qfvm_inputs``, determining the geometry table layout.
 
         Returns:
-            dict: ``state`` 状态表、``geometry`` 几何表，以及残差 ``QVector``
-            快照的角字与符号 bank（默认 ``residual_angles`` 和
-            ``residual_sign``，名字随构造时的 ``name`` 参数）；供执行入口
-            按名绑定模块声明的 QRAM 资源。
+            dict: The ``state`` state table, the ``geometry`` geometry table,
+            plus the angle word and sign banks of the residual ``QVector``
+            snapshot (defaulting to ``residual_angles`` and ``residual_sign``;
+            the names follow the ``name`` parameter given at construction); the
+            execution entry binds them by name to the QRAM resources declared
+            by modules.
         """
         return {
             "state": self.state_bank,
@@ -332,12 +340,13 @@ class RoeQmemData:
 
 
 def qfvm_qmem_rhs(data: RoeQmemData) -> StatePreparation:
-    """残差态制备：QVector 平方范数树 + 符号相位反冲（替代 qram_state_prep+sign 组合）。
+    """Residual state preparation: QVector squared-norm tree plus sign phase kickback (replacing the qram_state_prep plus sign combination).
 
     Args:
-        data: 经典侧流场数据，其残差 QVector 提供幅度与符号信息。
+        data: Classical-side flow field data whose residual QVector provides amplitude and sign information.
 
     Returns:
-        StatePreparation: 归一化残差态的制备电路，负分量经相位反冲携带符号。
+        StatePreparation: The preparation circuit of the normalized residual
+        state, with negative components carrying the sign via phase kickback.
     """
     return data.vector.preparation(signed=True)

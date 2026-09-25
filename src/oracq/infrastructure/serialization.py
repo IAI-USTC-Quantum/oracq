@@ -1,4 +1,4 @@
-"版本化 YAML/JSON 双格式编码，YAML 为默认；模块定义和调用边在往返过程中原样保留。"
+"Versioned dual-format YAML/JSON encoding, YAML by default; module definitions and call edges survive the round trip unchanged."
 
 from __future__ import annotations
 
@@ -36,23 +36,23 @@ TYPES = {
         ir.Program,
     )
 }
-"""节点 ``tag`` 到 ``ir`` 数据类的映射，``decode`` 据此还原节点类型。"""
+"""Mapping from node ``tag`` values to ``ir`` dataclasses; ``decode`` restores node types from it."""
 
 
 def encode(value: object) -> dict[str, object] | list[object] | int | float | str | bool | None:
-    """把 RIR 值编码为 YAML 与 JSON 兼容结构。
+    """Encode an RIR value into a structure compatible with both YAML and JSON.
 
-    数据类编码为携带 ``tag`` 字段的对象，元组编码为数组，标量与 ``None``
-    原样传递。
+    Dataclasses encode as objects carrying a ``tag`` field, tuples encode as
+    arrays, and scalars and ``None`` pass through unchanged.
 
     Args:
-        value: 待编码的数据类节点、元组或标量。
+        value: dataclass node, tuple or scalar to encode.
 
     Returns:
-        由 dict、list 和标量构成的文本格式兼容结构。
+        text-format-compatible structure built from dict, list and scalars.
 
     Raises:
-        ValidationError: 值属于不可序列化的类型。
+        ValidationError: the value belongs to a non-serializable type.
     """
     if is_dataclass(value):
         return {
@@ -63,59 +63,60 @@ def encode(value: object) -> dict[str, object] | list[object] | int | float | st
         return [encode(item) for item in value]
     if value is None or type(value) in (int, float, str, bool):
         return cast("int | float | str | bool | None", value)
-    raise ir.ValidationError(f"不可序列化的值：{type(value).__name__}")
+    raise ir.ValidationError(f"non-serializable value: {type(value).__name__}")
 
 
 def decode(value: object) -> object:
-    """把编码结构重建为 RIR 数据类树。
+    """Rebuild an encoded structure into an RIR dataclass tree.
 
     Args:
-        value: ``encode`` 产生的结构；数组恢复为元组。
+        value: structure produced by ``encode``; arrays are restored to tuples.
 
     Returns:
-        重建的数据类节点、元组或标量。
+        rebuilt dataclass node, tuple or scalar.
 
     Raises:
-        ValidationError: 遇到未知 ``tag``，或节点字段缺失、多余。
+        ValidationError: an unknown ``tag`` is encountered, or node fields are missing or extra.
     """
     if isinstance(value, list):
         return tuple(decode(item) for item in value)
     if isinstance(value, dict):
         tag = value.get("tag")
         if tag not in TYPES:
-            raise ir.ValidationError(f"未知节点：{tag}")
+            raise ir.ValidationError(f"unknown node: {tag}")
         cls = TYPES[tag]
         expected = {field.name for field in fields(cls)}
         if set(value) != expected | {"tag"}:
-            raise ir.ValidationError(f"{tag} 的字段缺失或多余")
-        # 按 tag 泛型分发到各数据类构造器，mypy 无法静态验证 **payload 字段类型。
+            raise ir.ValidationError(f"missing or extra fields for {tag}")
+        # Dispatch generically by tag to the dataclass constructors; mypy cannot statically verify **payload field types.
         return cls(**{key: decode(value[key]) for key in expected})  # type: ignore[arg-type]
     return value
 
 
 _EXPONENT = re.compile(r"^[-+]?[0-9][0-9_]*[eE][-+]?[0-9]+$")
-"""无小数点的科学计数（如 ``1e+16``），PyYAML 1.1 隐式浮点不覆盖，需补充识别。"""
+"""Scientific notation without a decimal point (e.g. ``1e+16``); not covered by PyYAML 1.1 implicit floats, so extra recognition is needed."""
 
 
 class _StrictLoader(yaml.SafeLoader):
-    """严格 YAML 加载器。
+    """Strict YAML loader.
 
-    拒绝重复键与合并键；在 YAML 1.1 隐式浮点之外接受无小数点的科学计数，
-    保证 Python ``repr`` 风格的浮点手写文本可被还原为浮点。
+    Rejects duplicate keys and merge keys; beyond YAML 1.1 implicit floats it
+    accepts scientific notation without a decimal point, ensuring that
+    hand-written text of Python ``repr``-style floats can be restored to floats.
     """
 
     def construct_mapping(self, node: Node, deep: bool = False) -> dict[object, object]:
         if not isinstance(node, MappingNode):
             raise ConstructorError(
-                None, None, f"期望映射节点，得到 {type(node).__name__}", node.start_mark
+                None, None, f"expected a mapping node, got {type(node).__name__}", node.start_mark
             )
         mapping: dict[object, object] = {}
         for key_node, value_node in node.value:
             key = self.construct_object(key_node, deep=deep)
             if not isinstance(key, Hashable):
-                raise ConstructorError("构造映射时", node.start_mark, "键不可哈希", key_node.start_mark)
+                raise ConstructorError("while constructing a mapping", node.start_mark, "found unhashable key", key_node.start_mark)
             if key in mapping:
-                raise ir.ValidationError(f"YAML 键重复：{key}")
+                raise ir.ValidationError(f"duplicate YAML key: {key}")
             mapping[key] = self.construct_object(value_node, deep=deep)
         return mapping
 
@@ -124,7 +125,7 @@ _StrictLoader.add_implicit_resolver("tag:yaml.org,2002:float", _EXPONENT, list("
 
 
 class _CanonicalDumper(yaml.SafeDumper):
-    """规范 YAML 输出器：禁用锚点与别名，嵌套序列相对所属键缩进。"""
+    """Canonical YAML dumper: disables anchors and aliases, indents nested sequences relative to their owning key."""
 
     def ignore_aliases(self, data: object) -> bool:
         return True
@@ -134,13 +135,14 @@ class _CanonicalDumper(yaml.SafeDumper):
 
 
 def _check_values(value: object) -> None:
-    """递归检查编码结构只含 RIR 允许的标量与容器，浮点必须有限。
+    """Recursively check that an encoded structure contains only RIR-allowed scalars and containers, with floats required to be finite.
 
-    YAML 路径借此拒绝日期等隐式标量类型与 ``.nan``/``.inf``；YAML 输出前
-    同样用它顶替 ``json.dumps`` 的 ``allow_nan=False`` 语义。
+    The YAML path uses this to reject implicit scalar types such as dates and
+    ``.nan``/``.inf``; before YAML output it likewise stands in for the
+    ``allow_nan=False`` semantics of ``json.dumps``.
 
     Raises:
-        ValidationError: 出现非有限浮点或 RIR 之外的标量类型。
+        ValidationError: a non-finite float or a scalar type outside RIR appears.
     """
     if isinstance(value, dict):
         for item in value.values():
@@ -150,35 +152,38 @@ def _check_values(value: object) -> None:
             _check_values(item)
     elif isinstance(value, float):
         if not math.isfinite(value):
-            raise ir.ValidationError(f"非法数值：{value}")
+            raise ir.ValidationError(f"invalid number: {value}")
     elif not isinstance(value, (str, int, bool)) and value is not None:
-        raise ir.ValidationError(f"非法 YAML 标量：{type(value).__name__}")
+        raise ir.ValidationError(f"invalid YAML scalar: {type(value).__name__}")
 
 
 def dumps(program: ir.Program, *, format: Literal["yaml", "json"] = "yaml") -> str:
-    """把程序序列化为规范 YAML（默认）或规范 JSON 文本。
+    """Serialize a program to canonical YAML (default) or canonical JSON text.
 
-    两种格式都按键排序、两空格缩进、UTF-8、末尾一个换行；模块定义按模块
-    名排序，签名参数与指令顺序保留。YAML 为块风格，嵌套序列相对所属键
-    缩进，不使用锚点与别名；浮点必须有限。版本 ``0.1`` 与 ``0.2`` 的模块
-    节点省略 ``locals`` 字段。开放主体保持为 null，binding_captures 等绑定
-    来源属性原样保存；绑定与资源分析报告不混入可执行节点。
+    Both formats use sorted keys, two-space indentation, UTF-8 and one trailing
+    newline; module definitions are sorted by module name, with signature
+    parameters and instruction order preserved. YAML uses block style, indents
+    nested sequences relative to their owning key, and uses no anchors or
+    aliases; floats must be finite. Module nodes of versions ``0.1`` and
+    ``0.2`` omit the ``locals`` field. Open bodies stay null, and binding-origin
+    attributes such as binding_captures are saved as-is; binding and resource
+    analysis reports are not mixed into executable nodes.
 
     Args:
-        program: 待序列化的程序。
-        format: 输出文本格式，``yaml``（默认）或 ``json``。
+        program: program to serialize.
+        format: output text format, ``yaml`` (default) or ``json``.
 
     Returns:
-        str: 规范文本。
+        str: canonical text.
 
     Raises:
-        ValidationError: 程序未通过结构或语义验证，或含不可序列化的值。
+        ValidationError: the program failed structural or semantic validation, or contains non-serializable values.
     """
     validate(program)
     canonical = replace(program, modules=tuple(sorted(program.modules, key=lambda m: m.name)))
     data = encode(canonical)
     if program.version in {"0.1", "0.2"}:
-        # encode(Program) 的规范形状已知：顶层为 dict，modules 为模块 dict 列表。
+        # The canonical shape of encode(Program) is known: the top level is a dict and modules is a list of module dicts.
         for module in cast("list[dict[str, object]]", cast("dict[str, object]", data)["modules"]):
             module.pop("locals")
     if format == "json":
@@ -198,32 +203,34 @@ def dumps(program: ir.Program, *, format: Literal["yaml", "json"] = "yaml") -> s
 
 
 def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    """把 JSON 对象的键值对列表组装成字典，遇重复键即抛 ``ValidationError``。"""
+    """Assemble a JSON object's key-value pair list into a dict, raising ``ValidationError`` on duplicate keys."""
     result = {}
     for key, value in pairs:
         if key in result:
-            raise ir.ValidationError(f"JSON 键重复：{key}")
+            raise ir.ValidationError(f"duplicate JSON key: {key}")
         result[key] = value
     return result
 
 
 def loads(text: str) -> ir.Program:
-    """解析 YAML 或 JSON 文本并重建通过验证的程序。
+    """Parse YAML or JSON text and rebuild a validated program.
 
-    按文本自动检测格式：以 ``{`` 开头的文本先按严格 JSON 解析，失败则回退
-    YAML（YAML 是 JSON 的超集）；其余文本按 YAML 解析。两条路径都拒绝重复
-    键与非有限数值；YAML 路径另拒绝日期等隐式标量类型。版本 ``0.1`` 与
-    ``0.2`` 的模块节点自动补全空 ``locals``。
+    The format is auto-detected from the text: text starting with ``{`` is
+    first parsed as strict JSON, falling back to YAML on failure (YAML is a
+    superset of JSON); other text is parsed as YAML. Both paths reject
+    duplicate keys and non-finite numbers; the YAML path additionally rejects
+    implicit scalar types such as dates. Module nodes of versions ``0.1`` and
+    ``0.2`` are completed automatically with an empty ``locals``.
 
     Args:
-        text: ``dumps`` 产生的 YAML 或 JSON 文本。
+        text: YAML or JSON text produced by ``dumps``.
 
     Returns:
-        Program: 重建并通过语义验证的程序。
+        Program: rebuilt program that passed semantic validation.
 
     Raises:
-        ValidationError: 文本语法或节点结构非法、根节点不是 ``Program``，
-            或验证未通过。
+        ValidationError: the text syntax or node structure is invalid, the root node is not a ``Program``,
+            or validation failed.
     """
     try:
         stripped = text.lstrip("\ufeff \t\r\n")
@@ -233,7 +240,7 @@ def loads(text: str) -> ir.Program:
                     stripped,
                     object_pairs_hook=_unique,
                     parse_constant=lambda s: (_ for _ in ()).throw(
-                        ir.ValidationError(f"非法数值：{s}")
+                        ir.ValidationError(f"invalid number: {s}")
                     ),
                 )
             except json.JSONDecodeError:
@@ -247,7 +254,7 @@ def loads(text: str) -> ir.Program:
                     module.setdefault("locals", [])
         program = decode(data)
         if not isinstance(program, ir.Program):
-            raise ir.ValidationError("根节点必须为 Program")
+            raise ir.ValidationError("the root node must be a Program")
         return validate(program)
     except (yaml.YAMLError, TypeError, KeyError, AttributeError, RecursionError) as exc:
-        raise ir.ValidationError(f"非法 RIR YAML：{exc}") from exc
+        raise ir.ValidationError(f"invalid RIR YAML: {exc}") from exc

@@ -1,1 +1,1 @@
-"量子纠错算法：编码与恢复过程。"
+"Quantum error correction algorithms: encoding and recovery procedures."

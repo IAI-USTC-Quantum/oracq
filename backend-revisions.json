@@ -8,7 +8,7 @@
     "commit": "111630a1ee0db63789eaf994c896db36fab49ccc",
     "interface": "pysparq System, Rot_Bool, QRAMLoad; dynamic_operator.compile_operator, split_systems/combine_systems; CPU System.registers"
   },
-  "note": "保留原审阅基准。另列的工作流验证环境经用户授权用 uv 安装，源码构建只在本仓 out 中进行。",
+  "note": "Keeps the original review baselines. The separately listed research-workflow validation environment was installed with uv upon user authorization; source builds happen only in this repository's out/ directory.",
   "research_workflow_validation": {
     "reviewed_on": "2026-09-21",
     "python": "3.11.15",

@@ -1,4 +1,4 @@
-"""化学低秩分解（DF/THC）块编码的数值见证。"""
+"""Numerical witnesses for chemistry low-rank decomposition (DF/THC) block encodings."""
 
 import math
 import unittest
@@ -43,9 +43,9 @@ def scale_matrix(c, a):
 
 
 def pauli_l1(matrix):
-    """2×2 矩阵的 Pauli l1 范数（独立闭式，不经过 matrix_pauli_encoding）。
+    """Pauli l1 norm of a 2×2 matrix (an independent closed form, not via matrix_pauli_encoding).
 
-    M = cI·I + x·X + y·Y + z·Z，系数由 M = ((a, b), (c, d)) 的元素线性表出。
+    M = cI·I + x·X + y·Y + z·Z, with the coefficients read off linearly from the elements of M = ((a, b), (c, d)).
     """
     a, b = matrix[0]
     c, d = matrix[1]
@@ -67,7 +67,7 @@ class DiagonalizeSymmetricTests(unittest.TestCase):
         for i in range(2):
             for j in range(2):
                 self.assertAlmostEqual(reconstructed[i][j], factor[i][j], places=10)
-        # 特征向量矩阵正交。
+        # The eigenvector matrix is orthogonal.
         for i in range(2):
             for j in range(2):
                 dot = sum(vectors[k][i] * vectors[k][j] for k in range(2))
@@ -112,7 +112,7 @@ class DoubleFactorizationTests(unittest.TestCase):
         assert_block_equals(self, be, expected)
 
     def test_matches_pauli_encoding_block(self):
-        # 同一哈密顿量的 DF 编码与 Pauli LCU 编码的 (0,0) 块一致（alpha 各自不同）。
+        # The DF encoding and the Pauli LCU encoding of the same Hamiltonian share the same (0,0) block (alphas differ).
         hamiltonian = ((1.2, 0.4), (0.4, 0.8))
         df = DoubleFactorization.from_symmetric(0.0, (IDENTITY2,), (hamiltonian,))
         df_be = double_factorized_encoding(df)
@@ -139,8 +139,9 @@ class DoubleFactorizationTests(unittest.TestCase):
         self.assertEqual(names, ["target", "signal"])
 
     def test_alpha_matches_closed_form_eigenvalues(self):
-        # 独立闭式切断共用实现：2×2 对称矩阵 λ = (t ± √(t²−4d))/2，
-        # t 为迹、d 为行列式；be.alpha 须等于 Σ|λ|（实测 2.0，两端独立计算）。
+        # Independent closed form cutting off the shared implementation: a 2×2 symmetric matrix has
+        # λ = (t ± √(t²−4d))/2, with t the trace and d the determinant; be.alpha must equal Σ|λ|
+        # (measured 2.0, computed independently on both sides).
         hamiltonian = ((1.2, 0.4), (0.4, 0.8))
         df = DoubleFactorization.from_symmetric(0.0, (IDENTITY2,), (hamiltonian,))
         be = double_factorized_encoding(df)
@@ -151,9 +152,10 @@ class DoubleFactorizationTests(unittest.TestCase):
         self.assertAlmostEqual(be.alpha, expected, places=10)
 
     def test_df_alpha_tighter_than_pauli(self):
-        # 非对角项主导的正定 g：PSD 故 DF α = Σ|λ| = tr(g) = 1.4（实测），
-        # Pauli LCU α = tr/2 + |g01| + |g00−g11|/2 = 1.5（实测）。理论条件：
-        # 单比特 PSD 矩阵 Pauli α − DF α = |g01| + |Δ/2| − tr/2，非对角主导时为正。
+        # A positive-definite g dominated by the off-diagonal term: PSD, so DF α = Σ|λ| = tr(g) = 1.4
+        # (measured), while Pauli LCU α = tr/2 + |g01| + |g00−g11|/2 = 1.5 (measured). Theoretical
+        # condition: for a single-qubit PSD matrix, Pauli α − DF α = |g01| + |Δ/2| − tr/2, positive
+        # when the off-diagonal dominates.
         g = ((1.1, 0.4), (0.4, 0.3))
         df_be = double_factorized_encoding(
             DoubleFactorization.from_symmetric(0.0, (IDENTITY2,), (g,))
@@ -188,9 +190,9 @@ class ThcTests(unittest.TestCase):
         assert_block_equals(self, be, expected)
 
     def test_thc_alpha_matches_hand_computed_bound(self):
-        # thc_encoding 的 α 口径：Σ_{μν} |ζ_{μν}|·α_μ·α_ν，α_μ 为叶矩阵的
-        # Pauli l1 上界。此处用 pauli_l1 闭式独立手算：α_0 = 1.2、α_1 = 1.3，
-        # α = 0.7·1.44 + 0.1·1.56 + 0.1·1.56 + 0.4·1.69 = 1.996（实测一致）。
+        # The α convention of thc_encoding: Σ_{μν} |ζ_{μν}|·α_μ·α_ν, where α_μ is the Pauli l1
+        # bound of a leaf matrix. Hand-computed here with the pauli_l1 closed form:
+        # α_0 = 1.2, α_1 = 1.3, α = 0.7·1.44 + 0.1·1.56 + 0.1·1.56 + 0.4·1.69 = 1.996 (matches measurement).
         l0 = ((1.0, 0.2), (0.0, 1.0))
         l1 = ((0.5, 0.0), (0.3, 1.0))
         zeta = ((0.7, 0.1), (0.1, 0.4))

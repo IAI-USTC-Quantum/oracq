@@ -1,4 +1,4 @@
-"生成阶段可检查的输入契约；结构/能力与数学真实性分别处理。"
+"Checkable input contracts for the generation stage; structure/capabilities and mathematical truth are handled separately."
 
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ _T = TypeVar("_T")
 
 @dataclass(frozen=True)
 class OracleCapabilities:
-    """oracle 支持的逆与受控调用能力，取值由依赖图保守合取推导。
+    """Adjoint and controlled invocation capabilities supported by an oracle; values are derived by conservative conjunction over the dependency graph.
 
     Attributes:
-        adjoint: 是否支持逆调用。
-        controlled: 是否支持受控调用。
+        adjoint: Whether adjoint invocation is supported.
+        controlled: Whether controlled invocation is supported.
     """
 
     adjoint: bool
@@ -28,7 +28,7 @@ class OracleCapabilities:
 
 @dataclass(frozen=True)
 class OracleSpec:
-    """从实际操作读取的快照；CKS 是操作集合，没有统一 anc 总宽度。"""
+    """Snapshot read from the actual operation; CKS is a collection of operations with no unified total anc width."""
 
     type: str
     main_qubit: int | None
@@ -42,18 +42,19 @@ class OracleSpec:
     components: tuple[tuple[str, OracleSpec], ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        """把快照转成可存 JSON 的普通字典。
+        """Convert the snapshot into a JSON-storable plain dictionary.
 
         Returns:
-            dict[str, object]: 字段同名的嵌套普通字典。
+            dict[str, object]: Nested plain dictionary with fields of the same names.
         """
         return asdict(self)
 
 
 class OracleView:
-    """包装类共享只读查询；宽度始终以 RIR 寄存器签名为准。
+    """Wrapper classes share read-only queries; widths always follow the RIR register signature.
 
-    宿主视图类须声明包装的 ``operation`` 与 ``oracle_kind`` 类标记。
+    Host view classes must declare the wrapped ``operation`` and the
+    ``oracle_kind`` class marker.
     """
 
     operation: Operation
@@ -61,48 +62,48 @@ class OracleView:
 
     @property
     def spec(self) -> OracleSpec:
-        """该视图当前的 ``OracleSpec`` 快照；每次访问重新推导。"""
+        """Current ``OracleSpec`` snapshot of this view; re-derived on each access."""
         return self.describe()
 
     def describe(self) -> OracleSpec:
-        """从 RIR 模块签名、属性与依赖图推导该视图的 ``OracleSpec``。
+        """Derive the ``OracleSpec`` of this view from the RIR module signature, attributes, and dependency graph.
 
         Returns:
-            OracleSpec: 该视图的描述快照。
+            OracleSpec: The description snapshot of this view.
         """
         return _operation_spec(self.operation, self.oracle_kind)
 
     @property
     def type(self) -> str:
-        """描述性范式角色名，如 ``block_encoding``；不作为唯一类型或分派依据。"""
+        """Descriptive paradigm role name such as ``block_encoding``; not used as a unique type or dispatch basis."""
         return self.spec.type
 
     @property
     def main_qubit(self) -> int | None:
-        """主寄存器（``target``/``address``/``column``）的位数；无法识别时为 ``None``。"""
+        """Number of bits of the main register (``target``/``address``/``column``); ``None`` when it cannot be recognized."""
         return self.spec.main_qubit
 
     @property
     def anc_qubit(self) -> int | None:
-        """公开辅助寄存器（``signal``/``work``）的位数；操作集合没有统一宽度时为 ``None``。"""
+        """Number of bits of the public auxiliary register (``signal``/``work``); ``None`` when the operation collection has no unified width."""
         return self.spec.anc_qubit
 
     @property
     def capabilities(self) -> OracleCapabilities:
-        """从整个依赖图推导的有效调用能力。"""
+        """Effective invocation capabilities derived from the whole dependency graph."""
         return self.spec.capabilities
 
 
 @dataclass(frozen=True)
 class ContractIssue:
-    """一次契约检查发现的具体问题。
+    """A concrete issue found by one contract check.
 
     Attributes:
-        code: 问题类别码，如 ``INPUT_PROTOCOL``、``INPUT_WIDTH``。
-        path: 问题所在的输入路径，如 ``protocol.input.field``。
-        expected: 契约期望的值。
-        actual: 实际收到的值。
-        message: 面向用户的问题描述。
+        code: Issue category code, e.g. ``INPUT_PROTOCOL``, ``INPUT_WIDTH``.
+        path: Input path where the issue is located, e.g. ``protocol.input.field``.
+        expected: The value expected by the contract.
+        actual: The value actually received.
+        message: User-facing description of the issue.
     """
 
     code: str
@@ -113,57 +114,56 @@ class ContractIssue:
 
 
 class ContractError(ValidationError):
-    """一次抛出全部已发现契约问题的异常，仍是 ``ValidationError`` 的子类。
+    """Exception that raises all discovered contract issues at once; a ``ValidationError`` subclass.
 
     Args:
-        issues: ``ContractIssue`` 可迭代对象，按 ``code path: message``
-            逐条拼进异常消息。
+        issues: Iterable of ``ContractIssue`` objects joined as ``code path: message``.
 
     Attributes:
-        issues: 结构化问题的不可变元组。
+        issues: Immutable tuple of structured issues.
     """
 
     def __init__(self, issues: Iterable[ContractIssue]) -> None:
-        """以全部已发现的问题构造异常并逐条拼接消息。"""
+        """Construct the exception with all discovered issues and join their messages one by one."""
         self.issues: tuple[ContractIssue, ...] = tuple(issues)
         super().__init__("; ".join(f"{i.code} {i.path}: {i.message}" for i in self.issues))
 
 
 def fail(code: str, path: str, expected: object, actual: object, message: str) -> NoReturn:
-    """立即以单个问题抛出 ``ContractError``。
+    """Raise a ``ContractError`` immediately with a single issue.
 
     Args:
-        code: 问题类别码。
-        path: 问题所在的输入路径。
-        expected: 契约期望的值。
-        actual: 实际收到的值。
-        message: 面向用户的问题描述。
+        code: Issue category code.
+        path: Input path where the issue is located.
+        expected: The value expected by the contract.
+        actual: The value actually received.
+        message: User-facing description of the issue.
 
     Returns:
-        NoReturn: 从不正常返回，恒以异常退出。
+        NoReturn: Never returns normally, always exits by raising.
 
     Raises:
-        ContractError: 总是抛出，仅携带这一个问题。
+        ContractError: Always raised, carrying only this one issue.
     """
     raise ContractError((ContractIssue(code, path, expected, actual, message),))
 
 
 def require_instance(value: object, cls: type[_T], path: str) -> _T:
-    """要求 ``value`` 是 ``cls`` 的实例，否则抛出 ``ContractError``。
+    """Require ``value`` to be an instance of ``cls``, otherwise raise ``ContractError``.
 
     Args:
-        value: 待检查的值。
-        cls: 期望的类型。
-        path: 问题上报时使用的输入路径。
+        value: The value to check.
+        cls: The expected type.
+        path: Input path used when reporting the issue.
 
     Returns:
-        _T: 通过实例检查的 ``value`` 自身，类型收窄为 ``cls``。
+        _T: The ``value`` itself once the instance check passes, narrowed to ``cls``.
 
     Raises:
-        ContractError: 实例检查失败时以 ``INPUT_TYPE`` 上报。
+        ContractError: Reported as ``INPUT_TYPE`` when the instance check fails.
     """
     if not isinstance(value, cls):
-        fail("INPUT_TYPE", path, cls.__name__, type(value).__name__, f"需要 {cls.__name__}")
+        fail("INPUT_TYPE", path, cls.__name__, type(value).__name__, f"requires an instance of {cls.__name__}")
     return value
 
 
@@ -174,26 +174,26 @@ def finite_real(
     minimum: float | None = None,
     strict: bool = False,
 ) -> int | float:
-    """要求 ``value`` 是有限实数并可选下界；``bool`` 不被接受。
+    """Require ``value`` to be a finite real number with an optional lower bound; ``bool`` is not accepted.
 
     Args:
-        value: 待检查的数值。
-        path: 问题上报时使用的输入路径。
-        minimum: 允许的最小值；省略时不检查下界。
-        strict: 为 ``True`` 时要求严格大于 ``minimum``，否则允许相等。
+        value: The numeric value to check.
+        path: Input path used when reporting the issue.
+        minimum: The minimum value allowed; when omitted no lower bound is checked.
+        strict: When ``True``, require strictly greater than ``minimum``; otherwise equality is allowed.
 
     Returns:
-        int | float: 通过检查的 ``value`` 自身，类型收窄为有限实数。
+        int | float: The ``value`` itself once the check passes, narrowed to a finite real number.
 
     Raises:
-        ContractError: 值不是有限实数或低于下界时以 ``CONFIG_VALUE`` 上报。
+        ContractError: Reported as ``CONFIG_VALUE`` when the value is not a finite real number or is below the bound.
     """
     if type(value) not in (int, float) or not math.isfinite(cast("int | float", value)):
-        fail("CONFIG_VALUE", path, "finite real", repr(value), "需要有限实数，不能是 bool")
+        fail("CONFIG_VALUE", path, "finite real", repr(value), "requires a finite real number, not a bool")
     if minimum is not None and (
         cast("int | float", value) <= minimum if strict else cast("int | float", value) < minimum
     ):
-        fail("CONFIG_VALUE", path, f"{'>' if strict else '>='}{minimum}", value, "超出允许范围")
+        fail("CONFIG_VALUE", path, f"{'>' if strict else '>='}{minimum}", value, "out of the allowed range")
     return cast("int | float", value)
 
 
@@ -204,37 +204,38 @@ def positive_integer(
     minimum: int = 1,
     maximum: int | None = None,
 ) -> int:
-    """要求 ``value`` 是范围内的整数；``bool`` 不被接受。
+    """Require ``value`` to be an integer within the range; ``bool`` is not accepted.
 
     Args:
-        value: 待检查的整数。
-        path: 问题上报时使用的输入路径。
-        minimum: 允许的最小值，默认为 1。
-        maximum: 允许的最大值；省略时不检查上界。
+        value: The integer to check.
+        path: Input path used when reporting the issue.
+        minimum: The minimum value allowed, default 1.
+        maximum: The maximum value allowed; when omitted no upper bound is checked.
 
     Returns:
-        int: 通过检查的 ``value`` 自身，类型收窄为 ``int``。
+        int: The ``value`` itself once the check passes, narrowed to ``int``.
 
     Raises:
-        ContractError: 值不是整数或越界时以 ``CONFIG_VALUE`` 上报。
+        ContractError: Reported as ``CONFIG_VALUE`` when the value is not an integer or is out of range.
     """
     if type(value) is not int or value < minimum or (maximum is not None and value > maximum):
-        fail("CONFIG_VALUE", path, f"integer {minimum}..{maximum}", repr(value), "整数配置超出范围")
+        fail("CONFIG_VALUE", path, f"integer {minimum}..{maximum}", repr(value), "integer configuration out of range")
     return cast(int, value)
 
 
 def validate_signature(operation: object, fields: Iterable[str], path: str) -> None:
-    """校验操作的公开寄存器恰好是约定的 ``bits`` 寄存器集合。
+    """Validate that the public registers of the operation are exactly the agreed ``bits`` register set.
 
     Args:
-        operation: 待检查的 ``Operation``。
-        fields: 约定的寄存器名集合。
-        path: 问题上报时使用的输入路径。
+        operation: The ``Operation`` to check.
+        fields: The agreed set of register names.
+        path: Input path used when reporting the issue.
 
     Raises:
-        ContractError: 输入不是 ``Operation``，或寄存器名与 ``fields``
-            不一致、存在非 ``bits`` 寄存器时抛出。
-        ValidationError: ``operation`` 的程序合并校验失败时透传。
+        ContractError: Raised when the input is not an ``Operation``, when the
+        register names disagree with ``fields``, or when a non-``bits``
+        register exists.
+        ValidationError: Passed through when program merging validation fails for ``operation``.
     """
     from oracq.infrastructure.builder import Operation
 
@@ -242,11 +243,11 @@ def validate_signature(operation: object, fields: Iterable[str], path: str) -> N
     cast("Operation", operation).program()
     actual = {r.name: r.type for r in cast("Operation", operation).module.registers}
     if set(actual) != set(fields) or any(t.kind != "bits" for t in actual.values()):
-        fail("ORACLE_SIGNATURE", path, list(fields), list(actual), "需要约定的 bits 寄存器签名")
+        fail("ORACLE_SIGNATURE", path, list(fields), list(actual), "requires the agreed bits register signature")
 
 
 def _operation_spec(operation: Operation, kind: str | None = None) -> OracleSpec:
-    """从模块属性与依赖图推导操作的 ``OracleSpec`` 快照。"""
+    """Derive the ``OracleSpec`` snapshot of an operation from module attributes and the dependency graph."""
     from oracq.infrastructure.linking import capabilities, unresolved
 
     program = operation.program()
@@ -271,22 +272,24 @@ def _operation_spec(operation: Operation, kind: str | None = None) -> OracleSpec
 
 
 def describe_oracle(value: object) -> OracleSpec:
-    """取得任意输入对象的 ``OracleSpec`` 描述快照。
+    """Obtain the ``OracleSpec`` description snapshot of an arbitrary input object.
 
-    ``Operation`` 从模块属性与依赖图直接推导；带可调用 ``describe`` 方法
-    的对象调用该方法并要求返回 ``OracleSpec``；其余宿主对象只报告类型名
-    与可选的 ``main_qubit``/``anc_qubit`` 属性，不查询任何全局类型表。
+    An ``Operation`` is derived directly from module attributes and the
+    dependency graph; an object with a callable ``describe`` method has that
+    method invoked and must return an ``OracleSpec``; any other host object
+    only reports the type name and optional ``main_qubit``/``anc_qubit``
+    attributes, without consulting any global type table.
 
     Args:
-        value: ``Operation``、实现 ``describe`` 的对象或任意宿主对象。
+        value: An ``Operation``, an object implementing ``describe``, or any host object.
 
     Returns:
-        OracleSpec: 输入的只读描述快照。
+        OracleSpec: The read-only description snapshot of the input.
 
     Raises:
-        ContractError: ``describe`` 返回值不是 ``OracleSpec`` 时以
-            ``INPUT_TYPE`` 上报。
-        ValidationError: ``Operation`` 分支的程序合并校验失败时透传。
+        ContractError: Reported as ``INPUT_TYPE`` when the ``describe`` return
+        value is not an ``OracleSpec``.
+        ValidationError: Passed through when program merging validation fails in the ``Operation`` branch.
     """
     from oracq.infrastructure.builder import Operation
 
@@ -297,7 +300,7 @@ def describe_oracle(value: object) -> OracleSpec:
         result = describe()
         require_instance(result, OracleSpec, "describe.output")
         return result
-    # 自定义算法对象不需要向语言注册；没有描述方法时只给出宿主类型。
+    # Custom algorithm objects need not register with the language; without a describe method only the host type is reported.
     return OracleSpec(
         type(value).__name__,
         getattr(value, "main_qubit", None),
@@ -308,15 +311,15 @@ def describe_oracle(value: object) -> OracleSpec:
 
 
 def requires(value: _T, protocol: type, *, path: str = "input") -> _T:
-    """算法侧的结构检查；协议由调用者定义，不查询任何全局类型表。
+    """Algorithm-side structural check; the protocol is defined by the caller, and no global type table is consulted.
 
     Args:
-        value: 待检查的输入值。
-        protocol: 要求满足的协议类。
-        path: 问题上报时使用的输入路径，缺省为 ``input``。
+        value: The input value to check.
+        protocol: The protocol class required to be satisfied.
+        path: Input path used when reporting the issue, ``input`` by default.
 
     Returns:
-        _T: 通过协议检查的 ``value`` 自身。
+        _T: The ``value`` itself once the protocol check passes.
     """
     if not isinstance(value, protocol):
         fail(
@@ -324,33 +327,35 @@ def requires(value: _T, protocol: type, *, path: str = "input") -> _T:
             path,
             protocol.__name__,
             type(value).__name__,
-            "需要满足 " + protocol.__name__,
+            "requires satisfying " + protocol.__name__,
         )
     return value
 
 
 @dataclass(frozen=True)
 class InputRequirement:
-    """协议对单个命名输入的需求声明。
+    """Declaration of a protocol's requirement on a single named input.
 
-    ``protocols`` 列出可接受的协议类（满足其一即可），可选的 ``adapter``
-    把原始值转换成具体视图后再检查布局、能力与承诺。
+    ``protocols`` lists the acceptable protocol classes (satisfying any one is
+    enough); the optional ``adapter`` converts the raw value into a concrete
+    view before checking layout, capabilities, and promises.
 
     Attributes:
-        name: 输入名，在所属 ``AlgorithmContract`` 内唯一。
-        protocols: 可接受的协议类元组。
-        adapter: 可选适配函数，如 ``as_block_encoding``；省略时直接检查原值。
-        main_qubit: 期望的主寄存器位数；``None`` 表示不检查。
-        anc_qubit: 期望的辅助寄存器位数；``None`` 表示不检查。
-        alpha: 期望的 BE 归一化常数；``None`` 表示不检查。
-        adjoint: 要求输入支持逆调用。
-        controlled: 要求输入支持受控调用。
-        zero_input: 要求输入显式承诺零输入制备。
-        clean_work: 要求输入显式承诺工作区复净。
+        name: Input name, unique within the owning ``AlgorithmContract``.
+        protocols: Tuple of acceptable protocol classes.
+        adapter: Optional adapter function such as ``as_block_encoding``; when omitted the raw value is checked directly.
+        main_qubit: Expected number of bits of the main register; ``None`` means no check.
+        anc_qubit: Expected number of bits of the auxiliary register; ``None`` means no check.
+        alpha: Expected BE normalization constant; ``None`` means no check.
+        adjoint: Require the input to support adjoint invocation.
+        controlled: Require the input to support controlled invocation.
+        zero_input: Require the input to explicitly promise zero-input preparation.
+        clean_work: Require the input to explicitly promise the work space is restored to zero.
 
     Raises:
-        ValidationError: 名字为空、协议元组无效、adapter 不可调用或字段
-            取值非法时在构造时抛出。
+        ValidationError: Raised at construction when the name is empty, the
+        protocol tuple is invalid, the adapter is not callable, or a field
+        value is illegal.
     """
 
     name: str
@@ -365,16 +370,16 @@ class InputRequirement:
     clean_work: bool = False
 
     def __post_init__(self) -> None:
-        """校验名字、协议元组、adapter 可调用性与各约束字段的取值。"""
+        """Validate the name, protocol tuple, adapter callability, and values of the constraint fields."""
         if (
             not self.name
             or type(self.protocols) is not tuple
             or not self.protocols
             or any(not isinstance(t, type) for t in self.protocols)
         ):
-            raise ValidationError("InputRequirement 需要名字与非空的协议类元组")
+            raise ValidationError("InputRequirement requires a name and a non-empty tuple of protocol classes")
         if self.adapter is not None and not callable(self.adapter):
-            raise ValidationError("InputRequirement.adapter 必须可调用")
+            raise ValidationError("InputRequirement.adapter must be callable")
         for key in ("main_qubit", "anc_qubit"):
             value = getattr(self, key)
             if value is not None:
@@ -383,13 +388,13 @@ class InputRequirement:
             finite_real(self.alpha, "alpha", minimum=0, strict=True)
         for key in ("adjoint", "controlled", "zero_input", "clean_work"):
             if type(getattr(self, key)) is not bool:
-                raise ValidationError(f"InputRequirement.{key} 必须是 bool")
+                raise ValidationError(f"InputRequirement.{key} must be a bool")
 
     def to_dict(self) -> dict[str, object]:
-        """转成可存 JSON 的字典；协议记录类名，adapter 记录函数名。
+        """Convert into a JSON-storable dictionary; protocols record class names, the adapter records the function name.
 
         Returns:
-            dict[str, object]: 需求字段与约束取值的普通字典。
+            dict[str, object]: Plain dictionary of the requirement fields and constraint values.
         """
         return {
             "name": self.name,
@@ -415,19 +420,20 @@ class InputRequirement:
         *,
         prefix: str = "",
     ) -> tuple[OracleSpec | None, tuple[ContractIssue, ...]]:
-        """检查候选值是否满足该需求，返回描述与问题而不直接抛出。
+        """Check whether a candidate value satisfies this requirement, returning the description and issues instead of raising.
 
         Args:
-            value: 待检查的输入值。
-            prefix: 报告路径前缀，通常为所属协议的名字。
+            value: The input value to check.
+            prefix: Path prefix for reporting, usually the name of the owning protocol.
 
         Returns:
-            tuple: ``(spec, issues)``。协议不匹配或取得描述失败时
-            ``spec`` 为 ``None``；布局、能力与承诺问题逐项追加进
-            ``issues``，不阻断后续检查。
+            tuple: ``(spec, issues)``. ``spec`` is ``None`` when the protocol
+        does not match or obtaining the description fails; layout,
+        capability, and promise issues are appended one by one to ``issues``
+        without blocking later checks.
 
         Raises:
-            Exception: 提供方内部的非 ValidationError 异常原样透传，保留调用原因。
+            Exception: Exceptions other than ValidationError from inside the provider are passed through unchanged, preserving the cause.
         """
         _, spec, issues = self.resolve(value, prefix=prefix)
         return spec, issues
@@ -435,7 +441,7 @@ class InputRequirement:
     def resolve(
         self, value: object, *, prefix: str = ""
     ) -> tuple[object, OracleSpec | None, tuple[ContractIssue, ...]]:
-        """适配并检查一次，同时保留实际视图供算法内核使用。"""
+        """Adapt and check once, also keeping the actual view for use by the algorithm kernel."""
         path = f"{prefix}.{self.name}" if prefix else self.name
         expected_names = tuple(p.__name__ for p in self.protocols)
         if not any(isinstance(value, p) for p in self.protocols):
@@ -445,7 +451,7 @@ class InputRequirement:
                     path,
                     expected_names,
                     type(value).__name__,
-                    f"需要满足至少一个协议：{expected_names}",
+                    f"requires satisfying at least one protocol: {expected_names}",
                 ),
             )
         try:
@@ -467,7 +473,7 @@ class InputRequirement:
         issues: list[ContractIssue] = []
 
         def issue(code: str, field: str, expected: object, actual: object, message: str) -> None:
-            """构造问题并以 ``path.field`` 为路径追加记录。"""
+            """Construct an issue and append it with the path ``path.field``."""
             issues.append(ContractIssue(code, path + "." + field, expected, actual, message))
 
         for field in ("main_qubit", "anc_qubit", "alpha"):
@@ -478,28 +484,28 @@ class InputRequirement:
                     field,
                     expected,
                     actual,
-                    f"需要 {expected}，收到 {actual}",
+                    f"expected {expected}, received {actual}",
                 )
         for field in ("adjoint", "controlled"):
             if getattr(self, field) and not getattr(spec.capabilities, field):
-                issue("INPUT_CAPABILITY", field, True, False, f"缺少 supports_{field}")
+                issue("INPUT_CAPABILITY", field, True, False, f"missing supports_{field}")
         attrs = dict(spec.parameters)
         for field in ("zero_input", "clean_work"):
             if getattr(self, field) and attrs.get(field) is not True:
-                issue("INPUT_PROMISE", field, True, attrs.get(field), f"需要显式的 {field} 契约")
+                issue("INPUT_PROMISE", field, True, attrs.get(field), f"requires an explicit {field} promise")
         return value, spec, tuple(issues)
 
 
 @dataclass(frozen=True)
 class ContractReport:
-    """一次契约检查的结果报告，只覆盖结构与声明，不证明数学性质。
+    """Result report of one contract check, covering only structure and declarations, proving no mathematical property.
 
     Attributes:
-        protocol: 被检查协议的名字。
-        inputs: ``(输入名, OracleSpec)`` 元组，记录成功取得的输入描述。
-        issues: 检查发现的全部问题；为空表示通过。
-        assumptions: 协议声明的假设，原样保留。
-        adapters: 检查涉及的适配器名；默认为空。
+        protocol: Name of the checked protocol.
+        inputs: ``(input name, OracleSpec)`` tuples recording successfully obtained input descriptions.
+        issues: All issues found by the check; empty means passed.
+        assumptions: Assumptions declared by the protocol, kept as-is.
+        adapters: Adapter names involved in the check; empty by default.
     """
 
     protocol: str
@@ -510,44 +516,45 @@ class ContractReport:
 
     @property
     def ok(self) -> bool:
-        """没有发现任何问题时为 ``True``。"""
+        """``True`` when no issue was found."""
         return not self.issues
 
     def require(self) -> ContractReport:
-        """通过时返回自身，否则一次抛出全部问题。
+        """Return self when passed, otherwise raise all issues at once.
 
         Returns:
-            ContractReport: 自身，便于链式调用。
+            ContractReport: Self, for chaining.
 
         Raises:
-            ContractError: 存在任何未解决的问题时抛出。
+            ContractError: Raised when any unresolved issue exists.
         """
         if self.issues:
             raise ContractError(self.issues)
         return self
 
     def to_dict(self) -> dict[str, object]:
-        """转成可存 JSON 的字典，附加顶层 ``ok`` 字段。
+        """Convert into a JSON-storable dictionary, adding the top-level ``ok`` field.
 
         Returns:
-            dict[str, object]: 含 ``ok`` 与全部报告字段的普通字典。
+            dict[str, object]: Plain dictionary containing ``ok`` and all report fields.
         """
         return {"ok": self.ok, **asdict(self)}
 
 
 @dataclass(frozen=True)
 class AlgorithmContract:
-    """算法对全部输入的契约声明，可整体检查并生成聚合报告。
+    """The algorithm's contract declaration over all inputs, checkable as a whole with an aggregated report.
 
     Attributes:
-        name: 协议名。
-        inputs: 按名字区分的 ``InputRequirement`` 元组。
-        same_width: 要求 ``main_qubit`` 相同的输入名二元组。
-        assumptions: 原样透传到报告中的假设声明。
+        name: Protocol name.
+        inputs: Tuple of ``InputRequirement`` distinguished by name.
+        same_width: Pairs of input names required to share the same ``main_qubit``.
+        assumptions: Assumption declarations passed through to the report as-is.
 
     Raises:
-        ValidationError: 名字为空、输入名重复、inputs 元素非法或同宽约束
-            引用不存在的输入时在构造时抛出。
+        ValidationError: Raised at construction when the name is empty, input
+        names are duplicated, an inputs element is illegal, or a same-width
+        constraint references a nonexistent input.
     """
 
     name: str
@@ -556,39 +563,40 @@ class AlgorithmContract:
     assumptions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """校验 inputs 类型、名字唯一性与同宽约束引用。"""
+        """Validate the inputs type, name uniqueness, and same-width constraint references."""
         if type(self.inputs) is not tuple or any(
             not isinstance(r, InputRequirement) for r in self.inputs
         ):
-            raise ValidationError("AlgorithmContract.inputs 需要不可变的 InputRequirement 元组")
+            raise ValidationError("AlgorithmContract.inputs requires an immutable tuple of InputRequirement")
         names = [r.name for r in self.inputs]
         if not self.name or len(names) != len(set(names)):
-            raise ValidationError("protocol 名称无效或输入名重复")
+            raise ValidationError("invalid protocol name or duplicated input names")
         if any(len(pair) != 2 or any(n not in names for n in pair) for pair in self.same_width):
-            raise ValidationError("同宽约束引用了不存在的输入")
+            raise ValidationError("a same-width constraint references a nonexistent input")
 
     def check(self, **values: object) -> ContractReport:
-        """按名字逐项检查输入并生成聚合报告。
+        """Check the inputs one by one by name and generate an aggregated report.
 
-        只调用输入对象的方法取得描述，不运行算法内核或量子模拟。
+        Only methods of the input objects are invoked to obtain descriptions;
+        no algorithm kernel or quantum simulation is run.
 
         Args:
-            **values: 以需求名为键的输入值；多余或缺失都记为问题。
+            **values: Input values keyed by requirement name; extras and missing values are both recorded as issues.
 
         Returns:
-            ContractReport: 聚合所有输入的检查结果。
+            ContractReport: Aggregated check result over all inputs.
         """
         return self.resolve(**values).report
 
     def resolve(self, **values: object) -> ResolvedInputs:
-        """取得一次具体输入并检查；报告可保存，视图仅在宿主生成阶段使用。"""
+        """Obtain and check one concrete set of inputs; the report can be saved, and the views are used only in the host generation stage."""
         resolved: dict[str, object] = {}
         specs: dict[str, OracleSpec] = {}
         issues: list[ContractIssue] = []
         expected = {r.name for r in self.inputs}
         for key in sorted(values.keys() - expected):
             issues.append(
-                ContractIssue("INPUT_UNEXPECTED", f"{self.name}.{key}", None, key, "多余输入")
+                ContractIssue("INPUT_UNEXPECTED", f"{self.name}.{key}", None, key, "unexpected input")
             )
         for req in self.inputs:
             if req.name not in values:
@@ -598,7 +606,7 @@ class AlgorithmContract:
                         f"{self.name}.{req.name}",
                         tuple(p.__name__ for p in req.protocols),
                         None,
-                        "缺少输入",
+                        "missing input",
                     )
                 )
                 continue
@@ -619,17 +627,17 @@ class AlgorithmContract:
                         f"{self.name}.{right}.main_qubit",
                         specs[left].main_qubit,
                         specs[right].main_qubit,
-                        f"需要与 {left} 的目标宽度一致",
+                        f"must match the target width of {left}",
                     )
                 )
         report = ContractReport(self.name, tuple(specs.items()), tuple(issues), self.assumptions)
         return ResolvedInputs(tuple(resolved.items()), report)
 
     def to_dict(self) -> dict[str, object]:
-        """转成可存 JSON 的字典；各输入递归使用自身 ``to_dict``。
+        """Convert into a JSON-storable dictionary; each input recursively uses its own ``to_dict``.
 
         Returns:
-            dict[str, object]: 契约字段与逐输入需求的普通字典。
+            dict[str, object]: Plain dictionary of the contract fields and per-input requirements.
         """
         return {
             "name": self.name,
@@ -641,16 +649,16 @@ class AlgorithmContract:
 
 @dataclass(frozen=True)
 class ResolvedInputs:
-    """一次边界适配的视图与检查报告；不缓存宿主对象，不作为可执行 IR 序列化。"""
+    """Views and check report of one boundary adaptation; host objects are not cached, and this is not serialized as executable IR."""
 
     values: tuple[tuple[str, object], ...]
     report: ContractReport
 
     def get(self, name: str, cls: type[_T]) -> _T:
-        """契约通过后，按名字取得已检查的具体视图。"""
+        """After the contract passes, obtain the checked concrete view by name."""
         self.report.require()
         return require_instance(dict(self.values)[name], cls, self.report.protocol + "." + name)
 
 
-# 兼容旧导入；新算法使用准确表达职责的名称。
+# Compatibility for old imports; new algorithms use names that express the responsibility precisely.
 ProtocolContract = AlgorithmContract

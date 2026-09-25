@@ -1,4 +1,4 @@
-"""算法分类目录通过真实 PySparQ / OriginIR 的复幅度对拍。"""
+"""The algorithm gallery is cross-checked against real PySparQ / OriginIR backends on full complex amplitudes."""
 
 import unittest
 

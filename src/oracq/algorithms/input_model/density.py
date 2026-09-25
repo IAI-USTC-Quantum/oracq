@@ -1,19 +1,28 @@
-"""密度矩阵（DM）input model 与 Gibbs 态制备。
+"""Density matrix (DM) input model and Gibbs state preparation.
 
-DM input model 的核心抽象是纯化访问（purification access）：对密度矩阵 ρ 的访问
-定义为制备其纯化态的量子操作 U，U ``|0>`` = ``|ψ_ρ⟩`` 作用在 system 与 environment
-两个寄存器上，且对环境取偏迹后 Tr_env ``|ψ⟩⟨ψ|`` = ρ。本模块给出三层范式：
-abstract_purification 开放声明、gate_purification 显式小矩阵见证（特征分解后由
-多重旋转制备）、以及 PurificationAccess.from_state_preparation 纯态适配（纯态即
-环境复净的平凡纯化）。该视图是 B2（量子 SDP）依赖的稳定接口。
+The core abstraction of the DM input model is purification access: access to a
+density matrix ρ is defined as a quantum operation U that prepares its
+purified state, U ``|0>`` = ``|ψ_ρ⟩`` acting on the two registers system and
+environment, with the partial trace over the environment giving Tr_env
+``|ψ⟩⟨ψ|`` = ρ. This module provides three paradigm layers:
+abstract_purification open declarations, gate_purification explicit
+small-matrix witnesses (eigendecomposition followed by preparation via
+multiplexed rotations), and the PurificationAccess.from_state_preparation pure
+state adapter (a pure state is the trivial purification with the environment
+restored to zero). This view is the stable interface relied on by B2 (quantum
+SDP).
 
-Gibbs 态制备走 QSVT 纯化路线（Chowdhury–Somma 2017、van Apeldoorn–Gilyén 2019、
-Gilyén et al. 2019, arXiv:1806.01838）：先制备 system 与 environment 上最大混合态
-的纯化（n 对 Bell 对），再对 system 作用零信号块正比于 g(H/α) 的 QSVT 块编码，
-其中 g(x) = exp(−βα(x+1)/2) 在 [−1,1] 上取值于 (0,1]。g 按奇偶分解为
-e^{−c}·cosh(cx) 与 −e^{−c}·sinh(cx)（c = βα/2）两支，各自以修正 Bessel 截断逼近、
-经虚部补全合成相位，实部由 (U_Φ + U_{−Φ})/2 提取，最后经 LCU 相加。后置选择
-signal == 0 后，system 的约化密度矩阵正比于 g(H/α)² = e^{−βH}（至多相差归一化）。
+Gibbs state preparation follows the QSVT purification route (Chowdhury–Somma
+2017, van Apeldoorn–Gilyén 2019, Gilyén et al. 2019, arXiv:1806.01838): first
+prepare the purification of the maximally mixed state on system and
+environment (n Bell pairs), then apply to system a QSVT block encoding whose
+zero-signal block is proportional to g(H/α), where g(x) = exp(−βα(x+1)/2)
+takes values in (0,1] on [−1,1]. g decomposes by parity into the two branches
+e^{−c}·cosh(cx) and −e^{−c}·sinh(cx) (c = βα/2), each approximated by a
+modified Bessel truncation, with phases synthesized via imaginary completion,
+the real part extracted by (U_Φ + U_{−Φ})/2, and the branches finally summed
+by LCU. After post-selecting signal == 0, the reduced density matrix of
+system is proportional to g(H/α)² = e^{−βH} (up to normalization).
 """
 
 from __future__ import annotations
@@ -68,62 +77,64 @@ __all__ = [
 
 
 # ---------------------------------------------------------------------------
-# 经典小矩阵工具（纯 Python 复数矩阵，供见证与下游算法的经典侧复用）。
+# Classical small-matrix utilities (pure Python complex matrices, reused by
+# witnesses and the classical side of downstream algorithms).
 # ---------------------------------------------------------------------------
 
 
 def _as_complex_matrix(
     matrix: Iterable[Iterable[complex]], path: str
 ) -> tuple[tuple[complex, ...], ...]:
-    """把输入规范化为非空、元素有限的复方阵元组。"""
+    """Normalize the input into a nonempty square complex matrix with finite entries, as nested tuples."""
     try:
         result = tuple(tuple(complex(v) for v in row) for row in matrix)
     except (TypeError, ValueError) as exc:
-        raise ValidationError(f"{path} 需要方阵形式的数值矩阵") from exc
+        raise ValidationError(f"{path} requires a numeric matrix in square form") from exc
     d = len(result)
     if d < 1 or any(len(row) != d for row in result):
-        raise ValidationError(f"{path} 需要非空方阵")
+        raise ValidationError(f"{path} requires a nonempty square matrix")
     if not all(math.isfinite(v.real) and math.isfinite(v.imag) for row in result for v in row):
-        raise ValidationError(f"{path} 的矩阵元必须有限")
+        raise ValidationError(f"matrix elements of {path} must be finite")
     return result
 
 
 def _check_hermitian(
     matrix: Iterable[Iterable[complex]], path: str, *, tol: float = 1e-9
 ) -> tuple[tuple[complex, ...], ...]:
-    """校验并返回 Hermitian 复方阵；非 Hermitian 时抛 ``ValidationError``。"""
+    """Validate and return a Hermitian complex square matrix; raise ``ValidationError`` when not Hermitian."""
     matrix = _as_complex_matrix(matrix, path)
     d = len(matrix)
     scale = max(1.0, max(abs(v) for row in matrix for v in row))
     for i in range(d):
         for j in range(i + 1, d):
             if abs(matrix[i][j] - matrix[j][i].conjugate()) > tol * scale:
-                raise ValidationError(f"{path} 必须是 Hermitian 矩阵")
+                raise ValidationError(f"{path} must be a Hermitian matrix")
     return matrix
 
 
 def _check_density_matrix(
     rho: Iterable[Iterable[complex]], *, tol: float = 1e-7
 ) -> tuple[tuple[complex, ...], ...]:
-    """校验密度矩阵的维度与迹，返回规范化后的复方阵元组。"""
+    """Validate the dimension and trace of a density matrix, returning the normalized complex square matrix as nested tuples."""
     matrix = _check_hermitian(rho, "gate_purification.rho")
     d = len(matrix)
     if d < 2 or d & (d - 1):
-        raise ValidationError("密度矩阵维度必须是至少为 2 的二的幂")
+        raise ValidationError("density matrix dimension must be a power of two of at least 2")
     if d > 16:
-        raise ValidationError("显式纯化见证仅支持不超过 16 维的小密度矩阵")
+        raise ValidationError("explicit purification witnesses support only small density matrices of dimension at most 16")
     if abs(sum(matrix[i][i] for i in range(d)) - 1.0) > tol:
-        raise ValidationError("密度矩阵的迹必须为 1")
+        raise ValidationError("the trace of a density matrix must be 1")
     return matrix
 
 
 def _hermitian_eigendecomposition(
     matrix: Sequence[Sequence[complex]], *, tol: float = 1e-13, max_sweeps: int = 64
 ) -> tuple[tuple[float, ...], list[list[complex]]]:
-    """循环 Jacobi 方法求小 Hermitian 矩阵的特征分解。
+    """Eigendecomposition of a small Hermitian matrix by the cyclic Jacobi method.
 
-    返回 (特征值元组, 特征向量表)；特征值按降序排列，特征向量表的第 i 行第 j 列
-    是第 j 个特征向量的第 i 个分量。
+    Returns (eigenvalue tuple, eigenvector table); eigenvalues are sorted in
+    descending order, and row i column j of the eigenvector table is component
+    i of eigenvector j.
     """
     d = len(matrix)
     a = [[complex(matrix[i][j]) for j in range(d)] for i in range(d)]
@@ -137,8 +148,10 @@ def _hermitian_eigendecomposition(
             for q in range(p + 1, d):
                 if abs(a[p][q]) <= tol * scale:
                     continue
-                # 先做对角相位旋转使非对角元变为正实数，再做实 Jacobi 旋转消元。
-                # 相似变换 D†AD 不改变对角元，列缩放后必须恢复 a[q][q]。
+                # First apply a diagonal phase rotation to make the off-diagonal element a
+                # positive real number, then eliminate it with a real Jacobi rotation.
+                # The similarity transform D†AD does not change diagonal entries;
+                # a[q][q] must be restored after the column scaling.
                 phase = a[p][q] / abs(a[p][q])
                 diagonal_qq = a[q][q].real
                 for k in range(d):
@@ -172,26 +185,27 @@ def _hermitian_eigendecomposition(
 def partial_trace(
     amplitudes: Iterable[complex], system_width: int, environment_width: int
 ) -> tuple[tuple[complex, ...], ...]:
-    """对 environment 取偏迹，返回 system 上的约化密度矩阵（行主序嵌套元组）。
+    """Take the partial trace over environment, returning the reduced density matrix on system as a row-major nested tuple.
 
-    amplitudes 是长度 2^(system_width + environment_width) 的稠密态向量，
-    基态下标约定为 system | (environment << system_width)。
+    amplitudes is the dense state vector of length 2^(system_width +
+    environment_width), with the basis state index convention system |
+    (environment << system_width).
 
     Args:
-        amplitudes: 满足上述长度约定的纯态幅度序列。
-        system_width: system 寄存器位宽，范围 0..20。
-        environment_width: 被求偏迹的 environment 寄存器位宽，范围 0..20。
+        amplitudes: Pure state amplitude sequence satisfying the length convention above.
+        system_width: Bit width of the system register, range 0..20.
+        environment_width: Bit width of the environment register to be partially traced, range 0..20.
 
     Returns:
-        tuple[tuple[complex, ...], ...]: 行主序嵌套元组表示的 2^system_width
-        维约化密度矩阵。
+        tuple[tuple[complex, ...], ...]: The 2^system_width-dimensional reduced
+    density matrix as a row-major nested tuple.
     """
     positive_integer(system_width, "partial_trace.system_width", minimum=0, maximum=20)
     positive_integer(environment_width, "partial_trace.environment_width", minimum=0, maximum=20)
     values = [complex(v) for v in amplitudes]
     dim_s, dim_e = 1 << system_width, 1 << environment_width
     if len(values) != dim_s * dim_e:
-        raise ValidationError("态向量长度与寄存器宽度不符")
+        raise ValidationError("state vector length does not match the register widths")
     return tuple(
         tuple(
             sum(
@@ -207,14 +221,14 @@ def partial_trace(
 def gibbs_state(
     hamiltonian: Iterable[Iterable[complex]], beta: float
 ) -> tuple[tuple[complex, ...], ...]:
-    """经典参考 Gibbs 态 e^{−βH}/Tr(e^{−βH})；仅用于小矩阵的经典见证。
+    """Classical reference Gibbs state e^{−βH}/Tr(e^{−βH}); used only as a classical witness for small matrices.
 
     Args:
-        hamiltonian: 小规模 Hermitian 矩阵，以复数元素的嵌套序列给出。
-        beta: 逆温度，与 H 谱同量纲的有限实数。
+        hamiltonian: Small Hermitian matrix given as a nested sequence of complex elements.
+        beta: Inverse temperature, a finite real number in the same units as the spectrum of H.
 
     Returns:
-        tuple[tuple[complex, ...], ...]: 归一化 Gibbs 态矩阵，行主序嵌套元组。
+        tuple[tuple[complex, ...], ...]: Normalized Gibbs state matrix as a row-major nested tuple.
     """
     matrix = _check_hermitian(hamiltonian, "gibbs_state.hamiltonian")
     finite_real(beta, "gibbs_state.beta")
@@ -235,19 +249,19 @@ def gibbs_state(
 def trace_distance(
     rho: Iterable[Iterable[complex]], sigma: Iterable[Iterable[complex]]
 ) -> float:
-    """迹距离 T(ρ,σ) = ‖ρ−σ‖₁/2，经差矩阵的 Hermitian 特征分解计算。
+    """Trace distance T(ρ,σ) = ‖ρ−σ‖₁/2, computed via the Hermitian eigendecomposition of the difference matrix.
 
     Args:
-        rho: 第一个 Hermitian 矩阵，通常为密度矩阵。
-        sigma: 第二个 Hermitian 矩阵，维度须与 rho 一致。
+        rho: First Hermitian matrix, usually a density matrix.
+        sigma: Second Hermitian matrix, dimension must match rho.
 
     Returns:
-        float: 迹距离，取值范围 [0,1]。
+        float: Trace distance, with range [0,1].
     """
     a = _check_hermitian(rho, "trace_distance.rho")
     b = _check_hermitian(sigma, "trace_distance.sigma")
     if len(a) != len(b):
-        raise ValidationError("迹距离要求两个矩阵维度一致")
+        raise ValidationError("trace distance requires both matrices to have the same dimension")
     d = len(a)
     values, _ = _hermitian_eigendecomposition(
         [[a[i][j] - b[i][j] for j in range(d)] for i in range(d)]
@@ -256,59 +270,64 @@ def trace_distance(
 
 
 # ---------------------------------------------------------------------------
-# 纯化访问视图：DM input model 的稳定接口（B2 量子 SDP 复用）。
+# Purification access view: the stable interface of the DM input model
+# (reused by B2 quantum SDP).
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class PurificationAccess(OracleView):
-    """密度矩阵的纯化访问视图：制备 ``|ψ_ρ⟩`` 且 Tr_env ``|ψ⟩⟨ψ|`` = ρ。
+    """Purification access view of a density matrix: prepares ``|ψ_ρ⟩`` with Tr_env ``|ψ⟩⟨ψ|`` = ρ.
 
-    操作从全零态出发，在 system 与 environment 两个寄存器上制备 ρ 的纯化态；
-    environment 宽度不小于 system 的秩所需位数（一般取等于 system 宽度即可）。
+    The operation starts from the all-zero state and prepares the purification
+    of ρ on the two registers system and environment; the environment width is
+    at least the bits needed by the rank of system (taking it equal to the
+    system width is usually fine).
     """
 
     oracle_kind = "purification_access"
     operation: Operation
 
     def purification_access(self) -> PurificationAccess:
-        """纯化访问的结构化协议访问器，返回 ``self``。
+        """Structured protocol accessor for purification access, returning ``self``.
 
-        宿主对象实现同名方法并返回 ``PurificationAccess`` 即可被按协议适配，
-        与 ``state_preparation``、``block_encoding`` 等访问器同构。
+        A host object implementing a method of the same name returning
+        ``PurificationAccess`` can be adapted by protocol, isomorphic to
+        accessors such as ``state_preparation`` and ``block_encoding``.
 
         Returns:
-            PurificationAccess: 该视图自身。
+            PurificationAccess: This view itself.
         """
         return self
 
     def __post_init__(self) -> None:
-        """校验包装操作的 system/environment 寄存器签名与位宽。"""
+        """Validate the system/environment register signature and bit widths of the wrapped operation."""
         validate_signature(self.operation, ("system", "environment"), "PurificationAccess")
         if self.width < 1:
-            raise ValidationError("PurificationAccess 的 system 寄存器不能为空")
+            raise ValidationError("the system register of PurificationAccess cannot be empty")
 
     @property
     def width(self) -> int:
-        """system 寄存器位宽，以 RIR 寄存器签名为准。"""
+        """Bit width of the system register, per the RIR register signature."""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "system"
         )
 
     @property
     def environment_width(self) -> int:
-        """environment 寄存器位宽，以 RIR 寄存器签名为准。"""
+        """Bit width of the environment register, per the RIR register signature."""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "environment"
         )
 
     def describe(self) -> OracleSpec:
-        """返回类型为 ``purification_access`` 的 ``OracleSpec`` 快照。
+        """Return the ``OracleSpec`` snapshot with type ``purification_access``.
 
-        system 宽度记入 main_qubit，environment 宽度记入 anc_qubit。
+        The system width is recorded in main_qubit and the environment width
+        in anc_qubit.
 
         Returns:
-            OracleSpec: 快照，type 为 ``purification_access``。
+            OracleSpec: The snapshot, with type ``purification_access``.
         """
         from oracq.algorithms.input_model.contracts import describe_oracle
 
@@ -322,17 +341,19 @@ class PurificationAccess(OracleView):
 
     @classmethod
     def from_state_preparation(cls, preparation: StatePreparation) -> PurificationAccess:
-        """纯态即平凡纯化：work 复净的 StatePreparation 适配为 PurificationAccess。
+        """A pure state is the trivial purification: adapt a work-restored StatePreparation into PurificationAccess.
 
-        work 寄存器扮演 environment 角色；制备契约承诺 work 复净，因此偏迹环境后
-        system 上仍是原来的纯态。
+        The work register plays the role of environment; the preparation
+        contract promises that work is restored to zero, so after tracing out
+        the environment the state on system is still the original pure state.
 
         Args:
-            preparation: work 寄存器复净的纯态制备视图；work 宽度大于 0 时
-                必须带有 clean_work 承诺。
+            preparation: Pure state preparation view with work restored to
+                zero; when the work width is greater than 0, the clean_work
+                promise is required.
 
         Returns:
-            PurificationAccess: environment 取原 work 寄存器的平凡纯化视图。
+            PurificationAccess: The trivial purification view whose environment is the original work register.
         """
         require_instance(
             preparation, StatePreparation, "PurificationAccess.from_state_preparation"
@@ -344,7 +365,7 @@ class PurificationAccess(OracleView):
                 "PurificationAccess.from_state_preparation.clean_work",
                 True,
                 attributes.get("clean_work"),
-                "需要承诺制备后 work 复净，纯态才能作为平凡纯化",
+                "must promise that work is restored to zero after preparation so the pure state can serve as the trivial purification",
             )
         n, m = preparation.width, preparation.work_width
         b = Builder(
@@ -364,10 +385,10 @@ class PurificationAccess(OracleView):
         )
 
     def as_state_preparation(self) -> StatePreparation:
-        """把纯化操作整体视为 system⊕environment 上的 StatePreparation（供 B2 组合）。
+        """Treat the purification operation as a whole as a StatePreparation on system⊕environment (for B2 composition).
 
         Returns:
-            StatePreparation: 目标态为纯化态、work 宽度为 0 的制备视图。
+            StatePreparation: Preparation view whose target state is the purified state and whose work width is 0.
         """
         n, m = self.width, self.environment_width
         b = Builder(
@@ -395,77 +416,81 @@ class PurificationAccess(OracleView):
 
 @dataclass(frozen=True)
 class ApproximatePurification(OracleView):
-    """后置选择的近似纯化：signal == 0 分支上 system 与 environment 承载近似纯化态。
+    """Post-selected approximate purification: on the signal == 0 branch, system and environment carry the approximate purified state.
 
-    与 PurificationAccess 的区别在于存在信号寄存器与可控近似误差；算法参数
-    （如 Gibbs 制备的 beta、error）保存在模块属性中，经 attributes 读取。
+    It differs from PurificationAccess by having a signal register and a
+    controllable approximation error; algorithm parameters (such as beta and
+    error for Gibbs preparation) are stored in module attributes and read via
+    attributes.
     """
 
     oracle_kind = "approximate_purification"
     operation: Operation
 
     def approximate_purification(self) -> ApproximatePurification:
-        """近似纯化的结构化协议访问器，返回 ``self``。
+        """Structured protocol accessor for approximate purification, returning ``self``.
 
-        宿主对象实现同名方法并返回 ``ApproximatePurification`` 即可被按协议适配，
-        与 ``state_preparation``、``block_encoding`` 等访问器同构。
+        A host object implementing a method of the same name returning
+        ``ApproximatePurification`` can be adapted by protocol, isomorphic to
+        accessors such as ``state_preparation`` and ``block_encoding``.
 
         Returns:
-            ApproximatePurification: 该视图自身。
+            ApproximatePurification: This view itself.
         """
         return self
 
     def __post_init__(self) -> None:
-        """校验包装操作的 system/environment/signal 寄存器签名与位宽。"""
+        """Validate the system/environment/signal register signature and bit widths of the wrapped operation."""
         validate_signature(
             self.operation, ("system", "environment", "signal"), "ApproximatePurification"
         )
         if self.width < 1:
-            raise ValidationError("ApproximatePurification 的 system 寄存器不能为空")
+            raise ValidationError("the system register of ApproximatePurification cannot be empty")
 
     @property
     def width(self) -> int:
-        """system 寄存器位宽，以 RIR 寄存器签名为准。"""
+        """Bit width of the system register, per the RIR register signature."""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "system"
         )
 
     @property
     def environment_width(self) -> int:
-        """environment 寄存器位宽，以 RIR 寄存器签名为准。"""
+        """Bit width of the environment register, per the RIR register signature."""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "environment"
         )
 
     @property
     def signal_qubits(self) -> int:
-        """signal 寄存器位宽；后置选择要求其读出全 0。"""
+        """Bit width of the signal register; post-selection requires its readout to be all zeros."""
         return next(
             r.type.width for r in self.operation.module.registers if r.name == "signal"
         )
 
     @property
     def attributes(self) -> dict[str, str | int | float | bool]:
-        """模块属性字典的副本；保存 beta、error 等算法参数。"""
+        """Copy of the module attribute dictionary; stores algorithm parameters such as beta and error."""
         return dict(self.operation.module.attributes)
 
     @property
     def beta(self) -> float | None:
-        """逆温度 β，取自模块属性；未记录时为 ``None``。"""
+        """Inverse temperature β read from the module attributes; ``None`` when not recorded."""
         return cast("float | None", self.attributes.get("beta"))
 
     @property
     def error(self) -> float | None:
-        """多项式一致逼近误差参数，取自模块属性；未记录时为 ``None``。"""
+        """Polynomial uniform approximation error parameter read from the module attributes; ``None`` when not recorded."""
         return cast("float | None", self.attributes.get("error"))
 
     def describe(self) -> OracleSpec:
-        """返回类型为 ``approximate_purification`` 的 ``OracleSpec`` 快照。
+        """Return the ``OracleSpec`` snapshot with type ``approximate_purification``.
 
-        system 宽度记入 main_qubit，environment 与 signal 宽度之和记入 anc_qubit。
+        The system width is recorded in main_qubit, and the sum of the
+        environment and signal widths in anc_qubit.
 
         Returns:
-            OracleSpec: 快照，type 为 ``approximate_purification``。
+            OracleSpec: The snapshot, with type ``approximate_purification``.
         """
         from oracq.algorithms.input_model.contracts import describe_oracle
 
@@ -479,26 +504,29 @@ class ApproximatePurification(OracleView):
 
 
 # ---------------------------------------------------------------------------
-# 三层范式：abstract 开放声明与 gate 见证实现。
+# Three paradigm layers: abstract open declarations and gate witness
+# implementations.
 # ---------------------------------------------------------------------------
 
 
 def abstract_purification(
     name: str, width: int, environment_width: int | None = None, *, reversible: bool = True
 ) -> PurificationAccess:
-    """DM input model 的开放声明：制备 ``|ψ_ρ⟩`` 的纯化访问槽，供分批绑定。
+    """Open declaration of the DM input model: a purification access slot preparing ``|ψ_ρ⟩``, for batched binding.
 
-    environment_width 缺省取 width（任何密度矩阵都有等宽环境的纯化）；
-    声明经 linking.bind 绑定 gate_purification 等见证实现后程序闭合。
+    environment_width defaults to width (every density matrix has a
+    purification with an equal-width environment); the declaration is closed
+    by binding a witness implementation such as gate_purification via
+    linking.bind.
 
     Args:
-        name: 槽名，供 linking.bind 绑定见证实现时引用。
-        width: system 寄存器位宽，范围 1..63。
-        environment_width: environment 寄存器位宽，范围 0..63；缺省取 width。
-        reversible: 声明槽是否同时承诺厄米共轭与受控能力。
+        name: Slot name, referenced when binding a witness implementation via linking.bind.
+        width: Bit width of the system register, range 1..63.
+        environment_width: Bit width of the environment register, range 0..63; defaults to width.
+        reversible: Whether the declaration slot also promises adjoint and controlled capabilities.
 
     Returns:
-        PurificationAccess: 待绑定见证实现的开放声明槽。
+        PurificationAccess: The open declaration slot awaiting a witness implementation.
     """
     positive_integer(width, "abstract_purification.width", maximum=63)
     environment_width = width if environment_width is None else environment_width
@@ -520,18 +548,20 @@ def abstract_purification(
 def gate_purification(
     rho: Iterable[Iterable[complex]], *, name: str | None = None
 ) -> PurificationAccess:
-    """显式小密度矩阵的纯化见证：特征分解 ρ = Σ_j p_j ``|v_j⟩⟨v_j|`` 后受控制备。
+    """Purification witness for an explicit small density matrix: eigendecomposition ρ = Σ_j p_j ``|v_j⟩⟨v_j|`` followed by controlled preparation.
 
-    纯化态取 ``|ψ_ρ⟩ = Σ_j √p_j |v_j⟩_s |j⟩_e``，其幅度向量经
-    gate_state_prep 的多重旋转树在 system 与 environment 的拼接寄存器上制备；
-    对环境取偏迹恰好回到 ρ。
+    The purified state is ``|ψ_ρ⟩ = Σ_j √p_j |v_j⟩_s |j⟩_e``; its amplitude
+    vector is prepared on the concatenated register of system and environment
+    by the multiplexed rotation tree of gate_state_prep; taking the partial
+    trace over the environment returns exactly ρ.
 
     Args:
-        rho: 显式密度矩阵，须是迹为 1、半正定且维度不超过 16 的二的幂方阵。
-        name: 生成操作的名称；缺省由矩阵内容派生。
+        rho: Explicit density matrix, which must be a positive semidefinite
+        power-of-two square matrix of trace 1 and dimension at most 16.
+        name: Name of the generated operation; derived from the matrix content by default.
 
     Returns:
-        PurificationAccess: 以特征分解见证实现的纯化访问视图。
+        PurificationAccess: Purification access view implemented by the eigendecomposition witness.
     """
     matrix = _check_density_matrix(rho)
     d = len(matrix)
@@ -543,7 +573,7 @@ def gate_purification(
             "gate_purification.rho",
             "positive semidefinite",
             values[-1],
-            "密度矩阵必须半正定",
+            "the density matrix must be positive semidefinite",
         )
     amplitudes = [0j] * (d * d)
     for j, p in enumerate(values):
@@ -575,14 +605,14 @@ def gate_purification(
 
 
 def maximally_mixed_purification(width: int, *, name: str | None = None) -> PurificationAccess:
-    """最大混合态 I/2^n 的纯化生成器：n 对 Bell 对 ``|Φ+⟩`` 的张量积。
+    """Purification generator of the maximally mixed state I/2^n: the tensor product of n Bell pairs ``|Φ+⟩``.
 
     Args:
-        width: system 与 environment 寄存器各自的位宽，范围 1..32。
-        name: 生成操作的名称；缺省为 ``bell_purification_{width}``。
+        width: Bit width of each of the system and environment registers, range 1..32.
+        name: Name of the generated operation; ``bell_purification_{width}`` by default.
 
     Returns:
-        PurificationAccess: 制备 n 对 Bell 对张量积的纯化视图。
+        PurificationAccess: Purification view preparing the tensor product of n Bell pairs.
     """
     positive_integer(width, "maximally_mixed_purification.width", maximum=32)
     b = Builder(
@@ -604,12 +634,12 @@ def maximally_mixed_purification(width: int, *, name: str | None = None) -> Puri
 
 
 # ---------------------------------------------------------------------------
-# Gibbs 态制备：QSVT 纯化路线。
+# Gibbs state preparation: the QSVT purification route.
 # ---------------------------------------------------------------------------
 
 
 def _bessel_i(n: int, x: float) -> float:
-    """第一类修正 Bessel 函数 I_n(x)，幂级数纯 Python 实现。"""
+    """Modified Bessel function of the first kind I_n(x), a pure Python power-series implementation."""
     term = (x / 2) ** n / math.factorial(n)
     total = term
     m = 0
@@ -623,10 +653,12 @@ def _bessel_i(n: int, x: float) -> float:
 def _gibbs_branches(
     c: float, error: float
 ) -> tuple[tuple[float, ...], tuple[float, ...], int, int]:
-    """g(x) = e^{−c(x+1)} 的偶/奇 Chebyshev 截断：e^{−c}cosh(cx) 与 −e^{−c}sinh(cx)。
+    """Even/odd Chebyshev truncations of g(x) = e^{−c(x+1)}: e^{−c}cosh(cx) and −e^{−c}sinh(cx).
 
-    每支截断尾部按 2e^{−c}·Σ_{k>d} I_k(c) ≤ error/8 控制，合计一致误差不超过
-    error/4；返回 (偶支升幂系数, 奇支升幂系数, 偶支度数, 奇支度数)。
+    The truncation tail of each branch is controlled by 2e^{−c}·Σ_{k>d} I_k(c)
+    ≤ error/8, so the total uniform error is at most error/4; returns
+    (even-branch ascending coefficients, odd-branch ascending coefficients,
+    even-branch degree, odd-branch degree).
     """
     kmax = min(_MAX_DEGREE, int(math.ceil(c)) + 8 * int(math.ceil(math.log10(8 / error))) + 8)
     ivals = [_bessel_i(k, c) for k in range(kmax + 2)]
@@ -635,14 +667,14 @@ def _gibbs_branches(
         suffix[j] = suffix[j + 1] + ivals[j]
 
     def tail_ok(k: int) -> bool:
-        """判断度数 ``k`` 的 Bessel 截断尾部是否已压到 error/8 以内。"""
+        """Check whether the Bessel truncation tail of degree ``k`` has been pushed within error/8."""
         return 2.0 * math.exp(-c) * suffix[k + 1] <= error / 8
 
     d_even = next((k for k in range(2, kmax + 1, 2) if tail_ok(k)), None)
     d_odd = next((k for k in range(1, kmax + 1, 2) if tail_ok(k)), None)
     if d_even is None or d_odd is None:
         raise ValidationError(
-            "β·α 过大：Gibbs 多项式度数超过合成上限；请减小 β 或先缩小 H 的谱尺度"
+            "beta times alpha is too large: the Gibbs polynomial degree exceeds the synthesis limit; reduce beta or first shrink the spectral scale of H"
         )
     shift = math.exp(-c)
     even = [0.0] * (d_even + 1)
@@ -659,7 +691,7 @@ def _gibbs_branches(
 
 
 def _even_imag_candidates(f: Sequence[float]) -> Iterator[tuple[float, ...]]:
-    """枚举偶支虚部补全的候选多项式：常数项与 ``x^{2m}`` 项分别取饱和幅值。"""
+    """Enumerate candidate polynomials for the even-branch imaginary completion: the constant term and the ``x^{2m}`` term each take the saturation amplitude."""
     d = len(f) - 1
     a0 = math.sqrt(max(0.0, 1.0 - _eval(f, 0.0).real ** 2))
     a1 = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
@@ -671,7 +703,7 @@ def _even_imag_candidates(f: Sequence[float]) -> Iterator[tuple[float, ...]]:
 
 
 def _odd_imag_candidates(f: Sequence[float]) -> Iterator[tuple[float, ...]]:
-    """枚举奇支虚部补全的候选多项式：仅在 ``x^{2m+1}`` 项取饱和幅值。"""
+    """Enumerate candidate polynomials for the odd-branch imaginary completion: only the ``x^{2m+1}`` term takes the saturation amplitude."""
     d = len(f) - 1
     a1 = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
     for m in range(0, (d - 1) // 2 + 1):
@@ -681,35 +713,43 @@ def _odd_imag_candidates(f: Sequence[float]) -> Iterator[tuple[float, ...]]:
 def gibbs_purification(
     hamiltonian: BlockEncoding, beta: float, *, error: float = 0.01
 ) -> ApproximatePurification:
-    """Gibbs 态 ρ = e^{−βH}/Z 的近似纯化制备（QSVT 纯化路线）。
+    """Approximate purification preparation of the Gibbs state ρ = e^{−βH}/Z (QSVT purification route).
 
-    hamiltonian 是 H 的 BlockEncoding，约定谱含于 [−α,α]（α = be_alpha）；
-    谱变量 x = λ/α ∈ [−1,1] 上目标函数 g(x) = exp(−βα(x+1)/2) ∈ (0,1]。
-    构造分两步：(a) 在 system 与 environment 上制备 n 对 Bell 对（最大混合态
-    的纯化 ``|Φ⟩``）；(b) 对 system 作用零信号块为 g(H/α)/(2s) 的 QSVT 块编码。
-    由于 g 的偶支 e^{−c}cosh(cx) 与奇支 −e^{−c}sinh(cx) 均为凸函数，端点匹配的
-    虚部补全恒满足单位圆盘约束（f²(x) 不超过端点连线），相位合成必然可行。
-    后置选择 signal == 0 后态正比于 (g(H/α) ⊗ I)``|Φ⟩``，system 的约化密度矩阵
-    即为 e^{−βH}/Z；归一化因子 2s 与配分函数无关，不影响约化态。
+    hamiltonian is the BlockEncoding of H, with the convention that the
+    spectrum lies in [−α,α] (α = be_alpha); the target function on the
+    spectral variable x = λ/α ∈ [−1,1] is g(x) = exp(−βα(x+1)/2) ∈ (0,1]. The
+    construction has two steps: (a) prepare n Bell pairs on system and
+    environment (the purification ``|Φ⟩`` of the maximally mixed state); (b)
+    apply to system a QSVT block encoding whose zero-signal block is
+    g(H/α)/(2s). Since the even branch e^{−c}cosh(cx) and the odd branch
+    −e^{−c}sinh(cx) of g are both convex, the endpoint-matched imaginary
+    completion always satisfies the unit-disk constraint (f²(x) does not
+    exceed the chord between the endpoints), so the phase synthesis is always
+    feasible. After post-selecting signal == 0, the state is proportional to
+    (g(H/α) ⊗ I)``|Φ⟩``, and the reduced density matrix of system is exactly
+    e^{−βH}/Z; the normalization factor 2s is unrelated to the partition
+    function and does not affect the reduced state.
 
-    error 控制多项式一致逼近误差（每支截断尾部 ≤ error/8）；返回
-    ApproximatePurification，模块属性含 algorithm="gibbs_purification"、beta、
-    error、qsp_degree 与 gibbs_scale = 2s。β = 0 时退化为最大混合态纯化。
+    error controls the polynomial uniform approximation error (each branch's
+    truncation tail ≤ error/8); returns an ApproximatePurification whose
+    module attributes include algorithm="gibbs_purification", beta, error,
+    qsp_degree, and gibbs_scale = 2s. β = 0 degenerates to the maximally
+    mixed purification.
 
     Args:
-        hamiltonian: H 的块编码，谱须含于 [−α,α]（α = be_alpha）。
-        beta: 逆温度，非负有限实数；0 时退化为最大混合态纯化。
-        error: 多项式一致逼近误差，取值范围 (0,1)。
+        hamiltonian: Block encoding of H, with spectrum contained in [−α,α] (α = be_alpha).
+        beta: Inverse temperature, a nonnegative finite real number; 0 degenerates to the maximally mixed purification.
+        error: Polynomial uniform approximation error, with range (0,1).
 
     Returns:
-        ApproximatePurification: 后置选择 signal == 0 后 system 约化态为
-        e^{−βH}/Z 的近似纯化视图。
+        ApproximatePurification: The approximate purification view whose reduced
+    state on system after post-selecting signal == 0 is e^{−βH}/Z.
     """
     require_instance(hamiltonian, BlockEncoding, "gibbs_purification.hamiltonian")
     finite_real(beta, "gibbs_purification.beta", minimum=0)
     finite_real(error, "gibbs_purification.error", minimum=0, strict=True)
     if error >= 1:
-        raise ValidationError("近似误差 error 必须在 (0,1) 内")
+        raise ValidationError("the approximation error must be between 0 and 1")
     n = hamiltonian.width
     if beta == 0:
         bells = maximally_mixed_purification(n)
@@ -739,8 +779,8 @@ def gibbs_purification(
         cast("tuple[float, ...]", _scale(1.0 / s, g_even)),
         cast("tuple[float, ...]", _scale(1.0 / s, g_odd)),
     )
-    phases_even = _synthesize_with_imag(f_even, _even_imag_candidates(f_even), "Gibbs 偶支")
-    phases_odd = _synthesize_with_imag(f_odd, _odd_imag_candidates(f_odd), "Gibbs 奇支")
+    phases_even = _synthesize_with_imag(f_even, _even_imag_candidates(f_even), "Gibbs even branch")
+    phases_odd = _synthesize_with_imag(f_odd, _odd_imag_candidates(f_odd), "Gibbs odd branch")
     be_even = _real_qsvt_be(hamiltonian, phases_even)
     be_odd = _real_qsvt_be(hamiltonian, phases_odd)
     gibbs_be = linear_combination(1.0, be_even, 1.0, be_odd)

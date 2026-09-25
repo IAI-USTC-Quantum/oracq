@@ -1,4 +1,4 @@
-"""生成算法展示目录；--native 使用真实后端比较完整复幅度。"""
+"""Generate the algorithm gallery; --native compares full complex amplitudes against the real backend."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from oracq.applications.gallery import algorithm_gallery
 
 
 def main() -> None:
-    """遍历算法展示目录，写出各案例的导出产物并汇总索引。"""
+    """Iterate over the algorithm gallery, write the export artifacts for each case, and summarize an index."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/algorithm-gallery"))
     parser.add_argument("--native", action="store_true")

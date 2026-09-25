@@ -1,4 +1,4 @@
-"""VTAA-CKS 变时求解器的 GPE 判决、频带逆与端到端见证。"""
+"""GPE decision, band inverse, and end-to-end witnesses for the VTAA-CKS variable-time solver."""
 
 import math
 import unittest
@@ -35,14 +35,14 @@ def chebyshev_value(coefficients, x):
 
 
 def diagonal_problem(eigenvalues, entry_bound=1.5):
-    """对角谱问题的稀疏输入；特征值必须落在定点网格上，entry_bound 留出松弛。
+    """Sparse input for a diagonal spectral problem; eigenvalues must lie on the fixed-point grid, entry_bound leaves slack.
 
-    谱 {1, 1/2}：kappa_phys = 2 对应两级时钟；x = lambda/alpha = 2/3 与 1/3，
-    分别落在 band1 的 fire 验证边界与 band2 的 fire 验证边界。
+    Spectrum {1, 1/2}: kappa_phys = 2 corresponds to a two-level clock; x = lambda/alpha = 2/3
+    and 1/3 land on the fire validation boundary of band1 and band2, respectively.
     """
     fmt = FixedFormat(4, 2, signed=False)
     if any(abs(fmt.encode(v) / (1 << fmt.fraction) - v) > 1e-12 for v in eigenvalues):
-        raise AssertionError("测试特征值必须在定点网格上")
+        raise AssertionError("test eigenvalues must lie on the fixed-point grid")
     matrix = [[float(eigenvalues[r]) if r == c else 0.0 for c in range(2)] for r in range(2)]
     location = sparse_location_gate(1, [[0, 1], [1, 0]], work_width=0)
     entry = sparse_entry(
@@ -77,7 +77,7 @@ class GappedPhaseEstimationTests(unittest.TestCase):
         a = block.encoding
         self.assertEqual(a.alpha, 1.5)
         x_edge = block.spectrum.norm_upper / a.alpha
-        # 寄存器顺序 target/signal/decision：fire 判决振幅精确等于 |P(x)|。
+        # Register order target/signal/decision: the fire decision amplitude equals |P(x)| exactly.
         for eigenvalue in (1.0, 0.5):
             x = eigenvalue / a.alpha
             for threshold in (x_edge, x_edge / 2):
@@ -102,7 +102,7 @@ class GappedPhaseEstimationTests(unittest.TestCase):
         gpe1 = gapped_phase_estimation(a, x_edge, x_edge, epsilon=0.005)
         state = simulate(gpe1.program(), initial={"target": 0}).amplitudes
         self.assertGreater(sum(abs(v) ** 2 for k, v in state.items() if k[2] == 1), 0.99)
-        # 延后分支按论文保留 |gamma> 垃圾（signal 寄存器不复净）。
+        # The deferred branch keeps |gamma> junk as in the paper (the signal register is not uncomputed).
         small = simulate(gpe1.program(), initial={"target": 1}).amplitudes
         self.assertGreater(sum(abs(v) ** 2 for k, v in small.items() if k[1] != 0), 0.1)
 
@@ -110,7 +110,7 @@ class GappedPhaseEstimationTests(unittest.TestCase):
         problem = diagonal_problem([1.0, 0.5])
         block, _ = problem.block_input()
         a = block.encoding
-        with self.assertRaisesRegex(ValidationError, "上限"):
+        with self.assertRaisesRegex(ValidationError, "exceeded the cap"):
             gapped_phase_estimation(a, 0.01, 0.6, epsilon=0.005, degree_cap=12)
 
 
@@ -133,8 +133,8 @@ class BandInverseTests(unittest.TestCase):
 
 class VTAAEndToEndTests(unittest.TestCase):
     def test_uniform_spectrum_single_band_is_exact(self):
-        # kappa_phys=1：单频带，判决确定，h(x)=x 作用于谱 {x_edge}，
-        # 均匀化旋转退化为 X，成功分支精确携带 |b> 方向。
+        # kappa_phys=1: a single band, deterministic decision, h(x)=x acting on the spectrum {x_edge},
+        # the uniformization rotation degenerates to X, and the success branch carries the |b> direction exactly.
         problem = diagonal_problem([1.0, 1.0])
         result = make_vtaa_cks_qlss(
             VTAAConfig(order=1, marker_epsilon=0.005)
@@ -144,9 +144,10 @@ class VTAAEndToEndTests(unittest.TestCase):
             self.assertAlmostEqual(amplitudes.get(index, 0), 1 / math.sqrt(2), delta=0.02)
 
     def test_variable_time_clock_separates_bands(self):
-        # 谱 {1, 1/2}：lambda=1 在 band1 求逆（order 1，h(x)=x）；lambda=1/2 的
-        # band1 判决落在过渡带（CKS 未承诺带），主要路径为延后至 band2（order 2）。
-        # 逐本征值的路径幅值由判决响应精确给出，端到端断言取幅值区间。
+        # Spectrum {1, 1/2}: lambda=1 is inverted in band1 (order 1, h(x)=x); lambda=1/2's
+        # band1 decision falls in the transition band (not promised by CKS), and its dominant
+        # path defers to band2 (order 2). The per-eigenvalue path amplitudes are given exactly
+        # by the decision response; the end-to-end assertions take amplitude intervals.
         problem = diagonal_problem([1.0, 0.5])
         config = VTAAConfig(order=1, marker_epsilon=0.005)
         result = make_vtaa_cks_qlss(config)(problem)
@@ -172,7 +173,7 @@ class VTAAEndToEndTests(unittest.TestCase):
             ])
         dominant = [max(p) for p in paths]
         slack = [sum(p) - max(p) for p in paths]
-        # 归一化把两个本征值的幅值耦合起来；区间按另一分量取极值端点计算。
+        # Normalization couples the amplitudes of the two eigenvalues; intervals are computed at the extreme endpoints of the other component.
         low = [max(0.0, d - s) for d, s in zip(dominant, slack, strict=True)]
         high = [d + s for d, s in zip(dominant, slack, strict=True)]
         for index in (0, 1):
@@ -182,9 +183,9 @@ class VTAAEndToEndTests(unittest.TestCase):
             upper = high[index] / math.hypot(high[index], low[other])
             self.assertGreaterEqual(mass, lower - 1e-6)
             self.assertLessEqual(mass, upper + 1e-6)
-        # 变时结构可见：band1 直接求逆的分量占优。
+        # The variable-time structure is visible: the component directly inverted in band1 dominates.
         self.assertGreater(dominant[0] / sum(dominant), 0.5)
-        # 日程无关性：放大轮数只改成功率，条件解态幅值不变。
+        # Schedule independence: amplification rounds only change the success probability; the conditional solution-state amplitudes are unchanged.
         amplified = solution_amplitudes(
             make_vtaa_cks_qlss(replace(config, rounds=(1, 0)))(problem)
         )
@@ -261,7 +262,7 @@ class VTAAStructureTests(unittest.TestCase):
         problem = diagonal_problem([1.0, 0.5])
         with self.assertRaisesRegex(ValidationError, "clock_steps"):
             make_vtaa_cks_qlss(VTAAConfig(clock_steps=1))(problem)
-        with self.assertRaisesRegex(ValidationError, "上限"):
+        with self.assertRaisesRegex(ValidationError, "exceeded the cap"):
             make_vtaa_cks_qlss(VTAAConfig(clock_steps=3, degree_cap=14))(problem)
         with self.assertRaisesRegex(ValidationError, "rounds"):
             make_vtaa_cks_qlss(VTAAConfig(rounds=(0,)))(problem)
@@ -270,9 +271,9 @@ class VTAAStructureTests(unittest.TestCase):
         self.assertEqual(tunable_rounds([1.0]), (0,))
         self.assertEqual(tunable_rounds([0.1]), (2,))
         self.assertEqual(tunable_rounds([0.2, 0.2]), (1, 1))
-        with self.assertRaisesRegex(ValidationError, "阶段范数"):
+        with self.assertRaisesRegex(ValidationError, "Stage norms"):
             tunable_rounds([0.0])
-        with self.assertRaisesRegex(ValidationError, "阈值"):
+        with self.assertRaisesRegex(ValidationError, "threshold"):
             tunable_rounds([0.5], thresholds=[0.1, 0.2])
 
 

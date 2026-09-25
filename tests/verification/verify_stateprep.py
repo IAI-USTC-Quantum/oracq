@@ -1,26 +1,38 @@
-"""态制备与数据加载组的论文级数值验证。
+"""Publication-grade numerical validation of the state preparation and data loading group.
 
-覆盖内容（按 docs/manual/algorithms 页面对齐）：
-- 态制备 oracle（oracles.gate_state_prep / qram_state_prep）：制备振幅 vs 目标向量
-  （max_error / fidelity），OriginIR-ext 小宽度与 rir-pysparq 中宽度；QRAM 角度树
-  把"实现误差（对照量化角表的经典树展开）"与"方法误差（量化树 vs 精确向量）"分开。
-- state_preparation.py 组合子：extend_initial / select_subspace / apply_be_to_state
-  的全振幅字典级 oracle（解析 Pauli 作用与指标置换由 numpy 独立实现）。
-- data_loading.py：qrom_lookup / select_swap_qrom 的真值表穷举（地址叠加一次运行
-  读出全表；地址+数据叠加穷举 XOR 语义），多分区 λ 权衡；qrom_cost 与论文闭式公式
-  对拍；qram_database（QRAM 资源绑定）真值表穷举。
-- prepare_select.alias_prepare：selector 边缘分布与目标分布 / 量化分布的 TVD。
-- density.gate_purification / maximally_mixed_purification / from_state_preparation：
-  偏迹（numpy 独立实现）与目标密度矩阵的迹距离。
+Coverage (aligned with the docs/manual/algorithms pages):
+- State-preparation oracles (oracles.gate_state_prep / qram_state_prep):
+  prepared amplitudes vs the target vector (max_error / fidelity),
+  OriginIR-ext at small widths and rir-pysparq at medium widths; the QRAM
+  angle tree separates "implementation error (vs the classical tree
+  expansion of the quantized angle table)" from "method error (quantized
+  tree vs exact vector)".
+- state_preparation.py combinators: full-amplitude dictionary-level oracles
+  for extend_initial / select_subspace / apply_be_to_state (analytic Pauli
+  actions and index permutations independently implemented with numpy).
+- data_loading.py: truth-table exhaustive checks of qrom_lookup /
+  select_swap_qrom (an address superposition reads the whole table in one
+  run; address+data superposition exhausts the XOR semantics), the
+  multi-partition lambda trade-off; qrom_cost against the paper's closed
+  formulas; qram_database (QRAM resource binding) truth-table exhaustion.
+- prepare_select.alias_prepare: selector marginal distribution vs the target
+  distribution / the quantized distribution (TVD).
+- density.gate_purification / maximally_mixed_purification /
+  from_state_preparation: trace distance between the partial trace
+  (independently implemented with numpy) and the target density matrix.
 
-已知后端问题（绕行说明）：PySparQ RIR 解释器（pysparq 0.1.2.dev16）对 add_const 作用
-于寄存器切片 reinterpret 视图（RIR 文本中 Span 操作数）执行结果错误——最小复现见
-backend-rir-sliced-add-const 案例；oracq 的序列化、参考执行器、PySparQ 事件适配器
-与 OriginIR-ext 均给出正确结果。因此 qram_state_prep 系列案例的正确性判据建立在
-reference / adapter-pysparq / originir-ext 三条相互独立的路径上，rir-pysparq 的偏差
-作为信息性指标记录（metrics.rir_deviation），不参与判据。
+Known backend issue (workaround note): the PySparQ RIR interpreter
+(pysparq 0.1.2.dev16) executes add_const on a register-slice reinterpret
+view (a Span operand in the RIR text) incorrectly -- the minimal
+reproduction is the backend-rir-sliced-add-const case; oracq's serializer,
+reference executor, PySparQ event adapter, and OriginIR-ext all give the
+correct result. The correctness criteria of the qram_state_prep family are
+therefore built on the three mutually independent paths reference /
+adapter-pysparq / originir-ext, with the rir-pysparq deviation recorded as
+an informative metric (metrics.rir_deviation) that does not enter the
+criteria.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_stateprep.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_stateprep.py
 """
 
 from __future__ import annotations
@@ -73,12 +85,12 @@ TABLE16 = (3, 0, 5, 2, 7, 1, 6, 4, 0, 2, 1, 7, 5, 3, 6, 4)
 
 
 # ---------------------------------------------------------------------------
-# 独立经典 oracle（不依赖被测实现的辅助函数）
+# Independent classical oracles (no helpers of the implementation under test)
 # ---------------------------------------------------------------------------
 
 
 def _complex_vector(seed, dim, nonzero=None):
-    """确定性伪随机归一化复向量；nonzero 给定非零分量个数（稀疏态）。"""
+    """Deterministic pseudo-random normalized complex vector; nonzero gives the number of non-zero components (a sparse state)."""
     rng = random.Random(seed)
     indices = list(range(dim)) if nonzero is None else sorted(rng.sample(range(dim), nonzero))
     values = {i: complex(rng.uniform(-1, 1), rng.uniform(-1, 1)) for i in indices}
@@ -87,7 +99,7 @@ def _complex_vector(seed, dim, nonzero=None):
 
 
 def _prep_expected(vector):
-    """StatePreparation（work 宽 0）从零态出发的期望幅度字典。"""
+    """Expected amplitude dictionary of StatePreparation (work width 0) starting from the zero state."""
     return {(i, 0): amplitude for i, amplitude in enumerate(vector) if amplitude}
 
 
@@ -102,13 +114,13 @@ def _register_widths(program):
 
 
 def _originir_within_budget(program):
-    """预判 OriginIR-ext 全振幅态向量是否落在 24 qubit 预算内。"""
+    """Precheck whether the OriginIR-ext full-amplitude state vector fits the 24-qubit budget."""
     width = sum(_register_widths(program))
     return width + workspace_table(program)[program.entry] <= ORIGINIR_QUBIT_BUDGET
 
 
 def _qram_driver(operation, hadamard=(), name="verify_qram"):
-    """携带 QRAM 资源的驱动程序：资源按同名映射，memory 键即资源名。"""
+    """Driver carrying QRAM resources: resources map by identical name; memory keys are the resource names."""
     module = operation.module
     b = Builder(
         name,
@@ -126,10 +138,12 @@ def _qram_driver(operation, hadamard=(), name="verify_qram"):
 
 
 def _tree_state(probs, angle_width=None):
-    """多路复用旋转树的独立经典展开：逐层 cos/sin 分裂。
+    """Independent classical expansion of the multiplexed rotation tree: layer-by-layer cos/sin splits.
 
-    与文档公式 θ = 2·atan2(√w_right, √w_left) 一致；angle_width 给定时角度按
-    q = round(θ·2^aw/2π) 量化（QRAM 角表语义），None 表示不量化（gate 版语义）。
+    Consistent with the documented formula theta = 2*atan2(sqrt(w_right),
+    sqrt(w_left)); when angle_width is given the angles are quantized as q =
+    round(theta*2^aw/2*pi) (the QRAM angle-table semantics); None means no
+    quantization (the gate-version semantics).
     """
     dim = len(probs)
     result = [0.0] * dim
@@ -153,7 +167,7 @@ def _tree_state(probs, angle_width=None):
 
 
 def _alias_distribution(table):
-    """alias 采样分布的独立闭式：q_i ∝ quantized_i + Σ_{j: alt_j=i} (2^p − quantized_j)。"""
+    """Independent closed form of the alias sampling distribution: q_i proportional to quantized_i + sum_{j: alt_j=i} (2^p - quantized_j)."""
     scale = 1 << table.precision
     size = len(table.keep)
     counts = [0] * size
@@ -164,7 +178,7 @@ def _alias_distribution(table):
 
 
 def _marginal(amplitudes, index):
-    """幅度字典第 index 个寄存器的边缘分布。"""
+    """Marginal distribution of the index-th register of an amplitude dictionary."""
     result = {}
     for key, amplitude in amplitudes.items():
         result[key[index]] = result.get(key[index], 0.0) + abs(amplitude) ** 2
@@ -172,20 +186,21 @@ def _marginal(amplitudes, index):
 
 
 def _originir_padded(program, memory=None):
-    """OriginIR 态向量按全部入口寄存器宽度补零到完整长度。
+    """Zero-pad the OriginIR state vector to the full length over all entry register widths.
 
-    UniQC 的 simulate_statevector 只覆盖被使用的低位 qubit（高位空闲 qubit 隐含
-    |0> 且不返回值）；补零后即可与完整稠密期望向量逐点比较。
+    UniQC's simulate_statevector only covers the used low qubits (idle high
+    qubits are implicitly |0> and not returned); after padding it can be
+    compared pointwise with the full dense expected vector.
     """
     total = 1 << sum(_register_widths(program))
     origin = list(originir_ext(program, memory))
     if len(origin) > total or len(origin) & (len(origin) - 1):
-        raise AssertionError(f"OriginIR 态向量长度异常：{len(origin)}（预算 {total}）")
+        raise AssertionError(f"anomalous OriginIR state-vector length: {len(origin)} (budget {total})")
     return origin + [0j] * (total - len(origin))
 
 
 def _reduced_density(amplitudes, system_width, environment_width):
-    """numpy 独立偏迹：基态下标 system | (environment << system_width)。"""
+    """Independent numpy partial trace: basis index system | (environment << system_width)."""
     import numpy as np
 
     dim_s, dim_e = 1 << system_width, 1 << environment_width
@@ -197,7 +212,7 @@ def _reduced_density(amplitudes, system_width, environment_width):
 
 
 def _trace_distance(rho, sigma):
-    """T(ρ,σ) = ‖ρ−σ‖₁/2，经 Hermitian 特征值（numpy）计算。"""
+    """T(rho, sigma) = ||rho - sigma||_1/2 via Hermitian eigenvalues (numpy)."""
     import numpy as np
 
     values = np.linalg.eigvalsh(np.asarray(rho) - np.asarray(sigma))
@@ -211,7 +226,7 @@ def _matrix_error(rho, sigma):
 
 
 def _pauli_action(word, vector):
-    """按仓库小端约定（第 i 个字母作用于 target[i]）的 Pauli 字稠密作用。"""
+    """Dense action of a Pauli word under the repository's little-endian convention (the i-th letter acts on target[i])."""
     import numpy as np
 
     gates = {
@@ -221,18 +236,18 @@ def _pauli_action(word, vector):
         "Z": np.array([[1, 0], [0, -1]]),
     }
     operator = np.array([[1.0 + 0j]])
-    for letter in reversed(word):  # 高位字母在 kron 左侧
+    for letter in reversed(word):  # high-position letters on the left of kron
         operator = np.kron(operator, gates[letter])
     return operator @ np.asarray(vector, dtype=complex)
 
 
 # ---------------------------------------------------------------------------
-# 态制备 oracle：gate_state_prep
+# State-preparation oracle: gate_state_prep
 # ---------------------------------------------------------------------------
 
 
 def _check_state_case(report, name, vector, paths_extra_note=None):
-    """单振幅向量的四路径对拍：max_error / fidelity vs 目标向量。"""
+    """Four-path cross-check for a single amplitude vector: max_error / fidelity vs the target vector."""
     prep = gate_state_prep(vector)
     program = basis_program(prep.operation, {})
     expected = _prep_expected(vector)
@@ -255,7 +270,7 @@ def _check_state_case(report, name, vector, paths_extra_note=None):
         paths=paths,
         parameters=parameters,
         metrics={"max_error": max_error, "fidelity": fid},
-        criterion="全振幅与目标向量一致（max_error < 1e-9 且 fidelity > 1 - 1e-12）",
+        criterion="full amplitudes match the target vector (max_error < 1e-9 and fidelity > 1 - 1e-12)",
         passed=max_error < 1e-9 and fid > 1 - 1e-12,
     )
 
@@ -274,12 +289,12 @@ def verify_gate_state_prep(report):
         report,
         "gate-state-prep-sparse-w8",
         _complex_vector(20260908, 256, nonzero=5),
-        paths_extra_note="稀疏态（5 个非零振幅）；宽寄存器走 rir-pysparq 稀疏路径",
+        paths_extra_note="sparse state (5 non-zero amplitudes); the wide register goes through the rir-pysparq sparse path",
     )
 
 
 # ---------------------------------------------------------------------------
-# state_preparation.py 组合子
+# state_preparation.py combinators
 # ---------------------------------------------------------------------------
 
 
@@ -306,20 +321,20 @@ def verify_extend_initial(report):
         paths=paths,
         parameters={"prep_width": 3, "extra_width": 2},
         metrics={"max_error": deviation},
-        criterion="高 2 位保持 |0>，低 3 位振幅与目标向量一致（max_error < 1e-9）",
+        criterion="the high 2 bits stay |0>, the low 3 bits' amplitudes match the target vector (max_error < 1e-9)",
         passed=deviation < 1e-9,
     )
 
 
 def verify_apply_be_to_state(report):
-    """对角块编码作用于制备态：signal==0 分支应等于 cos(π·T/4)⊙ψ。"""
+    """A diagonal block encoding acting on a prepared state: the signal==0 branch must equal cos(pi*T/4) . psi."""
     vector = _complex_vector(20260912, 4)
     table = {0: 1, 1: 2, 2: 3, 3: 0}
     prep = gate_state_prep(vector)
     block = diagonal_block_encoding(gate_database(2, 2, table))
     applied = apply_be_to_state(block, prep)
     program = basis_program(applied.operation, {})
-    # 独立 oracle：D·ψ，D[x,x] = cos(π·T[x]/4)（alpha = 1）
+    # Independent oracle: D.psi with D[x,x] = cos(pi*T[x]/4) (alpha = 1)
     diagonal = [math.cos(math.pi * table[x] / 4) for x in range(4)]
     expected_block = [diagonal[x] * vector[x] for x in range(4)]
     expected_success = sum(abs(v) ** 2 for v in expected_block)
@@ -330,7 +345,7 @@ def verify_apply_be_to_state(report):
         if signal == 0:
             block_error = max(block_error, abs(amplitude - expected_block[target]))
             success += abs(amplitude) ** 2
-    # 全态跨路径一致性
+    # Full-state cross-path agreement
     rir = rir_pysparq(program)
     adapter = adapter_pysparq(program)
     pairwise = max(amplitude_error(ref, rir), amplitude_error(ref, adapter))
@@ -353,8 +368,8 @@ def verify_apply_be_to_state(report):
             "pairwise_deviation": pairwise,
         },
         criterion=(
-            "signal==0 块等于对角 oracle（< 1e-9）、成功概率一致（< 1e-12）、"
-            "各路径全态两两偏差 < 1e-9"
+            "the signal==0 block equals the diagonal oracle (< 1e-9), success probability agrees (< 1e-12), "
+            "and the paths' full states agree pairwise < 1e-9"
         ),
         passed=(
             block_error < 1e-9
@@ -365,13 +380,13 @@ def verify_apply_be_to_state(report):
 
 
 def _verify_select_subspace(report, name, width, output_width, high_value, word, seed):
-    """Pauli 字态 oracle + 子空间选择：全幅度字典 oracle 与 signal==0 子块。"""
+    """Pauli-word state oracle + subspace selection: full-amplitude dictionary oracle and the signal==0 sub-block."""
     vector = _complex_vector(seed, 1 << width)
     prep = gate_state_prep(vector)
     state = apply_be_to_state(pauli_word(word), prep)
     selected = select_subspace(state, output_width, high_value)
     program = basis_program(selected.operation, {})
-    # 独立 oracle：ψ' = P·ψ；终态振幅 (t, h) ↦ ψ'[t | ((h ^ high_value) << k)]
+    # Independent oracle: psi' = P.psi; final amplitudes (t, h) -> psi'[t | ((h ^ high_value) << k)]
     acted = _pauli_action(word, vector)
     extra = width - output_width
     expected = {}
@@ -387,7 +402,7 @@ def _verify_select_subspace(report, name, width, output_width, high_value, word,
         dense = amplitudes_to_statevector(expected, _register_widths(program))
         max_error = max(max_error, statevector_error(origin, dense))
         paths.append("originir-ext")
-    # signal==0 分支即"高位 == high_value"的后选子向量
+    # The signal==0 branch is exactly the post-selected subvector with "high bits == high_value"
     selected_block_error = max(
         (
             abs(amplitude - acted[t | (high_value << output_width)])
@@ -406,7 +421,7 @@ def _verify_select_subspace(report, name, width, output_width, high_value, word,
             "pauli_word": word,
         },
         metrics={"max_error": float(max_error), "selected_block_error": float(selected_block_error)},
-        criterion="全幅度字典与 Pauli oracle 一致，且 signal==0 块为后选子向量（均 < 1e-9）",
+        criterion="full-amplitude dictionary matches the Pauli oracle, and the signal==0 block is the post-selected subvector (both < 1e-9)",
         passed=max_error < 1e-9 and selected_block_error < 1e-9,
     )
 
@@ -417,18 +432,18 @@ def verify_select_subspace(report):
 
 
 # ---------------------------------------------------------------------------
-# QRAM 角度树态制备（含已知后端偏差的记录）
+# QRAM angle-tree state preparation (with a record of the known backend deviation)
 # ---------------------------------------------------------------------------
 
 
 def _verify_qram_state_prep(report, name, width, angle_width, seed):
-    vector = [abs(v) for v in _complex_vector(seed, 1 << width)]  # 非负实幅度
+    vector = [abs(v) for v in _complex_vector(seed, 1 << width)]  # non-negative real amplitudes
     norm = math.sqrt(sum(v * v for v in vector))
     vector = [v / norm for v in vector]
     prep = qram_state_prep(width, angle_width)
     memory = {"angles": qram_state_angles(vector, angle_width)}
     program = prep.operation.program()
-    # 独立 oracle：量化角表的经典树展开
+    # Independent oracle: classical tree expansion of the quantized angle table
     quantized = _tree_state([v * v for v in vector], angle_width)
     expected = _prep_expected(quantized)
     exact = _prep_expected(vector)
@@ -444,7 +459,7 @@ def _verify_qram_state_prep(report, name, width, angle_width, seed):
     fid = fidelity(origin, dense_exact)
     rir = rir_pysparq(program, memory)
     rir_deviation = amplitude_error(rir, expected)
-    # 自洽检查：同一 oracle 不量化时应精确复现 gate 版线路
+    # Self-consistency check: the same oracle without quantization must reproduce the gate-version circuit exactly
     gate = gate_state_prep(vector)
     gate_ref = reference(basis_program(gate.operation, {}))
     fine = _prep_expected(_tree_state([v * v for v in vector]))
@@ -465,8 +480,8 @@ def _verify_qram_state_prep(report, name, width, angle_width, seed):
             "rir_deviation": rir_deviation,
         },
         criterion=(
-            "实现误差（对照量化角树 oracle）< 1e-9 且三路径一致；"
-            "rir-pysparq 因 Span add_const 后端问题仅记录 rir_deviation"
+            "implementation error (vs the quantized angle-tree oracle) < 1e-9 with the three paths agreeing; "
+            "rir-pysparq only records rir_deviation due to the Span add_const backend issue"
         ),
         passed=impl_error < 1e-9 and oracle_self_check < 1e-9,
     )
@@ -478,12 +493,14 @@ def verify_qram_state_prep(report):
 
 
 def verify_backend_rir_sliced_add_const(report):
-    """已知后端问题的最小复现：add_const 作用于切片 reinterpret 视图。
+    """Minimal reproduction of the known backend issue: add_const acting on a slice reinterpret view.
 
-    RIR 文本中操作数为 Span(register=work, start=0, width=2)、值 1 与 3；
-    参考执行器、PySparQ 事件适配器均正确复净到 |0>，而 PySparQ RIR 解释器把
-    常量加在错误的位偏移上（work = 4）。该问题影响 qram_state_prep 的地址
-    簿记，故 qram-state-prep 案例的判据不含 rir-pysparq 路径。
+    In the RIR text the operands are Span(register=work, start=0, width=2)
+    with values 1 and 3; the reference executor and the PySparQ event
+    adapter both return cleanly to |0>, while the PySparQ RIR interpreter
+    adds the constants at the wrong bit offset (work = 4). The issue affects
+    the address bookkeeping of qram_state_prep, so the criteria of the
+    qram-state-prep cases exclude the rir-pysparq path.
     """
     b = Builder("stateprep_diag_sliced_add", {"work": Bits(4)})
     b.add_const(b["work"][:2].reinterpret("uint"), 1)
@@ -499,18 +516,18 @@ def verify_backend_rir_sliced_add_const(report):
         paths=["reference", "adapter-pysparq", "rir-pysparq"],
         parameters={"pattern": "add_const on Span(work, 0, 2) reinterpreted as uint"},
         metrics={"reference_and_adapter_clean": clean, "rir_deviation": deviation},
-        criterion="参考与适配器路径复净（判据）；rir-pysparq 的 Span 偏差仅记录",
+        criterion="reference and adapter paths return clean (the criterion); the rir-pysparq Span deviation is only recorded",
         passed=clean,
     )
 
 
 # ---------------------------------------------------------------------------
-# QROM 数据加载
+# QROM data loading
 # ---------------------------------------------------------------------------
 
 
 def _truth_table_expected(table, address_bits, data_bits, data_superposition):
-    """叠加查询的期望幅度字典：{(a, d0 ^ T[a])} 均匀分布。"""
+    """Expected amplitude dictionary of superposed queries: {(a, d0 ^ T[a])} uniform."""
     n_a, n_d = 1 << address_bits, 1 << data_bits
     uniform = 1.0 / math.sqrt(n_a * (n_d if data_superposition else 1))
     expected = {}
@@ -525,7 +542,7 @@ def _truth_table_expected(table, address_bits, data_bits, data_superposition):
 
 
 def _check_database_case(report, name, database, table, data_superposition, note=None):
-    """单数据库程序的叠加穷举：期望字典 vs 各后端路径。"""
+    """Superposition sweep of a single database program: expected dictionary vs each backend path."""
     registers = ["address", "data"] if data_superposition else ["address"]
     program = superposition_program(database.operation, registers)
     address_bits = database.address_width
@@ -549,7 +566,7 @@ def _check_database_case(report, name, database, table, data_superposition, note
         paths.append("originir-ext")
     else:
         total = sum(_register_widths(program)) + workspace_table(program)[program.entry]
-        parameters["originir_note"] = f"workspace 共 {total} qubit，超 24 预算，仅走 pysparq 路径"
+        parameters["originir_note"] = f"workspace totals {total} qubits, exceeding the 24 budget; only the pysparq paths are used"
     if note:
         parameters["note"] = note
     report.case(
@@ -557,7 +574,7 @@ def _check_database_case(report, name, database, table, data_superposition, note
         paths=paths,
         parameters=parameters,
         metrics={"max_error": max_error},
-        criterion="叠加穷举的查询结果与真值表逐振幅一致（max_error < 1e-9）",
+        criterion="superposition-swept query results match the truth table amplitude by amplitude (max_error < 1e-9)",
         passed=max_error < 1e-9,
     )
 
@@ -574,7 +591,7 @@ def verify_qrom_lookup(report):
         database,
         padded,
         False,
-        note="稀疏字典表，缺失地址按 0 处理",
+        note="sparse dictionary table; missing addresses read as 0",
     )
     wide = tuple((7 * i + 3) % 16 for i in range(64))
     database = qrom_lookup(wide, data_bits=4)
@@ -590,7 +607,7 @@ def verify_select_swap(report):
             database,
             TABLE16,
             False,
-            note=f"λ = {partitions} 个窗口分区",
+            note=f"lambda = {partitions} window partitions",
         )
     database = select_swap_qrom(TABLE16, partitions=4)
     _check_database_case(
@@ -599,7 +616,7 @@ def verify_select_swap(report):
         database,
         TABLE16,
         True,
-        note="地址+数据全叠加，穷举 XOR 语义 d ↦ d ⊕ T[a]",
+        note="address+data full superposition, exhausting the XOR semantics d -> d XOR T[a]",
     )
     wide = tuple((7 * i + 3) % 16 for i in range(64))
     for partitions in (2, 8):
@@ -614,7 +631,7 @@ def verify_select_swap(report):
 
 
 def verify_qrom_cost(report):
-    """qrom_cost 与论文闭式 4(N/λ − 1 + b(λ − 1)) 及生成属性的双向对拍。"""
+    """Two-way cross-check of qrom_cost against the paper's closed form 4(N/lambda - 1 + b(lambda - 1)) and the generation attributes."""
     failures = []
     grid = [(16, 3, p) for p in (1, 2, 4, 8, 16)]
     grid += [(64, 4, p) for p in (1, 2, 4, 8)]
@@ -639,7 +656,7 @@ def verify_qrom_cost(report):
         for key, (actual, expected) in checks.items():
             if actual != expected:
                 failures.append((n_addresses, data_bits, partitions, key, actual, expected))
-    # 生成操作的模块属性与 qrom_cost 输出一致
+    # The generated operation's module attributes agree with the qrom_cost output
     for partitions in (1, 2, 4, 8, 16):
         database = select_swap_qrom(TABLE16, partitions=partitions)
         attrs = dict(database.operation.module.attributes)
@@ -655,13 +672,13 @@ def verify_qrom_cost(report):
         paths=["classical"],
         parameters={"grid": [list(item) for item in grid]},
         metrics={"failures": len(failures)},
-        criterion="成本模型与闭式公式及生成属性完全一致（failures == 0）",
+        criterion="the cost model fully matches the closed-form formulas and the generation attributes (failures == 0)",
         passed=not failures,
     )
 
 
 def verify_qram_database(report):
-    """QRAM 资源绑定的 XOR 数据库：真值表穷举（memory 提供表数据）。"""
+    """QRAM-resource-bound XOR database: truth-table exhaustion (the table data provided via memory)."""
     database = qram_database(2, 3)
     table = (5, 2, 7, 1)
     memory = {"table": dict(enumerate(table))}
@@ -688,13 +705,13 @@ def verify_qram_database(report):
                 "branches": len(expected),
             },
             metrics={"max_error": max_error},
-            criterion="QRAM 查询与真值表逐振幅一致（max_error < 1e-9）",
+            criterion="QRAM queries match the truth table amplitude by amplitude (max_error < 1e-9)",
             passed=max_error < 1e-9,
         )
 
 
 # ---------------------------------------------------------------------------
-# alias 采样制备
+# Alias-sampling preparation
 # ---------------------------------------------------------------------------
 
 
@@ -717,7 +734,7 @@ def _check_alias_case(report, name, coefficients, precision, use_qram):
         memory = None
         binding = "gate_database"
     quantized = {i: p for i, p in enumerate(_alias_distribution(table))}
-    # 模块自带 distribution() 与独立闭式的一致性（信息性指标）
+    # Consistency of the module's own distribution() with the independent closed form (informative metric)
     self_consistency = tvd(dict(enumerate(table.distribution())), quantized)
     max_states = 1 << (width + precision + 4)
     results = {}
@@ -745,8 +762,8 @@ def _check_alias_case(report, name, coefficients, precision, use_qram):
             "distribution_self_consistency": self_consistency,
         },
         criterion=(
-            f"边缘分布与量化 alias 分布一致（TVD < 1e-12），与精确分布 TVD ≤ 2^w·2^-p "
-            f"= {bound:.6f}，两路径互差 < 1e-12"
+            f"the marginal distribution matches the quantized alias distribution (TVD < 1e-12) and the exact distribution within TVD <= 2^w*2^-p "
+            f"= {bound:.6f}, with the two paths differing < 1e-12"
         ),
         passed=(
             tvd_quantized < 1e-12 and tvd_exact <= bound + 1e-12 and cross < 1e-12
@@ -764,7 +781,7 @@ def verify_alias_preparation(report):
 
 
 # ---------------------------------------------------------------------------
-# 纯化访问
+# Purification access
 # ---------------------------------------------------------------------------
 
 
@@ -793,7 +810,7 @@ def _check_purification_case(report, name, operation, system_width, environment_
         distance = max(distance, _trace_distance(reduced, target))
         element_error = max(element_error, _matrix_error(reduced, target))
         paths.append("originir-ext")
-    # Schmidt 结构指标：非零幅度中 system != environment 的最大概率（信息性）
+    # Schmidt-structure metric: the maximum probability over non-zero amplitudes with system != environment (informative)
     off_diagonal = max(
         (
             abs(amplitude) ** 2
@@ -815,7 +832,7 @@ def _check_purification_case(report, name, operation, system_width, environment_
             "max_element_error": element_error,
             "off_schmidt_probability": off_diagonal,
         },
-        criterion="偏迹后的约化密度矩阵与目标一致（trace_distance < 1e-9）",
+        criterion="the reduced density matrix after the partial trace matches the target (trace_distance < 1e-9)",
         passed=distance < 1e-9,
     )
 
@@ -870,12 +887,12 @@ def verify_purification(report):
 
 
 # ---------------------------------------------------------------------------
-# 块编码幺正层面的交叉验证（pysparq 自带块编码模块之外的独立路径）
+# Block-encoding unitary-level cross-validation (an independent path beyond pysparq's own block-encoding modules)
 # ---------------------------------------------------------------------------
 
 
 def verify_gate_state_prep_unitary(report):
-    """gate_state_prep 的幺正第一列等于目标向量（UniQC Circuit.to_matrix 路径）。"""
+    """The unitary's first column of gate_state_prep equals the target vector (the UniQC Circuit.to_matrix path)."""
     vector = _complex_vector(20260917, 8)
     prep = gate_state_prep(vector)
     unitary = originir_unitary(basis_program(prep.operation, {}))
@@ -887,7 +904,7 @@ def verify_gate_state_prep_unitary(report):
         paths=["originir-ext+to_matrix"],
         parameters={"width": 3},
         metrics={"max_error": float(error), "fidelity": float(fid)},
-        criterion="线路幺正第一列与目标向量一致（max_error < 1e-12）",
+        criterion="the circuit unitary's first column matches the target vector (max_error < 1e-12)",
         passed=error < 1e-12 and fid > 1 - 1e-15,
     )
 
@@ -895,8 +912,8 @@ def verify_gate_state_prep_unitary(report):
 def run():
     report = Report(
         "stateprep",
-        "态制备 oracle、state_preparation 组合子、QROM/QRAM 数据加载、alias 采样"
-        "与纯化访问的数值验证：振幅/真值表逐点穷举、分布 TVD、偏迹迹距离。",
+        "Numerical validation of state-preparation oracles, state_preparation combinators, QROM/QRAM data loading, alias sampling, "
+        "and purification access: pointwise amplitude/truth-table exhaustion, distribution TVD, and partial-trace trace distances.",
     )
     verify_gate_state_prep(report)
     verify_extend_initial(report)

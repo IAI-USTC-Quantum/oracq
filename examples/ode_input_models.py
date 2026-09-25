@@ -1,8 +1,8 @@
-"""QPDE/QODE 教程：不同输入范式、分批绑定和可替换的生成函数。
+"""QPDE/QODE tutorial: different input paradigms, batched binding, and replaceable generating functions.
 
-运行：PYTHONPATH=src python examples/ode_input_models.py
-可选 --native-parse 使用真实 uniqc 解析导出；--native-bindings 对拍小型 QRAM 绑定。
-这些检查不认证求解精度。
+Run: PYTHONPATH=src python examples/ode_input_models.py
+Optional --native-parse parses the exports with real uniqc; --native-bindings cross-checks small QRAM bindings against a real backend.
+These checks do not certify solution accuracy.
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ def save_case(
     notes: Mapping[str, object] | None = None,
     native_parse: bool = False,
 ) -> dict[str, object]:
-    """同时留下开放/部分绑定/闭合产物；不内联 oracle 主体。"""
+    """Leave open/partially-bound/closed artifacts side by side; oracle bodies are not inlined."""
     folder = root / name
     folder.mkdir(parents=True, exist_ok=True)
     opened = state.operation.program()
@@ -128,7 +128,7 @@ def save_case(
 
 
 def verify_bindings(root: Path) -> None:
-    """真实 PySparQ 比较角数据库案例两种绑定的完整复幅度。"""
+    """Compare the full complex amplitudes of the two bindings of the angle-database cases with real PySparQ."""
     records = []
     for stem in ("given_xor",):
         states = []
@@ -153,7 +153,7 @@ def verify_bindings(root: Path) -> None:
 
 
 def polynomial_from_bindings(bindings: QHAMBindings) -> PolynomialODE:
-    """教程宿主适配器：按次数合并 PDE 多线性端口，交给 Carleman。"""
+    """Tutorial host adapter: merge the PDE multi-linear ports by degree and hand them to Carleman."""
     grouped = defaultdict(list)
     for _, port in bindings.ports:
         grouped[port.arity].append((1, port.encoding))
@@ -169,10 +169,10 @@ def shifted_solver(
     qode: Callable[[BlockEncoding, StatePreparation, float], StateOracle],
     recovery: dict[str, float],
 ) -> Callable[[BlockEncoding, StatePreparation, float], StateOracle]:
-    """给提升后的线性系统施加移位；范数恢复记录放在宿主报告中。"""
+    """Apply a shift to the lifted linear system; the norm-recovery record goes into the host report."""
 
     def solve(generator: BlockEncoding, initial: StatePreparation, time: float) -> StateOracle:
-        """用 ``G - mu*I`` 移位后的生成元交给底层求解协议演化。"""
+        """Hand the generator shifted to ``G - mu*I`` to the underlying solver protocol for evolution."""
         mu = generator.alpha
         shifted = lcu([(1, generator), (-mu, identity(generator.width))])
         recovery.update(growth_shift=mu, log_amplitude_rescale=mu * time)
@@ -182,11 +182,11 @@ def shifted_solver(
 
 
 def main() -> None:
-    """构造各输入范式案例并写出开放、部分绑定与闭合产物。"""
+    """Build the cases for each input paradigm and write the open, partially-bound, and closed artifacts."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=Path("out/ode-input-models"))
-    parser.add_argument("--native-parse", action="store_true", help="用真实 uniqc 解析全部导出")
-    parser.add_argument("--native-bindings", action="store_true", help="用 PySparQ 对拍角数据库绑定")
+    parser.add_argument("--native-parse", action="store_true", help="parse all exports with real uniqc")
+    parser.add_argument("--native-bindings", action="store_true", help="cross-check the angle-database bindings against PySparQ")
     args = parser.parse_args()
     write = partial(save_case, args.output, native_parse=args.native_parse)
     records = []
@@ -200,7 +200,7 @@ def main() -> None:
         hamiltonian_function=hamiltonian_function,
     )
 
-    # 1. 直接给 G 的 BE；G=-I。work=3 预留给后面的 QRAM 初态实现。
+    # 1. Directly provide the BE of G; G=-I. work=3 is reserved for the later QRAM initial-state implementation.
     initial = abstract_state_prep("Initial", 1, work_width=3)
     initial_gate = gate_state_prep([1, 1], work_width=3)
     generator = abstract_block_encoding("Generator", 1, 0, 1.0)
@@ -216,7 +216,7 @@ def main() -> None:
         )
     )
 
-    # 2. 已经给 A=L+iH 时直接用 parts 入口，避免先合并再拆开。
+    # 2. When A=L+iH is already given, use the parts entry directly instead of merging first and splitting again.
     dissipation = abstract_block_encoding("Dissipation", 1, 0, 1.0)
     hamiltonian = abstract_block_encoding("Hamiltonian", 1, 1, 1.0)
     state = lchs_qode(
@@ -237,8 +237,8 @@ def main() -> None:
         )
     )
 
-    # 3. 相同开放图，分别绑定 gate / QRAM 数据库及态制备。
-    # 数据是旋转角的整数编码；A=diag(1, cos(pi/4))，G=-A。
+    # 3. Same open graph, bound to gate / QRAM databases and state preparations respectively.
+    # The data is an integer encoding of rotation angles; A=diag(1, cos(pi/4)), G=-A.
     angles = abstract_database("DiagonalAngles", 1, 2)
     a = diagonal_block_encoding(angles, alpha=1.0)
     state = lchs(scale(-1, a), initial, time)
@@ -269,7 +269,7 @@ def main() -> None:
         )
     )
 
-    # 4. A=[[1,-.5],[-.5,1]]：实对称、非负对角且 A>=0。
+    # 4. A=[[1,-.5],[-.5,1]]: real symmetric, non-negative diagonal, and A>=0.
     fmt = FixedFormat(4, 1)
     access = abstract_sparse_access("SparseA", 1, fmt.width, sparsity=2)
     a = real_symmetric_sparse_encoding(access, fmt, 1.0, diagonal_nonnegative=True)
@@ -315,22 +315,22 @@ def main() -> None:
         )
     )
 
-    # 5. 周期四点热方程，结构化移位 BE 直接作为空间离散化结果。
+    # 5. Periodic four-point heat equation; the structured shift BE serves directly as the spatial discretization result.
     grid = Grid(("x",), (4,), (1.0,), boundary="periodic")
     heat = DiscretePDE(
         scale(0.1, derivative_encoding(grid, (("x", 2),))),
         gate_state_prep([1, 0, 0, 0]),
         label="periodic_heat",
     )
-    # QODEProtocol.__call__ 与三参求解回调同形；按回调类型声明 solver，
-    # 使下方 shifted_solver 的返回值能与协议实例共用同一循环变量。
+    # QODEProtocol.__call__ has the same shape as the three-argument solver callback; declare solver by the callback type
+    # so the return value of shifted_solver below can share the same loop variable as the protocol instances.
     for method, solver in (
         ("lchs", cast("Callable[[BlockEncoding, StatePreparation, float], StateOracle]", lchs)),
         ("schrodingerization", schrodinger),
     ):
         records.append(write("heat_" + method, make_qpde(solver)(heat, time)))
 
-    # 6. 普通 PDE -> F_p 端口 -> Carleman -> 可替换线性 solver。
+    # 6. Ordinary PDE -> F_p ports -> Carleman -> replaceable linear solver.
     u = Field("u")
     pde = PolynomialPDE.from_equations({"u": 0.1 * u.d("x", 2) - u * u.d("x")})
     space = Discretization(pde, grid)
@@ -371,7 +371,7 @@ def main() -> None:
             )
         )
 
-    # 7. 同一 QPDE，独立替换内部 Hamiltonian-function protocol 的配置。
+    # 7. Same QPDE, independently replacing the configuration of the internal Hamiltonian-function protocol.
     degree_two = linear_qode(
         "lchs", plan=quadrature, hamiltonian_function=partial(taylor_hamiltonian, degree=2)
     )

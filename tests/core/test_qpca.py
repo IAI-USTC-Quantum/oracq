@@ -1,4 +1,4 @@
-"""QPCA 与密度矩阵指数化的数值见证（LMR 协议）。"""
+"""Numerical witnesses for QPCA and density matrix exponentiation (the LMR protocol)."""
 
 import math
 import unittest
@@ -29,7 +29,7 @@ def dense_system(state, copies_width, copies):
 
 
 def exact_evolved_pure(time):
-    """e^{-it·|+⟩⟨+|} 作用在 ``|0⟩⟨0|`` 上的精确结果。"""
+    """Exact result of e^{-it·|+⟩⟨+|} acting on ``|0⟩⟨0|``."""
     import cmath
 
     a0 = (1 + cmath.exp(-1j * time)) / 2
@@ -48,7 +48,7 @@ def phase_mode(state):
 
 
 def circular_eigenvalue(distribution, precision, step):
-    """相位分布的圆周均值解码：对展宽峰稳健的 λ 估计。"""
+    """Circular-mean decoding of the phase distribution: a λ estimate robust to a broadened peak."""
     import cmath
 
     z = sum(
@@ -60,7 +60,7 @@ def circular_eigenvalue(distribution, precision, step):
 
 class DensityMatrixExponentiationTests(unittest.TestCase):
     def test_small_step_first_order_accurate(self):
-        # 单步误差 O(Δt²)：Δt = 0.05 时迹距离在 Δt² 量级内（系数约 0.53）。
+        # Single-step error O(Δt²): at Δt = 0.05 the trace distance stays within the Δt² scale (coefficient about 0.53).
         step = 0.05
         prep = gate_state_prep(PLUS)
         operation = density_matrix_exponentiation(prep, time=step, copies=1)
@@ -68,7 +68,7 @@ class DensityMatrixExponentiationTests(unittest.TestCase):
         self.assertLess(trace_distance(reduced, exact_evolved_pure(step)), 0.6 * step * step)
 
     def test_error_halves_with_copies(self):
-        # LMR 一阶标度：固定总时间 t，拷贝数翻倍时误差近似减半。
+        # LMR first-order scaling: with the total time t fixed, doubling the copies roughly halves the error.
         time = 0.4
         prep = gate_state_prep(PLUS)
         distances = []
@@ -82,32 +82,32 @@ class DensityMatrixExponentiationTests(unittest.TestCase):
 
 class QpcaTests(unittest.TestCase):
     def test_pure_state_eigenvalues(self):
-        # ρ = |+⟩⟨+|：本征值 1 与 0 分别由系统输入 |+⟩ 与 |−⟩ 读出。
-        step = math.pi / 4  # λ=1 时 φ = 7/8，precision=3 下读出确定。
+        # ρ = |+⟩⟨+|: eigenvalues 1 and 0 are read out with the system input in |+⟩ and |−⟩, respectively.
+        step = math.pi / 4  # λ=1 gives φ = 7/8; deterministic readout at precision=3.
         prep = gate_state_prep(PLUS)
         operation = qpca(prep, precision=3, step_time=step, system=gate_state_prep(PLUS))
         attrs = dict(operation.module.attributes)
         self.assertEqual(attrs["algorithm"], "qpca")
         self.assertEqual(attrs["copies"], 7)
-        # |+⟩ 是拷贝态本身：每步部分交换作用在 SWAP 对称本征态上，对任意 Δt 都精确。
+        # |+⟩ is the copy state itself: each partial swap acts on a SWAP-symmetric eigenstate, exact for any Δt.
         mode, distribution = phase_mode(simulate(operation.program()))
         self.assertAlmostEqual(distribution[mode], 1.0, places=9)
         self.assertAlmostEqual(eigenvalue_from_phase(mode, 3, step), 1.0, places=12)
 
-        # |−⟩ 是一般本征态：大 Δt 下 LMR 误差表现为峰展宽，但分布的圆周均值
-        # 仍以 φ = 0（λ = 0）为中心。
+        # |−⟩ is a generic eigenstate: at large Δt the LMR error appears as peak broadening, but the
+        # circular mean of the distribution is still centered at φ = 0 (λ = 0).
         operation = qpca(prep, precision=3, step_time=step, system=gate_state_prep(MINUS))
         _, distribution = phase_mode(simulate(operation.program()))
         self.assertAlmostEqual(circular_eigenvalue(distribution, 3, step), 0.0, delta=0.15)
 
     def test_mixed_state_eigenvalue_via_purification(self):
-        # ρ = diag(0.75, 0.25) 经纯化适配；系统输入 |0⟩ 读出 λ = 0.75。
-        step = 2 * math.pi / 6  # λ=0.75 时 φ = 7/8。
+        # ρ = diag(0.75, 0.25) adapted via purification; the system input |0⟩ reads out λ = 0.75.
+        step = 2 * math.pi / 6  # λ=0.75 gives φ = 7/8.
         purification = gate_purification(((0.75 + 0j, 0j), (0j, 0.25 + 0j)))
         prep = purification.as_state_preparation()
         operation = qpca(prep, precision=3, step_time=step, swap_width=1)
         mode, distribution = phase_mode(simulate(operation.program()))
-        # 大 Δt 的 LMR 误差只展宽峰而不移峰位：mode 解码恰为 0.75。
+        # The large-Δt LMR error only broadens the peak without shifting it: the mode decodes to exactly 0.75.
         self.assertGreater(distribution[mode], 0.4)
         self.assertAlmostEqual(eigenvalue_from_phase(mode, 3, step), 0.75, places=12)
         self.assertAlmostEqual(circular_eigenvalue(distribution, 3, step), 0.75, delta=0.15)

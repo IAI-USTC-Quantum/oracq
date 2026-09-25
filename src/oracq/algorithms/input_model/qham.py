@@ -1,4 +1,4 @@
-"QCL 行规则到模块化寄存器 BE，以及保留尺度的 QODE 输入。"
+"QCL row rules to modular register BEs, plus scale-preserving QODE inputs."
 
 from __future__ import annotations
 
@@ -33,11 +33,11 @@ from oracq.infrastructure.ir import Bits, Ref, ValidationError
 
 @dataclass(frozen=True)
 class PortBinding:
-    """QHAM 基础端口的绑定结果：一个矩形算子编码及其张量元数。
+    """Binding result of a QHAM elementary port: a rectangular operator encoding and its tensor arity.
 
     Attributes:
-        encoding: 端口算子的块编码，target 宽度为 ``max(1, arity) * state_width``。
-        arity: 端口消耗的输入张量因子数；常量注入为 0，线性映射为 1，r 次非线性端口为 r。
+        encoding: Block encoding of the port operator, with target width ``max(1, arity) * state_width``.
+        arity: Number of input tensor factors consumed by the port; 0 for constant injection, 1 for a linear map, r for a degree-r nonlinear port.
     """
 
     encoding: BlockEncoding
@@ -46,13 +46,13 @@ class PortBinding:
 
 @dataclass(frozen=True)
 class QHAMBindings:
-    """一个 QHAM 问题的全部端口与初值绑定。
+    """All port and initial-value bindings of one QHAM problem.
 
     Attributes:
-        state_width: 物理状态寄存器位宽，对应 ``2**state_width`` 维离散空间。
-        ports: ``(端口名, PortBinding)`` 元组，端口名集合须与 plan 的 PDE 端口一致。
-        initial: 物理初态的制备 oracle。
-        initial_norm: 经典初值向量的 Euclidean 范数。
+        state_width: Bit width of the physical state register, corresponding to the ``2**state_width``-dimensional discrete space.
+        ports: ``(port name, PortBinding)`` tuples; the set of port names must match the PDE ports of the plan.
+        initial: Preparation oracle of the physical initial state.
+        initial_norm: Euclidean norm of the classical initial vector.
     """
 
     state_width: int
@@ -61,31 +61,31 @@ class QHAMBindings:
     initial_norm: float
 
     def validate(self, plan: QHAMPlan) -> QHAMBindings:
-        """校验绑定与 QCL plan 的端口集合和寄存器布局是否匹配。
+        """Validate that the bindings match the port set and register layout of the QCL plan.
 
         Args:
-            plan: QCL 计划对象，提供 ``pde.ports`` 端口规格。
+            plan: QCL plan object providing the ``pde.ports`` port specifications.
 
         Returns:
-            QHAMBindings: 校验通过的 ``self``，便于链式书写。
+            QHAMBindings: ``self`` once validation passes, for chaining.
 
         Raises:
-            ValidationError: 状态位宽或初值宽度非法、范数不是有限非负数、端口名集合不匹配，或某端口的元数/编码宽度与规格不符。
+            ValidationError: The state bit width or initial-value width is illegal, the norm is not a finite nonnegative number, the port name set does not match, or some port's arity or encoding width disagrees with the specification.
         """
         if not 1 <= self.state_width <= 64 or self.initial.width != self.state_width:
-            raise ValidationError("QHAM 状态空间与初值寄存器布局不匹配")
+            raise ValidationError("QHAM state space and initial-value register layout do not match")
         if not math.isfinite(self.initial_norm) or self.initial_norm < 0:
-            raise ValidationError("初始物理向量范数必须为有限非负数")
+            raise ValidationError("the initial physical vector norm must be a finite nonnegative number")
         supplied = dict(self.ports)
         if len(supplied) != len(self.ports) or set(supplied) != {p.name for p in plan.pde.ports}:
-            raise ValidationError("QHAM 输入端口集合不匹配")
+            raise ValidationError("QHAM input port set does not match")
         for p in plan.pde.ports:
             binding = supplied[p.name]
             if (
                 binding.arity != p.arity
                 or binding.encoding.width != max(1, p.arity) * self.state_width
             ):
-                raise ValidationError("QHAM 矩形端口的输入/输出宽度不匹配：" + p.name)
+                raise ValidationError("QHAM rectangular port input/output width mismatch for port " + p.name)
         return self
 
     @classmethod
@@ -99,26 +99,26 @@ class QHAMBindings:
         initial_work: int = 0,
         prefix: str = "Qham",
     ) -> QHAMBindings:
-        """以抽象声明方式构造开放的端口与初值绑定。
+        """Construct open port and initial-value bindings via abstract declarations.
 
-        为每个 PDE 端口生成一个未实现的块编码声明，并把 QCL plan 序列、端口名与输入秩写入模块属性；初值同样保留为抽象制备，构造完成后整体执行 ``validate``。
+        Generates an unimplemented block encoding declaration for each PDE port, writes the QCL plan serialization, port name, and input rank into the module attributes; the initial value likewise stays an abstract preparation, and ``validate`` runs over the whole after construction.
 
         Args:
-            plan: QCL 计划对象，提供 ``pde.ports`` 端口规格。
-            state_width: 物理状态寄存器位宽。
-            port_specs: 从端口名到 ``(alpha, signal)`` 的映射，给出各端口的 BE 范数界与信号位数。
-            initial_norm: 经典初值向量的 Euclidean 范数。
-            initial_work: 初值制备声明预留的工作位宽度。
-            prefix: 抽象声明名的前缀；各端口声明名与初值声明名由该前缀派生。
+            plan: QCL plan object providing the ``pde.ports`` port specifications.
+            state_width: Bit width of the physical state register.
+            port_specs: Mapping from port name to ``(alpha, signal)``, giving each port's BE norm bound and signal bit count.
+            initial_norm: Euclidean norm of the classical initial vector.
+            initial_work: Work bit width reserved by the initial-value preparation declaration.
+            prefix: Prefix of the abstract declaration names; each port declaration name and the initial-value declaration name derive from this prefix.
 
         Returns:
-            QHAMBindings: 通过 ``validate`` 校验的开放绑定集合。
+            QHAMBindings: The open binding set that passed ``validate``.
 
         Raises:
-            ValidationError: 端口规格集合与 plan 不一致，或随后的 ``validate`` 校验失败。
+            ValidationError: The port specification set disagrees with the plan, or the subsequent ``validate`` check fails.
         """
         if set(port_specs) != {p.name for p in plan.pde.ports}:
-            raise ValidationError("开放 QHAM 端口的 alpha/信号位规格不完整")
+            raise ValidationError("the open QHAM port alpha or signal-bit specifications are incomplete")
         ports: list[tuple[str, PortBinding]] = []
         for port in plan.pde.ports:
             alpha, signal = port_specs[port.name]
@@ -148,26 +148,26 @@ def gate_bindings(
     *,
     max_port_qubits: int = 5,
 ) -> QHAMBindings:
-    """仅物化小型基础端口，不构造整个提升矩阵 G。
+    """Materialize only small elementary ports, without building the whole lifted matrix G.
 
     Args:
-        discretization: 带端口与维度信息的离散化对象。
-        initial: 按完整寄存器布局编码的有限初值向量。
-        max_port_qubits: 基础端口门实现允许的最大位数。
+        discretization: Discretization object carrying port and dimension information.
+        initial: Finite initial vector encoded under the full register layout.
+        max_port_qubits: Maximum bit count allowed for gate implementations of elementary ports.
 
     Returns:
-        QHAMBindings: 小型端口门实现与初态制备组成的绑定。
+        QHAMBindings: Bindings made of small-port gate implementations and the initial state preparation.
     """
     width = discretization.width
     if len(initial) != discretization.dimension or any(
         not math.isfinite(complex(v).real) or not math.isfinite(complex(v).imag) for v in initial
     ):
-        raise ValidationError("初值必须是有限的、按完整寄存器布局编码的向量")
+        raise ValidationError("the initial value must be a finite vector encoded under the full register layout")
     ports: list[tuple[str, PortBinding]] = []
     for port in discretization.pde.ports:
         local_width = max(1, port.arity) * width
         if local_width > max_port_qubits:
-            raise ValidationError("基础端口门实现超过小规模物化预算；可提供开放/QRAM/结构化 BE")
+            raise ValidationError("the elementary port gate implementation exceeds the small-scale materialization budget; provide an open, QRAM, or structured BE instead")
         size = 1 << local_width
         matrix = [
             [
@@ -189,7 +189,7 @@ def gate_bindings(
 
 
 def _permute_slots(builder: Builder, target: Ref, width: int, desired: Sequence[int]) -> None:
-    """以等宽槽位交换把 ``target`` 重排为 ``desired`` 指定的槽位次序。"""
+    """Rearrange ``target`` into the slot order given by ``desired`` using equal-width slot swaps."""
     current = list(range(len(desired)))
     for position, token in enumerate(desired):
         other = current.index(token)
@@ -204,27 +204,32 @@ def _permute_slots(builder: Builder, target: Ref, width: int, desired: Sequence[
 def place_port(
     binding: PortBinding, state_width: int, source_rank: int, position: int
 ) -> BlockEncoding:
-    """把基础端口放置到张量字的指定槽位，返回秩收缩后的块编码。
+    """Place an elementary port onto the given slots of the tensor word, returning the rank-contracted block encoding.
 
-    端口作用在 ``source_rank`` 重输入张量从 ``position`` 开始的连续 ``arity`` 个槽位上，其余槽位作恒等映射；元数为 0 时先把一个空槽换入 ``position`` 供常量注入，元数大于 1 时把多余的被消耗槽位置换到末尾，输出张量秩为 ``source_rank - arity + 1``。
+    The port acts on the ``arity`` consecutive slots of the ``source_rank``-fold
+    input tensor starting at ``position``, with identity on the remaining
+    slots; for arity 0 an empty slot is first swapped into ``position`` for
+    constant injection, and for arity greater than 1 the surplus consumed
+    slots are permuted to the end, giving output tensor rank
+    ``source_rank - arity + 1``.
 
     Args:
-        binding: 端口的 ``PortBinding``。
-        state_width: 每个张量槽位的位宽。
-        source_rank: 输入张量的秩。
-        position: 端口输入窗口的起始槽位。
+        binding: The ``PortBinding`` of the port.
+        state_width: Bit width of each tensor slot.
+        source_rank: Rank of the input tensor.
+        position: Starting slot of the port's input window.
 
     Returns:
-        BlockEncoding: 目标宽度为 ``max(source_rank, source_rank - arity + 1) * state_width`` 的提升编码，alpha 继承自基础端口，并附带输入/输出秩与张量位置属性。
+        BlockEncoding: The lifted encoding with target width ``max(source_rank, source_rank - arity + 1) * state_width``; alpha is inherited from the elementary port, with input/output rank and tensor position attributes attached.
 
     Raises:
-        ValidationError: ``source_rank`` 小于端口元数，或 ``position`` 不在输出秩范围内。
+        ValidationError: ``source_rank`` is smaller than the port arity, or ``position`` is outside the output rank range.
     """
     arity = binding.arity
     output_rank = source_rank - arity + 1
     rank = max(source_rank, output_rank)
     if source_rank < arity or not 0 <= position < output_rank:
-        raise ValidationError("矩形张量位置无效")
+        raise ValidationError("invalid rectangular tensor position")
     base = binding.encoding
     b = Builder(
         _name("qham_place", base.operation, state_width, source_rank, position),
@@ -266,25 +271,25 @@ def embed_rectangular(
     input_width: int,
     output_width: int,
 ) -> BlockEncoding:
-    """同时约束输入和输出窗口，避免矩形零填充污染相邻块。
+    """Constrain both the input and output windows, preventing rectangular zero padding from polluting neighboring blocks.
 
     Args:
-        local: 局部块的块编码。
-        global_width: 全局 target 寄存器位宽。
-        row_offset: 输出窗口在全局布局中的行偏移。
-        column_offset: 输入窗口在全局布局中的列偏移。
-        input_width: 输入窗口的位数。
-        output_width: 输出窗口的位数。
+        local: Block encoding of the local block.
+        global_width: Bit width of the global target register.
+        row_offset: Row offset of the output window in the global layout.
+        column_offset: Column offset of the input window in the global layout.
+        input_width: Bit count of the input window.
+        output_width: Bit count of the output window.
 
     Returns:
-        BlockEncoding: 窗口约束后的全局位布局块编码，alpha 沿用 local。
+        BlockEncoding: The window-constrained block encoding in the global bit layout, with alpha inherited from local.
     """
     if (
         local.width > global_width
         or max(row_offset + (1 << output_width), column_offset + (1 << input_width))
         > 1 << global_width
     ):
-        raise ValidationError("矩形块超出全局布局")
+        raise ValidationError("the rectangular block exceeds the global layout")
     b = Builder(
         _name(
             "qham_embed",
@@ -307,7 +312,7 @@ def embed_rectangular(
     b.add_const(b["target"].reinterpret("uint"), (-column_offset) % (1 << global_width))
 
     def reject_nonzero(ref: Ref, flag: Ref) -> None:
-        """把 ``ref`` 是否全零写入 ``flag``：全零时 ``flag`` 为 1，否则为 0。"""
+        """Write whether ``ref`` is all zeros into ``flag``: ``flag`` is 1 when all zeros, 0 otherwise."""
         if ref.width:
             b.x(flag)
             with b.control(ref, 0):
@@ -334,27 +339,30 @@ def generator_encoding(
     max_blocks: int = 256,
     max_terms: int = 4096,
 ) -> BlockEncoding:
-    """按 QCL plan 的行规则显式装配提升生成元的块编码。
+    """Explicitly assemble the block encoding of the lifted generator from the row rules of the QCL plan.
 
-    枚举各块的行耦合，把每个非零耦合表示为端口放置加矩形嵌入后的 LCU 项；相同 ``(算子, 列秩, 张量位置)`` 的放置被缓存复用。
+    Enumerates the row couplings of each block, expressing every nonzero
+    coupling as an LCU term after port placement plus rectangular embedding;
+    placements with the same ``(operator, column rank, tensor position)`` are
+    cached and reused.
 
     Args:
-        plan: QCL 计划对象。
-        bindings: 与 plan 匹配的端口/初值绑定。
-        eta: HAM 同伦参数，代入各耦合权重后系数为零的项被剔除。
-        max_blocks: 显式枚举的块数上限。
-        max_terms: 显式 LCU 耦合项数上限。
+        plan: QCL plan object.
+        bindings: Port/initial-value bindings matching the plan.
+        eta: HAM homotopy parameter; terms whose coefficient evaluates to zero after substitution into the coupling weights are dropped.
+        max_blocks: Maximum number of blocks enumerated explicitly.
+        max_terms: Maximum number of explicit LCU coupling terms.
 
     Returns:
-        BlockEncoding: 整个提升生成元 G 的编码，无耦合时退化为零编码；模块属性记录 plan、HAM 阶数与显式耦合数等。
+        BlockEncoding: Encoding of the whole lifted generator G, degenerating to the zero encoding with no couplings; module attributes record the plan, HAM order, explicit coupling count, and more.
 
     Raises:
-        ValidationError: 绑定校验失败、提升寄存器超过 64 位，或显式耦合数超过预算。
+        ValidationError: Binding validation fails, the lifted register exceeds 64 bits, or the explicit coupling count exceeds the budget.
     """
     bindings.validate(plan)
     n = bindings.state_width
     if plan.max_rank * n > 64:
-        raise ValidationError("当前 BE target 包装限制为 64 位；惰性 QCL plan 不受此物化限制")
+        raise ValidationError("the current BE target wrapper is limited to 64 bits; a lazy QCL plan is not subject to this materialization limit")
     dimension = 1 << n
     width = (plan.raw_dimension(dimension) - 1).bit_length()
     blocks = tuple(plan.blocks(max_blocks=max_blocks))
@@ -366,7 +374,7 @@ def generator_encoding(
             if not coefficient:
                 continue
             if len(terms) >= max_terms:
-                raise ValidationError("显式 QCL BE 耦合数超过预算；请保留开放生成元")
+                raise ValidationError("the explicit QCL BE coupling count exceeds the budget; keep the generator open instead")
             key = (coupling.operator, coupling.column.rank, coupling.position)
             if key not in placements:
                 placements[key] = place_port(
@@ -412,23 +420,29 @@ def generator_encoding(
 
 
 def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePreparation, float]:
-    """构造提升张量空间的初态制备及其对数范数。
+    """Build the initial state preparation on the lifted tensor space and its logarithmic norm.
 
-    分支权重保持各提升块的相对范数 r, r, r**2, ..., r**K（有强迫时常量分量为 1）：先按缩放后的权重制备选择标签，各分支内按块秩重复调用初值 oracle 并把结果平移到块偏移，最后用地址区间反算选择标签；对已知零输入的制备均复净工作位。
+    Branch weights preserve the relative norms r, r, r**2, ..., r**K of the
+    lifted blocks (with forcing, the constant component is 1): first prepare
+    the selector label from the scaled weights, then within each branch invoke
+    the initial-value oracle repeatedly by block rank and shift the result to
+    the block offset, and finally recompute the selector label from the
+    address intervals; preparations with known zero input all restore the work
+    bits to zero.
 
     Args:
-        plan: QCL 计划对象。
-        bindings: 端口/初值绑定。
+        plan: QCL plan object.
+        bindings: Port/initial-value bindings.
 
     Returns:
-        tuple: ``(StatePreparation, log_initial_norm)``，后者为提升初态整体范数的自然对数。
+        tuple: ``(StatePreparation, log_initial_norm)``, the latter being the natural logarithm of the overall norm of the lifted initial state.
 
     Raises:
-        ValidationError: 提升寄存器超过 64 位，或初值为零且无强迫因而不存在可制备的非零向量。
+        ValidationError: The lifted register exceeds 64 bits, or the initial value is zero with no forcing so no nonzero vector can be prepared.
     """
     n = bindings.state_width
     if plan.max_rank * n > 64:
-        raise ValidationError("当前初值 target 包装超过 64 位；请保留开放初值模型")
+        raise ValidationError("the current initial-value target wrapper exceeds 64 bits; keep an open initial-value model instead")
     dimension = 1 << n
     width = (plan.raw_dimension(dimension) - 1).bit_length()
     candidates = [(Block("physical"), 1.0)]
@@ -438,7 +452,7 @@ def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePrepara
     if bindings.initial_norm == 0:
         candidates = [item for item in candidates if item[1] == 0]
         if not candidates:
-            raise ValidationError("提升初值为零；无强迫时应在经典侧返回零解")
+            raise ValidationError("the lifted initial value is zero; without forcing the classical side should return the zero solution")
     log_r = math.log(bindings.initial_norm) if bindings.initial_norm else 0.0
     logs = [k * log_r for _, k in candidates]
     maximum = max(logs)
@@ -449,7 +463,7 @@ def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePrepara
     selector_width = max(1, (branches - 1).bit_length())
     weights = scaled + [0.0] * ((1 << selector_width) - branches)
     selector_prep = gate_state_prep(weights)
-    # 每次已知零输入的制备都复净 work，可顺序复用同一段工作寄存器。
+    # Each preparation with known zero input restores work to zero, so the same work register can be reused sequentially.
     work_width = bindings.initial.work_width + selector_width
     b = Builder(
         _name("qham_initial", bindings.initial.operation, plan.dumps(), bindings.initial_norm),
@@ -478,7 +492,7 @@ def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePrepara
             offset = plan.offset(block, dimension)
             b.add_const(b["target"].reinterpret("uint"), offset)
         intervals.append((offset, offset + dimension**rank, branch))
-    # 块的支持互不重叠，利用地址区间反算选择标签。
+    # The blocks have disjoint support; recompute the selector label from the address intervals.
     net = BooleanNetwork()
     address = net.input("address", width)
     outputs = [0] * selector_width
@@ -498,18 +512,20 @@ def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePrepara
 
 @dataclass(frozen=True)
 class QHAMInputModel:
-    """QHAM 装配完成的 QODE 输入模型。
+    """The QODE input model assembled by QHAM.
 
-    求解对象是提升后的线性系统 ``Y' = G Y``，非齐次强迫已通过常量分量齐次化；G 不是需要求逆的 QLSS 矩阵。
+    The system being solved is the lifted linear system ``Y' = G Y``; the
+    inhomogeneous forcing has been homogenized through the constant component,
+    and G is not the QLSS matrix to be inverted.
 
     Attributes:
-        plan: 生成该模型的 QCL 计划对象。
-        generator: 提升生成元 G 的块编码。
-        initial: 提升初态的制备。
-        state_width: 物理状态寄存器位宽。
-        eta: HAM 同伦参数。
-        log_initial_norm: 提升初态范数的自然对数。
-        growth_shift: 已累积的显式耗散移位量，作为幅值恢复的对数因子随时间线性增长。
+        plan: QCL plan object that generated this model.
+        generator: Block encoding of the lifted generator G.
+        initial: Preparation of the lifted initial state.
+        state_width: Bit width of the physical state register.
+        eta: HAM homotopy parameter.
+        log_initial_norm: Natural logarithm of the lifted initial state norm.
+        growth_shift: Accumulated explicit dissipation shift, growing linearly in time as the logarithmic factor for magnitude recovery.
     """
 
     plan: object
@@ -525,14 +541,14 @@ class QHAMInputModel:
         qode: Callable[[BlockEncoding, StatePreparation, float], StateOracle],
         time: float,
     ) -> StateOracle:
-        """用给定的 QODE 协议演化提升系统并选出物理输出块。
+        """Evolve the lifted system with the given QODE protocol and select the physical output block.
 
         Args:
-            qode: 三参数线性求解协议 ``(generator, initial, time) -> StateOracle``。
-            time: 演化时长。
+            qode: Three-argument linear solver protocol ``(generator, initial, time) -> StateOracle``.
+            time: Evolution duration.
 
         Returns:
-            StateOracle: 第一个物理块的归一化截断 HAM 和；物理幅值仍需结合所选协议的范数恢复信息，模块属性记录了 plan、对数初值范数与移位因子。
+            StateOracle: The normalized truncated HAM sum over the first physical block; the physical magnitude still requires the norm recovery information of the chosen protocol, and the module attributes record the plan, logarithmic initial norm, and shift factor.
         """
         from oracq.algorithms.common.state_preparation import select_subspace
 
@@ -554,17 +570,17 @@ class QHAMInputModel:
         )
 
     def dissipative_shift(self, shift: float | None = None) -> QHAMInputModel:
-        """给 LCHS/CBMD 显式适配；整个提升向量统一乘 exp(-shift*t)。
+        """Explicit adaptation for LCHS/CBMD; the whole lifted vector is uniformly multiplied by exp(-shift*t).
 
         Args:
-            shift: 显式耗散移位量；缺省取生成元的 alpha，且不得小于它。
+            shift: Explicit dissipation shift; defaults to the generator's alpha and must not be smaller than it.
 
         Returns:
-            QHAMInputModel: 生成元改为 G − shift·I 的新输入模型。
+            QHAMInputModel: New input model whose generator becomes G − shift·I.
         """
         shift = self.generator.alpha if shift is None else float(shift)
         if not math.isfinite(shift) or shift < self.generator.alpha:
-            raise ValidationError("自动耗散适配要求 shift >= 已声明的 BE 范数界 alpha")
+            raise ValidationError("automatic dissipation adaptation requires shift >= the declared BE norm bound alpha")
         g = lcu([(1, self.generator), (-shift, identity(self.generator.width))])
         return QHAMInputModel(
             self.plan,
@@ -585,23 +601,23 @@ def qham_input_model(
     max_blocks: int = 256,
     max_terms: int = 4096,
 ) -> QHAMInputModel:
-    """装配显式 QHAM 输入模型：提升生成元块编码加提升初态。
+    """Assemble an explicit QHAM input model: the lifted generator block encoding plus the lifted initial state.
 
     Args:
-        plan: QCL 计划对象。
-        bindings: 与 plan 匹配的端口/初值绑定。
-        eta: HAM 同伦参数，须为有限复数。
-        max_blocks: 显式枚举的块数上限。
-        max_terms: 显式 LCU 耦合项数上限。
+        plan: QCL plan object.
+        bindings: Port/initial-value bindings matching the plan.
+        eta: HAM homotopy parameter, which must be a finite complex number.
+        max_blocks: Maximum number of blocks enumerated explicitly.
+        max_terms: Maximum number of explicit LCU coupling terms.
 
     Returns:
-        QHAMInputModel: 可直接交给 QODE 协议求解的输入模型。
+        QHAMInputModel: The input model ready to be solved by a QODE protocol.
 
     Raises:
-        ValidationError: eta 非有限，或生成元/初态装配过程中的校验失败。
+        ValidationError: eta is non-finite, or a check fails while assembling the generator or initial state.
     """
     if not math.isfinite(complex(eta).real) or not math.isfinite(complex(eta).imag):
-        raise ValidationError("eta 必须有限")
+        raise ValidationError("eta must be finite")
     g = generator_encoding(plan, bindings, eta, max_blocks=max_blocks, max_terms=max_terms)
     initial, log_norm = lifted_initial(plan, bindings)
     return QHAMInputModel(plan, g, initial, bindings.state_width, eta, log_norm)
@@ -616,18 +632,18 @@ def open_qham_input(
     eta: complex = -1.0,
     name: str = "QhamGenerator",
 ) -> QHAMInputModel:
-    """显式保留整个提升生成元未实现；不给它伪造一个空主体。
+    """Explicitly keep the whole lifted generator unimplemented; do not fake an empty body for it.
 
     Args:
-        plan: QCL 计划对象。
-        bindings: 与 plan 匹配的端口/初值绑定。
-        generator_alpha: 开放生成元声明的范数界。
-        generator_signal: 开放生成元声明的 signal 位宽。
-        eta: HAM 同伦参数，须为有限复数。
-        name: 开放生成元声明的名称，缺省为 ``QhamGenerator``。
+        plan: QCL plan object.
+        bindings: Port/initial-value bindings matching the plan.
+        generator_alpha: Norm bound of the open generator declaration.
+        generator_signal: Signal bit width of the open generator declaration.
+        eta: HAM homotopy parameter, which must be a finite complex number.
+        name: Name of the open generator declaration, ``QhamGenerator`` by default.
 
     Returns:
-        QHAMInputModel: 生成元保持开放声明、待后续绑定的输入模型。
+        QHAMInputModel: Input model whose generator stays an open declaration awaiting later binding.
     """
     bindings.validate(plan)
     width = (plan.raw_dimension(1 << bindings.state_width) - 1).bit_length()
@@ -656,21 +672,21 @@ def taylor_qode(
     *,
     degree: int = 2,
 ) -> StateOracle:
-    """普通可闭合的有限 Taylor 候选；无 Hermitian/耗散前提，不承诺效率。
+    """A plain closable finite Taylor candidate; no Hermitian or dissipative assumption, and no efficiency is promised.
 
     Args:
-        generator: 生成元的块编码。
-        initial: 初态制备。
-        time: 演化时长，须为有限实数。
-        degree: Taylor 截断阶数，非负整数。
+        generator: Block encoding of the generator.
+        initial: Initial state preparation.
+        time: Evolution duration, which must be a finite real number.
+        degree: Taylor truncation order, a nonnegative integer.
 
     Returns:
-        StateOracle: 截断 Taylor 多项式演化后的输出态 oracle。
+        StateOracle: Output state oracle after evolution by the truncated Taylor polynomial.
     """
     from oracq.algorithms.common.state_preparation import apply_be_to_state
 
     if type(degree) is not int or degree < 0 or not math.isfinite(time):
-        raise ValidationError("Taylor QODE 参数无效")
+        raise ValidationError("invalid Taylor QODE parameters")
     powers: list[tuple[float, BlockEncoding]] = [(1, identity(generator.width))]
     current = identity(generator.width)
     for order in range(1, degree + 1):

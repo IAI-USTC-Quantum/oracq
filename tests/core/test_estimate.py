@@ -1,4 +1,4 @@
-"资源估计与 strict 网表的手算计数及交叉验证。"
+"Hand-computed counts and cross-validation for resource estimation and the strict netlist."
 
 import math
 import unittest
@@ -15,7 +15,7 @@ from oracq import (
 
 
 def _strict_atom_counts(artifact):
-    "展开 strict 网表（单 DEF 平铺程序）逐行计数。"
+    "Count the expanded strict netlist (a single flattened DEF program) line by line."
     counts, qram = Counter(), Counter()
     for line in artifact.text.splitlines():
         keyword = line.split(" ", 1)[0]
@@ -35,7 +35,7 @@ class HandCountTests(unittest.TestCase):
         b.rz(b["q"][3], 0.37)
         estimate = estimate_resources(b.finish().program())
         self.assertEqual(estimate.atoms, Counter({"x": 3, "t": 1, "h": 1}))
-        # rz(0.37) 全局相位锚定额外贡献 2 个相位原子与 2 个 X
+        # rz(0.37) global-phase anchoring adds 2 phase atoms and 2 X
         self.assertEqual(len(estimate.rotations), 3)
         self.assertEqual(estimate.rotations[0][0], "rz")
         self.assertEqual(estimate.qubits, 4)
@@ -48,7 +48,7 @@ class HandCountTests(unittest.TestCase):
         b = Builder("add", {"w": UInt(3)})
         b.add_const(b["w"], 1)
         estimate = estimate_resources(b.finish().program())
-        # 阶梯：i=2 需要两位进位控制（Toffoli），i=1 一个 CNOT，末位一个 X
+        # Staircase: i=2 needs two carry controls (Toffoli), i=1 one CNOT, and the last bit one X
         self.assertEqual(estimate.atoms, Counter({"toffoli": 1, "h": 2, "cz": 1, "x": 1}))
         b = Builder("add7", {"w": UInt(3)})
         b.add_const(b["w"], 7)
@@ -63,7 +63,7 @@ class HandCountTests(unittest.TestCase):
         self.assertEqual(estimate.toffoli, 0)
         self.assertEqual(len(estimate.rotations), 0)
         self.assertEqual(estimate.atoms["cz"], 2)
-        self.assertEqual(estimate.t_exact, 2)  # ry(±π/4) 各贡献一个 T/TDG
+        self.assertEqual(estimate.t_exact, 2)  # ry(±π/4) contributes one T/TDG each
         self.assertEqual(estimate.mcx_ancilla, 0)
 
     def test_multi_control_toffoli_ladder(self):
@@ -76,7 +76,7 @@ class HandCountTests(unittest.TestCase):
 
     def test_zero_control_flip_cost(self):
         b = Builder("zc", {"c": Bits(2), "t": Bits(1)})
-        with b.control(b["c"], 1):  # 01：一个零位，发射行组两侧各翻一次
+        with b.control(b["c"], 1):  # 01: one zero bit; the emitted row group flips once on each side
             b.x(b["t"])
         estimate = estimate_resources(b.finish().program())
         self.assertEqual(estimate.atoms, Counter({"x": 2, "toffoli": 1}))
@@ -186,7 +186,7 @@ class StrictNetlistCrossTests(unittest.TestCase):
         program = b.finish().program()
         estimate = estimate_resources(program)
         self.compare(program)
-        # RZ 的 (θ,φ,λ)=(0,0,λ) 参数化下受控形式只需两个 rz 旋转原子
+        # Under the (θ,φ,λ)=(0,0,λ) parametrization of RZ, the controlled form needs only two rz rotation atoms
         self.assertEqual(len(estimate.rotations), 2)
         self.assertEqual(estimate.atoms, Counter({"h": 4, "cz": 2}))
 

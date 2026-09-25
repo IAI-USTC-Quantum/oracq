@@ -1,15 +1,21 @@
-"""QPCA 量子主成分分析：密度矩阵指数化（LMR 协议）+ 相位估计。
+"""QPCA quantum principal component analysis: density matrix exponentiation (the LMR protocol) plus phase estimation.
 
-实现 Lloyd–Mohseni–Rebentrost 2014（"Quantum principal component analysis"，
-Nature Physics 10, 631）的核心原语。密度矩阵指数化利用 SWAP 算符的本征值
-结构：对一份 ρ 拷贝与系统做部分交换 ``e^{-iΔt·SWAP}``，丢弃拷贝后系统上
-有效通道即 ``e^{-iρΔt}`` 的一阶近似（误差 ``O(Δt²)``）；copies 份拷贝串联
-给出总时间 t = copies·Δt。QPCA 对该酉做相位估计，读出 ρ 的谱。
+Implements the core primitive of Lloyd–Mohseni–Rebentrost 2014 ("Quantum
+principal component analysis", Nature Physics 10, 631). Density matrix
+exponentiation exploits the eigenvalue structure of the SWAP operator:
+perform a partial swap ``e^{-iΔt·SWAP}`` between one copy of ρ and the
+system, and after discarding the copy the effective channel on the system is
+the first-order approximation of ``e^{-iρΔt}`` (error ``O(Δt²)``); chaining
+copies copies gives total time t = copies·Δt. QPCA runs phase estimation on
+that unitary and reads out the spectrum of ρ.
 
-input model：ρ 的拷贝由态制备 oracle 提供（SP/QRAM 三层可绑）；混合态经
-density.PurificationAccess.as_state_preparation 适配（环境位不参与交换，
-效果等同于取偏迹）。多拷贝意味着对制备 oracle 的多次调用，这是 QPCA 的
-资源前提，与 QRAM 假设一并写入属性。
+Input model: copies of ρ are provided by a state preparation oracle (SP/QRAM
+bindable at three layers); mixed states are adapted via
+density.PurificationAccess.as_state_preparation (environment qubits stay out
+of the swap, which has the same effect as taking the partial trace). Multiple
+copies mean multiple invocations of the preparation oracle — the resource
+precondition of QPCA — recorded into the attributes together with the QRAM
+assumption.
 """
 
 from __future__ import annotations
@@ -29,12 +35,12 @@ from oracq.infrastructure.ir import Bits, Ref, RegType, ValidationError
 
 
 def _pauli_pair_rotation(b: Builder, first: Ref, second: Ref, angle: float, axis: str) -> None:
-    """``e^{-i(angle/2)·P⊗P}``，P 由 axis ∈ {x, y, z} 指定；基于奇偶校验的精确分解。"""
+    """``e^{-i(angle/2)·P⊗P}`` with P given by axis ∈ {x, y, z}; an exact decomposition based on parity."""
     if axis == "x":
         b.h(first)
         b.h(second)
     elif axis == "y":
-        # Rx(π/2) = H·Rz(π/2)·H 把 Z 基旋转到 −Y（两项符号相消）。
+        # Rx(π/2) = H·Rz(π/2)·H rotates the Z basis to −Y (the two sign terms cancel).
         for ref in (first, second):
             b.h(ref)
             b.rz(ref, math.pi / 2)
@@ -53,14 +59,14 @@ def _pauli_pair_rotation(b: Builder, first: Ref, second: Ref, angle: float, axis
 
 
 def _partial_swap(b: Builder, first: Ref, second: Ref, angle: float) -> None:
-    """``e^{-i·angle·SWAP}``：XX+YY+ZZ = 2·SWAP − I 的精确分解（三轴可交换）。"""
+    """``e^{-i·angle·SWAP}``: an exact decomposition of XX+YY+ZZ = 2·SWAP − I (the three axes commute)."""
     b.global_phase(-angle / 2)
     for axis in ("z", "x", "y"):
         _pauli_pair_rotation(b, first, second, angle, axis)
 
 
 def _registers_of(operation: Operation) -> dict[str, RegType]:
-    """入口模块的寄存器名到存储类型映射。"""
+    """Map from register names of the entry module to storage types."""
     return {r.name: r.type for r in operation.module.registers}
 
 
@@ -72,19 +78,25 @@ def density_matrix_exponentiation(
     swap_width: int | None = None,
     name: str | None = None,
 ) -> Operation:
-    """LMR 密度矩阵指数化：用 copies 份 ρ 拷贝在系统上近似 ``e^{-iρ·time}``。
+    """LMR density matrix exponentiation: approximate ``e^{-iρ·time}`` on the system using copies copies of ρ.
 
     Args:
-        preparation: ρ 拷贝的态制备（StatePreparation，可为纯化适配结果）。
-        time: 总演化时间 t，每步 Δt = t/copies。
-        copies: 拷贝数，一阶误差 O(t·Δt) 随之线性下降。
-        swap_width: 参与交换的前缀位宽，缺省为制备的整个 target（纯化场景
-            应取 ρ 的系统位宽，环境位留在拷贝中不参与交换）。
-        name: 覆盖自动生成的模块名。
+        preparation: State preparation of a ρ copy (a StatePreparation,
+            possibly a purification adapter).
+        time: Total evolution time t; each step is Δt = t/copies.
+        copies: Number of copies; the first-order error O(t·Δt) decreases
+            linearly with it.
+        swap_width: Prefix bit width participating in the swap, defaulting to
+            the preparation's entire target (purification scenarios should
+            use ρ's system width, leaving the environment qubits in the copy
+            out of the swap).
+        name: Overrides the automatically generated module name.
 
     Returns:
-        Operation: 寄存器 system（swap_width 位）、copies（copies × prep.width 位）。
-        系统的输入态由调用方准备；拷贝寄存器从全零由制备 oracle 填充。"""
+        Operation: Registers system (swap_width bits) and copies
+        (copies × prep.width bits). The system's input state is prepared by
+        the caller; the copy registers are filled from all zeros by the
+        preparation oracle."""
     require_instance(preparation, StatePreparation, "density_matrix_exponentiation.preparation")
     finite_real(time, "density_matrix_exponentiation.time", minimum=0, strict=True)
     positive_integer(copies, "density_matrix_exponentiation.copies", minimum=1, maximum=63)
@@ -94,7 +106,7 @@ def density_matrix_exponentiation(
         swap_width, "density_matrix_exponentiation.swap_width", minimum=1, maximum=prep_width
     )
     if preparation.work_width:
-        raise ValidationError("拷贝制备需要零 work 的 StatePreparation（纯化适配请先拼接寄存器）")
+        raise ValidationError("copy preparation requires a StatePreparation with zero work width; adapt purifications by concatenating registers first")
     step = float(time) / copies
     b = Builder(
         name or _name("dm_exponentiation", preparation.operation, time, copies),
@@ -125,20 +137,25 @@ def qpca(
     swap_width: int | None = None,
     name: str | None = None,
 ) -> Operation:
-    """QPCA 主成分分析：对 ``e^{-iρ·step_time}`` 做相位估计，读出 ρ 的谱。
+    """QPCA principal component analysis: run phase estimation on ``e^{-iρ·step_time}`` and read out the spectrum of ρ.
 
     Args:
-        preparation: ρ 拷贝的态制备；共消耗 ``2**precision − 1`` 份拷贝。
-        precision: 相位寄存器位数，范围为 1..6（拷贝数随指数增长）。
-        step_time: 单步演化时间 Δt；须满足 λ·Δt ≪ 2π 以免读出混叠。
-        system: 可选的系统输入态制备（缺省为 ``|0>``）；不同本征态输入
-            对应读出不同的本征值峰。
-        swap_width: 参与交换的前缀位宽，语义同 density_matrix_exponentiation。
-        name: 覆盖自动生成的模块名。
+        preparation: State preparation of a ρ copy; ``2**precision − 1`` copies
+            are consumed in total.
+        precision: Number of phase register bits, in 1..6 (the copy count
+            grows exponentially).
+        step_time: Single-step evolution time Δt; it must satisfy λ·Δt ≪ 2π
+            to avoid readout aliasing.
+        system: Optional state preparation of the system input (default
+            ``|0>``); different eigenstate inputs correspond to different
+            eigenvalue peaks in the readout.
+        swap_width: Prefix bit width participating in the swap, same semantics
+            as density_matrix_exponentiation.
+        name: Overrides the automatically generated module name.
 
     Returns:
-        Operation: 寄存器 system、copies、phase。读出 phase 后用
-        eigenvalue_from_phase 解码本征值。"""
+        Operation: Registers system, copies, and phase. After reading out
+        phase, decode the eigenvalue with eigenvalue_from_phase."""
     require_instance(preparation, StatePreparation, "qpca.preparation")
     positive_integer(precision, "qpca.precision", minimum=1, maximum=6)
     finite_real(step_time, "qpca.step_time", minimum=0, strict=True)
@@ -146,11 +163,11 @@ def qpca(
     swap_width = prep_width if swap_width is None else swap_width
     positive_integer(swap_width, "qpca.swap_width", minimum=1, maximum=prep_width)
     if preparation.work_width:
-        raise ValidationError("拷贝制备需要零 work 的 StatePreparation（纯化适配请先拼接寄存器）")
+        raise ValidationError("copy preparation requires a StatePreparation with zero work width; adapt purifications by concatenating registers first")
     if system is not None:
         require_instance(system, StatePreparation, "qpca.system")
         if system.width != swap_width:
-            raise ValidationError("系统输入态宽度必须等于 swap_width")
+            raise ValidationError("the system input state width must equal swap_width")
     total_copies = (1 << precision) - 1
     resources = [("prep", preparation.operation)]
     if system is not None:
@@ -191,18 +208,19 @@ def qpca(
 
 
 def eigenvalue_from_phase(value: int, precision: int, step_time: float) -> float:
-    """把 qpca 的 phase 读出解码为 ρ 的本征值估计。
+    """Decode the phase readout of qpca into an eigenvalue estimate of ρ.
 
-    酉步 ``e^{-iρΔt}`` 的本征相位为 ``φ = -λΔt/(2π) (mod 1)``；本函数按
-    λ ∈ [0, π/Δt) 的分支解码，λ·Δt 超出该范围时发生混叠（调用方责任）。
+    The eigenphase of the unitary step ``e^{-iρΔt}`` is ``φ = -λΔt/(2π) (mod
+    1)``; this function decodes on the λ ∈ [0, π/Δt) branch, and aliasing
+    occurs when λ·Δt leaves that range (the caller's responsibility).
 
     Args:
-        value: phase 寄存器读数，取 0..2^precision−1 的整数。
-        precision: 相位寄存器位数，取 1..63。
-        step_time: 部分交换步的时长 Δt，取正实数。
+        value: phase register readout, an integer in 0..2^precision−1.
+        precision: Number of phase register bits, in 1..63.
+        step_time: Duration Δt of a partial swap step, a positive real.
 
     Returns:
-        float: 密度矩阵的本征值估计 λ。
+        float: Eigenvalue estimate λ of the density matrix.
     """
     positive_integer(precision, "eigenvalue_from_phase.precision", maximum=63)
     positive_integer(value, "eigenvalue_from_phase.value", minimum=0, maximum=(1 << precision) - 1)

@@ -1,1 +1,1 @@
-"输入模型与数据访问：oracle 范式与契约、块编码组合、稀疏/谱/低秩访问、QROM 数据加载与量子数据结构。"
+"Input models and data access: oracle paradigms and contracts, block-encoding composition, sparse/spectral/low-rank access, QROM data loading, and quantum data structures."

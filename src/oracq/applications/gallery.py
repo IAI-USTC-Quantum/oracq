@@ -1,4 +1,4 @@
-"""算法展示目录：每个条目提供可运行的小实例及其读出说明。"""
+"""Algorithm gallery: each entry provides a small runnable example and its readout instructions."""
 
 from __future__ import annotations
 
@@ -43,14 +43,14 @@ from oracq.infrastructure.linking import bind
 
 @dataclass(frozen=True)
 class GalleryCase:
-    """算法展示目录中的单个演示条目。
+    """A single demo entry in the algorithm gallery.
 
     Attributes:
-        name: 条目名，在目录内唯一。
-        family: 所属算法类别，与 ``oracq.algorithms`` 的模块名对应。
-        operation: 演示用完整 ``Operation``。
-        readout: 读出说明，描述期望的测量结果或判定方式。
-        opened: 绑定前的开放 ``Operation``；仅演示 oracle 绑定的条目提供，否则为 ``None``。
+        name: Entry name, unique within the gallery.
+        family: Algorithm family, matching a module name of ``oracq.algorithms``.
+        operation: The complete ``Operation`` used for the demo.
+        readout: Readout instructions describing the expected measurement outcome or decision rule.
+        opened: The open ``Operation`` before binding; provided only by entries demonstrating oracle binding, otherwise ``None``.
     """
 
     name: str
@@ -61,11 +61,11 @@ class GalleryCase:
 
 
 def algorithm_gallery() -> tuple[GalleryCase, ...]:
-    """返回小型案例；不运行后端，不读写文件，也不请求外部数据。
+    """Return small demo cases; no backend is run, no files are read or written, and no external data is requested.
 
     Returns:
-        tuple[GalleryCase, ...]: 演示条目目录，每条含完整 ``Operation``、
-        算法类别与读出说明。
+        tuple[GalleryCase, ...]: The gallery of demo entries, each with a
+        complete ``Operation``, its algorithm family and readout instructions.
     """
     cases: list[GalleryCase] = []
 
@@ -76,11 +76,11 @@ def algorithm_gallery() -> tuple[GalleryCase, ...]:
         readout: str,
         opened: Operation | None = None,
     ) -> None:
-        """把一条演示条目追加到目录。"""
+        """Append one demo entry to the gallery."""
         cases.append(GalleryCase(name, family, operation, readout, opened))
 
     f = affine_boolean_oracle(3, 5, bias=1)
-    add("deutsch_jozsa", "oracle_algorithms", deutsch_jozsa(f), "input 非零，判为平衡函数")
+    add("deutsch_jozsa", "oracle_algorithms", deutsch_jozsa(f), "input is non-zero, judged balanced")
     opened = bernstein_vazirani(abstract_database("SecretFunction", 3, 1))
     closed = Operation.from_program(bind(opened, {"SecretFunction": f.operation}))
     add("bernstein_vazirani", "oracle_algorithms", closed, "input=5", opened)
@@ -88,30 +88,30 @@ def algorithm_gallery() -> tuple[GalleryCase, ...]:
         "simon",
         "oracle_algorithms",
         simon_sample(gate_database(2, 1, [0, 1, 1, 0])),
-        "input 满足 y·3=0；用多次采样做 GF(2) 消元",
+        "input satisfies y*3=0; use repeated samples for GF(2) elimination",
     )
-    add("qft", "fourier", qft(3), "零输入变为均匀叠加")
-    add("fourier_add", "fourier", fourier_add(3), "输出 b=(a+b) mod 8，a 保留")
-    add("grover", "search", grover(phase_marks(2, [3]), 2).operation, "target=3，signal=0")
+    add("qft", "fourier", qft(3), "the zero input becomes a uniform superposition")
+    add("fourier_add", "fourier", fourier_add(3), "output is b=(a+b) mod 8, with a preserved")
+    add("grover", "search", grover(phase_marks(2, [3]), 2).operation, "target=3, signal=0")
     b = Builder("GalleryQuarterSuccess", {"target": Bits(1), "signal": Bits(1)})
     b.ry(b["signal"], 2 * math.pi / 3)
     add(
         "amplitude_amplification",
         "search",
         amplify_success(StateOracle(b.finish())).operation,
-        "一次放大后 signal=0 的概率为 1",
+        "after one amplification the probability of signal=0 is 1",
     )
     add(
         "amplitude_estimation",
         "estimation",
         amplitude_estimation(uniform_state(1), (1,), precision=3),
-        "phase 为 2 或 6，对应概率 1/2",
+        "phase is 2 or 6, corresponding to probability 1/2",
     )
     add(
         "quantum_counting",
         "estimation",
         amplitude_estimation(uniform_state(2), (3,), precision=4),
-        "将振幅估计乘以 4，得到标记个数的估计",
+        "multiply the amplitude estimate by 4 to estimate the number of marked items",
     )
     b = Builder("GalleryPhase", {"target": Bits(1)})
     b.gate("phase", b["target"], math.pi / 2)
@@ -119,55 +119,55 @@ def algorithm_gallery() -> tuple[GalleryCase, ...]:
     b = Builder("GalleryQPE", {"target": Bits(1), "phase": Bits(3)})
     b.x(b["target"])
     b.call(phase_estimation(phase, precision=3), target=b["target"], phase=b["phase"])
-    add("phase_estimation", "estimation", b.finish(), "phase=2，表示相位 1/4")
+    add("phase_estimation", "estimation", b.finish(), "phase=2, representing phase 1/4")
     add(
         "hadamard_real",
         "estimation",
         hadamard_test(phase, basis_state(1, 1)),
-        "probe 的 Z 期望为 0",
+        "the Z expectation of probe is 0",
     )
     add(
         "hadamard_imag",
         "estimation",
         hadamard_test(phase, basis_state(1, 1), component="imag"),
-        "probe 的 Z 期望为 1",
+        "the Z expectation of probe is 1",
     )
     add(
         "swap_test",
         "estimation",
         swap_test(basis_state(1), basis_state(1, 1)),
-        "两个正交态，probe=0 的概率为 1/2",
+        "two orthogonal states; the probability of probe=0 is 1/2",
     )
     add(
         "ansatz",
         "variational",
         hardware_efficient_ansatz(2, (((0.3, 0.1), (0.5, -0.2)),)),
-        "参数化纯态，作为优化器的电路生成步骤",
+        "a parameterized pure state, serving as the circuit generation step of the optimizer",
     )
     add(
         "qaoa_maxcut",
         "variational",
         qaoa_maxcut(2, ((0, 1, 1),), (math.pi / 2,), (math.pi / 8,)),
-        "target=01 或 10，达到单边 MaxCut",
+        "target=01 or 10, attaining MaxCut on the single edge",
     )
     add(
         "vqe_pauli_measurement",
         "variational",
         pauli_measurement(uniform_state(1), "X"),
-        "target=0，对应 X 期望为 1",
+        "target=0, corresponding to an X expectation of 1",
     )
-    add("cycle_walk", "walks", cycle_walk(2, steps=2), "读取 position/coin；保留相干叠加")
+    add("cycle_walk", "walks", cycle_walk(2, steps=2), "read position/coin; the coherent superposition is preserved")
     add(
         "modular_multiply",
         "number_theory",
         modular_multiply(2, 5),
-        "x<5 时映射到 2x mod 5，其余不变",
+        "maps to 2x mod 5 when x<5, unchanged otherwise",
     )
     add(
         "order_finding",
         "number_theory",
         order_finding(2, 3, precision=3),
-        "phase 为 0 或 4；非零样本给出阶 2",
+        "phase is 0 or 4; a non-zero sample yields order 2",
     )
     for error in ("bit", "phase"):
         b = Builder("GalleryRepetition_" + error, {"target": Bits(1), "syndrome": Bits(2)})
@@ -179,13 +179,13 @@ def algorithm_gallery() -> tuple[GalleryCase, ...]:
             "repetition_" + error,
             "error_correction",
             b.finish(),
-            "恢复逻辑 |+>，syndrome 保留错误信息",
+            "recovers the logical |+>; the syndrome retains the error information",
         )
     h = PauliHamiltonian(((0.3, "I"), (0.7, "X")))
     add(
         "hamiltonian_trotter",
         "hamiltonian",
         hamiltonian_simulation(h, 0.4, steps=3).operation,
-        "完整酉演化，包含全局相位",
+        "the full unitary evolution, including the global phase",
     )
     return tuple(cases)

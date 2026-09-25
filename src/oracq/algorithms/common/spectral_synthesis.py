@@ -1,16 +1,21 @@
-"""算子级电路合成优化（arXiv:2509.08807 附录 D）。
+"""Operator-level circuit synthesis optimizations (arXiv:2509.08807 appendix D).
 
-实现论文的三类逻辑资源优化并保证酉语义不变：
+This implements the paper's three logical-resource optimizations while
+preserving the unitary semantics exactly:
 
-1. 均匀受控旋转（UCR）：把态制备的多控旋转树改写为"纯旋转 + CNOT 阶梯"，
-   消除多控 Toffoli；
-2. 相似群合并（match by signal / similar group）：线性组合中只差全局符号
-   或标量倍数的项合并为一项，系数吸收进制备幅度；
-3. fan-out 相位网格：FBBE 的受控相位层改写为"单比特旋转 + fan-out CNOT"，
-   消除受控旋转（论文图 9(a2)）。
+1. Uniformly controlled rotations, UCR: rewrite the multi-controlled rotation
+   tree of a state preparation into plain rotations plus a CNOT ladder,
+   eliminating multi-controlled Toffoli gates;
+2. Similar-group merging, match by signal / similar group: merge terms of a
+   linear combination that differ only by a global sign or a scalar factor
+   into one term, absorbing the coefficient into the preparation amplitudes;
+3. Fan-out phase grid: rewrite the controlled-phase layer of an FBBE into
+   single-qubit rotations plus fan-out CNOTs, eliminating controlled
+   rotations, see Figure 9(a2) of the paper.
 
-每个构造在 tests/core/test_spectral_synthesis.py 中与朴素构造做逐元素
-矩阵对照，并用 estimate_resources 验证资源下降。
+Each construction is compared elementwise against the naive construction in
+tests/core/test_spectral_synthesis.py, and estimate_resources verifies the
+resource reduction.
 """
 
 from __future__ import annotations
@@ -38,10 +43,12 @@ from oracq.infrastructure.ir import Bits, Ref, ValidationError
 def _emit_ucr(
     builder: Builder, target: Ref, controls: list[Ref], thetas: Sequence[float]
 ) -> None:
-    """递归 UCR：CX; UCR(diff); CX; UCR(mean)，thetas 按控制前缀索引。
+    """Recursive UCR: CX; UCR(diff); CX; UCR(mean), with thetas indexed by control
+    prefix.
 
-    前缀位序：controls[0] 是最低位。等价于按前缀值的多控 Ry 树
-    （gate_state_prep 的受控层），但只使用单比特旋转与 CNOT。
+    Prefix bit order: controls[0] is the least significant bit. Equivalent to
+    a multi-controlled Ry tree indexed by prefix value, the controlled layer
+    of gate_state_prep, but using only single-qubit rotations and CNOTs.
     """
     if not controls:
         if thetas[0]:
@@ -60,21 +67,26 @@ def _emit_ucr(
 def uniformly_controlled_prep(
     amplitudes: Iterable[complex], *, name: str | None = None
 ) -> StatePreparation:
-    """UCR 版态制备：与 gate_state_prep 酉等价，无多控旋转。
+    """UCR state preparation: unitarily equivalent to gate_state_prep, without
+    multi-controlled rotations.
 
-    每层 2^d 个受控 Ry 改写为 2^d 个单比特 Ry 与 2^d 个 CNOT；
-    复相位仍由受控 gphase 写入。
+    Each layer's 2^d controlled Ry rotations are rewritten into 2^d
+    single-qubit Ry rotations and 2^d CNOTs; the complex phases are still
+    written by controlled gphase.
 
     Args:
-        amplitudes: 目标态的复振幅序列，长度为 2 的幂且非全零。
-        name: 生成的制备模块名；缺省自动生成。
+        amplitudes: Complex amplitude sequence of the target state, with power-of-two
+            length, not all zero.
+        name: Name of the generated preparation module; generated automatically when
+            omitted.
 
     Returns:
-        StatePreparation: 仅含单比特旋转与 CNOT 的态制备句柄。
+        StatePreparation: State preparation handle containing only single-qubit
+        rotations and CNOTs.
     """
     values, n, nodes = _state_angles(amplitudes)
     if n == 0:
-        raise ValidationError("态制备需要至少一个目标位")
+        raise ValidationError("State preparation requires at least one target qubit")
     b = Builder(
         name or _name("ucr_state", values),
         {"target": Bits(n), "work": Bits(0)},
@@ -104,17 +116,22 @@ def uniformly_controlled_prep(
 def merge_similar(
     terms: Iterable[tuple[complex, BlockEncoding]],
 ) -> list[tuple[complex, BlockEncoding]]:
-    """按块编码恒等合并线性组合项（match by signal / similar group）。
+    """Merge linear-combination terms by block-encoding identity, match by signal /
+    similar group.
 
-    操作相同的项（含只差全局符号 −1 的情形）合并为一项、系数求和；
-    系数归零的项删除。这是精确代数重写：LCU 的 α 与角块不变，
-    但 SELECT 分支数、制备幅度树与受控调用数下降。
+    Terms with identical operations, including the case differing only by the
+    global sign −1, merge into one term with summed coefficients; terms whose
+    coefficient vanishes are dropped. This is an exact algebraic rewrite: the
+    LCU α and the angle block are unchanged, while the SELECT branch count,
+    the preparation amplitude tree and the controlled call count all decrease.
 
     Args:
-        terms: (系数, 块编码) 线性组合项序列；零系数项直接丢弃。
+        terms: Linear-combination term sequence of, coefficient and block encoding,
+            pairs; zero-coefficient terms are dropped directly.
 
     Returns:
-        list[tuple[complex, BlockEncoding]]: 按块编码恒等合并、系数求和后的项列表。
+        list[tuple[complex, BlockEncoding]]: Term list merged by block-encoding identity
+        with summed coefficients.
     """
     merged: dict[str, list[complex | BlockEncoding]] = {}
     order: list[str] = []
@@ -134,20 +151,26 @@ def merge_similar(
 
 
 def fanout_spectral_diagonal(spectrum: Mapping[int, complex], width: int) -> BlockEncoding:
-    """FBBE 的 fan-out 形式：受控相位网格改写为旋转 + fan-out CNOT。
+    """Fan-out form of an FBBE: the controlled-phase grid is rewritten as rotations
+    plus fan-out CNOTs.
 
-    论文图 9(a2)：每个谱位控制的相位层 = 每目标位一个半角旋转、
-    fan-out CNOT、反号半角旋转、再 fan-out CNOT；共享同一控制位的
-    CNOT 构成多目标 fan-out X（表面码晶格手术的原生操作）。RIR 中
-    fan-out 体现为同源 xor 序列。与 spectral_diagonal 的 sequential
-    变体逐元素等价。
+    Figure 9(a2) of the paper: each spectral-bit-controlled phase layer
+    becomes one half-angle rotation per target bit, a fan-out CNOT, a negated
+    half-angle rotation and another fan-out CNOT; CNOTs sharing the same
+    control bit form a multi-target fan-out X, a native operation of surface
+    code lattice surgery. In the RIR the fan-out appears as a same-source xor
+    sequence. Elementwise equivalent to the sequential variant of
+    spectral_diagonal.
 
     Args:
-        spectrum: 谱频率到复系数的映射；频率按 mod 2^width 的整数解释。
-        width: 目标寄存器位宽，决定相位角分母 2^width。
+        spectrum: Mapping from spectral frequencies to complex coefficients; the
+            frequencies are interpreted as integers mod 2^width.
+        width: Target register bit width, determining the phase angle denominator
+            2^width.
 
     Returns:
-        BlockEncoding: fan-out 形式的谱对角块编码，尺度为系数绝对值之和。
+        BlockEncoding: Spectral diagonal block encoding in fan-out form, with scale
+        equal to the sum of absolute coefficient values.
     """
     k_min, coefficients = normalized_spectrum(spectrum)
     s = _spectrum_register_width(coefficients)
@@ -189,8 +212,9 @@ def fanout_spectral_diagonal(spectrum: Mapping[int, complex], width: int) -> Blo
             b.gate("phase", b["target"][q], -angle / 2)
         for q, _ in pairs:
             b.xor(control, b["target"][q])
-        # 三明治分解在 control=1 分支残留 e^{-i*theta/2} 相位（逐对累积）；
-        # 在控制位上补一个单比特相位门精确抵消。
+        # The sandwich decomposition leaves a residual e^{-i*theta/2} phase on the
+        # control=1 branch, accumulating pair by pair; a single-qubit phase gate on
+        # the control bit cancels it exactly.
         b.gate("phase", control, sum(angle for _, angle in pairs) / 2)
     for j, c in enumerate(coefficients):
         if c and cmath.phase(c):

@@ -1,4 +1,4 @@
-"""生成设计案例面板与开放/绑定/后端产物。"""
+"""Generate the design-case gallery and the open/bound/backend artifacts."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def main():
         closed = case.closed()
         remaining = unresolved(closed)
         if remaining:
-            raise RuntimeError(f"{name} 的具体实例仍有未绑定槽：{remaining}")
+            raise RuntimeError(f"Concrete instance of {name} still has unbound slots: {remaining}")
         (directory / "open.rir.yaml").write_text(dumps(case.program))
         (directory / "closed.rir.yaml").write_text(dumps(closed))
         partial_keys = sorted(case.bindings)[: len(case.bindings) // 2]

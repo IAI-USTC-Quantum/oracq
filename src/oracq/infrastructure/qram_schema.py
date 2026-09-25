@@ -1,4 +1,4 @@
-"QRAM 内存定义文件（``*.qram.yaml``）的解析、加载与写出。"
+"Parsing, loading and writing of QRAM memory definition files (``*.qram.yaml``)."
 
 from __future__ import annotations
 
@@ -11,20 +11,20 @@ import yaml
 from oracq.infrastructure.execution import check_memory
 from oracq.infrastructure.ir import Program, ValidationError
 
-# 支持的数据类型；文件中写源数据类型，加载时统一编码为无符号字。
+# Supported data types; files store source data types, and loading uniformly encodes them as unsigned words.
 QRAM_DATA_TYPES = ("uint", "sint", "fixedpoint")
 
 
 @dataclass(frozen=True)
 class QramSegment:
-    """qram YAML 中的一个段。
+    """One segment in a qram YAML file.
 
     Attributes:
-        name: 存储名，执行时按入口资源名索引。
-        address_length: 地址位宽，1..64，对应 RIR QRAM 的 address_width。
-        word_length: 数据字位宽，1..64，对应 RIR QRAM 的 data_width。
-        type: 数据类型，见 QRAM_DATA_TYPES；data 按该类型解释。
-        data: 稠密源数据数组，下标即地址；短于 2^address_length 时高位单元按零补齐。
+        name: storage name, indexed by entry resource name at execution time.
+        address_length: address bit width, 1..64, corresponding to the RIR QRAM address_width.
+        word_length: data word bit width, 1..64, corresponding to the RIR QRAM data_width.
+        type: data type, see QRAM_DATA_TYPES; data is interpreted under this type.
+        data: dense source data array with the index as the address; cells above it are zero-padded when shorter than 2^address_length.
     """
 
     name: str
@@ -36,28 +36,28 @@ class QramSegment:
 
 def _require_width(value: object, what: str) -> int:
     if type(value) is not int or not 1 <= value <= 64:
-        raise ValidationError(f"{what} 必须是 1..64 的整数")
+        raise ValidationError(f"{what} must be an integer in 1..64")
     return value
 
 
 def _parse_words(name: str, word_length: int, data_type: str, words: object) -> tuple[int, ...] | tuple[float, ...]:
     limit = 1 << word_length
     if not isinstance(words, list):
-        raise ValidationError(f"段 {name} 的 data 必须是数组")
+        raise ValidationError(f"data of segment {name} must be an array")
     for value in words:
         if data_type == "uint":
             if type(value) is not int or not 0 <= value < limit:
-                raise ValidationError(f"段 {name} 的字必须是 word_length 位宽内的无符号整数")
+                raise ValidationError(f"words of segment {name} must be unsigned integers within the word_length bit width")
         elif data_type == "sint":
             if type(value) is not int or not -(limit >> 1) <= value < limit >> 1:
-                raise ValidationError(f"段 {name} 的字必须是 word_length 位宽内的有符号整数")
+                raise ValidationError(f"words of segment {name} must be signed integers within the word_length bit width")
         elif type(value) not in (int, float) or not 0 <= value < 1:
-            raise ValidationError(f"段 {name} 的 fixedpoint 值必须在 [0, 1) 内")
-    return tuple(words)  # type: ignore[return-value]  # 元素类型已按 data_type 逐一校验。
+            raise ValidationError(f"fixedpoint values of segment {name} must be at least 0 and less than 1")
+    return tuple(words)  # type: ignore[return-value]  # element types have been checked one by one per data_type.
 
 
 def _encode_word(segment: QramSegment, value: int | float) -> int:
-    """把单个源数据编码为无符号字（与 FixedFormat.encode 同为向零截断）。"""
+    """Encode a single source datum as an unsigned word (truncating toward zero like FixedFormat.encode)."""
     if segment.type == "uint":
         return int(value)
     if segment.type == "sint":
@@ -70,67 +70,69 @@ def _encode_words(segment: QramSegment) -> list[int]:
 
 
 def parse_qram_yaml(document: str) -> tuple[QramSegment, ...]:
-    """解析并校验一份 qram YAML 内存定义文本。
+    """Parse and validate one qram YAML memory definition text.
 
     Args:
-        document: YAML 文本，顶层仅含 ``qram_segments`` 列表。
+        document: YAML text whose top level contains only the ``qram_segments`` list.
 
     Returns:
-        tuple: 段元组，按文件内出现顺序；data 保留源数据（按 type 解释）。
+        tuple: segment tuple in order of appearance in the file; data keeps the source values, interpreted per type.
 
     Raises:
-        ValidationError: 文本不是合法 YAML、结构不符、段名缺失或重复、
-            位宽越界、数据类型不受支持，或源数据越出 type 与 word_length
-            规定的范围。
+        ValidationError: the text is not valid YAML, the structure does not match, a segment name is missing or duplicated,
+            a bit width is out of range, the data type is unsupported, or the source data falls outside the range
+            set by type and word_length.
     """
     try:
         root = yaml.safe_load(document)
     except yaml.YAMLError as exc:
-        raise ValidationError(f"QRAM 内存定义不是合法 YAML：{exc}") from exc
+        raise ValidationError(f"QRAM memory definition is not valid YAML: {exc}") from exc
     if not isinstance(root, Mapping) or set(root) != {"qram_segments"}:
-        raise ValidationError("QRAM 内存定义必须且只能包含 qram_segments")
+        raise ValidationError("the QRAM memory definition must contain qram_segments and nothing else")
     segments = root["qram_segments"]
     if not isinstance(segments, list):
-        raise ValidationError("qram_segments 必须是段列表")
+        raise ValidationError("qram_segments must be a list of segments")
     fields = {"name", "address_length", "word_length", "type", "data"}
     result: list[QramSegment] = []
     seen: set[str] = set()
     for index, raw in enumerate(segments):
-        where = f"第 {index} 个段"
+        where = f"segment {index}"
         if not isinstance(raw, Mapping) or set(raw) != fields:
             raise ValidationError(
-                f"{where} 必须且只能包含 name、address_length、word_length、type 与 data"
+                f"{where} must contain exactly name, address_length, word_length, type and data"
             )
         name = raw["name"]
         if not isinstance(name, str) or not name or name in seen:
-            raise ValidationError("段名必须是非空字符串且在文件内唯一")
+            raise ValidationError("segment names must be nonempty strings unique within the file")
         seen.add(name)
-        address_length = _require_width(raw["address_length"], f"段 {name} 的 address_length")
-        word_length = _require_width(raw["word_length"], f"段 {name} 的 word_length")
+        address_length = _require_width(raw["address_length"], f"address_length of segment {name}")
+        word_length = _require_width(raw["word_length"], f"word_length of segment {name}")
         data_type = raw["type"]
         if data_type not in QRAM_DATA_TYPES:
-            raise ValidationError(f"段 {name} 的数据类型必须是 {QRAM_DATA_TYPES} 之一")
+            raise ValidationError(f"data type of segment {name} must be one of {QRAM_DATA_TYPES}")
         words = raw["data"]
         if isinstance(words, list) and len(words) > 1 << address_length:
-            raise ValidationError(f"段 {name} 的 data 长度不能超过 2^address_length")
+            raise ValidationError(f"data length of segment {name} cannot exceed 2^address_length")
         data = _parse_words(name, word_length, data_type, words)
         result.append(QramSegment(name, address_length, word_length, data_type, data))
     return tuple(result)
 
 
 def load_qram_yaml(path: str | Path) -> dict[str, list[int]]:
-    """加载 qram YAML 内存定义文件为执行器接受的内存映射。
+    """Load a qram YAML memory definition file into the memory mapping accepted by executors.
 
-    源数据按段类型编码为无符号字（sint 取补码位模式，fixedpoint 乘以
-    2^word_length 后向零截断），并补零到 2^address_length 长；资源名集合
-    与数据范围在执行时由 check_memory 与程序声明交叉校验。
+    Source data is encoded per segment type into unsigned words (sint takes the
+    two's-complement bit pattern, fixedpoint multiplies by 2^word_length then
+    truncates toward zero) and zero-padded to 2^address_length length; the resource
+    name set and data ranges are cross-checked against program declarations by
+    check_memory at execution time.
 
     Args:
-        path: YAML 文件路径。
+        path: YAML file path.
 
     Returns:
-        dict: 资源名到稠密字数组的映射，与 ``simulate`` 等执行入口的
-        ``memory`` 参数同形。
+        dict: mapping from resource names to dense word arrays, the same shape as
+        the ``memory`` parameter of execution entry points such as ``simulate``.
     """
     result = {}
     for segment in parse_qram_yaml(Path(path).read_text(encoding="utf-8")):
@@ -144,19 +146,22 @@ def dump_qram_yaml(
     program: Program,
     memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None,
 ) -> str:
-    """把入口的 QRAM 绑定数据写为 qram YAML 文本。
+    """Write the entry's QRAM binding data as qram YAML text.
 
-    先经 check_memory 规整与交叉校验（稀疏字典稠密化，零单元与缺省高位单元
-    均按零），再按入口资源声明顺序生成段；执行器侧的字已是位宽内无符号整数，
-    段类型恒为 uint；稠密数组避免稀疏字典的字符串键歧义。
+    The data is first normalized and cross-checked by check_memory (sparse dicts
+    densified, with zero cells and missing high cells both treated as zero), then
+    segments are generated in entry resource declaration order; on the executor
+    side the words are already unsigned integers within the bit width, so the
+    segment type is always uint; the dense array avoids the string-key ambiguity
+    of sparse dicts.
 
     Args:
-        program: 封闭 RIR 程序，提供资源名与位宽声明。
-        memory: 按资源名提供的数据；每项为字序列或 ``地址 -> 字`` 的稀疏字典，
-            ``None`` 视为全零。资源集合必须与入口声明完全一致。
+        program: closed RIR program providing resource name and bit width declarations.
+        memory: data provided by resource name; each item is a word sequence or a sparse ``address -> word`` dict,
+            and ``None`` is treated as all zeros. The resource set must exactly match the entry declaration.
 
     Returns:
-        str: qram YAML 文本，由调用方写盘或哈希。
+        str: qram YAML text, written to disk or hashed by the caller.
     """
     cells = check_memory(program, memory)
     segments = []

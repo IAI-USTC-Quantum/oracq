@@ -1,4 +1,4 @@
-"可选 PySparQ 执行适配器。RIR 的根寄存器对应原生整数寄存器。"
+"Optional PySparQ execution adapter. RIR root registers correspond to native integer registers."
 
 from __future__ import annotations
 
@@ -31,56 +31,59 @@ def run_pysparq(
     native_registry: NativeRegistry | None = None,
     report: dict[str, int | list[str] | str] | None = None,
 ) -> RegisterState:
-    """经 PySparQ 稀疏寄存器模拟器按事件执行程序。
+    """Execute a program event by event through the PySparQ sparse register simulator.
 
-    RIR 根寄存器映射为 PySparQ 的原生命名寄存器，门与 QRAM 查询在稀疏态上
-    逐个应用。需要已安装 pysparq 的解释器，依赖缺失时抛 ValidationError。
-    整个执行持有模块级互斥锁，接管前要求 PySparQ 全局寄存器表为空，并在
-    结束或异常退出时清理本适配器创建的寄存器。
+    RIR root registers map to PySparQ native named registers, with gates
+    and QRAM queries applied one by one on the sparse state. An
+    interpreter with pysparq installed is required; a missing dependency
+    raises ValidationError. The whole execution holds a module-level mutex,
+    requires the PySparQ global register table to be empty before taking
+    over, and cleans up the registers created by this adapter on normal or
+    exceptional exit.
 
     Args:
-        program: 待执行的程序；未提供 ``native_registry`` 时必须闭合。
-        memory: 按资源名提供的 QRAM 数据，值为完整字序列或地址到字的稀疏字典；省略时全部为零，提供时必须恰好覆盖入口的全部资源。
-        max_steps: 展开预算，估计步骤数超过该值即拒绝执行。
-        max_states: 稀疏基态数量预算，门或原生算子应用后超出即中止。
-        native_registry: 模块级原生实现注册表；提供后，开放 oracle 可由原生实现闭合。
-        report: 传入的字典会被就地填充执行统计，键为 ``native_calls``、
-            ``gate_events``、``native_labels`` 与 ``correctness``（后者初始化为 ``pending``）。
+        program: The program to execute; it must be closed when ``native_registry`` is not provided.
+        memory: QRAM data keyed by resource name, either a full word sequence or a sparse address-to-word dictionary; all zeros when omitted, and when provided it must cover exactly all resources of the entry.
+        max_steps: Expansion budget; execution is refused once the estimated step count exceeds it.
+        max_states: Sparse basis-state budget; execution aborts once it is exceeded after a gate or native operator application.
+        native_registry: Module-level native implementation registry; when provided, open oracles can be closed by native implementations.
+        report: The passed-in dictionary is filled in place with execution statistics, keyed ``native_calls``,
+            ``gate_events``, ``native_labels`` and ``correctness`` (the last initialized to ``pending``).
 
     Returns:
-        RegisterState: 以入口各寄存器整数值元组为键的稀疏复幅度，幅度低于 1e-15 的分量被丢弃。
+        RegisterState: Sparse complex amplitudes keyed by tuples of the entry registers' integer values, with components below 1e-15 dropped.
 
     Raises:
-        ValidationError: 程序非法、含运行期 Store、原生实现缺失或与模块描述不匹配、
-            QRAM 物化超过 2^20 项、超出展开或稀疏态预算、局部工作区未复净、
-            PySparQ 全局寄存器表非空，或 pysparq 未安装。
+        ValidationError: The program is illegal, contains a runtime Store, a native implementation is missing or mismatches the module description,
+        the QRAM materialization exceeds 2^20 entries, the expansion or sparse-state budget is exceeded, a local workspace is not restored to zero,
+        the PySparQ global register table is non-empty, or pysparq is not installed.
     """
     from oracq.infrastructure.linking import uses_store
 
     program = validate(program, require_closed=native_registry is None)
     if uses_store(program):
-        raise ValidationError("PySparQ 适配器暂不支持运行期 QRAM 写（Store）")
+        raise ValidationError("the PySparQ adapter does not yet support runtime QRAM writes via Store")
     native_modules = frozenset() if native_registry is None else native_registry.matching(program)
     if native_registry is not None and native_registry.missing(program):
-        raise ValidationError("PySparQ 缺少实现：" + ", ".join(native_registry.missing(program)))
+        raise ValidationError("PySparQ is missing implementations: " + ", ".join(native_registry.missing(program)))
     report = {} if report is None else report
     report.update(native_calls=0, gate_events=0, native_labels=[], correctness="pending")
     memories = check_memory(program, memory)
     if any(r.type.address_width > 20 for r in program.main.resources):
-        raise ValidationError("当前适配器拒绝物化超过 2^20 项的 QRAM")
-    # 在接管全局注册表前完成展开预算检查。
+        raise ValidationError("the current adapter refuses to materialize QRAMs with more than 2^20 entries")
+    # Finish the expansion budget check before taking over the global register table.
     from oracq.infrastructure.execution import expanded_steps
 
     if expanded_steps(program, max_steps, native_modules) > max_steps:
-        raise ValidationError("PySparQ 执行超过展开预算")
+        raise ValidationError("PySparQ execution exceeds the expansion budget")
     try:
         import pysparq as ps
     except ImportError as exc:
-        raise ValidationError("PySparQ 执行需要已安装 pysparq 的环境") from exc
+        raise ValidationError("PySparQ execution requires an environment with pysparq installed") from exc
 
     with _LOCK:
         if ps.System.get_activated_register_size():
-            raise ValidationError("PySparQ 的全局寄存器表非空；请先结束已有模拟")
+            raise ValidationError("the PySparQ global register table is not empty; finish the existing simulation first")
         try:
             state = ps.SparseState()
             names = {reg.name: f"pyqec_{i}" for i, reg in enumerate(program.main.registers)}
@@ -103,19 +106,19 @@ def run_pysparq(
                 )
 
             def apply(operator: object, controls: Sequence[tuple[str, int]] = ()) -> None:
-                """在当前稀疏态上施加算子并检查稀疏态数量预算。"""
+                """Apply an operator to the current sparse state and check the sparse-state budget."""
                 if controls:
-                    # pysparq 原生算子为动态后端对象，无类型存根可用。
+                    # pysparq native operators are dynamic backend objects with no type stubs available.
                     operator.conditioned_by_bit(list(controls))  # type: ignore[attr-defined]
                 operator(state)  # type: ignore[operator]
                 if len(state.basis_states) > max_states:
-                    raise ValidationError("PySparQ 执行超过稀疏态数量预算")
+                    raise ValidationError("PySparQ execution exceeds the sparse-state budget")
 
             def actual(ref: Ref) -> list[tuple[str, int]]:
-                """把视图解析为 PySparQ 的 ``(寄存器名, 位)`` 坐标列表。"""
+                """Resolve a view into the list of PySparQ ``(register name, bit)`` coordinates."""
                 return [(names[name], bit) for name, bit in locations(ref)]
 
-            # 程序已在上方拒绝 Store，事件流中实际只会出现其余五类节点。
+            # Store was already rejected above, so only the other five node kinds actually appear in the event stream.
             for node, conditions, inverse in cast(
                 "Iterator[tuple[Primitive | Load | NativeSite | LocalEnter | LocalExit, tuple[tuple[Ref, int], ...], bool]]",
                 events(program, max_steps=max_steps, native_modules=native_modules),
@@ -131,7 +134,7 @@ def run_pysparq(
                         int(basis.get(rid).value) & ((1 << node.width) - 1)
                         for basis in state.basis_states
                     ):
-                        raise ValidationError(f"PySparQ 局部工作区未复净：{node.name}")
+                        raise ValidationError(f"the PySparQ local workspace was not restored to zero: {node.name}")
                     ps.RemoveRegister(native_name)(state)
                     del names[node.name]
                     continue
@@ -144,7 +147,7 @@ def run_pysparq(
                 for pair in zeros:
                     ps.Xgate_Bool(*pair)(state)
                 if isinstance(node, NativeSite):
-                    # NativeSite 事件仅在提供了原生注册表（native_modules 非空）时产生。
+                    # NativeSite events are only produced when a native registry is provided, i.e. native_modules is non-empty.
                     entry = cast(NativeRegistry, native_registry).entries[node.module.name]
                     context = NativeContext(ps, node, names, qrams, memories)
                     untouched = (
@@ -163,7 +166,7 @@ def run_pysparq(
                             operator = entry.factory(context)
                             (operator.dag if inverse else operator)(state)
                             if len(state.basis_states) > max_states:
-                                raise ValidationError("原生算子超过稀疏态预算")
+                                raise ValidationError("the native operator exceeds the sparse-state budget")
                     finally:
                         if untouched is not None:
                             ps.combine_systems(state, untouched)
@@ -171,7 +174,7 @@ def run_pysparq(
                     if entry.label not in cast("list[str]", report["native_labels"]):
                         cast("list[str]", report["native_labels"]).append(entry.label)
                 elif isinstance(node, Load):
-                    # 视图通过可逆 XOR 复制到临时整数寄存器；载入后完整反算。
+                    # The view is copied into temporary integer registers via reversible XOR; fully uncomputed after loading.
                     a: str | tuple[str, int]
                     d: str
                     a, d = "pyqec_tmp_address", "pyqec_tmp_data"
@@ -250,28 +253,28 @@ def run_pysparq_rir(
     max_steps: int = 1_000_000,
     max_states: int = 65536,
 ) -> RegisterState:
-    """经 PySparQ 原生 RIR 解释器执行；与 run_pysparq 互为独立实现，用于交叉验证。
+    """Execute through the PySparQ native RIR interpreter; an implementation independent of run_pysparq, used for cross-validation.
 
     Args:
-        program: 待执行的闭合 RIR 程序；不得含运行期 QRAM 写（Store）。
-        memory: 资源名到 QRAM 内容的绑定；序列按下标、映射按地址给数据字。
-        max_steps: 解释器展开执行的指令步数预算上限。
-        max_states: 解释器维护的基矢数预算上限。
+        program: The closed RIR program to execute; it must not contain runtime QRAM writes via Store.
+        memory: Binding from resource names to QRAM contents; sequences give data words by index, mappings by address.
+        max_steps: The interpreter's instruction-step budget cap for expanded execution.
+        max_states: The interpreter's budget cap on the number of maintained basis states.
 
     Returns:
-        RegisterState: 入口公开寄存器空间上的末态，以各寄存器整数值元组
-        为键的稀疏复振幅。
+        RegisterState: The final state over the entry's public register space, as sparse complex
+        amplitudes keyed by tuples of the registers' integer values.
     """
     from oracq.infrastructure.linking import uses_store
     from oracq.infrastructure.serialization import dumps
 
     program = validate(program, require_closed=True)
     if uses_store(program):
-        raise ValidationError("PySparQ RIR 解释器暂不支持运行期 QRAM 写（Store）")
+        raise ValidationError("the PySparQ RIR interpreter does not yet support runtime QRAM writes via Store")
     memories = check_memory(program, memory)
     try:
         import pysparq as ps
     except ImportError as exc:
-        raise ValidationError("PySparQ RIR 执行需要已安装 pysparq 的环境") from exc
+        raise ValidationError("PySparQ RIR execution requires an environment with pysparq installed") from exc
     result = ps.run_rir(dumps(program), memories, max_steps=max_steps, max_states=max_states)
     return RegisterState(program.main.registers, dict(result.amplitudes))

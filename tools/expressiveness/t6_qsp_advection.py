@@ -1,19 +1,24 @@
-"""表达力基准 T6：QSP 求解 1D 对流方程（oracq 侧，重实现 qsp4pde 示例）。
+"""Expressiveness benchmark T6: QSP solving the 1D advection equation (oracq side, re-implementation of a qsp4pde example).
 
-规格（benchmarks/t6/SPEC.md，对齐 qsp4pde README 快速上手）：
-du/dt + r du/dx = 0，N = 16 点周期网格，r = 1.0，t = 0.2，初值
-gaussian_shifted（mu = -0.25, Sigma = 0.1）；参考解为 Fourier 谱精确平移
-psi(t) = ifft(exp(-i 2π k r t) fft(u0))。
+Specification (benchmarks/t6/SPEC.md, aligned with the qsp4pde README quick
+start):
+du/dt + r du/dx = 0, N = 16 points on a periodic grid, r = 1.0, t = 0.2,
+initial value gaussian_shifted (mu = -0.25, Sigma = 0.1); the reference
+solution is the exact Fourier spectral shift
+psi(t) = ifft(exp(-i 2π k r t) fft(u0)).
 
-装配：Fourier 对角生成元 D = diag(2π·k_signed)（角数据库对角块编码，
-alpha = ‖D‖ = 8）；传播 e^{i τ D/8}（τ = +2π r t·8，正号 QFT 约定下即
-前向平移）经 QSVT 相位多项式实现——qsvt_hamiltonian_simulation 内部即
-qsp_phases 相位合成 + qsvt_sequence 装配（Jacobi–Anger 分支）。库的 QSP
-相位合成适用范围 |τ| ≲ 2.5，故按乘积公式分 m = 5 步（每步 |τ'| = 2.011），
-逐步以信号后选择块 × sim_scale 重编码初态（measure-and-prepare 协议）。
-QFT/逆 QFT 由 fourier.qft_with_work 提供。
+Assembly: Fourier diagonal generator D = diag(2π·k_signed) (diagonal block
+encoding via an angle database, alpha = ‖D‖ = 8); propagation of e^{i τ D/8}
+(τ = +2π r t·8, which under the positive-sign QFT convention is the forward
+shift) is realized via the QSVT phase polynomial - qsvt_hamiltonian_simulation
+internally is qsp_phases phase synthesis + qsvt_sequence assembly (the
+Jacobi-Anger branch). The library's QSP phase synthesis applies for
+|τ| ≲ 2.5, so the product formula is split into m = 5 steps (each
+|τ'| = 2.011), re-encoding the initial state after each step from the
+signal post-selection block × sim_scale (a measure-and-prepare protocol).
+QFT/inverse QFT are provided by fourier.qft_with_work.
 
-运行：cd ~/projects/qcfd-dev/oracq && PYTHONPATH=src <python> \
+Run: cd ~/projects/qcfd-dev/oracq && PYTHONPATH=src <python> \
 tools/expressiveness/t6_qsp_advection.py
 """
 

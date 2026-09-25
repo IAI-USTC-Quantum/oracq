@@ -1,4 +1,4 @@
-"PySparQ 模块级实现注册；运行能力不冒充门级闭合。"
+"Registration of PySparQ module-level implementations; runtime capabilities do not masquerade as gate-level closure."
 
 from __future__ import annotations
 
@@ -15,12 +15,12 @@ from oracq.infrastructure.validation import validate
 
 @dataclass(frozen=True)
 class NativeSite:
-    """执行流中由原生实现接管的一个模块调用点。
+    """A module call site in the execution flow taken over by a native implementation.
 
     Attributes:
-        module: 被调用的模块声明。
-        arguments: 与模块寄存器一一对应的实参视图。
-        resources: 与模块资源一一对应的资源绑定名。
+        module: declaration of the called module.
+        arguments: argument views corresponding one-to-one with the module registers.
+        resources: resource binding names corresponding one-to-one with the module resources.
     """
 
     module: Module
@@ -30,13 +30,13 @@ class NativeSite:
 
 @dataclass(frozen=True)
 class NativeEntry:
-    """一个模块名下的原生实现登记项。
+    """A native implementation registration entry under one module name.
 
     Attributes:
-        module: 登记时声明的模块描述，用于与程序中的同名模块比对。
-        factory: 执行期才以 ``NativeContext`` 为参调用的实现工厂。
-        label: 执行报告中显示的实现名。
-        kind: 实现类别标记，默认 ``pysparq_custom``。
+        module: module description declared at registration, used to compare against same-named modules in programs.
+        factory: implementation factory only called with a ``NativeContext`` argument at execution time.
+        label: implementation name displayed in execution reports.
+        kind: implementation category tag, ``pysparq_custom`` by default.
     """
 
     module: Module
@@ -46,10 +46,10 @@ class NativeEntry:
 
 
 class NativeRegistry:
-    """按模块名登记 PySparQ 模块级原生实现，并对照程序核对覆盖情况。"""
+    """Register PySparQ module-level native implementations by module name and verify coverage against programs."""
 
     def __init__(self) -> None:
-        """初始化空的模块名到原生实现登记表。"""
+        """Initialize an empty registration table from module names to native implementations."""
         self.entries: dict[str, NativeEntry] = {}
 
     def register(
@@ -60,66 +60,66 @@ class NativeRegistry:
         label: str | None = None,
         kind: str = "pysparq_custom",
     ) -> NativeRegistry:
-        """登记一个模块的原生实现。
+        """Register the native implementation of one module.
 
         Args:
-            operation: 提供模块声明的 ``Operation`` 或 ``Module``。
-            factory: 执行期以 ``NativeContext`` 为参调用的工厂；C++ 编译等
-                重活在工厂内部按需延迟进行，注册阶段不做。
-            label: 执行报告中的实现显示名；省略时用模块名。
-            kind: 实现类别标记。
+            operation: ``Operation`` or ``Module`` providing the module declaration.
+            factory: factory called with a ``NativeContext`` argument at execution time; heavy work such as
+                C++ compilation is deferred inside the factory as needed, not done at registration.
+            label: display name of the implementation in execution reports; the module name is used when omitted.
+            kind: implementation category tag.
 
         Returns:
-            NativeRegistry: 返回自身，支持链式登记。
+            NativeRegistry: returns itself to support chained registration.
 
         Raises:
-            ValidationError: 模块名已登记且登记内容不同。
+            ValidationError: the module name is already registered with different content.
         """
         module = operation.module if isinstance(operation, Operation) else operation
         entry = NativeEntry(module, factory, label or module.name, kind)
         if module.name in self.entries and self.entries[module.name] != entry:
-            raise ValidationError("原生实现名字重复")
+            raise ValidationError("duplicate native implementation name")
         self.entries[module.name] = entry
         return self
 
     def matching(self, program: Program) -> frozenset[str]:
-        """求程序中被原生实现接管的模块名集合。
+        """Compute the set of module names in a program taken over by native implementations.
 
         Args:
-            program: 待核对的程序。
+            program: program to verify.
 
         Returns:
-            frozenset[str]: 与登记条目同名且模块声明一致的模块名。
+            frozenset[str]: module names that match a registered entry by name and module declaration.
 
         Raises:
-            ValidationError: 同名模块与登记时的声明不匹配。
+            ValidationError: a same-named module does not match the declaration at registration.
         """
         result = set()
         for module in program.modules:
             if module.name in self.entries:
                 if self.entries[module.name].module != module:
-                    raise ValidationError(f"原生实现与当前模块描述不匹配：{module.name}")
+                    raise ValidationError(f"native implementation does not match the current module description: {module.name}")
                 result.add(module.name)
         return frozenset(result)
 
     def missing(self, program: Program) -> tuple[str, ...]:
-        """列出从入口可达、尚未被原生实现覆盖的开放声明模块名。
+        """List entry-reachable open declaration module names not yet covered by native implementations.
 
         Args:
-            program: 待检查的程序。
+            program: program to check.
 
         Returns:
-            tuple[str, ...]: 按名字排序的开放声明模块名；无缺口时为空元组。
+            tuple[str, ...]: open declaration module names sorted by name; an empty tuple when there is no gap.
 
         Raises:
-            ValidationError: 程序未通过 RIR 结构校验。
+            ValidationError: the program failed RIR structural validation.
         """
         validate(program)
         supported = self.matching(program)
         result, visited = [], set()
 
         def visit(key: str) -> None:
-            """跳过已接管的模块，递归收集入口可达的开放声明名。"""
+            """Skip taken-over modules and recursively collect entry-reachable open declaration names."""
             if key in visited or key in supported:
                 return
             visited.add(key)
@@ -136,14 +136,14 @@ class NativeRegistry:
 
 @dataclass
 class NativeContext:
-    """传给原生工厂的执行环境，衔接 RIR 形参与 PySparQ 运行时对象。
+    """Execution environment passed to native factories, bridging RIR formal parameters and PySparQ runtime objects.
 
     Attributes:
-        ps: 当前已导入的 ``pysparq`` 模块。
-        site: 正在执行的原生调用点。
-        names: RIR 寄存器名到 PySparQ 寄存器名的映射。
-        qrams: 资源名到 PySparQ QRAM 对象的映射。
-        memories: 资源名到稀疏字数据字典的映射。
+        ps: currently imported ``pysparq`` module.
+        site: native call site being executed.
+        names: mapping from RIR register names to PySparQ register names.
+        qrams: mapping from resource names to PySparQ QRAM objects.
+        memories: mapping from resource names to sparse word data dicts.
     """
 
     ps: object
@@ -153,43 +153,43 @@ class NativeContext:
     memories: dict
 
     def register_id(self, parameter: str) -> int:
-        """把模块的量子形参解析为 PySparQ 的整数寄存器 id。
+        """Resolve a quantum formal parameter of the module to a PySparQ integer register id.
 
         Args:
-            parameter: 模块寄存器形参名。
+            parameter: module register formal parameter name.
 
         Returns:
-            PySparQ ``System.get_id`` 对应寄存器给出的 id。
+            id given by PySparQ ``System.get_id`` for the corresponding register.
 
         Raises:
-            ValidationError: 实参不是恰好覆盖整个寄存器的单一视图（切片或拼接）。
+            ValidationError: the argument is not a single view covering exactly one whole register, such as a slice or concatenation.
         """
         index = next(i for i, r in enumerate(self.site.module.registers) if r.name == parameter)
         ref = self.site.arguments[index]
         if len(ref.parts) != 1:
-            raise ValidationError("当前原生工厂需要完整寄存器参数")
+            raise ValidationError("the current native factory requires whole-register arguments")
         span = ref.parts[0]
         name = self.names[span.register]
-        # ps 为已导入的 pysparq 模块对象，System 属性由动态模块提供。
+        # ps is the imported pysparq module object; the System attribute comes from the dynamic module.
         if span.start != 0 or span.width != cast(ModuleType, self.ps).System.size_of(name):
-            raise ValidationError("当前原生工厂不接收切片；请使用完整寄存器或门级实现")
+            raise ValidationError("the current native factory does not accept slices; use whole registers or gate-level implementations")
         return cast(ModuleType, self.ps).System.get_id(name)
 
     def qram(self, parameter: str) -> object:
-        """把模块的资源形参解析为该调用点绑定的 QRAM 对象。
+        """Resolve a resource formal parameter of the module to the QRAM object bound at this call site.
 
         Args:
-            parameter: 模块资源形参名。
+            parameter: module resource formal parameter name.
 
         Returns:
-            绑定到该形参的 PySparQ QRAM 对象。
+            PySparQ QRAM object bound to this formal parameter.
         """
         index = next(i for i, r in enumerate(self.site.module.resources) if r.name == parameter)
         return self.qrams[self.site.resources[index]]
 
 
 class DynamicCppFactory:
-    """按需调用真实 compile_operator，C++ 代码不写入 RIR。"""
+    """Calls the real compile_operator on demand; C++ code is not written into RIR."""
 
     def __init__(
         self,
@@ -200,7 +200,7 @@ class DynamicCppFactory:
         cache_dir: str,
         base_class: str = "SelfAdjointOperator",
     ) -> None:
-        """记录算子名、C++ 源与参数，延迟到首次调用再编译。"""
+        """Record the operator name, C++ source and parameters, deferring compilation to the first call."""
         self.name: str = name
         self.source: str = source
         self.parameters: tuple[str, ...] = tuple(parameters)
@@ -209,7 +209,7 @@ class DynamicCppFactory:
         self._class: type | None = None
 
     def __call__(self, context: NativeContext) -> object:
-        """首次调用时延迟编译 C++ 算子源码，再按形参寄存器 id 构造实例。"""
+        """Lazily compile the C++ operator source on first call, then construct an instance from formal register ids."""
         if self._class is None:
             from pysparq.dynamic_operator import compile_operator
 

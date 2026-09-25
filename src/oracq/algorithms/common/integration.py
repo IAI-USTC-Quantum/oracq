@@ -1,13 +1,18 @@
-"""Heinrich 量子求和与数值积分（FO + QRAM input model）。
+"""Heinrich quantum summation and numerical integration (FO + QRAM input model).
 
-实现 Heinrich 2002（"Quantum Summation with an Application to Integration"，
-J. Complexity 18(1)，另见 Novak 2001 的函数类量子求积率）的量子求和原语，
-并以此组装一维数值积分。input model 是函数值加载器（``|i>|0> -> |i>|f(i)>``），
-与仓库的 XorDatabase 三层绑定（abstract / gate / qram）直接兼容。
+This implements the quantum summation primitive of Heinrich 2002, "Quantum
+Summation with an Application to Integration", J. Complexity 18(1), see also
+the quantum quadrature rate for function classes in Novak 2001, and assembles
+one-dimensional numerical integration from it. The input model is a function
+value loader (``|i>|0> -> |i>|f(i)>``), directly compatible with the three
+XorDatabase bindings of this repository, abstract, gate and qram.
 
-读出采用比较器构造：阈值寄存器均匀叠加后与函数值比较，好状态概率恰为
-``E[v]/2**w``（对 v 线性，无需小角度近似）；对该标记做标准振幅估计，
-查询复杂度相对经典 Monte Carlo 呈二次改进（``O(1/ε)`` 对 ``O(1/ε²)``）。
+Readout uses a comparator construction: the threshold register is put into a
+uniform superposition and compared with the function value, so the good-state
+probability is exactly ``E[v]/2**w``, linear in v with no small-angle
+approximation needed; standard amplitude estimation on this marker gives a
+quadratic improvement in query complexity over classical Monte Carlo,
+``O(1/ε)`` versus ``O(1/ε²)``.
 """
 
 from __future__ import annotations
@@ -38,7 +43,7 @@ from oracq.infrastructure.builder import Builder, Operation
 from oracq.infrastructure.ir import Bits, ValidationError, fuse
 
 LoaderBundle = namedtuple("LoaderBundle", ("database", "memory"))
-LoaderBundle.__doc__ = "求和加载器与其模拟内存（gate 绑定时 memory 为空）。"
+LoaderBundle.__doc__ = "Summation loader and its simulated memory; memory is empty for the gate binding."
 
 
 def table_loader(
@@ -48,27 +53,31 @@ def table_loader(
     backend: str = "gate",
     name: str | None = None,
 ) -> LoaderBundle:
-    """把非负整数函数表包装成求和加载器。
+    """Wrap a nonnegative-integer function table into a summation loader.
 
     Args:
-        values: f(0..N-1) 的非负整数序列，长度补零到 2 的幂。
-        data_width: 值字宽 w，默认取最大值的位长；所有值必须小于 2**w。
-        backend: "gate"（真值表门实现）或 "qram"（QRAM 资源，数据表不进 IR）。
-        name: 覆盖自动生成的模块名。
+        values: Nonnegative integer sequence of f(0..N-1), its length zero-padded to a
+            power of two.
+        data_width: Value word width w, by default the bit length of the maximum value;
+            all values must be smaller than 2**w.
+        backend: "gate", a truth-table gate implementation, or "qram", a QRAM resource
+            whose data table stays out of the IR.
+        name: Overrides the automatically generated module name.
 
     Returns:
-        LoaderBundle: database 为 XorDatabase（address=index、data=value）；
-        backend="qram" 时 memory 给出 simulate 所需的内存表，否则为空。"""
+        LoaderBundle: database is an XorDatabase with address=index and data=value;
+        for backend="qram" memory provides the memory table needed by simulate,
+        otherwise it is empty."""
     values = tuple(values)
     if not values:
-        raise ValidationError("函数表不能为空")
+        raise ValidationError("The function table must not be empty")
     if any(type(v) is not int or v < 0 for v in values):
-        raise ValidationError("函数值必须是非负整数")
+        raise ValidationError("Function values must be nonnegative integers")
     if data_width is None:
         data_width = max(1, max(values).bit_length())
     positive_integer(data_width, "table_loader.data_width", maximum=64)
     if any(v >= 1 << data_width for v in values):
-        raise ValidationError("函数值越出 data_width 字宽")
+        raise ValidationError("A function value exceeds the data_width word width")
     index_bits = max(1, (len(values) - 1).bit_length())
     padded = values + (0,) * ((1 << index_bits) - len(values))
     if backend == "gate":
@@ -82,22 +91,28 @@ def table_loader(
             for r in database.operation.module.resources
         }
         return LoaderBundle(database, memory)
-    raise ValidationError("backend 必须是 gate 或 qram")
+    raise ValidationError("backend must be gate or qram")
 
 
 def sum_preparation(database: XorDatabase, *, name: str | None = None) -> Operation:
-    """量子求和的态制备：均匀 index + 函数值加载 + 阈值比较，flag=1 概率恰为 E[v]/2**w。
+    """State preparation for quantum summation: uniform index plus function value loading
+    plus threshold comparison, with the flag=1 probability exactly E[v]/2**w.
 
-    寄存器布局：target = index(n) | threshold(w) | flag(1)，work = value(w)。
-    value 字与 index 纠缠留在 work（比较器读出不需要复净它）；flag 由比较器
-    两次调用中的第一次置位，调用方按 flag 标记后应逆调用本制备以复原。
+    Register layout: target = index(n) | threshold(w) | flag(1), work =
+    value(w). The value word stays in work entangled with the index, since the
+    comparator readout does not need it cleaned; flag is set by the first of
+    the two comparator calls, and after marking on flag the caller should
+    invoke this preparation in reverse to restore.
 
     Args:
-        database: 函数值加载器；地址位宽为索引数，数据位宽为函数值位宽。
-        name: 生成的制备模块名；缺省按数据库与位宽自动生成。
+        database: Function value loader; the address bit width is the index count and
+            the data bit width is the function value bit width.
+        name: Name of the generated preparation module; generated automatically from
+            the database and widths when omitted.
 
     Returns:
-        Operation: flag=1 概率恰为 E[v]/2**w 的态制备操作。
+        Operation: State preparation operation whose flag=1 probability is exactly
+        E[v]/2**w.
     """
     require_instance(database, XorDatabase, "sum_preparation.database")
     n, w = database.address_width, database.data_width
@@ -132,13 +147,16 @@ def sum_preparation(database: XorDatabase, *, name: str | None = None) -> Operat
 
 
 def sum_iterate(database: XorDatabase) -> Operation:
-    """求和的 Grover 迭代：结构同 grover_iterate，标记由制备 target 的 flag 位驱动。
+    """Grover iterate for summation: structurally identical to grover_iterate, with the
+    marking driven by the flag bit of the preparation target.
 
     Args:
-        database: 函数值加载器，决定迭代作用的索引数与函数值位宽。
+        database: Function value loader, determining the index count and the function
+            value bit width the iterate acts on.
 
     Returns:
-        Operation: 由制备、flag 相位标记与零反射组成的 Grover 迭代操作。
+        Operation: Grover iterate operation composed of the preparation, the flag phase
+        marking and the zero reflection.
     """
     prep = sum_preparation(database)
     n = cast("int", dict(prep.module.attributes)["index_bits"])
@@ -165,16 +183,19 @@ def sum_iterate(database: XorDatabase) -> Operation:
 def quantum_sum(
     database: XorDatabase, *, precision: int = 4, name: str | None = None
 ) -> Operation:
-    """Heinrich 量子求和：估计均值 ``E[f] = (1/N) Σ_i f(i)``，f 取 w 位非负整数值。
+    """Heinrich quantum summation: estimate the mean ``E[f] = (1/N) Σ_i f(i)`` where f
+    takes w-bit nonnegative integer values.
 
     Args:
-        database: 函数值加载器（XorDatabase，address=index、data=value）。
-        precision: 相位寄存器位数，范围为 1..63；估计误差量级 O(1/2**precision)。
+        database: Function value loader, an XorDatabase with address=index and
+            data=value.
+        precision: Number of phase register bits, in the range 1..63; the estimation
+            error is on the order of O(1/2**precision).
 
     Returns:
-        Operation: 寄存器 target、work、phase。读出 phase 后用
-        mean_from_phase 解码均值。查询复杂度 O(1/ε)，相对经典
-        Monte Carlo 的 O(1/ε²) 为二次改进（Heinrich 2002）。"""
+        Operation: Registers target, work and phase. After reading out phase, decode
+        the mean with mean_from_phase. The query complexity is O(1/ε), a quadratic
+        improvement over the O(1/ε²) of classical Monte Carlo, Heinrich 2002."""
     require_instance(database, XorDatabase, "quantum_sum.database")
     positive_integer(precision, "quantum_sum.precision", maximum=63)
     prep = sum_preparation(database)
@@ -203,32 +224,38 @@ def quantum_sum(
 
 
 def mean_from_phase(value: int, precision: int, data_width: int) -> float:
-    """把 quantum_sum 的 phase 读出解码为均值估计 ``E[v]`` （整数单位）。
+    """Decode the phase readout of quantum_sum into the mean estimate ``E[v]`` in integer
+    units.
 
-    好状态概率 p = ``E[v]/2**data_width``，故 ``E[v] = amplitude_from_phase * 2**data_width``。
+    The good-state probability is p = ``E[v]/2**data_width``, hence
+    ``E[v] = amplitude_from_phase * 2**data_width``.
 
     Args:
-        value: phase 寄存器读出的整数计数。
-        precision: 相位寄存器位数，须与 quantum_sum 的设置一致。
-        data_width: 函数值位宽，取 1..64。
+        value: Integer count read out from the phase register.
+        precision: Number of phase register bits, which must match the quantum_sum
+            setting.
+        data_width: Function value bit width, in 1..64.
 
     Returns:
-        float: 以整数值为单位的均值估计 ``E[v]``。
+        float: Mean estimate ``E[v]`` in integer value units.
     """
     positive_integer(data_width, "mean_from_phase.data_width", maximum=64)
     return amplitude_from_phase(value, precision) * (1 << data_width)
 
 
 def heinrich_rate(smoothness: float, dimension: int) -> dict[str, float]:
-    """函数类数值积分/求和的最优收敛率（误差 ~ M^{-rate}，M 为函数求值次数）。
+    """Optimal convergence rate for numerical integration or summation over a function
+    class, with error ~ M^{-rate} for M function evaluations.
 
     Args:
-        smoothness: 光滑性参数 s（如 Hölder/Sobolev 类的导数阶），必须为正。
-        dimension: 维数 d，必须为正整数。
+        smoothness: Smoothness parameter s, for example the derivative order of a
+            Hölder or Sobolev class; must be positive.
+        dimension: Dimension d; must be a positive integer.
 
     Returns:
-        dict: deterministic（s/d）、randomized（s/d + 1/2）、quantum（s/d + 1）。
-        量子率对随机化经典率恰为二次改进（Heinrich 2002；Novak 2001）。"""
+        dict: deterministic is s/d, randomized is s/d + 1/2, and quantum is s/d + 1.
+        The quantum rate is exactly a quadratic improvement over the randomized
+        classical rate, Heinrich 2002 and Novak 2001."""
     finite_real(smoothness, "heinrich_rate.smoothness", minimum=0, strict=True)
     positive_integer(dimension, "heinrich_rate.dimension", minimum=1, maximum=64)
     return {
@@ -245,20 +272,26 @@ def quantum_integral(
     interval: float = 1.0,
     name: str | None = None,
 ) -> Operation:
-    """一维数值积分：网格点函数值的量子求和乘以区间长度（复合矩形法则）。
+    """One-dimensional numerical integration: the quantum sum of function values at
+    grid points multiplied by the interval length, the composite rectangle rule.
 
-    函数值按 v/full_scale 量化为 w 位整数（默认 full_scale = 2**data_width − 1）。
-    总误差 = 离散化误差（由网格/光滑性决定，见 heinrich_rate）+ QAE 估计误差。
-    解码用 integral_from_phase。区间长度 interval 必须为正。
+    Function values are quantized to w-bit integers as v/full_scale, with
+    full_scale defaulting to 2**data_width − 1. The total error equals the
+    discretization error, determined by the grid and the smoothness, see
+    heinrich_rate, plus the QAE estimation error. Decoding uses
+    integral_from_phase. The interval length must be positive.
 
     Args:
-        database: 网格点函数值加载器，address=index、data=value。
-        precision: 相位寄存器位数，范围为 1..63；估计误差量级 O(1/2**precision)。
-        interval: 积分区间长度，必须为正实数。
-        name: 生成的模块名；缺省自动生成。
+        database: Loader of function values at grid points, address=index and
+            data=value.
+        precision: Number of phase register bits, in the range 1..63; the estimation
+            error is on the order of O(1/2**precision).
+        interval: Integration interval length; must be a positive real number.
+        name: Generated module name; generated automatically when omitted.
 
     Returns:
-        Operation: 解码器为 integral_from_phase 的一维积分求和操作。
+        Operation: One-dimensional integration summation operation whose decoder is
+        integral_from_phase.
     """
     finite_real(interval, "quantum_integral.interval", minimum=0, strict=True)
     operation = quantum_sum(database, precision=precision, name=name)
@@ -285,20 +318,23 @@ def integral_from_phase(
     interval: float = 1.0,
     full_scale: float | None = None,
 ) -> float:
-    """把 quantum_integral 的 phase 读出解码为积分估计。
+    """Decode the phase readout of quantum_integral into the integral estimate.
 
-    函数值按 v/full_scale 量化（full_scale 缺省取 2**data_width − 1）；
-    积分估计 = ``E[v]/full_scale × interval``。
+    Function values are quantized as v/full_scale, with full_scale defaulting
+    to 2**data_width − 1; the integral estimate equals
+    ``E[v]/full_scale × interval``.
 
     Args:
-        value: phase 寄存器读出的整数计数。
-        precision: 相位寄存器位数，须与 quantum_sum 的设置一致。
-        data_width: 函数值位宽，取 1..64。
-        interval: 积分区间长度，必须为正实数。
-        full_scale: 函数值满量程；缺省取 2**data_width − 1。
+        value: Integer count read out from the phase register.
+        precision: Number of phase register bits, which must match the quantum_sum
+            setting.
+        data_width: Function value bit width, in 1..64.
+        interval: Integration interval length; must be a positive real number.
+        full_scale: Full-scale value of the function values; defaults to
+            2**data_width − 1.
 
     Returns:
-        float: 区间上的积分估计值。
+        float: The integral estimate over the interval.
     """
     finite_real(interval, "integral_from_phase.interval", minimum=0, strict=True)
     if full_scale is None:

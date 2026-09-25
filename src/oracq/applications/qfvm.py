@@ -1,4 +1,4 @@
-"""从 QRAM 流场与 Roe 算术构造 QFVM 稀疏输入及可替换 QLSS 问题。"""
+"""Build QFVM sparse inputs and a replaceable QLSS problem from a QRAM flow field and Roe arithmetic."""
 
 from __future__ import annotations
 
@@ -31,22 +31,24 @@ from oracq.infrastructure.linking import Binding, bind
 
 @dataclass(frozen=True)
 class RoeQfvmInputs:
-    """QFVM 输入模型声明的抽象槽位集合：原始场量、几何、残差值与残差态制备。
+    """The set of abstract slots declared by the QFVM input model: raw field values, geometry, residual values and residual state preparation.
 
-    槽位本身不含数据；实现由 ``bind_qfvm`` 绑定，运行时内存表由 ``qfvm_memories``
-    物化。矩阵元素不在任何槽位预存，而由可逆 Roe 算术在查询时现场计算。
+    The slots themselves carry no data; implementations are bound by
+    ``bind_qfvm`` and runtime memory tables are materialized by
+    ``qfvm_memories``. Matrix elements are not pre-stored in any slot but are
+    computed on the fly at query time by reversible Roe arithmetic.
 
     Attributes:
-        cell_width: 单元编号位宽，网格单元数为 ``2**cell_width``。
-        fmt: 守恒量与残差值使用的定点格式。
-        angle_width: 旋转角字的位宽。
-        rho: 密度（第一个守恒量）数据库的抽象声明槽位。
-        momentum: 动量（第二个守恒量）数据库的抽象声明槽位。
-        energy: 能量（第三个守恒量）数据库的抽象声明槽位。
-        geometry: 几何表数据库的槽位，只编码稀疏位置与索引，不含矩阵值。
-        theta: 残差值定点字到旋转角字换算表的槽位（预留数据面）。
-        rhs: 归一化残差态制备的抽象槽位。
-        residual: 每 (单元, 分量) 量化残差值数据库的槽位。
+        cell_width: Bit width of cell indices; the grid has ``2**cell_width`` cells.
+        fmt: Fixed-point format used by conserved variables and residual values.
+        angle_width: Bit width of rotation angle words.
+        rho: Abstract declared slot of the density (first conserved variable) database.
+        momentum: Abstract declared slot of the momentum (second conserved variable) database.
+        energy: Abstract declared slot of the energy (third conserved variable) database.
+        geometry: Slot of the geometry table database; encodes only sparse positions and indices, no matrix values.
+        theta: Slot of the conversion table from residual fixed-point words to rotation angle words (reserved data plane).
+        rhs: Abstract slot of the normalized residual state preparation.
+        residual: Slot of the database of quantized residual values per (cell, component).
     """
 
     cell_width: int
@@ -62,12 +64,12 @@ class RoeQfvmInputs:
 
     @property
     def width(self) -> int:
-        """完整矩阵坐标位宽：2 位分量 + cell_width 位单元 + 1 位扩张半块标志。"""
+        """Bit width of full matrix coordinates: 2 component bits + cell_width cell bits + 1 dilation half-block flag bit."""
         return self.cell_width + 3
 
     @property
     def geometry_width(self) -> int:
-        """几何表字位宽：对手坐标、对称槽位、源单元、行/列分量、源带与有效位七段打包。"""
+        """Bit width of geometry table words: seven packed segments for partner coordinate, symmetric slot, source cell, row and column components, source band and the valid bit."""
         return self.width + 4 + self.cell_width + 2 + 2 + 2 + 1
 
 
@@ -78,27 +80,28 @@ def roe_qfvm_inputs(
     angle_width: int = 8,
     prefix: str = "RoeQfvm",
 ) -> RoeQfvmInputs:
-    """声明 QFVM 的整套抽象输入槽位：六个数据库加一个 RHS 态制备。
+    """Declare the full set of abstract QFVM input slots: six databases plus one RHS state preparation.
 
-    返回的全是开放槽位，尚无数据；数据到绑定（``bind_qfvm``）与执行期
-    （``qfvm_memories``）才出现。
+    Everything returned is an open slot without data; data only appears at
+    binding time (``bind_qfvm``) and execution time (``qfvm_memories``).
 
     Args:
-        cell_width: 单元编号位宽，范围为 2..25。
-        fmt: 守恒量定点格式，省略时使用 ``FixedFormat(6, 2)``。
-        angle_width: 旋转角字位宽，范围为 1..64。
-        prefix: 各抽象槽位模块名的前缀。
+        cell_width: Bit width of cell indices, in the range 2..25.
+        fmt: Fixed-point format of conserved variables; defaults to ``FixedFormat(6, 2)``.
+        angle_width: Bit width of rotation angle words, in the range 1..64.
+        prefix: Prefix of the module names of the abstract slots.
 
     Returns:
-        RoeQfvmInputs: 声明集合，含三守恒量库、几何表、theta 表、残差值库
-        与抽象 RHS 制备。
+        RoeQfvmInputs: The declared set, containing the three conserved-variable
+        databases, the geometry table, the theta table, the residual value
+        database and the abstract RHS preparation.
 
     Raises:
-        ValidationError: cell_width 或 angle_width 超出范围。
+        ValidationError: cell_width or angle_width out of range.
     """
     fmt = fmt or FixedFormat(6, 2)
     if not 2 <= cell_width <= 25 or not 1 <= angle_width <= 64:
-        raise ValidationError("QFVM 需要至少四个单元，且几何/角度字长不超过 64 位")
+        raise ValidationError("QFVM requires at least four cells and geometry or angle word lengths of at most 64 bits")
     width = cell_width + 3
     geometry_width = width + 4 + cell_width + 7
     return RoeQfvmInputs(
@@ -116,14 +119,16 @@ def roe_qfvm_inputs(
 
 
 def geometry_cells(inputs: RoeQfvmInputs) -> dict[int, int]:
-    """只编码稀疏位置与原始数据索引，不含任何流场矩阵值。
+    """Encode only sparse positions and raw data indices; contains no flow field matrix values.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，决定坐标位宽与几何表布局。
+        inputs: The slot set declared by ``roe_qfvm_inputs``, determining coordinate widths and the geometry table layout.
 
     Returns:
-        dict[int, int]: 几何表内容；地址为矩阵坐标拼 4 位槽位编号，值为
-        对手坐标、反向槽位、源单元、行/列分量、源带与有效位的七段打包字。
+        dict[int, int]: The geometry table contents; the address is a matrix
+        coordinate concatenated with a 4-bit slot number, and the value is the
+        seven-segment packed word of partner coordinate, reverse slot, source
+        cell, row and column components, source band and valid bit.
     """
     cw, w = inputs.cell_width, inputs.width
     n = 1 << cw
@@ -158,21 +163,21 @@ def geometry_cells(inputs: RoeQfvmInputs) -> dict[int, int]:
 
 
 def ptheta_cells(fmt: FixedFormat, angle_width: int, amax: float) -> dict[int, int]:
-    """生成 theta 表：残差值定点字到旋转角字 ``2*acos(min(1, |v|/amax))`` 的换算。
+    """Generate the theta table: conversion from residual fixed-point words to rotation angle words ``2*acos(min(1, |v|/amax))``.
 
     Args:
-        fmt: 定点格式，地址取该格式的全部 ``2**fmt.width`` 个原始字。
-        angle_width: 输出角字位宽。
-        amax: 元素幅值上界，用于截断 acos 的自变量。
+        fmt: The fixed-point format; addresses cover all ``2**fmt.width`` raw words of the format.
+        angle_width: Bit width of output angle words.
+        amax: Magnitude upper bound of elements, used to clamp the acos argument.
 
     Returns:
-        dict: 原始定点字到量化角字的映射，角字按 ``2**angle_width`` 回绕。
+        dict: Mapping from raw fixed-point words to quantized angle words; angle words wrap modulo ``2**angle_width``.
 
     Raises:
-        ValueError: amax 非正。
+        ValueError: amax non-positive.
     """
     if amax <= 0:
-        raise ValueError("Amax 必须为正")
+        raise ValueError("amax must be positive")
     return {
         raw: round(
             2 * math.acos(min(1, abs(fmt.decode(raw)) / amax)) * (1 << angle_width) / (2 * math.pi)
@@ -190,22 +195,27 @@ def roe_entry(
     mass: float = 1.0,
     dx: float = 1.0,
 ) -> Operation:
-    """构造单个 Roe 矩阵元的可逆算术电路（不含稀疏寻址）。
+    """Build the reversible arithmetic circuit for a single Roe matrix element (without sparse addressing).
 
-    对 ``source`` 及其左右邻居单元各查询三个守恒量库（周期边界回绕），
-    调用 ``roe_face`` 计算两个界面的通量特征分量，按 ``band`` 组装西/中/东
-    三个候选值；质量项只在行列分量相同时加到中心块对角。
+    The three conserved-variable databases are queried for ``source`` and its
+    left and right neighbor cells (with periodic boundary wraparound),
+    ``roe_face`` computes the flux characteristic components of the two faces,
+    and the west, center and east candidate values are assembled by ``band``;
+    the mass term is added to the center block diagonal only when the row and
+    column components coincide.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，提供守恒量库与定点格式。
-        gamma: 比热比。
-        entropy_delta: Roe 熵修正系数。
-        mass: 质量项，只作用于中心块的分量对角。
-        dx: 网格步长。
+        inputs: The slot set declared by ``roe_qfvm_inputs``, providing the conserved-variable databases and fixed-point format.
+        gamma: Ratio of specific heats.
+        entropy_delta: Roe entropy fix coefficient.
+        mass: The mass term, applied only to the component diagonal of the center block.
+        dx: Grid step size.
 
     Returns:
-        Operation: 寄存器为 source、row、col、band、value、status；value 写出
-        选定矩阵元，status 聚合各算术节点的失效旗标（非零表示溢出或除零）。
+        Operation: Registers are source, row, col, band, value, status; value
+        writes out the selected matrix element, and status aggregates the
+        failure flags of the arithmetic nodes (non-zero means overflow or
+        division by zero).
     """
     cw, fmt = inputs.cell_width, inputs.fmt
     fields = (
@@ -253,7 +263,7 @@ def roe_entry(
         left, right, flag = g.local(), g.local(), g.local(2)
         b.call(
             face,
-            **dict(  # type: ignore[arg-type]  # 动态关键字分发：mypy 无法排除 resources 形参
+            **dict(  # type: ignore[arg-type]  # dynamic keyword dispatch: mypy cannot rule out the resources parameter
                 zip(
                     ("rho_l", "m_l", "e_l", "rho_r", "m_r", "e_r"),
                     words[i] + words[i + 1],
@@ -268,7 +278,7 @@ def roe_entry(
         )
         g.flags.append(flag)
         faces.append((g.word(left), g.word(right)))
-    # 质量项只作用于中心块的分量对角。
+    # The mass term applies only to the component diagonal of the center block.
     equal = b.local("component_equal", Bits(1))
     from oracq.algorithms.common.arithmetic import BooleanNetwork
 
@@ -284,7 +294,7 @@ def roe_entry(
 
 
 def _geometry_refs(ref: Ref, inputs: RoeQfvmInputs) -> list[Ref]:
-    """按声明宽度把几何表字切分为七段连续视图。"""
+    """Slice a geometry table word into seven contiguous views by their declared widths."""
     sizes = (inputs.width, 4, inputs.cell_width, 2, 2, 2, 1)
     refs: list[Ref] = []
     offset = 0
@@ -301,38 +311,40 @@ def roe_qfvm_block_encoding(
     padding_value: float = 1.0,
     **entry_options: float,
 ) -> BlockEncoding:
-    """显式从稀疏输入转换到 BE；QFVM 本身不再强制只暴露 BE。
+    """Explicit conversion from sparse inputs to a block encoding; QFVM itself no longer forces exposing only a block encoding.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
-        amax: 稀疏元素的幅值上界，作为块编码的缩放参数。
-        padding_value: 补齐对角值，须为正且不超过 ``amax``。
-        **entry_options: 透传给 ``roe_entry`` 的算术选项（gamma、mass 等）。
+        inputs: The slot set declared by ``roe_qfvm_inputs``.
+        amax: Magnitude upper bound of sparse elements, used as the scaling factor of the block encoding.
+        padding_value: The padding diagonal value; must be positive and no greater than ``amax``.
+        **entry_options: Arithmetic options forwarded to ``roe_entry`` (gamma, mass and so on).
 
     Returns:
-        BlockEncoding: Roe 矩阵 Hermitian 扩张的实对称稀疏块编码。
+        BlockEncoding: The real symmetric sparse block encoding of the Hermitian dilation of the Roe matrix.
     """
     from oracq.algorithms.input_model.sparse import real_symmetric_sparse_encoding
 
     if not 0 < padding_value <= amax:
-        raise ValidationError("补齐对角值必须为正且不超过元素上界")
+        raise ValidationError("The padding diagonal value must be positive and no greater than the element bound")
     access = qfvm_sparse_access(inputs, padding_value=padding_value, **entry_options)
     return real_symmetric_sparse_encoding(access, inputs.fmt, amax, diagonal_nonnegative=True)
 
 
 def rhs_qram_preparation(inputs: RoeQfvmInputs) -> StatePreparation:
-    """构造归一化残差态的 QRAM 制备：幅度取自平方范数树，符号经相位反冲写入。
+    """Build the QRAM preparation of the normalized residual state: amplitudes come from the squared-norm tree, signs are written by phase kickback.
 
-    幅度由 ``qram_state_prep`` 按层查询 ``rhs_angles`` 角字 bank 得到；
-    符号用一位 ``rhs_sign`` bank 经 Load、Z 与反 Load 把负残差分量变成
-    pi 相位。输入为零态，work 复净。
+    Amplitudes are obtained by ``qram_state_prep`` querying the ``rhs_angles``
+    angle word bank layer by layer; signs use the one-bit ``rhs_sign`` bank,
+    turning negative residual components into a pi phase through Load, Z and
+    un-Load. The input is the zero state and work returns clean.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，坐标与角字位宽取自其中。
+        inputs: The slot set declared by ``roe_qfvm_inputs``, from which coordinate and angle word widths are taken.
 
     Returns:
-        StatePreparation: target 为完整矩阵坐标（cell_width+3 位），幅度
-        只写在前 cell_width+2 位上，扩张半块标志保持零。
+        StatePreparation: target holds the full matrix coordinate (cell_width+3
+        bits); amplitudes are written only on the first cell_width+2 bits, and
+        the dilation half-block flag stays zero.
     """
     n, aw = inputs.cell_width + 2, inputs.angle_width
     prep = qram_state_prep(n, aw)
@@ -352,18 +364,20 @@ def rhs_qram_preparation(inputs: RoeQfvmInputs) -> StatePreparation:
 
 
 def qram_bindings(inputs: RoeQfvmInputs) -> dict[str, Binding]:
-    """给出 QFVM 抽象槽位到 QRAM 实现的完整绑定映射。
+    """Provide the complete binding map from abstract QFVM slots to QRAM implementations.
 
-    三个守恒量库、几何表与 theta 表绑定 ``qram_database`` 实际库（table
-    资源映射到同名经典 bank）；残差值槽绑定 ``RoeResidualValues`` 库
-    （rhs_values）；RHS 制备槽绑定 ``rhs_qram_preparation`` 电路（角字与
-    符号资源分别映射到 rhs_angles 与 rhs_sign）。
+    The three conserved-variable databases, the geometry table and the theta
+    table bind to actual ``qram_database`` libraries (the table resource maps to
+    the like-named classical bank); the residual value slot binds to the
+    ``RoeResidualValues`` database (rhs_values); the RHS preparation slot binds
+    to the ``rhs_qram_preparation`` circuit (angle word and sign resources map
+    to rhs_angles and rhs_sign respectively).
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合，提供全部待绑定抽象槽位。
+        inputs: The slot set declared by ``roe_qfvm_inputs``, providing all abstract slots to bind.
 
     Returns:
-        dict: 抽象槽位模块名到 ``Binding`` 的映射，可直接交给 ``bind``。
+        dict: Mapping from abstract slot module names to ``Binding`` objects, ready to hand to ``bind``.
     """
     mapping: dict[str, Binding] = {}
     for key in ("rho", "momentum", "energy", "geometry", "theta"):
@@ -384,14 +398,14 @@ def qram_bindings(inputs: RoeQfvmInputs) -> dict[str, Binding]:
 
 
 def bind_qfvm(program: Program, inputs: RoeQfvmInputs) -> Program:
-    """把程序中尚未解析的 QFVM 抽象槽位绑定到 QRAM 实现与符号残差树制备。
+    """Bind the still-unresolved abstract QFVM slots in a program to QRAM implementations and the signed residual tree preparation.
 
     Args:
-        program: 含 QFVM 抽象槽调用的程序。
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
+        program: The program containing calls to abstract QFVM slots.
+        inputs: The slot set declared by ``roe_qfvm_inputs``.
 
     Returns:
-        Program: 只替换未解析槽位后的程序；与 QFVM 无关的开放槽保持原样。
+        Program: The program with only unresolved slots replaced; open slots unrelated to QFVM are left untouched.
     """
     from oracq.infrastructure.linking import unresolved
 
@@ -402,26 +416,26 @@ def bind_qfvm(program: Program, inputs: RoeQfvmInputs) -> Program:
 def qfvm_memories(
     inputs: RoeQfvmInputs, flow: RoeFlowData, *, amax: float = 8.0
 ) -> Mapping[str, Sequence[int] | Mapping[int, int]]:
-    """物化 QFVM 路径的运行时内存表：流场快照加静态几何表与 theta 表。
+    """Materialize the runtime memory tables of the QFVM path: a flow field snapshot plus the static geometry table and theta table.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
-        flow: 经典侧流场数据，提供六个 bank 的快照。
-        amax: theta 表使用的元素幅值上界。
+        inputs: The slot set declared by ``roe_qfvm_inputs``.
+        flow: Classical-side flow field data providing the snapshot of the six banks.
+        amax: Magnitude upper bound of elements used by the theta table.
 
     Returns:
-        dict: 按名交给执行后端的内存表：rho、momentum、energy、rhs_values、
-        rhs_sign、rhs_angles、geometry 与 theta。
+        dict: Memory tables handed to the execution backend by name: rho,
+        momentum, energy, rhs_values, rhs_sign, rhs_angles, geometry and theta.
 
     Raises:
-        ValidationError: 流场与声明的单元数、定点或角度格式不匹配。
+        ValidationError: The flow field mismatches the declared cell count, fixed-point format or angle format.
     """
     if (
         flow.n != (1 << inputs.cell_width)
         or flow.fmt != inputs.fmt
         or flow.angle_width != inputs.angle_width
     ):
-        raise ValidationError("QFVM 流场和 oracle 的单元数/定点/角度格式不匹配")
+        raise ValidationError("The QFVM flow field and the oracle disagree on cell count, fixed-point format or angle format")
     result = flow.store.snapshot()
     result["geometry"] = geometry_cells(inputs)
     result["theta"] = ptheta_cells(inputs.fmt, inputs.angle_width, amax)
@@ -437,26 +451,27 @@ def roe_qfvm_problem(
     padding_value: float = 1.0,
     **entry_options: float,
 ) -> LinearSystem:
-    """D=([[0,M],[M.T,0]] on physical coordinates) + padding_value*I_pad。
+    """D=([[0,M],[M.T,0]] on physical coordinates) + padding_value*I_pad.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
-        spectrum: 覆盖量化后 Roe 矩阵谱界的 ``SpectralPromise``，必填。
-        rhs_norm: 经典右端范数；提供后方能恢复解的物理幅值。
-        amax: 稀疏元素的幅值上界。
-        padding_value: 补齐对角值，须为正且不超过 ``amax``。
-        **entry_options: 透传给 ``roe_entry`` 的算术选项（gamma、mass 等）。
+        inputs: The slot set declared by ``roe_qfvm_inputs``.
+        spectrum: A ``SpectralPromise`` covering the spectral bounds of the quantized Roe matrix; required.
+        rhs_norm: Classical right-hand-side norm; the physical magnitude of the solution can be recovered only when provided.
+        amax: Magnitude upper bound of sparse elements.
+        padding_value: The padding diagonal value; must be positive and no greater than ``amax``.
+        **entry_options: Arithmetic options forwarded to ``roe_entry`` (gamma, mass and so on).
 
     Returns:
-        LinearSystem: 由稀疏访问、残差制备与并入补齐值的扩展谱界组成的
-        QLSS 线性系统。
+        LinearSystem: The QLSS linear system composed of the sparse access, the
+        residual preparation and the extended spectral bounds with the padding
+        value merged in.
     """
     from oracq.algorithms.qlss.qlss import LinearSystem, SparseSystem, SpectralPromise
 
     if not 0 < padding_value <= amax:
-        raise ValidationError("补齐对角值必须为正且不超过元素上界")
+        raise ValidationError("The padding diagonal value must be positive and no greater than the element bound")
     if not isinstance(spectrum, SpectralPromise):
-        raise ValidationError("QFVM QLSS 输入需要显式 SpectralPromise")
+        raise ValidationError("The QFVM QLSS input requires an explicit SpectralPromise")
     extended = SpectralPromise(
         max(spectrum.norm_upper, padding_value),
         min(spectrum.sigma_min_lower, padding_value),
@@ -495,33 +510,31 @@ def roe_qfvm_step(
     rhs_norm: float | None = None,
     **options: float,
 ) -> SolveResult:
-    """把 QFVM 问题交给可替换的 QLSS 协议求解。
+    """Hand the QFVM problem to a replaceable QLSS protocol for solving.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
-        qlss: 声明了 ``input_model`` 的 ``QLSSProtocol``。
-        spectrum: 覆盖实际量化后矩阵的 ``SpectralPromise``，必填。
-        rhs_norm: 经典右端范数；提供后才能经 ``SolveResult.recover_norm``
-            恢复解的幅值。
-        **options: 其余关键字参数透传给 ``roe_qfvm_problem``，含 amax、
-            padding_value 及矩阵元算术选项。
+        inputs: The slot set declared by ``roe_qfvm_inputs``.
+        qlss: A ``QLSSProtocol`` that declares ``input_model``.
+        spectrum: A ``SpectralPromise`` covering the actually quantized matrix; required.
+        rhs_norm: Classical right-hand-side norm; only when provided can the solution magnitude be recovered via ``SolveResult.recover_norm``.
+        **options: Remaining keyword arguments forwarded to ``roe_qfvm_problem``, including amax, padding_value and matrix element arithmetic options.
 
     Returns:
-        SolveResult: 协议生成的解态、范数探针与适配记录。
+        SolveResult: The solution state, norm probe and adaptation records produced by the protocol.
 
     Raises:
-        ValidationError: qlss 不是声明 ``input_model`` 的 ``QLSSProtocol``，
-            或未提供 spectrum。
+        ValidationError: qlss is not a ``QLSSProtocol`` declaring ``input_model``,
+            or spectrum is not provided.
     """
     from oracq.algorithms.qlss.qlss import QLSSProtocol
 
     if not isinstance(qlss, QLSSProtocol):
         raise ValidationError(
-            "请使用声明 input_model 的 QLSSProtocol；裸 callable 不能表达输入模型"
+            "Use a QLSSProtocol that declares input_model; a bare callable cannot express an input model"
         )
     if spectrum is None:
         raise ValidationError(
-            "QFVM 替换 QLSS 需要最小奇异值/范数声明：spectrum=SpectralPromise(...)"
+            "Replacing the QFVM QLSS requires minimum singular value and norm declarations: spectrum=SpectralPromise"
         )
     return qlss.solve(roe_qfvm_problem(inputs, spectrum=spectrum, rhs_norm=rhs_norm, **options))
 
@@ -529,29 +542,33 @@ def roe_qfvm_step(
 def qfvm_sparse_access(
     inputs: RoeQfvmInputs, *, padding_value: float = 1.0, **entry_options: float
 ) -> SparseAccess:
-    """构造 QFVM 的 CKS 稀疏访问：原地位置置换与任意坐标矩阵元 XOR 两个 oracle。
+    """Build the CKS sparse access for QFVM: two oracles, an in-place position permutation and an arbitrary-coordinate matrix element XOR.
 
-    位置 oracle 查询每列的九个结构槽位，经九次相干值转置补全为完整置换；
-    补齐分量没有邻居结构，对手坐标改写为 ``column + rank`` 得到 padding
-    对角。条目 oracle 用几何表选择源单元与分量，调用 ``roe_entry`` 现场
-    计算元素：结构域外条目为零，算术失效时条目归零，补齐坐标的对角写
-    padding_value。
+    The location oracle queries the nine structural slots of each column and
+    completes them into a full permutation via nine coherent value
+    transpositions; the padded component has no neighbor structure, and its
+    partner coordinate is rewritten as ``column + rank`` to yield the padding
+    diagonal. The entry oracle selects the source cell and component with the
+    geometry table and calls ``roe_entry`` to compute the element on the fly:
+    entries outside the structural domain are zero, entries with failed
+    arithmetic are zeroed, and the diagonal of padded coordinates writes
+    padding_value.
 
     Args:
-        inputs: ``roe_qfvm_inputs`` 声明的槽位集合。
-        padding_value: 补齐对角值，须为定点格式可精确表示的正数。
-        **entry_options: 透传给 ``roe_entry`` 的算术选项（gamma、mass 等）。
+        inputs: The slot set declared by ``roe_qfvm_inputs``.
+        padding_value: The padding diagonal value; must be a positive number exactly representable in the fixed-point format.
+        **entry_options: Arithmetic options forwarded to ``roe_entry`` (gamma, mass and so on).
 
     Returns:
-        SparseAccess: 坐标宽 ``inputs.width``、值宽 ``inputs.fmt.width``、
-        稀疏度 9。
+        SparseAccess: Coordinate width ``inputs.width``, value width
+        ``inputs.fmt.width``, sparsity 9.
 
     Raises:
-        ValidationError: padding_value 非正或定点格式无法精确表示。
+        ValidationError: padding_value is non-positive or not exactly representable in the fixed-point format.
     """
 
     if padding_value <= 0 or inputs.fmt.decode(inputs.fmt.encode(padding_value)) != padding_value:
-        raise ValidationError("补齐对角值必须是定点格式可精确表示的正数")
+        raise ValidationError("The padding diagonal value must be a positive number exactly representable in the fixed-point format")
     n = inputs.width
     geometry = inputs.geometry.operation
     locator = Builder(
@@ -578,7 +595,7 @@ def qfvm_sparse_access(
                 locator.x(slot[bit])
         invoke(locator, geometry, "geometry", address=fuse(locator["column"], slot), data=data)
         locator.xor(data[:n], neighbor)
-        # 补齐变量具有对角 padding_value；其余八个不同位置返回零元素。
+        # The padded variable has diagonal padding_value; the other eight distinct positions return zero elements.
         padded = locator.local("padded_neighbor_" + str(rank), Bits(n))
         locator.xor(locator["column"], padded)
         locator.add_const(padded.reinterpret("uint"), rank)
@@ -623,7 +640,7 @@ def qfvm_sparse_access(
                 b.x(slot[bit])
         invoke(b, geometry, "geometry", address=fuse(b["column"], slot), data=geom)
         b.call(compare_words(n), a=b["row"], b=geom[:n], flag=match)
-        # 原始 geometry 的 valid 位排除了补齐变量和无效槽位。
+        # The valid bit of the raw geometry excludes the padded variable and invalid slots.
         with b.control(fuse(match, geom[inputs.geometry_width - 1])):
             b.xor(geom[: inputs.geometry_width - 1], selected[: inputs.geometry_width - 1])
             b.x(selected[inputs.geometry_width - 1])

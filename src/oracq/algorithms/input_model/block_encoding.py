@@ -1,4 +1,4 @@
-"模块化 BE、投影、LCU 与小矩阵表示组合。"
+"Modular BEs, projectors, LCU, and small-matrix representation composition."
 
 from __future__ import annotations
 
@@ -19,14 +19,14 @@ from oracq.infrastructure.ir import Bits, Ref, ValidationError
 
 
 def reflect_zero(builder: Builder, register: Ref, *, positive: bool = False) -> None:
-    """在给定寄存器的零态上追加符号翻转反射 ``I-2|0><0|``。
+    """Append the sign-flip reflection ``I-2|0><0|`` about the zero state of the given register.
 
     Args:
-        builder: 追加门的目标 Builder。
-        register: 参与反射的寄存器，可传入多个寄存器拼接后的视图。
-        positive: 为 True 时附加全局相位 pi，得到 ``2|0><0|-I``，零态分量取正号。
+        builder: Target Builder to append gates to.
+        register: Register participating in the reflection; a fused view of several registers is accepted.
+        positive: When True an extra global phase pi is applied, giving ``2|0><0|-I`` with the zero-state component positive.
 
-    行走与振幅放大类算法共享该构件。"""
+    Shared by walk-type and amplitude-amplification-type algorithms."""
     if positive:
         builder.global_phase(math.pi)
     if register.width:
@@ -37,20 +37,20 @@ def reflect_zero(builder: Builder, register: Ref, *, positive: bool = False) -> 
 
 
 def pad_signal(a: BlockEncoding, width: int) -> BlockEncoding:
-    """把 BE 的信号寄存器扩张到指定位宽。
+    """Widen the signal register of a BE to the given width.
 
     Args:
-        a: 输入 block encoding。
-        width: 新的信号位宽，不得小于原信号位宽。
+        a: Input block encoding.
+        width: New signal bit width; must not be smaller than the original signal width.
 
     Returns:
-        BlockEncoding: 角块语义与 alpha 不变，新增的高位信号恒为零，供同签名晚绑定。
+        BlockEncoding: Corner-block semantics and alpha unchanged, with the new high signal bits always zero, enabling late binding under the same signature.
 
     Raises:
-        ValidationError: 试图缩小信号空间。
+        ValidationError: Attempted to shrink the signal space.
     """
     if width < a.signal_qubits:
-        raise ValidationError("不能缩小 BE 信号空间")
+        raise ValidationError("cannot shrink the BE signal space")
     b = Builder(
         _name("pad_be", a.operation, width),
         {"target": Bits(a.width), "signal": Bits(width)},
@@ -61,14 +61,14 @@ def pad_signal(a: BlockEncoding, width: int) -> BlockEncoding:
 
 
 def tensor(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
-    """构造两个 BE 的张量积。
+    """Build the tensor product of two BEs.
 
     Args:
-        a: 作用于目标高位的 BE。
-        b: 作用于目标低位的 BE。
+        a: BE acting on the high target bits.
+        b: BE acting on the low target bits.
 
     Returns:
-        BlockEncoding: 编码 A⊗B，alpha 为两者之积；signal 同样按 a 在低、b 在高拼接。
+        BlockEncoding: Encodes A⊗B with alpha the product of the two; signal is likewise concatenated with a low and b high.
     """
     out = Builder(
         _name("tensor", a.operation, b.operation),
@@ -93,13 +93,13 @@ def tensor(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
 
 
 def adjoint_be(a: BlockEncoding) -> BlockEncoding:
-    """返回编码伴随矩阵 A† 的 BE。
+    """Return the BE encoding the adjoint matrix A†.
 
     Args:
-        a: 输入 block encoding。
+        a: Input block encoding.
 
     Returns:
-        BlockEncoding: 在伴随上下文中调用原操作，alpha 保持不变。
+        BlockEncoding: Invokes the original operation inside an adjoint context, with alpha unchanged.
     """
     out = Builder(
         _name("adjoint_be", a.operation),
@@ -112,28 +112,30 @@ def adjoint_be(a: BlockEncoding) -> BlockEncoding:
 
 
 def lcu(terms: Iterable[tuple[complex, BlockEncoding]]) -> BlockEncoding:
-    """以 PREPARE/SELECT 结构组装若干 BE 的线性组合。
+    """Assemble a linear combination of BEs in PREPARE/SELECT structure.
 
     Args:
-        terms: (系数, BE) 二元组序列；零系数项被剔除。
+        terms: Sequence of (coefficient, BE) pairs; zero-coefficient terms are dropped.
 
     Returns:
-        BlockEncoding: 编码 Σ c_j A_j，alpha 为 ``Σ |c_j|*alpha_j``；仅一项时退化为 ``scale``。
+        BlockEncoding: Encodes Σ c_j A_j with alpha ``Σ |c_j|*alpha_j``; degenerates to ``scale`` for a single term.
 
     Raises:
-        ValidationError: 没有非零项或各项目标宽度不一致。
+        ValidationError: There is no nonzero term, or the terms have inconsistent target widths.
 
-    复系数的相位经选择器控制下的全局相位实现；signal 为选择位与各分支信号位的拼接，末尾逆制备恢复选择器。"""
+    The phases of complex coefficients are realized by selector-controlled global
+    phases; signal is the concatenation of the select bits and each branch's
+    signal bits, with a trailing inverse preparation restoring the selector."""
     from oracq.algorithms.input_model.interfaces import as_block_encoding
 
     terms = tuple((complex(c), as_block_encoding(a)) for c, a in terms if c != 0)
     if not terms:
-        raise ValidationError("LCU 至少需要一个非零项")
+        raise ValidationError("LCU requires at least one nonzero term")
     if len(terms) == 1:
         return scale(terms[0][0], terms[0][1])
     width = terms[0][1].width
     if any(a.width != width for _, a in terms):
-        raise ValidationError("LCU 目标宽度不匹配")
+        raise ValidationError("LCU target widths do not match")
     alpha = sum(abs(c) * a.alpha for c, a in terms)
     selector_width = (len(terms) - 1).bit_length()
     work_width = max(a.signal_qubits for _, a in terms)
@@ -160,28 +162,28 @@ def lcu(terms: Iterable[tuple[complex, BlockEncoding]]) -> BlockEncoding:
 
 
 def kronecker_sum(a: BlockEncoding, b: BlockEncoding | None = None) -> BlockEncoding:
-    """构造两个 BE 的 Kronecker 和 A⊗I+I⊗B。
+    """Build the Kronecker sum A⊗I+I⊗B of two BEs.
 
     Args:
-        a: 第一个 BE。
-        b: 第二个 BE；省略时取 a 自身。
+        a: First BE.
+        b: Second BE; defaults to a itself when omitted.
 
     Returns:
-        BlockEncoding: 两个张量项的 LCU，alpha 为两者 alpha 之和。
+        BlockEncoding: LCU of the two tensor terms, with alpha the sum of the two alphas.
     """
     b = a if b is None else b
     return lcu([(1, tensor(a, identity(b.width))), (1, tensor(identity(a.width), b))])
 
 
 def projector(width: int, accepted: Iterable[int]) -> BlockEncoding:
-    """构造到指定基态子空间的投影 BE。
+    """Build the projector BE onto the specified basis-state subspace.
 
     Args:
-        width: target 位宽。
-        accepted: 被接受的基态整数值集合；重复值会合并并排序。
+        width: Target bit width.
+        accepted: Set of accepted basis-state integer values; duplicates are merged and sorted.
 
     Returns:
-        BlockEncoding: 零信号角块为对角投影，集合外的基态被打入 signal 分支，alpha 为 1。
+        BlockEncoding: The zero-signal corner block is the diagonal projector; basis states outside the set are kicked into the signal branch, with alpha 1.
     """
     accepted = tuple(sorted(set(accepted)))
     out = Builder(_name("projector", width, accepted), {"target": Bits(width), "signal": Bits(1)})
@@ -193,38 +195,38 @@ def projector(width: int, accepted: Iterable[int]) -> BlockEncoding:
 
 
 def direct_sum(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
-    """构造同宽矩阵的直和。
+    """Build the direct sum of same-width matrices.
 
     Args:
-        a: 选择位为 0 时生效的 BE。
-        b: 选择位为 1 时生效的 BE，宽度必须与 a 相同。
+        a: BE in effect when the select bit is 0.
+        b: BE in effect when the select bit is 1; the width must equal a's.
 
     Returns:
-        BlockEncoding: 目标最高位作为选择位的块对角组合，alpha 为两者之和。
+        BlockEncoding: Block-diagonal composition using the target's most significant bit as the select bit, with alpha the sum of the two.
 
     Raises:
-        ValidationError: 两个 BE 宽度不同。
+        ValidationError: The two BE widths differ.
     """
     if a.width != b.width:
-        raise ValidationError("当前 direct_sum 需要同宽矩阵")
+        raise ValidationError("direct_sum currently requires matrices of equal width")
     return lcu([(1, tensor(projector(1, [0]), a)), (1, tensor(projector(1, [1]), b))])
 
 
 def truncated_shift(width: int, last: int) -> BlockEncoding:
-    """构造截断上移位 BE。
+    """Build the truncated up-shift BE.
 
     Args:
-        width: target 位宽。
-        last: 截断阈值，范围为 1..2**width-1。
+        width: Target bit width.
+        last: Truncation threshold, in the range 1..2**width-1.
 
     Returns:
-        BlockEncoding: 零信号角块把基态 v 映射到 v+1（v 小于 last），其余基态被打入 signal 分支，alpha 为 1。
+        BlockEncoding: The zero-signal corner block maps basis state v to v+1 for v below last; other basis states are kicked into the signal branch, with alpha 1.
 
     Raises:
-        ValidationError: last 不在允许范围内。
+        ValidationError: last is outside the allowed range.
     """
     if not 1 <= last < 1 << width:
-        raise ValidationError("截断移位范围无效")
+        raise ValidationError("truncated shift range is invalid")
     out = Builder(_name("shift", width, last), {"target": Bits(width), "signal": Bits(1)})
     for value in range(last, 1 << width):
         with out.control(out["target"], value):
@@ -234,21 +236,21 @@ def truncated_shift(width: int, last: int) -> BlockEncoding:
 
 
 def pauli_word(word: str) -> BlockEncoding:
-    """把 Pauli 字符串编码为无信号位的 BE。
+    """Encode a Pauli string as a BE without signal bits.
 
     Args:
-        word: I/X/Y/Z 字符串，第一个字符作用在最低位。
+        word: String over I/X/Y/Z whose first character acts on the least significant bit.
 
     Returns:
-        BlockEncoding: 逐位显式单量子位门序列，alpha 为 1。
+        BlockEncoding: Explicit per-bit single-qubit gate sequence, with alpha 1.
 
     Raises:
-        ValidationError: 出现 I/X/Y/Z 之外的字符。
+        ValidationError: A character outside I/X/Y/Z appears.
     """
     b = Builder("pauli_" + word, {"target": Bits(len(word)), "signal": Bits(0)})
     for bit, letter in enumerate(word):
         if letter not in "IXYZ":
-            raise ValidationError("Pauli 字只允许 I/X/Y/Z")
+            raise ValidationError("Pauli words allow only I/X/Y/Z")
         if letter != "I":
             b.gate(letter.lower(), b["target"][bit])
     return BlockEncoding(annotate(b.finish(), "block_encoding", be_alpha=1.0))
@@ -257,22 +259,22 @@ def pauli_word(word: str) -> BlockEncoding:
 def matrix_pauli_encoding(
     matrix: Sequence[Sequence[complex]], *, drop_tolerance: float = 1e-12
 ) -> BlockEncoding:
-    """小型应用的显式门实现；不宣称矩阵输入或经典展开具有量子加速。
+    """Explicit gate implementation for small applications; claims no quantum speedup for matrix input or classical expansion.
 
     Args:
-        matrix: 二的幂维复方阵，维数不超过 32（即 5 个量子位）。
-        drop_tolerance: 幅值不超过该容差的 Pauli 系数项被丢弃。
+        matrix: Square complex matrix of power-of-two dimension, at most 32 (i.e. 5 qubits).
+        drop_tolerance: Pauli coefficient terms with magnitude not exceeding this tolerance are dropped.
 
     Returns:
-        BlockEncoding: Pauli 展开的 LCU 块编码；全部系数被丢弃时为零算子。
+        BlockEncoding: LCU block encoding of the Pauli expansion; the zero operator when all coefficients are dropped.
     """
     matrix = tuple(tuple(complex(v) for v in row) for row in matrix)
     d = len(matrix)
     if d < 2 or d & (d - 1) or any(len(row) != d for row in matrix):
-        raise ValidationError("矩阵必须是二的幂维方阵")
+        raise ValidationError("matrix must be a square matrix of power-of-two dimension")
     n = (d - 1).bit_length()
     if n > 5:
-        raise ValidationError("显式 Pauli 展开仅用于最多 5 位的小实例；大实例使用访问 oracle")
+        raise ValidationError("explicit Pauli expansion is only for small instances of at most 5 bits; use an access oracle for larger instances")
     terms: list[tuple[complex, BlockEncoding]] = []
     for letters in itertools.product("IXYZ", repeat=n):
         coefficient = 0j

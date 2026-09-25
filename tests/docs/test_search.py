@@ -1,4 +1,5 @@
-"""搜索索引的中文词片段与 Python 标识符保持可检索。"""
+"""The search index keeps Chinese phrase segments and Python identifiers
+retrievable."""
 
 import importlib.util
 import unittest
@@ -13,6 +14,7 @@ spec.loader.exec_module(module)
 
 class SearchTests(unittest.TestCase):
     def test_chinese_phrase_tokens_are_in_sentence_index(self):
+        # The Chinese strings are test data for the tokenizer, not UI text.
         query = set(module.split_terms("振幅估计"))
         document = set(module.split_terms("使用振幅估计算法"))
         self.assertTrue(query <= document)

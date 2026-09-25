@@ -1,4 +1,4 @@
-"算法库共享的 Python 结构协议；允许应用在自己的模块中继续定义协议。"
+"Python structural protocols shared by the algorithm library; applications may keep defining protocols in their own modules."
 
 from __future__ import annotations
 
@@ -26,78 +26,78 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class StatePreparationProtocol(Protocol):
-    """要求 ``state_preparation()`` 方法；满足即可作为算法的初态输入。"""
+    """Requires a ``state_preparation()`` method; anything satisfying it can serve as an algorithm's initial-state input."""
 
     def state_preparation(self) -> StatePreparation:
-        """返回该输入对应的 ``StatePreparation`` 访问视图。
+        """Return the ``StatePreparation`` access view corresponding to this input.
 
         Returns:
-            StatePreparation: 该输入在零输入寄存器上制备目标态的视图。
+            StatePreparation: View that prepares the target state on this input's zero-input registers.
         """
         ...
 
 
 @runtime_checkable
 class UnitaryProtocol(StatePreparationProtocol, Protocol):
-    """在态制备协议之上增加 ``unitary()`` 的完整酉接口。"""
+    """Adds the full unitary interface ``unitary()`` on top of the state-preparation protocol."""
 
     def unitary(self) -> Operation:
-        """返回完整寄存器空间上的酉 ``Operation``。
+        """Return the unitary ``Operation`` on the full register space.
 
         Returns:
-            Operation: 作用在该输入全部寄存器上的酉操作。
+            Operation: Unitary operation acting on all registers of this input.
         """
         ...
 
 
 @runtime_checkable
 class BlockEncodingProtocol(Protocol):
-    """要求 ``block_encoding()`` 方法；满足即可作为块编码输入。"""
+    """Requires a ``block_encoding()`` method; anything satisfying it can serve as a block-encoding input."""
 
     def block_encoding(self) -> BlockEncoding:
-        """返回该输入对应的 ``BlockEncoding`` 访问视图。
+        """Return the ``BlockEncoding`` access view corresponding to this input.
 
         Returns:
-            BlockEncoding: 把该输入编码为酉的正规化子块的访问视图。
+            BlockEncoding: Access view encoding this input as a normalized sub-block of a unitary.
         """
         ...
 
 
 @runtime_checkable
 class CKSSparseProtocol(Protocol):
-    """要求 ``sparse_access()`` 方法；满足即可作为 CKS 稀疏矩阵输入。"""
+    """Requires a ``sparse_access()`` method; anything satisfying it can serve as a CKS sparse-matrix input."""
 
     def sparse_access(self) -> SparseAccess:
-        """返回 CKS 位置与元素操作组成的 ``SparseAccess``。
+        """Return the ``SparseAccess`` composed of the CKS location and entry operations.
 
         Returns:
-            SparseAccess: 由位置 oracle 与元素 oracle 组成的稀疏访问视图。
+            SparseAccess: Sparse access view composed of a location oracle and an entry oracle.
         """
         ...
 
 
 @runtime_checkable
 class XorDatabaseProtocol(Protocol):
-    """要求 ``xor_database()`` 方法；满足即可作为 XOR 数据库输入。"""
+    """Requires a ``xor_database()`` method; anything satisfying it can serve as an XOR database input."""
 
     def xor_database(self) -> XorDatabase:
-        """返回该输入对应的 ``XorDatabase`` 访问视图。
+        """Return the ``XorDatabase`` access view corresponding to this input.
 
         Returns:
-            XorDatabase: 以 XOR 方式应答查询的数据库访问视图。
+            XorDatabase: Database access view that answers queries by XOR.
         """
         ...
 
 
 @runtime_checkable
 class StateOracleProtocol(Protocol):
-    """要求 ``state_oracle()`` 方法；满足即可作为输出态 oracle。"""
+    """Requires a ``state_oracle()`` method; anything satisfying it can serve as an output-state oracle."""
 
     def state_oracle(self) -> StateOracle:
-        """返回含成功信号的 ``StateOracle``。
+        """Return the ``StateOracle`` carrying a success signal.
 
         Returns:
-            StateOracle: 在输出态中标注成功子空间的 oracle。
+            StateOracle: Oracle that marks the success subspace within the output state.
         """
         ...
 
@@ -106,18 +106,18 @@ _View = TypeVar("_View")
 
 
 def _view(value: object, method_name: str, cls: type[_View]) -> _View:
-    """只取得一次访问视图；调用边界错误与提供方内部异常分别处理。"""
+    """Obtain the access view exactly once; call-boundary errors and provider-internal exceptions are handled separately."""
     if isinstance(value, cls):
         return value
     method = getattr(value, method_name, None)
     if method is None:
-        fail("INPUT_PROTOCOL", method_name, "provider method", type(value).__name__, "缺少访问方法")
+        fail("INPUT_PROTOCOL", method_name, "provider method", type(value).__name__, "missing access method")
     if not callable(method):
-        fail("INPUT_CALLABLE", method_name, "callable", type(method).__name__, "访问属性不可调用")
+        fail("INPUT_CALLABLE", method_name, "callable", type(method).__name__, "access attribute is not callable")
     try:
         parameters = signature(method)
     except (TypeError, ValueError):
-        # 原生可调用对象可能不暴露签名；实际调用的异常保留原始 traceback。
+        # Native callables may not expose a signature; exceptions from the actual call keep the original traceback.
         parameters = None
     if parameters is not None:
         try:
@@ -127,23 +127,23 @@ def _view(value: object, method_name: str, cls: type[_View]) -> _View:
 
             raise ContractError((ContractIssue(
                 "INPUT_SIGNATURE", method_name, "zero-argument call", str(parameters),
-                "访问方法必须支持无参数调用",
+                "access method must support a zero-argument call",
             ),)) from exc
     return require_instance(method(), cls, method_name + ".output")
 
 
 def as_state_preparation(value: StatePreparationProtocol) -> StatePreparation:
-    """把满足协议的输入转换成 ``StatePreparation``。
+    """Convert a protocol-satisfying input into a ``StatePreparation``.
 
     Args:
-        value: 满足 ``StatePreparationProtocol`` 的对象。
+        value: Object satisfying ``StatePreparationProtocol``.
 
     Returns:
-        StatePreparation: 调用 ``state_preparation()`` 得到的具体视图。
+        StatePreparation: The concrete view obtained by calling ``state_preparation()``.
 
     Raises:
-        ContractError: 缺少接口时以 ``INPUT_PROTOCOL`` 上报；返回值不是
-            ``StatePreparation`` 时以 ``INPUT_TYPE`` 上报。
+        ContractError: Reported as ``INPUT_PROTOCOL`` when the interface is missing;
+            as ``INPUT_TYPE`` when the return value is not a ``StatePreparation``.
     """
     from oracq.algorithms.input_model.oracles import StatePreparation
 
@@ -157,16 +157,16 @@ def checked_state_preparation(
     controlled: bool = False,
     path: str = "preparation",
 ) -> StatePreparation:
-    """取得零输入、干净工作区的制备；由调用算法选择需要的变换能力。
+    """Obtain a zero-input, clean-work preparation; the calling algorithm selects the transformation capabilities it needs.
 
     Args:
-        value: 满足 ``StatePreparationProtocol`` 的输入对象。
-        adjoint: 制备是否必须提供厄米共轭版本。
-        controlled: 制备是否必须支持受控版本。
-        path: 契约报告中该输入的路径名。
+        value: Input object satisfying ``StatePreparationProtocol``.
+        adjoint: Whether the preparation must offer a Hermitian-adjoint version.
+        controlled: Whether the preparation must support a controlled version.
+        path: Path name of this input in the contract report.
 
     Returns:
-        StatePreparation: 通过零输入与干净工作区检查的制备视图。
+        StatePreparation: Preparation view that passed the zero-input and clean-work checks.
     """
     result = as_state_preparation(value)
     requirement = InputRequirement(
@@ -184,17 +184,17 @@ def checked_state_preparation(
 
 
 def as_block_encoding(value: BlockEncodingProtocol) -> BlockEncoding:
-    """把满足协议的输入转换成 ``BlockEncoding``。
+    """Convert a protocol-satisfying input into a ``BlockEncoding``.
 
     Args:
-        value: 满足 ``BlockEncodingProtocol`` 的对象。
+        value: Object satisfying ``BlockEncodingProtocol``.
 
     Returns:
-        BlockEncoding: 调用 ``block_encoding()`` 得到的具体视图。
+        BlockEncoding: The concrete view obtained by calling ``block_encoding()``.
 
     Raises:
-        ContractError: 缺少接口时以 ``INPUT_PROTOCOL`` 上报；返回值不是
-            ``BlockEncoding`` 时以 ``INPUT_TYPE`` 上报。
+        ContractError: Reported as ``INPUT_PROTOCOL`` when the interface is missing;
+            as ``INPUT_TYPE`` when the return value is not a ``BlockEncoding``.
     """
     from oracq.algorithms.input_model.operators import BlockEncoding
 
@@ -202,17 +202,17 @@ def as_block_encoding(value: BlockEncodingProtocol) -> BlockEncoding:
 
 
 def as_sparse_access(value: CKSSparseProtocol) -> SparseAccess:
-    """把满足协议的输入转换成 ``SparseAccess``。
+    """Convert a protocol-satisfying input into a ``SparseAccess``.
 
     Args:
-        value: 满足 ``CKSSparseProtocol`` 的对象。
+        value: Object satisfying ``CKSSparseProtocol``.
 
     Returns:
-        SparseAccess: 调用 ``sparse_access()`` 得到的具体视图。
+        SparseAccess: The concrete view obtained by calling ``sparse_access()``.
 
     Raises:
-        ContractError: 缺少接口时以 ``INPUT_PROTOCOL`` 上报；返回值不是
-            ``SparseAccess`` 时以 ``INPUT_TYPE`` 上报。
+        ContractError: Reported as ``INPUT_PROTOCOL`` when the interface is missing;
+            as ``INPUT_TYPE`` when the return value is not a ``SparseAccess``.
     """
     from oracq.algorithms.input_model.oracles import SparseAccess
 
@@ -222,19 +222,20 @@ def as_sparse_access(value: CKSSparseProtocol) -> SparseAccess:
 def as_qlss_matrix(
     value: BlockEncodingProtocol | CKSSparseProtocol,
 ) -> BlockEncoding | SparseAccess:
-    """按可用接口把矩阵输入转换成 ``BlockEncoding`` 或 ``SparseAccess``。
+    """Convert a matrix input into a ``BlockEncoding`` or ``SparseAccess`` according to the available interface.
 
-    满足 ``BlockEncodingProtocol`` 时优先返回块编码视图，否则按
-    ``CKSSparseProtocol`` 取稀疏访问视图。
+    When ``BlockEncodingProtocol`` is satisfied the block-encoding view is
+    returned preferentially; otherwise the sparse access view is taken per
+    ``CKSSparseProtocol``.
 
     Args:
-        value: 矩阵输入对象。
+        value: Matrix input object.
 
     Returns:
-        满足块编码协议时为 ``BlockEncoding``，否则为 ``SparseAccess``。
+        A ``BlockEncoding`` when the block-encoding protocol is satisfied, otherwise a ``SparseAccess``.
 
     Raises:
-        ContractError: 两个协议都不满足，或取得的返回值类型不符。
+        ContractError: Neither protocol is satisfied, or the obtained return value has the wrong type.
     """
     return (
         as_block_encoding(value)
@@ -250,17 +251,19 @@ def operator_state_contract(
     state: str = "initial",
     composable: bool = True,
 ) -> AlgorithmContract:
-    """当前 BE 型演化算法的需求；其他算法可定义完全不同的契约。
+    """Requirements of the current BE-type evolution algorithms; other algorithms may define entirely different contracts.
 
     Args:
-        name: 契约名，用于报告与诊断。
-        matrix: 块编码矩阵输入在契约中的路径名。
-        state: 初态制备输入在契约中的路径名。
-        composable: 初态是否要求厄米共轭与受控能力，供组合式算法使用。
+        name: Contract name, used in reports and diagnostics.
+        matrix: Path name of the block-encoding matrix input in the contract.
+        state: Path name of the initial-state preparation input in the contract.
+        composable: Whether the initial state requires adjoint and controlled capabilities for use by composable algorithms.
 
     Returns:
-        AlgorithmContract: 要求矩阵为可逆可控的块编码、初态为零输入且
-        干净工作区的制备，并约束两者寄存器等宽的契约。
+        AlgorithmContract: Contract requiring the matrix to be a block encoding
+        with adjoint and controlled capabilities, the initial state to be a
+        zero-input and clean-work preparation, and constraining both to equal
+        register widths.
     """
     return AlgorithmContract(
         name,

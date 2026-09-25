@@ -1,4 +1,4 @@
-"""首批算法的独立数学见证，覆盖相位、位序、概率和经典后处理。"""
+"""Independent mathematical witnesses for the first batch of algorithms, covering phases, bit orders, probabilities, and classical post-processing."""
 
 import cmath
 import importlib

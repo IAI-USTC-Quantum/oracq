@@ -1,4 +1,4 @@
-"QFVM 与 QHAM 的可开放、可绑定组装案例。"
+"Open, bindable assembly examples for QFVM and QHAM."
 
 from __future__ import annotations
 
@@ -26,22 +26,26 @@ from oracq.infrastructure.ir import Bits, Ref, ValidationError, fuse
 
 @dataclass(frozen=True)
 class QfvmInputs:
-    """QFVM 组装案例的全部开放输入声明与布局常量。
+    """All open input declarations and layout constants of the QFVM assembly example.
 
     Attributes:
-        position: 行坐标查询的 XOR 数据库开放声明。
-        reverse_slot: 行内反向列槽查询的 XOR 数据库开放声明。
-        column_position: 列坐标查询的 XOR 数据库开放声明。
-        column_reverse_slot: 列内反向槽查询的 XOR 数据库开放声明。
-        flow: 通量字查询的 XOR 数据库开放声明。
-        boundary: 边界字查询的 XOR 数据库开放声明。
-        physical_entry: 物理条目可逆函数的开放声明。
-        amplitude: 振幅转导的开放声明。
-        residual: 残差态制备声明。
-        cell_width: 空间单元坐标位宽。
-        slot_width: 列槽位宽。
-        field_width: 通量与边界字宽。
-        value_width: 物理条目值字宽。
+        position: Open XOR-database declaration for row-coordinate queries.
+        reverse_slot: Open XOR-database declaration for reverse column-slot
+            queries within a row.
+        column_position: Open XOR-database declaration for column-coordinate
+            queries.
+        column_reverse_slot: Open XOR-database declaration for reverse slot
+            queries within a column.
+        flow: Open XOR-database declaration for flux-word queries.
+        boundary: Open XOR-database declaration for boundary-word queries.
+        physical_entry: Open declaration of the reversible physical-entry
+            function.
+        amplitude: Open declaration of the amplitude transduction.
+        residual: Residual state preparation declaration.
+        cell_width: Bit width of spatial cell coordinates.
+        slot_width: Bit width of column slots.
+        field_width: Width of flux and boundary words.
+        value_width: Width of physical entry values.
     """
 
     position: XorDatabase
@@ -67,17 +71,19 @@ def qfvm_inputs(
     field_width: int = 1,
     value_width: int = 2,
 ) -> QfvmInputs:
-    """构造 QFVM 组装案例的全部开放输入声明。
+    """Build all open input declarations of the QFVM assembly example.
 
     Args:
-        name: 声明名前缀，拼接到各槽位模块名前。
-        cell_width: 空间单元坐标位宽。
-        slot_width: 列槽位宽。
-        field_width: 通量与边界字宽。
-        value_width: 物理条目值字宽。
+        name: Declaration name prefix, prepended to each slot module name.
+        cell_width: Bit width of spatial cell coordinates.
+        slot_width: Bit width of column slots.
+        field_width: Width of flux and boundary words.
+        value_width: Width of physical entry values.
 
     Returns:
-        QfvmInputs: 含六个 XOR 数据库、物理条目与振幅开放声明及残差制备的输入束。
+        QfvmInputs: Input bundle with the six XOR databases, the
+        physical-entry and amplitude open declarations, and the residual
+        preparation.
     """
     n, s, w, v = cell_width, slot_width, field_width, value_width
     entry_registers = {
@@ -116,7 +122,7 @@ def qfvm_inputs(
 
 
 def _qfvm_prepare(inputs: QfvmInputs, *, column: bool = False) -> Operation:
-    """构造行向或列向的 QFVM 访问等距制备模块。"""
+    """Build the row-wise or column-wise QFVM access-isometry preparation module."""
     n, s, w, v = inputs.cell_width, inputs.slot_width, inputs.field_width, inputs.value_width
     position = inputs.column_position if column else inputs.position
     reverse = inputs.column_reverse_slot if column else inputs.reverse_slot
@@ -184,14 +190,15 @@ def _qfvm_prepare(inputs: QfvmInputs, *, column: bool = False) -> Operation:
 
 
 def qfvm_block_encoding(inputs: QfvmInputs, *, alpha: float = 2.0) -> BlockEncoding:
-    """以 ``T_L†SWAP T_R`` 结构把 QFVM 访问等距组合成块编码。
+    """Compose the QFVM access isometries into a block encoding with the ``T_L†SWAP T_R`` structure.
 
     Args:
-        inputs: ``qfvm_inputs`` 构造的开放输入束。
-        alpha: 写入 ``be_alpha`` 属性的归一化常数。
+        inputs: Open input bundle built by ``qfvm_inputs``.
+        alpha: Normalization constant written into the ``be_alpha`` attribute.
 
     Returns:
-        BlockEncoding: 目标为空间单元、信号为访问图工作区的块编码视图。
+        BlockEncoding: Block encoding view with spatial cells as the target
+        and the access-graph workspace as the signal.
     """
     right, left = _qfvm_prepare(inputs), _qfvm_prepare(inputs, column=True)
     width = right.module.registers[1].type.width
@@ -222,15 +229,17 @@ def qfvm_block_encoding(inputs: QfvmInputs, *, alpha: float = 2.0) -> BlockEncod
 def qfvm_step(
     inputs: QfvmInputs, qlss: Callable[..., StateOracle], *, alpha: float = 2.0
 ) -> StateOracle:
-    """把 QFVM 块编码与残差制备交给线性系统求解协议。
+    """Hand the QFVM block encoding and residual preparation to the linear-system solver protocol.
 
     Args:
-        inputs: ``qfvm_inputs`` 构造的开放输入束。
-        qlss: 接受块编码与态制备并返回 ``StateOracle`` 的求解协议。
-        alpha: 传入块编码的归一化常数。
+        inputs: Open input bundle built by ``qfvm_inputs``.
+        qlss: Solver protocol accepting a block encoding and a state
+            preparation and returning a ``StateOracle``.
+        alpha: Normalization constant passed to the block encoding.
 
     Returns:
-        StateOracle: 求解协议产出的 QFVM 步进解态 oracle。
+        StateOracle: QFVM stepping solution-state oracle produced by the
+        solver protocol.
     """
     return qlss(qfvm_block_encoding(inputs, alpha=alpha), inputs.residual)
 
@@ -238,25 +247,30 @@ def qfvm_step(
 def embed_block(
     a: BlockEncoding, global_width: int, row_offset: int, column_offset: int
 ) -> BlockEncoding:
-    """把块编码嵌入到更大全局矩阵的指定对角块位置。
+    """Embed a block encoding at a diagonal-block position of a larger global matrix.
 
-    先把目标回绕减去列偏移、在高位标记补齐区，再调用 ``a`` 并整体加上行偏移。
+    The target is first wrapped by subtracting the column offset and the
+    padding region flagged on the high bits, then ``a`` is invoked and the row
+    offset added to the whole register.
 
     Args:
-        a: 被嵌入的块编码。
-        global_width: 全局目标寄存器位宽。
-        row_offset: 目标块在全局矩阵中的行偏移。
-        column_offset: 目标块在全局矩阵中的列偏移。
+        a: The embedded block encoding.
+        global_width: Bit width of the global target register.
+        row_offset: Row offset of the target block in the global matrix.
+        column_offset: Column offset of the target block in the global
+            matrix.
 
     Returns:
-        BlockEncoding: 目标宽为 ``global_width``、alpha 与 ``a`` 相同的块编码。
+        BlockEncoding: Block encoding with target width ``global_width`` and
+        the same alpha as ``a``.
 
     Raises:
-        ValidationError: 嵌入块越过全局矩阵范围。
+        ValidationError: The embedded block crosses the global matrix
+            boundary.
     """
     d, size = 1 << global_width, 1 << a.width
     if not 0 <= row_offset <= d - size or not 0 <= column_offset <= d - size:
-        raise ValidationError("嵌入块越过全局矩阵范围")
+        raise ValidationError("the embedded block crosses the global matrix boundary")
     b = Builder(
         _name("embed", a.operation, global_width, row_offset, column_offset),
         {"target": Bits(global_width), "signal": Bits(a.signal_qubits + 1)},
@@ -286,26 +300,31 @@ def embed_block(
 def qham_lift_m1(
     linear: BlockEncoding, fold: BlockEncoding, *, h: float = -0.25, hfun: float = 1.0
 ) -> BlockEncoding:
-    """把线性项与折叠项提升为 QHAM m=1 封闭系统的块编码。
+    """Lift the linear and folding terms into block encodings of the QHAM m=1 closed system.
 
-    线性项沿三个坐标块与两个双坐标张量积项放在对角块上，折叠项以
-    ``-h*hfun`` 权重出现在两个耦合块上，整体经 LCU 组合。
+    The linear terms sit on diagonal blocks along the three coordinate blocks
+    and two two-coordinate tensor-product terms, the folding terms appear on
+    two coupling blocks with weight ``-h*hfun``, and the whole is combined by
+    LCU.
 
     Args:
-        linear: 单坐标线性算子的块编码。
-        fold: 双坐标折叠算子的块编码，宽度须为 ``linear`` 的两倍。
-        h: 折叠耦合常数。
-        hfun: 折叠系数的缩放因子，乘积 ``h*hfun`` 作为耦合权重。
+        linear: Block encoding of the single-coordinate linear operator.
+        fold: Block encoding of the two-coordinate folding operator; its
+            width must be twice that of ``linear``.
+        h: Folding coupling constant.
+        hfun: Scaling factor of the folding coefficient; the product
+            ``h*hfun`` serves as the coupling weight.
 
     Returns:
-        BlockEncoding: LCU 组合后的提升系统块编码。
+        BlockEncoding: LCU-combined block encoding of the lifted system.
 
     Raises:
-        ValidationError: 折叠矩阵未补齐到双坐标空间。
+        ValidationError: The folding matrix is not padded to the
+            two-coordinate space.
     """
     n = linear.width
     if fold.width != 2 * n:
-        raise ValidationError("折叠矩阵必须先补齐到双坐标空间")
+        raise ValidationError("the folding matrix must first be padded to the two-coordinate space")
     d = 1 << n
     width = (3 * d + d * d - 1).bit_length()
     eta = h * hfun
@@ -322,15 +341,17 @@ def qham_lift_m1(
 
 
 def qham_initial_vector(values: Iterable[complex]) -> tuple[complex, ...]:
-    """构造 QHAM m=1 提升系统的初态振幅元组。
+    """Build the initial-state amplitude tuple of the QHAM m=1 lifted system.
 
-    按 ``[v, v, 0, v⊗v]`` 排列后补零到二的幂长度，供态制备绑定使用。
+    Arranged as ``[v, v, 0, v⊗v]`` and zero-padded to a power-of-two length
+    for state preparation binding.
 
     Args:
-        values: 物理通道初态振幅序列。
+        values: Sequence of physical-channel initial-state amplitudes.
 
     Returns:
-        tuple[complex, ...]: 补零到二的幂长度的复振幅元组。
+        tuple[complex, ...]: Complex amplitude tuple zero-padded to a
+        power-of-two length.
     """
     values = tuple(complex(v) for v in values)
     d = len(values)
@@ -350,22 +371,24 @@ def qham_m1(
     hfun: float = 1.0,
     via_pde: bool = False,
 ) -> StateOracle:
-    """组装并求解 QHAM m=1 提升系统，选出物理通道子空间。
+    """Assemble and solve the QHAM m=1 lifted system, selecting the physical-channel subspace.
 
     Args:
-        linear: 单坐标线性算子的块编码。
-        fold: 双坐标折叠算子的块编码。
-        initial: 物理通道初态制备。
-        solver: 提升系统求解协议；``via_pde`` 为真时按
-            ``(DiscretePDE, 终时刻)`` 调用，否则按 ``(块编码, 制备, 终时刻)``
-            调用。
-        final_time: 演化终时刻。
-        h: 折叠耦合常数。
-        hfun: 折叠系数的缩放因子。
-        via_pde: 是否经 ``DiscretePDE`` 封装后交给求解协议。
+        linear: Block encoding of the single-coordinate linear operator.
+        fold: Block encoding of the two-coordinate folding operator.
+        initial: Physical-channel initial-state preparation.
+        solver: Solver protocol for the lifted system; when ``via_pde`` is
+            true it is called as ``(DiscretePDE, final time)``, otherwise as
+            ``(block encoding, preparation, final time)``.
+        final_time: Final evolution time.
+        h: Folding coupling constant.
+        hfun: Scaling factor of the folding coefficient.
+        via_pde: Whether to wrap in ``DiscretePDE`` before handing over to
+            the solver protocol.
 
     Returns:
-        StateOracle: 选取物理子空间后的解态 oracle。
+        StateOracle: Solution-state oracle after selecting the physical
+        subspace.
     """
     lifted = qham_lift_m1(linear, fold, h=h, hfun=hfun)
     state = (

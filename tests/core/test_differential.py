@@ -1,4 +1,4 @@
-"""方法之间的结构与开放输入差异；不是算法数值正确性测试。"""
+"""Structural and open-input differences between methods; not a numerical-correctness test of the algorithms."""
 
 import unittest
 from functools import partial

@@ -1,13 +1,15 @@
-"""算术编译模块的论文级验证。
+"""Publication-grade validation of the arithmetic compilation modules.
 
-覆盖两类实现：
-- Builder 原语算术（add_const / xor / swap / 受控算术）：OriginIR-ext 全振幅
-  穷举（1–8 bit）、UniQC ``Circuit.to_matrix`` 幺正对比（3–4 bit）、
-  PySparQ RIR 宽寄存器（12/16/32/64 bit）；
-- 定点编译函数（compile_function 的 Boolean SSA 降低）：多项式与初等函数在
-  多个 FixedFormat 下的逐点语义，报告量化误差与精确匹配率。
+Two families of implementations are covered:
+- Builder primitive arithmetic (add_const / xor / swap / controlled arithmetic):
+  OriginIR-ext full-amplitude exhaustive sweeps (1-8 bit), UniQC
+  ``Circuit.to_matrix`` unitary comparison (3-4 bit), and PySparQ RIR wide
+  registers (12/16/32/64 bit);
+- fixed-point compiled functions (Boolean SSA lowering of compile_function):
+  pointwise semantics of polynomials and elementary functions under several
+  FixedFormats, reporting quantization error and the exact-match fraction.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_arithmetic.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_arithmetic.py
 """
 
 from __future__ import annotations
@@ -35,12 +37,12 @@ from oracq.infrastructure.mathfunc import MathConfig, compile_function
 
 def _add_const_operation(width):
     b = Builder(f"add_{width}", {"w": UInt(width)})
-    b.add_const(b["w"], 0)  # 占位，实际常量在调用处注入
+    b.add_const(b["w"], 0)  # placeholder; the actual constant is injected at the call site
     return b
 
 
 def verify_add_const_superposition(report):
-    """小比特数：叠加态上 add_const 的全振幅穷举（OriginIR-ext + 三方对拍）。"""
+    """Small bit counts: full-amplitude exhaustive check of add_const on superpositions (OriginIR-ext + three-way cross-check)."""
     for width in range(1, 9):
         modulus = 1 << width
         constants = sorted({1, 3 % modulus, modulus - 1, modulus // 2})
@@ -65,13 +67,13 @@ def verify_add_const_superposition(report):
             paths=["originir-ext", "reference", "rir-pysparq", "adapter-pysparq"],
             parameters={"width": width, "constants": constants},
             metrics={"max_error": worst},
-            criterion="全振幅与经典置换逐点一致（max_error < 1e-9）",
+            criterion="full amplitudes agree pointwise with the classical permutation (max_error < 1e-9)",
             passed=worst < 1e-9,
         )
 
 
 def verify_add_const_matrix(report):
-    """幺正层面：to_matrix 与经典置换矩阵逐元素对比。"""
+    """Unitary level: element-wise comparison of to_matrix against the classical permutation matrix."""
     import numpy as np
 
     for width, value in ((3, 3), (4, 11)):
@@ -89,13 +91,13 @@ def verify_add_const_matrix(report):
             paths=["originir-ext+to_matrix"],
             parameters={"width": width, "constant": value},
             metrics={"max_error": error},
-            criterion="线路幺正等于经典置换矩阵（max_error < 1e-12）",
+            criterion="circuit unitary equals the classical permutation matrix (max_error < 1e-12)",
             passed=error < 1e-12,
         )
 
 
 def verify_add_const_wide(report):
-    """宽寄存器：PySparQ RIR 的基态扫描与 12 bit 全叠加对比。"""
+    """Wide registers: basis-state sweep and 12-bit full-superposition comparison via PySparQ RIR."""
     for width in (16, 32, 64):
         modulus = 1 << width
         constant = (0x5A5A5A5A5A5A5A5A % modulus) or 1
@@ -117,7 +119,7 @@ def verify_add_const_wide(report):
             paths=["rir-pysparq"],
             parameters={"width": width, "constant": constant, "inputs": len(inputs)},
             metrics={"failures": failures},
-            criterion="抽样基态输入的输出恰好为 (x+c) mod 2^w（failures == 0）",
+            criterion="sampled basis-state inputs produce exactly (x+c) mod 2^w (failures == 0)",
             passed=failures == 0,
         )
     width = 12
@@ -135,13 +137,13 @@ def verify_add_const_wide(report):
         paths=["rir-pysparq"],
         parameters={"width": width, "states": modulus},
         metrics={"max_error": error},
-        criterion="4096 叠加分支逐振幅一致（max_error < 1e-12）",
+        criterion="all 4096 superposition branches agree amplitude by amplitude (max_error < 1e-12)",
         passed=error < 1e-12,
     )
 
 
 def verify_structured_arithmetic(report):
-    """xor/swap 视图与受控算术：四条路径两两对拍。"""
+    """xor/swap views and controlled arithmetic: pairwise cross-check over four paths."""
     b = Builder("structured", {"a": UInt(4), "b": UInt(4), "c": Bits(2)})
     b.h(b["a"])
     b.h(b["c"])
@@ -168,13 +170,13 @@ def verify_structured_arithmetic(report):
         paths=["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
         parameters={"widths": widths},
         metrics={"max_pairwise_deviation": deviation},
-        criterion="四路径两两偏差 < 1e-9",
+        criterion="pairwise deviation across the four paths < 1e-9",
         passed=deviation < 1e-9,
     )
 
 
 def _sweep_compiled(report, source, fmt, exact_oracle, name, paths_extra=()):
-    """一次叠加运行穷举全部 2^width 个输入；另做基态抽点确认确定性。"""
+    """A single superposition run exhausts all 2^width inputs; additional basis-state spot checks confirm determinism."""
     compiled = compile_function(source, fmt=fmt)
     operation = compiled.operation
     quantum = 1.0 / (1 << fmt.fraction)
@@ -185,7 +187,7 @@ def _sweep_compiled(report, source, fmt, exact_oracle, name, paths_extra=()):
         superposition_program(operation, ["x"]), max_states=1 << (fmt.width + 4)
     )
     if len(state) != modulus:
-        raise AssertionError(f"{name}: 分支数 {len(state)} ≠ 2^{fmt.width}")
+        raise AssertionError(f"{name}: branch count {len(state)} != 2^{fmt.width}")
     uniform = 1 / math.sqrt(modulus)
     max_error = 0.0
     exact = 0
@@ -193,7 +195,7 @@ def _sweep_compiled(report, source, fmt, exact_oracle, name, paths_extra=()):
     for basis, amplitude in state.items():
         values = dict(zip(names, basis, strict=True))
         if abs(amplitude - uniform) > 1e-12:
-            raise AssertionError(f"{name}: 叠加分支振幅异常 {amplitude}")
+            raise AssertionError(f"{name}: anomalous superposition-branch amplitude {amplitude}")
         x = fmt.decode(values["x"])
         expected_value = exact_oracle(x)
         if values[flag_key]:
@@ -208,7 +210,7 @@ def _sweep_compiled(report, source, fmt, exact_oracle, name, paths_extra=()):
     for raw in (0, 1, modulus // 2 - 1):
         single = rir_pysparq(basis_program(operation, {"x": raw}))
         if len(single) != 1 or abs(next(iter(single.values())) - 1) > 1e-12:
-            raise AssertionError(f"{name}: 基态执行出现非确定性输出 raw={raw}")
+            raise AssertionError(f"{name}: basis-state execution produced a non-deterministic output raw={raw}")
     report.case(
         name,
         paths=["rir-pysparq", *paths_extra],
@@ -218,7 +220,7 @@ def _sweep_compiled(report, source, fmt, exact_oracle, name, paths_extra=()):
             "exact_fraction": exact / len(state),
             "flagged": flagged,
         },
-        criterion=f"无旗标输出误差 ≤ 2 个量子（{2 * quantum:.6f}）且分支均匀",
+        criterion=f"unflagged output error <= 2 quanta ({2 * quantum:.6f}) with uniform branches",
         passed=max_error <= 2 * quantum + 1e-12,
     )
 
@@ -244,7 +246,7 @@ def _approximation_coefficients(program, function):
                 data = json.loads(value)
                 if data["function"] == function:
                     return data["coefficients"]
-    raise AssertionError(f"未找到 {function} 的逼近系数")
+    raise AssertionError(f"approximation coefficients for {function} not found")
 
 
 def verify_fixed_point_elementary(report):
@@ -284,7 +286,7 @@ def verify_fixed_point_elementary(report):
             continue
         checked += 1
         impl_error = max(impl_error, abs(fmt.decode(values["out"]) - interpolant(x)))
-    # 方法误差：Chebyshev 插值与 sin 本身的差距（稠密经典网格，信息性指标）
+    # Method error: gap between the Chebyshev interpolant and sin itself (dense classical grid; informative metric)
     method_error = max(
         abs(interpolant(i / 1000) - math.sin(i / 1000)) for i in range(-1000, 1001)
     )
@@ -300,15 +302,15 @@ def verify_fixed_point_elementary(report):
             "misflagged": misflagged,
         },
         criterion=(
-            f"实现误差 ≤ 2 量子（{2 * quantum:.6f}，对照模块属性中的 Chebyshev 系数）"
-            "且区间内外旗标一致"
+            f"implementation error <= 2 quanta ({2 * quantum:.6f}, against the Chebyshev coefficients in the module attributes)"
+            " with flags consistent inside and outside the interval"
         ),
         passed=impl_error <= 2 * quantum + 1e-12 and misflagged == 0,
     )
 
 
 def verify_math_superposition_cross(report):
-    """编译函数在叠加输入下的四路径对拍（小格式，受 OriginIR 位预算限制）。"""
+    """Four-path cross-check of compiled functions on superposition inputs (small format, limited by the OriginIR bit budget)."""
     fmt = FixedFormat(4, 1)
     compiled = compile_function("def f(x):\n return x*x+0.5", fmt=fmt)
     operation = compiled.operation
@@ -332,7 +334,7 @@ def verify_math_superposition_cross(report):
         paths=paths,
         parameters={"format": "4.1"},
         metrics={"max_pairwise_deviation": deviation},
-        criterion="各路径两两偏差 < 1e-9",
+        criterion="pairwise deviation across paths < 1e-9",
         passed=deviation < 1e-9,
     )
 
@@ -340,7 +342,7 @@ def verify_math_superposition_cross(report):
 def run():
     report = Report(
         "arithmetic",
-        "原语算术与定点编译函数的逐点/叠加/幺正三级验证，覆盖 1–64 bit。",
+        "Three-level (pointwise / superposition / unitary) validation of primitive arithmetic and fixed-point compiled functions, covering 1-64 bit.",
     )
     verify_add_const_superposition(report)
     verify_add_const_matrix(report)

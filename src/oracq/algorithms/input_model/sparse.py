@@ -1,4 +1,4 @@
-"""稀疏位置与元素访问，以及数值字到 block encoding 的显式适配。"""
+"""Sparse position and entry access, plus explicit adaptation of numeric words to block encodings."""
 
 from __future__ import annotations
 
@@ -29,30 +29,31 @@ def reversible_lookup(
     *,
     name: str | None = None,
 ) -> Operation:
-    """把 ``XorDatabase`` 的 address/data 接口适配到命名的输入/输出寄存器组。
+    """Adapt the address/data interface of an ``XorDatabase`` to named input/output register groups.
 
-    输入寄存器按声明顺序融合为地址视图，输出寄存器融合为数据视图，查询语义
-    仍是 XOR 数据库的 ``data ^= memory[address]``。
+    The input registers are fused, in declaration order, into an address view
+    and the output registers into a data view; the query semantics remain the
+    XOR database's ``data ^= memory[address]``.
 
     Args:
-        inputs: 名字到位宽的映射，总宽度须等于 ``database.address_width``。
-        outputs: 名字到位宽的映射，总宽度须等于 ``database.data_width``。
-        database: 被适配的 XOR 数据库。
-        name: 可选模块名，省略时由内容生成。
+        inputs: Mapping from names to bit widths; the total width must equal ``database.address_width``.
+        outputs: Mapping from names to bit widths; the total width must equal ``database.data_width``.
+        database: The XOR database being adapted.
+        name: Optional module name; generated from content when omitted.
 
     Returns:
-        Operation: 寄存器为 inputs 与 outputs 的并集，范式为 ``reversible_function``。
+        Operation: Registers are the union of inputs and outputs; the paradigm is ``reversible_function``.
 
     Raises:
-        ValidationError: 输入/输出总宽度与数据库不符，或两边名字冲突。
+        ValidationError: The input/output total widths do not match the database, or names conflict between the two sides.
     """
     if (
         sum(inputs.values()) != database.address_width
         or sum(outputs.values()) != database.data_width
     ):
-        raise ValidationError("可逆查询的输入/输出总宽度不符")
+        raise ValidationError("reversible lookup input and output total widths do not match")
     if set(inputs) & set(outputs):
-        raise ValidationError("可逆查询的输入与输出名字冲突")
+        raise ValidationError("reversible lookup input and output names conflict")
     b = Builder(
         name
         or _name(
@@ -74,19 +75,22 @@ def reversible_lookup(
 def word_rotation(
     value_width: int, *, scale: float | None = None, name: str | None = None
 ) -> Operation:
-    """把数值字的整数值线性转成 ``amplitude`` 比特上 Ry 角度的可逆转导。
+    """Reversible transduction that converts the integer value of a numeric word linearly into an Ry angle on the ``amplitude`` bit.
 
-    逐位受控叠加后总旋转角为 ``scale * value``（value 取无符号整数）；
-    缺省 ``scale = 2*pi / 2**value_width``，使整个取值域恰好转满一周。
+    With per-bit controlled superposition the total rotation angle is
+    ``scale * value`` (value taken as an unsigned integer); the default
+    ``scale = 2*pi / 2**value_width`` makes the whole value range sweep exactly
+    one full turn.
 
     Args:
-        value_width: value 寄存器位宽。
-        scale: 每单位整数值的旋转角；省略时取 ``2*pi / 2**value_width``。
-        name: 可选模块名，省略时由内容生成。
+        value_width: Bit width of the value register.
+        scale: Rotation angle per unit of integer value; defaults to ``2*pi / 2**value_width``.
+        name: Optional module name; generated from content when omitted.
 
     Returns:
-        Operation: 寄存器为 value 与单比特 amplitude，范式为 ``reversible_function``，
-        模块属性 ``angle_scale`` 记录所用 scale。
+        Operation: Registers are value and the single-bit amplitude; the paradigm
+        is ``reversible_function``, with module attribute ``angle_scale``
+        recording the scale used.
     """
     scale = 2 * math.pi / (1 << value_width) if scale is None else scale
     b = Builder(
@@ -102,15 +106,15 @@ def word_rotation(
 def sparse_block_encoding(
     access: SparseAccess, transducer: Operation | None = None, *, alpha: float | None = None
 ) -> BlockEncoding:
-    """历史候选，仅供旧目录描述；正式稀疏适配见 real_symmetric_sparse_encoding。
+    """Historical candidate kept only for the old gallery description; the official sparse adapter is real_symmetric_sparse_encoding.
 
     Args:
-        access: CKS 稀疏访问束。
-        transducer: 值到幅度的转导操作；缺省为开放声明。
-        alpha: 显式覆盖的归一化常数；缺省取稀疏度。
+        access: CKS sparse access bundle.
+        transducer: Value-to-amplitude transduction operation; defaults to an open declaration.
+        alpha: Explicitly overridden normalization constant; defaults to the sparsity.
 
     Returns:
-        BlockEncoding: 遗留转导构造、契约未指定的块编码。
+        BlockEncoding: Legacy transduction construction with an unspecified contract.
     """
     n, v = access.width, access.value_width
     lw = next(r.type.width for r in access.location.module.registers if r.name == "work")
@@ -161,15 +165,16 @@ def sparse_block_encoding(
 
 
 def batch_lookup(database: XorDatabase, count: int) -> Operation:
-    """对同一 XOR 数据库做多路并发查询的批量线路。
+    """Batch circuit issuing multiple concurrent queries to the same XOR database.
 
     Args:
-        database: XOR 数据库。
-        count: 查询路数。
+        database: The XOR database.
+        count: Number of query lanes.
 
     Returns:
-        Operation: 寄存器为 ``address{i}`` 与 ``data{i}``，i 从 0 到 count-1，
-        位宽分别等于数据库的 address/data 宽度，逐路调用同一数据库操作。
+        Operation: Registers are ``address{i}`` and ``data{i}`` for i from 0 to
+        count-1, with bit widths equal to the database's address/data widths
+        respectively, invoking the same database operation once per lane.
     """
     registers: dict[str, RegType] = {}
     for i in range(count):
@@ -187,16 +192,17 @@ def batch_lookup(database: XorDatabase, count: int) -> Operation:
 
 @lru_cache(maxsize=64)
 def compare_words(width: int, kind: str = "eq") -> Operation:
-    """两个字宽度无符号整数的相等或小于比较网络。
+    """Equality or less-than comparison network for two word-width unsigned integers.
 
     Args:
-        width: 每个输入字的位宽。
-        kind: ``"eq"`` 生成相等判定，``"lt"`` 生成无符号小于判定。
+        width: Bit width of each input word.
+        kind: ``"eq"`` builds an equality predicate, ``"lt"`` an unsigned less-than predicate.
 
     Returns:
-        Operation: 输入寄存器 a、b，输出单比特 flag，比较成立时为 1。
-        布尔网络经 compute/copy/uncompute 编译为可逆量子操作，私有 bank
-        零进零出。结果按 ``(width, kind)`` 缓存复用。
+        Operation: Input registers a and b, output single-bit flag set to 1 when
+        the comparison holds. The Boolean network is compiled into a reversible
+        quantum operation via compute/copy/uncompute, with the private bank zero
+        in and zero out. Results are cached and reused by ``(width, kind)``.
     """
     net = BooleanNetwork()
     a, b = net.input("a", width), net.input("b", width)
@@ -211,19 +217,20 @@ def compare_words(width: int, kind: str = "eq") -> Operation:
 
 @lru_cache(maxsize=64)
 def value_transposition(width: int) -> Operation:
-    """在 index 中交换 a/b 两个位模式；a、b 保留，适用于量子地址。
+    """Swap the two bit patterns a and b within index; a and b are preserved, suitable for quantum addresses.
 
     Args:
-        width: index 与 a、b 寄存器各自的位宽。
+        width: Bit width of each of the index and a, b registers.
 
     Returns:
-        Operation: 把 index 中等于 a 或 b 的基态互换、其余基态不变的操作。
+        Operation: Operation that exchanges the basis states of index equal to a
+        or b while leaving all other basis states unchanged.
     """
     net = BooleanNetwork()
     x, a, c = net.input("index", width), net.input("a", width), net.input("b", width)
 
     def eq(y: list[int]) -> int:
-        """输出 1 当且仅当 ``y`` 与输入 ``x`` 逐位相等。"""
+        """Output 1 if and only if ``y`` equals the input ``x`` bit by bit."""
         return net.inv(net.any([net.xor(v, w) for v, w in zip(x, y, strict=True)]))
 
     net.outputs = {"flag": [net.or_(eq(a), eq(c))]}
@@ -242,25 +249,25 @@ def value_transposition(width: int) -> Operation:
 
 
 def prefix_state(width: int, count: int) -> Operation:
-    """在前 count 个基态上制备均匀叠加态。
+    """Prepare a uniform superposition over the first count basis states.
 
     Args:
-        width: target 寄存器位宽。
-        count: 叠加覆盖的基态个数，范围为 ``1..2**width``。
+        width: Target register bit width.
+        count: Number of basis states covered by the superposition, in ``1..2**width``.
 
     Returns:
-        Operation: 单个 target 寄存器上的零输入制备，支撑集为 ``|0>`` 到
-        ``|count-1>`` 且幅度相等。
+        Operation: Zero-input preparation on a single target register whose
+        support is ``|0>`` through ``|count-1>`` with equal amplitudes.
 
     Raises:
-        ValidationError: count 不在 ``1..2**width`` 范围内。
+        ValidationError: count is outside the ``1..2**width`` range.
     """
     if not 1 <= count <= 1 << width:
-        raise ValidationError("均匀前缀范围无效")
+        raise ValidationError("uniform prefix range is invalid")
     b = Builder("uniform_prefix_" + str(width) + "_" + str(count), {"target": Bits(width)})
 
     def prepare(ref: Ref, size: int) -> None:
-        """在 ``ref`` 的前 ``size`` 个基态上递归制备均匀叠加。"""
+        """Recursively prepare a uniform superposition over the first ``size`` basis states of ``ref``."""
         if not ref.width:
             return
         if size == 1 << ref.width:
@@ -280,15 +287,16 @@ def prefix_state(width: int, count: int) -> Operation:
 
 
 def magnitude_rotation(fmt: FixedFormat, amax: float) -> Operation:
-    """数值字的小型普通实现；超过 12 位保留显式待绑定 transducer。
+    """Small plain implementation for numeric words; above 12 bits an explicit to-be-bound transducer is kept.
 
     Args:
-        fmt: 元素值的定点格式。
-        amax: 元素幅值上界，正有限实数。
+        fmt: Fixed-point format of entry values.
+        amax: Upper bound on entry magnitudes, a positive finite real number.
 
     Returns:
-        Operation: 幅度 ``sqrt(|value|/amax)`` 的受控 Ry 转导；格式超过
-        12 位时返回待绑定的开放声明。
+        Operation: Controlled Ry transduction with amplitude ``sqrt(|value|/amax)``;
+        for formats wider than 12 bits an open declaration awaiting binding is
+        returned.
     """
     name = _name("sparse_sqrt_rotation", fmt, amax)
     registers = {"value": Bits(fmt.width), "amplitude": Bits(1)}
@@ -317,22 +325,22 @@ def real_symmetric_sparse_encoding(
     diagonal_nonnegative: bool = False,
     rotation: Operation | None = None,
 ) -> BlockEncoding:
-    """CKS 型 T†ST：实 Hermitian、非负对角；交换两侧坐标及失败旗标。
+    """CKS-style T†ST: real Hermitian with non-negative diagonal; swaps the coordinates and the failure flag between the two sides.
 
     Args:
-        access: CKS 稀疏访问束。
-        fmt: 元素值的定点格式，位宽须与访问束的值宽一致。
-        amax: 元素幅值上界，正有限实数。
-        diagonal_nonnegative: 须为 True；当前仅支持非负对角的矩阵。
-        rotation: 可选幅度转导操作；缺省由 magnitude_rotation 生成。
+        access: CKS sparse access bundle.
+        fmt: Fixed-point format of entry values; the bit width must match the access bundle's value width.
+        amax: Upper bound on entry magnitudes, a positive finite real number.
+        diagonal_nonnegative: Must be True; only matrices with a non-negative diagonal are currently supported.
+        rotation: Optional amplitude transduction operation; defaults to one generated by magnitude_rotation.
 
     Returns:
-        BlockEncoding: T†ST 型实对称稀疏矩阵的块编码。
+        BlockEncoding: Block encoding of a T†ST-type real symmetric sparse matrix.
     """
     if not diagonal_nonnegative:
-        raise ValidationError("当前对称稀疏适配要求非负对角；一般矩阵请显式 Hermitian dilation")
+        raise ValidationError("the symmetric sparse adapter currently requires a non-negative diagonal; use an explicit Hermitian dilation for general matrices")
     if not math.isfinite(amax) or amax <= 0 or fmt.width != access.value_width:
-        raise ValidationError("稀疏值格式/元素上界无效")
+        raise ValidationError("invalid sparse value format or entry bound")
     n = access.width
     rotation = rotation or magnitude_rotation(fmt, amax)
     location_work = next(r.type.width for r in access.location.module.registers if r.name == "work")
@@ -387,26 +395,27 @@ def real_symmetric_sparse_encoding(
 
 
 def chebyshev_block(a: BlockEncoding, degree: int) -> BlockEncoding:
-    """Chebyshev 行走幂：零信号块实现缩放矩阵的第 degree 阶 Chebyshev 多项式。
+    """Chebyshev walk power: the zero-signal block realizes the degree-th Chebyshev polynomial of the scaled matrix.
 
-    阶数以 Repeat 保存，每步交替信号零态正反射与调用 ``a``；被编码矩阵按
-    ``a.alpha`` 缩放后进入多项式。
+    The degree is kept as a Repeat, each step alternating between a positive
+    reflection about the signal zero state and an invocation of ``a``; the
+    encoded matrix enters the polynomial scaled by ``a.alpha``.
 
     Args:
-        a: 模块属性显式声明 ``self_adjoint_extension`` 的 ``BlockEncoding``。
-        degree: Chebyshev 阶数，非负整数。
+        a: A ``BlockEncoding`` whose module attributes explicitly declare ``self_adjoint_extension``.
+        degree: Chebyshev degree, a non-negative integer.
 
     Returns:
-        BlockEncoding: ``be_alpha`` 为 1.0，``argument_scale`` 记录 ``a.alpha``，
-        零信号块为 ``T_degree(A / a.alpha)``。
+        BlockEncoding: ``be_alpha`` is 1.0, ``argument_scale`` records ``a.alpha``,
+        and the zero-signal block is ``T_degree(A / a.alpha)``.
 
     Raises:
-        ValidationError: 输入块编码缺少自伴酉扩张声明，或阶数为负。
+        ValidationError: The input block encoding lacks the self-adjoint unitary extension declaration, or the degree is negative.
     """
     if not dict(a.operation.module.attributes).get("self_adjoint_extension"):
-        raise ValidationError("Chebyshev walk 需要显式的自伴酉扩张，普通 BE 不足以保证")
+        raise ValidationError("Chebyshev walk requires an explicit self-adjoint unitary extension; a plain BE does not suffice")
     if degree < 0:
-        raise ValidationError("Chebyshev 阶数不能为负")
+        raise ValidationError("Chebyshev degree cannot be negative")
     b = Builder(
         _name("chebyshev_walk_power", a.operation, degree),
         {"target": Bits(a.width), "signal": Bits(a.signal_qubits)},

@@ -1,4 +1,4 @@
-"""三位重复码的相干编码与单错误恢复电路。"""
+"""Coherent encoding and single-error recovery circuits of the three-bit repetition code."""
 
 from __future__ import annotations
 
@@ -7,17 +7,18 @@ from oracq.infrastructure.ir import Bits, ValidationError, fuse
 
 
 def repetition_encode(*, error: str = "bit") -> Operation:
-    """将一位逻辑态编码到三位重复码。
+    """Encode one logical bit into the three-bit repetition code.
 
     Args:
-        error: ``bit`` 对应单 X 错误，``phase`` 对应单 Z 错误。
+        error: ``bit`` for a single X error, ``phase`` for a single Z error.
 
     Returns:
-        Operation: target 为一位逻辑输入，syndrome 为两位且输入必须为零。
+        Operation: target is the one-bit logical input; syndrome is two bits and must be
+        zero on input.
 
-    编码后的三个物理位按 target、syndrome[0]、syndrome[1] 排列。"""
+    The three encoded physical bits are laid out as target, syndrome[0], syndrome[1]."""
     if error not in {"bit", "phase"}:
-        raise ValidationError("重复码 error 只能是 bit 或 phase")
+        raise ValidationError("Repetition code error must be bit or phase")
     b = Builder(
         "repetition_encode_" + error,
         {"target": Bits(1), "syndrome": Bits(2)},
@@ -31,17 +32,18 @@ def repetition_encode(*, error: str = "bit") -> Operation:
 
 
 def repetition_recover(*, error: str = "bit") -> Operation:
-    """相干恢复三位重复码中的单个指定类型错误。
+    """Coherently recover a single error of the given kind in the three-bit repetition code.
 
     Args:
-        error: 与编码器一致的 ``bit`` 或 ``phase``。
+        error: ``bit`` or ``phase``, matching the encoder.
 
     Returns:
-        Operation: target 恢复逻辑态，错误信息保留在 syndrome。
+        Operation: target restores the logical state; the error information stays in syndrome.
 
-    不包含测量或重置，不能把非零 syndrome 当作已经复净的工作区。"""
+    No measurement or reset is included; a nonzero syndrome must not be treated as
+    already-clean work space."""
     if error not in {"bit", "phase"}:
-        raise ValidationError("重复码 error 只能是 bit 或 phase")
+        raise ValidationError("Repetition code error must be bit or phase")
     b = Builder(
         "repetition_recover_" + error,
         {"target": Bits(1), "syndrome": Bits(2)},

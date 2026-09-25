@@ -1,4 +1,4 @@
-"""Select-Swap QROM 数据加载的数学见证：逐地址对拍、资源公式与复净检查。"""
+"""Mathematical witnesses for Select-Swap QROM data loading: per-address cross-checks, resource formulas, and uncomputation checks."""
 
 import unittest
 
@@ -15,7 +15,7 @@ TABLE16 = (3, 0, 5, 2, 7, 1, 6, 4, 0, 2, 1, 7, 5, 3, 6, 4)
 
 
 def probe(operation, address, data, address_bits, data_bits):
-    """在基态初值 ``|address, data>`` 上执行数据库调用并返回输出寄存器对。"""
+    """Execute the database call on the basis-state input ``|address, data>`` and return the output register pair."""
     b = Builder(
         f"Probe_{operation.module.name}_{address}_{data}",
         {"address": Bits(address_bits), "data": Bits(data_bits)},
@@ -59,8 +59,9 @@ class DataLoadingTests(unittest.TestCase):
         b.h(b["address"])
         b.call(database, address=b["address"], data=b["data"])
         state = simulate(b.finish().program())
-        # 地址叠加上的查询保持地址不变并逐点 XOR 表字；窗口局部寄存器由模拟器
-        # 在 LocalExit 处强制复净，此处地址边缘分布均匀即说明 compute/uncompute 干净。
+        # A query on a superposed address leaves the address unchanged and XORs the table word in pointwise;
+        # the simulator forces window local registers to uncompute at LocalExit, so a uniform address
+        # marginal distribution here means the compute/uncompute is clean.
         self.assertEqual(len(state.amplitudes), 16)
         for address in range(16):
             amplitude = state.amplitudes.get((address, TABLE16[address]), 0)

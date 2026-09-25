@@ -1,4 +1,4 @@
-"oracq：Python 生成器与模块化寄存器级 IR。"
+"oracq: Python generators and a modular register-level IR."
 
 from oracq.algorithms.common.arithmetic import (
     FixedFormat,

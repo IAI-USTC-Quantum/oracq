@@ -1,4 +1,4 @@
-"0.7 导入路径的集中兼容表；仓内代码只使用规范路径。"
+"Central compatibility table for 0.7 import paths; in-repo code uses only the canonical paths."
 
 from __future__ import annotations
 
@@ -103,10 +103,11 @@ SPLIT_EXPORTS = {
 
 
 def install() -> None:
-    """把 0.7 旧导入路径安装为规范模块并挂载到各自的父包。
+    """Install the legacy 0.7 import paths as canonical modules and attach them to their parent packages.
 
-    ``ALIASES`` 中的旧路径直接复用对应规范模块对象；``SPLIT_EXPORTS`` 中的旧包
-    按导出清单从各规范属主模块合成转发模块。
+    Legacy paths in ``ALIASES`` directly reuse the corresponding canonical module
+    objects; legacy packages in ``SPLIT_EXPORTS`` are synthesized as forwarding
+    modules from their canonical owner modules per the export manifest.
     """
     for old, new in ALIASES.items():
         module = importlib.import_module(new)
@@ -116,11 +117,11 @@ def install() -> None:
         module.__package__ = old.rpartition(".")[0]
         for name, (owner, symbol) in exports.items():
             setattr(module, name, getattr(importlib.import_module(owner), symbol))
-        # typeshed 未把 __all__ 声明为 ModuleType 的可赋值属性，动态合成模块需要它。
+        # typeshed does not declare __all__ as assignable on ModuleType; dynamically synthesized modules need it.
         module.__all__ = [n for n in exports if not n.startswith("_")]  # type: ignore[attr-defined]
         sys.modules[old] = module
     for old in (*ALIASES, *SPLIT_EXPORTS):
         parent, _, leaf = old.rpartition(".")
-        # owner 在上方解包循环中绑定为模块路径字符串，此处承载模块对象。
+        # owner is bound to module path strings in the unpacking loop above and carries module objects here.
         owner = sys.modules.get(parent) or importlib.import_module(parent)  # type: ignore[assignment]
         setattr(owner, leaf, sys.modules[old])

@@ -1,4 +1,4 @@
-"导出可审阅的自动推导与 QODE input manifest。"
+"Export reviewable automated derivations and the QODE input manifest."
 
 from __future__ import annotations
 
@@ -11,16 +11,18 @@ from oracq.applications.qham.linearization import Block, QHAMPlan
 
 
 def input_manifest(plan: QHAMPlan, state_width: int) -> dict[str, object]:
-    """构造交给 QODE 求解侧的输入 manifest。
+    """Build the input manifest handed to the QODE solver side.
 
     Args:
-        plan: ``QHAMPlan`` 闭包计划。
-        state_width: 单分量状态位宽。
+        plan: ``QHAMPlan`` closure plan.
+        state_width: Bit width of a single-component state.
 
     Returns:
-        dict: 在 ``plan.summary()`` 基础上补充状态位宽与维数、生成元目标
-        位宽、提升总维数、各端口的输入/输出位宽与 block encoding 要求，
-        以及初值制备、时间依赖和稀疏访问等约束说明。
+        dict: ``plan.summary()`` extended with the state width and dimension,
+        the generator target width, the total lifted dimension, per-port input
+        and output widths and block encoding requirements, plus constraint
+        notes on initial-state preparation, time dependence, and sparse
+        access.
     """
     dimension = 1 << state_width
     raw = plan.raw_dimension(dimension)
@@ -53,17 +55,19 @@ def input_manifest(plan: QHAMPlan, state_width: int) -> dict[str, object]:
 def row_description(
     plan: QHAMPlan, block: Block, state_width: int, eta: complex
 ) -> dict[str, object]:
-    """构造单个行块的推导描述。
+    """Build the derivation description of a single row block.
 
     Args:
-        plan: ``QHAMPlan`` 闭包计划。
-        block: 闭包内的行块。
-        state_width: 单分量状态位宽。
-        eta: 同伦参数。
+        plan: ``QHAMPlan`` closure plan.
+        block: Row block within the closure.
+        state_width: Bit width of a single-component state.
+        eta: Homotopy parameter.
 
     Returns:
-        dict: 含块标签、张量字、块偏移与块维数，以及各线性边的源块、
-        端口、作用位置、权重公式与 ``eta`` 处取值（实部/虚部）。
+        dict: Contains the block label, tensor word, block offset, and block
+        dimension, plus for each linear edge the source block, port, action
+        position, weight formula, and value at ``eta`` (real and imaginary
+        parts).
     """
     dimension = 1 << state_width
     return {
@@ -100,26 +104,30 @@ def export_derivation(
     max_blocks: int = 256,
     row: Block | None = None,
 ) -> dict[str, object]:
-    """把自动推导结果导出为可审阅的 JSON、Markdown 与 QODE manifest。
+    """Export the automated derivation results as reviewable JSON, Markdown, and a QODE manifest.
 
-    在 ``directory`` 下写入 ``pde.json``、``qcl-plan.json``、
-    ``rows.json``、``qode-input.json`` 与 ``derivation.md``；目录不存在时
-    递归创建。
+    Writes ``pde.json``, ``qcl-plan.json``, ``rows.json``,
+    ``qode-input.json``, and ``derivation.md`` under ``directory``; the
+    directory is created recursively when absent.
 
     Args:
-        plan: ``QHAMPlan`` 闭包计划。
-        directory: 导出目录。
-        state_width: 单分量状态位宽。
-        eta: 同伦参数，须为有限复数。
-        max_blocks: 显式枚举行块的预算；闭包块数超过时不枚举行，
-            manifest 保留计划摘要并注明预算超限。
-        row: 指定时只导出该行块，否则导出全部行块。
+        plan: ``QHAMPlan`` closure plan.
+        directory: Export directory.
+        state_width: Bit width of a single-component state.
+        eta: Homotopy parameter; must be a finite complex number.
+        max_blocks: Budget for explicitly enumerating row blocks; when the
+            closure block count exceeds it, rows are not enumerated and the
+            manifest keeps the plan summary with a note that the budget was
+            exceeded.
+        row: When given, export only this row block; otherwise export all row
+            blocks.
 
     Returns:
-        dict: 写入 ``qode-input.json`` 的 manifest（含 ``eta``）。
+        dict: The manifest written to ``qode-input.json`` (including ``eta``).
 
     Raises:
-        ValidationError: ``eta`` 非有限，或 ``row`` 不在 QCL 闭包内。
+        ValidationError: ``eta`` is not finite, or ``row`` is not in the QCL
+            closure.
     """
     import math
     from pathlib import Path
@@ -127,7 +135,7 @@ def export_derivation(
     from oracq.infrastructure.ir import ValidationError
 
     if not math.isfinite(complex(eta).real) or not math.isfinite(complex(eta).imag):
-        raise ValidationError("eta 必须有限")
+        raise ValidationError("eta must be finite")
     path = Path(directory)
     path.mkdir(parents=True, exist_ok=True)
     (path / "pde.json").write_text(plan.pde.dumps())
@@ -145,28 +153,28 @@ def export_derivation(
         manifest["rows_materialized"] = False
         manifest["note"] = "plan remains valid and queryable; explicit enumeration budget exceeded"
     if row is not None and not plan.contains(row):
-        raise ValidationError("请求的行不在 QCL 闭包")
+        raise ValidationError("the requested row is not in the QCL closure")
     rows = [row_description(plan, b, state_width, eta) for b in blocks]
     (path / "rows.json").write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n")
     (path / "qode-input.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     text = [
-        f"# 自动 QHAM 推导：{plan.pde.label}",
+        f"# Automated QHAM derivation: {plan.pde.label}",
         "",
-        f"HAM 阶数 m={plan.order}，非线性最高次数 D={plan.pde.degree}，最大张量秩 {plan.max_rank}。",
-        f"函数块数 {plan.block_count}，原始提升维数 {manifest['raw_lifted_dimension']}。",
+        f"HAM order m={plan.order}, highest nonlinear degree D={plan.pde.degree}, maximum tensor rank {plan.max_rank}.",
+        f"Block count {plan.block_count}, raw lifted dimension {manifest['raw_lifted_dimension']}.",
         "",
-        "同伦递推：Ui' = L Ui - eta sum_l (1+eta)^(i-1-l) C_l。",
-        "物理输出是 u_sum；one 分量若存在则满足 one'=0，one(0)=1。",
+        "Homotopy recursion: Ui' = L Ui - eta sum_l (1+eta)^(i-1-l) C_l.",
+        "The physical output is u_sum; the one component, when present, satisfies one'=0, one(0)=1.",
         "",
-        "| 行块 | 源块 | 线性端口 | 作用位置 | 系数 |",
+        "| Row block | Source block | Linear port | Position | Coefficient |",
         "|---|---|---|---|---|",
     ]
     for item in rows:
-        # rows 由 row_description 构造，"terms" 恒为行块术语字典列表。
+        # rows is built by row_description; "terms" is always a list of per-row term dictionaries.
         for term in cast(list[dict[str, object]], item["terms"]):
             text.append(
                 f"| {item['row']} | {term['column']} | {term['operator']} ({term['arity']}→1) | {term['position']} | {term['formula']} |"
             )
-    text += ["", "以上是对截断 HAM 的自动线性化，收敛与量子求解精度另行验证。"]
+    text += ["", "This is the automated linearization of the truncated HAM; convergence and quantum solver accuracy are validated separately."]
     (path / "derivation.md").write_text("\n".join(text) + "\n")
     return manifest

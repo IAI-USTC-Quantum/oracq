@@ -1,4 +1,4 @@
-"""Hamiltonian 分解、Pauli 演化、Trotter 和有限 Taylor 编码。"""
+"""Hamiltonian decomposition, Pauli evolution, Trotter and truncated Taylor encoding."""
 
 from __future__ import annotations
 
@@ -34,32 +34,40 @@ from oracq.infrastructure.ir import Bits, ValidationError
 def trotter_hamsim(
     terms: Iterable[tuple[float, str]], final_time: float, *, steps: int = 2
 ) -> Operation:
-    """一阶 Trotter 乘积公式模拟 Pauli 分解的 Hamiltonian 演化。
+    """First-order Trotter product-formula simulation of the evolution under a
+    Pauli-decomposed Hamiltonian.
 
-    对 H = sum_j c_j P_j 按 exp(-i*H*t) ≈ (prod_j exp(-i*c_j*P_j*t/steps))**steps
-    合成：每个 Pauli 词经基变换与 CNOT 链折叠为末活跃位上的相位旋转后逆序复原。
-    电路主体是单个 Repeat(steps) 块，生成与序列化阶段不按步数展开；
-    全 I 的项不消耗量子比特，退化为全局相位。
+    For H = sum_j c_j P_j it synthesizes exp(-i*H*t) as the steps-th power of
+    prod_j exp(-i*c_j*P_j*t/steps): each Pauli word is folded, through basis
+    changes and a CNOT chain, into a phase rotation on the last active qubit
+    and then restored in reverse order. The circuit body is a single
+    Repeat(steps) block and is not expanded per step at generation or
+    serialization time; an all-I word consumes no qubits and degenerates to a
+    global phase.
 
     Args:
-        terms: ``(系数, Pauli 词)`` 序对序列；系数为实数（经 ``float`` 转换），
-            Pauli 词为等宽的 I/X/Y/Z 字符串。
-        final_time: 总演化时间 t。
-        steps: 重复步数，至少为 1；步数越大乘积公式误差越小。
+        terms: Sequence of ``(coefficient, Pauli word)`` pairs; the coefficients are real
+            numbers, converted through ``float``, and the Pauli words are equal-width
+            strings of I/X/Y/Z.
+        final_time: Total evolution time t.
+        steps: Number of repeated steps, at least 1; more steps give a smaller
+            product-formula error.
 
     Returns:
-        Operation: 裸酉操作而非块编码；寄存器为 target（词宽度）与零宽 signal，
-            整体近似 exp(-i*H*t)。
+        Operation: A bare unitary operation rather than a block encoding; the registers are
+        target, of word width, and a zero-width signal, and the whole approximates
+        exp(-i*H*t).
 
     Raises:
-        ValidationError: 项序列为空、steps 小于 1 或各 Pauli 词宽度不一致。
+        ValidationError: The term sequence is empty, steps is below 1, or the Pauli word
+            widths differ.
     """
     terms = tuple((float(c), word) for c, word in terms)
     if not terms or steps < 1:
-        raise ValidationError("Trotter 需要非空项和正步数")
+        raise ValidationError("Trotter requires a nonempty term list and a positive step count")
     width = len(terms[0][1])
     if any(len(word) != width for _, word in terms):
-        raise ValidationError("Pauli 项宽度不同")
+        raise ValidationError("Pauli terms have different widths")
     b = Builder(
         _name("trotter", terms, final_time, steps),
         {"target": Bits(width), "signal": Bits(0)},
@@ -92,21 +100,24 @@ def trotter_hamsim(
 def taylor_hamiltonian(
     hamiltonian: BlockEncoding, time: float, *, degree: int = 2
 ) -> BlockEncoding:
-    """可闭合的普通 Hamiltonian-function BE；可替换为 QSP/HamSim protocol。
+    """A closable plain Hamiltonian-function block encoding; replaceable by a
+    QSP/HamSim protocol.
 
     Args:
-        hamiltonian: 算符的块编码。
-        time: 演化时长，取有限实数。
-        degree: Taylor 截断阶数，取不小于 0 的整数；0 阶仅保留恒等项。
+        hamiltonian: Block encoding of the operator.
+        time: Evolution time, a finite real number.
+        degree: Taylor truncation order, an integer not less than 0; order 0 keeps only
+            the identity term.
 
     Returns:
-        BlockEncoding: 截断 Taylor 级数的 LCU 块编码，correctness 标记为 pending。
+        BlockEncoding: LCU block encoding of the truncated Taylor series, with correctness
+        marked pending.
     """
     require_instance(hamiltonian, BlockEncoding, "taylor_hamiltonian.H")
     positive_integer(degree, "taylor_hamiltonian.degree", minimum=0)
     finite_real(time, "taylor_hamiltonian.time")
     if degree < 0 or not math.isfinite(time):
-        raise ValidationError("Taylor 阶数/演化时间无效")
+        raise ValidationError("Invalid Taylor degree or evolution time")
     powers: list[tuple[complex, BlockEncoding]]
     current: BlockEncoding
     powers, current = [(1, identity(hamiltonian.width))], identity(hamiltonian.width)
@@ -130,108 +141,121 @@ def taylor_hamiltonian(
 
 @runtime_checkable
 class HermitianProtocol(Protocol):
-    """宿主声明算符厄米性的访问协议。"""
+    """Access protocol by which the host declares the Hermiticity of an operator."""
 
     @property
     def hermitian(self) -> bool:
-        """是否声明为 Hermitian 算符；hamiltonian_simulation 仅接受 True。"""
+        """Whether the operator is declared Hermitian; hamiltonian_simulation accepts
+        only True."""
         ...
 
 
 @runtime_checkable
 class EvolvableProtocol(Protocol):
-    """宿主声明算符可给出自身酉演化的访问协议。"""
+    """Access protocol by which the host declares that an operator can produce its own
+    unitary evolution."""
 
     def evolution(self, time: float) -> Operation:
-        """按演化时长返回该算符的酉 Operation。
+        """Return the unitary Operation of this operator for the given evolution time.
 
-        Trotter 路径要求返回的演化无需后选择：除 target 外公开寄存器为零宽。
+        The Trotter path requires the returned evolution to need no
+        postselection: apart from target, all public registers are zero width.
 
         Args:
-            time: 演化时长，取有限实数。
+            time: Evolution time, a finite real number.
 
         Returns:
-            Operation: 该算符在给定时长下的酉演化操作。
+            Operation: The unitary evolution operation of this operator for the given
+            duration.
         """
         ...
 
 
 @runtime_checkable
 class TrotterizableProtocol(Protocol):
-    """宿主声明算符可分解为 Trotter 项列表的访问协议。"""
+    """Access protocol by which the host declares that an operator decomposes into a
+    Trotter term list."""
 
     def trotter_list(self) -> Sequence[TrotterTerm]:
-        """返回构成 Hamiltonian 的 TrotterTerm 序列；hamiltonian_simulation 要求非空。
+        """Return the TrotterTerm sequence constituting the Hamiltonian; hamiltonian_simulation
+        requires it to be nonempty.
 
         Returns:
-            Sequence[TrotterTerm]: 构成 Hamiltonian 的乘积公式项序列，要求非空。
+            Sequence[TrotterTerm]: The product-formula term sequence constituting the
+            Hamiltonian, required to be nonempty.
         """
         ...
 
 
 @dataclass(frozen=True)
 class TrotterTerm:
-    """乘积公式的单个 Hamiltonian 项：实系数与可演化算符的组合。
+    """A single Hamiltonian term of a product formula: a real coefficient combined with
+    an evolvable operator.
 
     Attributes:
-        coefficient: 项的实系数；Trotter 路径以 ``coefficient * time / steps``
-            为时长调用 ``operator.evolution``。
-        operator: 满足 EvolvableProtocol 的算符。
+        coefficient: Real coefficient of the term; the Trotter path calls
+            ``operator.evolution`` with duration ``coefficient * time / steps``.
+        operator: An operator satisfying EvolvableProtocol.
 
     Raises:
-        ValidationError: coefficient 非有限实数，或 operator 不满足 EvolvableProtocol。
+        ValidationError: coefficient is not a finite real number, or operator does not
+            satisfy EvolvableProtocol.
     """
 
     coefficient: float
     operator: object
 
     def __post_init__(self) -> None:
-        """校验系数为有限实数且算符满足 EvolvableProtocol。"""
+        """Validate that the coefficient is a finite real number and the operator
+        satisfies EvolvableProtocol."""
         finite_real(self.coefficient, "TrotterTerm.coefficient")
         requires(self.operator, EvolvableProtocol, path="TrotterTerm.operator")
 
 
 @dataclass(frozen=True)
 class PauliOperator:
-    """单个 Pauli 词算符；满足 HermitianProtocol 与 EvolvableProtocol。
+    """A single Pauli word operator; satisfies HermitianProtocol and EvolvableProtocol.
 
     Attributes:
-        word: 非空的 I/X/Y/Z 字符串，宽度不超过 64。
-        hermitian: 恒为 True；即 HermitianProtocol 声明。
+        word: A nonempty string of I/X/Y/Z with width at most 64.
+        hermitian: Always True; this is the HermitianProtocol declaration.
 
     Raises:
-        ValidationError: word 不是非空 I/X/Y/Z 字符串，或宽度超过 64。
+        ValidationError: word is not a nonempty I/X/Y/Z string, or its width exceeds 64.
     """
 
     word: str
     hermitian = True
 
     def __post_init__(self) -> None:
-        """校验 word 为宽度不超过 64 的 I/X/Y/Z 字符串。"""
+        """Validate that word is an I/X/Y/Z string of width at most 64."""
         if (
             not isinstance(self.word, str)
             or not self.word
             or any(c not in "IXYZ" for c in self.word)
         ):
-            raise ValidationError("Pauli word 必须是非空 I/X/Y/Z 字符串")
+            raise ValidationError("A Pauli word must be a nonempty I/X/Y/Z string")
         positive_integer(len(self.word), "PauliOperator.width", maximum=64)
 
     def block_encoding(self) -> BlockEncoding:
-        """返回该 Pauli 词的 alpha=1.0 块编码：逐位单量子比特门加零宽 signal。
+        """Return the alpha=1.0 block encoding of this Pauli word: per-qubit single-qubit
+        gates plus a zero-width signal.
 
         Returns:
-            BlockEncoding: 尺度为 1.0 的 Pauli 词块编码。
+            BlockEncoding: The Pauli word block encoding with scale 1.0.
         """
         return pauli_word(self.word)
 
     def evolution(self, time: float) -> Operation:
-        """返回 ``exp(-1j*word*time)`` 的精确酉演化（单项单步，无乘积公式误差）。
+        """Return the exact unitary evolution of ``exp(-1j*word*time)`` (a single term in
+        a single step, with no product-formula error).
 
         Args:
-            time: 演化时长，取有限实数。
+            time: Evolution time, a finite real number.
 
         Returns:
-            Operation: 单项单步合成的精确酉演化操作。
+            Operation: The exact unitary evolution operation synthesized in a single term
+            and single step.
         """
         finite_real(time, "PauliOperator.time")
         return trotter_hamsim(((1.0, self.word),), time, steps=1)
@@ -239,35 +263,41 @@ class PauliOperator:
 
 @dataclass(frozen=True)
 class PauliHamiltonian:
-    """等宽 Pauli 词的实系数线性组合；支持块编码与 Trotter 分解两种访问。
+    """A real-coefficient linear combination of equal-width Pauli words; supports both
+    block-encoding and Trotter decomposition access.
 
     Attributes:
-        terms: ``(系数, Pauli 词)`` 序对的元组；系数为有限实数，所有词等宽。
-        hermitian: 恒为 True；即 HermitianProtocol 声明。
+        terms: Tuple of ``(coefficient, Pauli word)`` pairs; the coefficients are finite
+            real numbers and all words have equal width.
+        hermitian: Always True; this is the HermitianProtocol declaration.
 
     Raises:
-        ValidationError: 项列表为空、系数非有限实数、Pauli 词非法或宽度不一致。
+        ValidationError: The term list is empty, a coefficient is not a finite real number,
+            a Pauli word is invalid, or the widths differ.
     """
 
     terms: tuple[tuple[float, str], ...]
     hermitian = True
 
     def __post_init__(self) -> None:
-        """归一化项列表并校验非空、系数有限与各 Pauli 词等宽。"""
+        """Normalize the term list and validate nonemptiness, finite coefficients and
+        equal Pauli word widths."""
         object.__setattr__(self, "terms", tuple(tuple(t) for t in self.terms))
         if not self.terms:
-            raise ValidationError("PauliHamiltonian 需要非空项列表")
+            raise ValidationError("PauliHamiltonian requires a nonempty term list")
         for coefficient, word in self.terms:
             finite_real(coefficient, "PauliHamiltonian.coefficient")
             PauliOperator(word)
         if len({len(word) for _, word in self.terms}) != 1:
-            raise ValidationError("Pauli 项宽度不一致")
+            raise ValidationError("Inconsistent Pauli term widths")
 
     def block_encoding(self) -> BlockEncoding:
-        """返回非零系数项的 LCU 块编码；无非零项时退化为零算子块编码。
+        """Return the LCU block encoding of the nonzero-coefficient terms; with no
+        nonzero term it degenerates to the zero-operator block encoding.
 
         Returns:
-            BlockEncoding: 尺度为系数绝对值之和的 LCU 块编码，无非零项时为零算子。
+            BlockEncoding: LCU block encoding with scale equal to the sum of absolute
+            coefficient values, or the zero operator with no nonzero term.
         """
         from oracq.algorithms.input_model.operators import zero
 
@@ -275,32 +305,35 @@ class PauliHamiltonian:
         return lcu(terms) if terms else zero(len(self.terms[0][1]))
 
     def trotter_list(self) -> tuple[TrotterTerm, ...]:
-        """把每个 ``(系数, 词)`` 包装为 TrotterTerm 元组返回。
+        """Wrap each ``(coefficient, word)`` into a TrotterTerm and return the tuple.
 
         Returns:
-            tuple[TrotterTerm, ...]: 每项系数与 Pauli 词逐一包装成的 Trotter 项元组。
+            tuple[TrotterTerm, ...]: Tuple of Trotter terms wrapping each coefficient and
+            Pauli word one by one.
         """
         return tuple(TrotterTerm(c, PauliOperator(w)) for c, w in self.terms)
 
 
 @dataclass(frozen=True)
 class EncodedOperator:
-    """矩阵性质的宿主声明；可表示非 Hermitian 算符，不冒称其本身是酉操作。"""
+    """Host declaration of matrix properties; may represent non-Hermitian operators and
+    does not claim to itself be a unitary."""
 
     encoding: BlockEncoding
     hermitian: bool
 
     def __post_init__(self) -> None:
-        """把编码适配为 ``BlockEncoding`` 并校验 hermitian 为 bool。"""
+        """Adapt the encoding to ``BlockEncoding`` and validate that hermitian is a bool."""
         object.__setattr__(self, "encoding", as_block_encoding(self.encoding))
         if type(self.hermitian) is not bool:
-            raise ValidationError("hermitian 需要 bool 声明")
+            raise ValidationError("hermitian must be declared as a bool")
 
     def block_encoding(self) -> BlockEncoding:
-        """返回构造时携带的块编码。
+        """Return the block encoding carried at construction.
 
         Returns:
-            BlockEncoding: 构造时传入并经适配校验的块编码。
+            BlockEncoding: The block encoding passed at construction, adapted and
+            validated.
         """
         return self.encoding
 
@@ -313,49 +346,58 @@ def hamiltonian_simulation(
     steps: int = 2,
     qsp: Callable[[BlockEncoding, float], BlockEncoding] | None = None,
 ) -> BlockEncoding:
-    """当前优先可分解的 Trotter；QSP 需要调用者提供实际实现。
+    """Currently prefers the decomposable Trotter path; QSP requires the caller to
+    supply an actual implementation.
 
     Args:
-        operator: 声明 Hermitian 的算符，须额外满足可 Trotter 分解或可块编码协议。
-        time: 演化时长，取有限实数。
-        method: 路径选择，取 ``auto``、``trotter`` 或 ``qsp``；``auto`` 按算符协议挑选。
-        steps: Trotter 乘积公式的重复段数，取正整数。
-        qsp: 形如 qsp(BE, time) 返回 BlockEncoding 的实际实现；仅 ``qsp`` 路径需要。
+        operator: An operator declaring Hermitian, which must additionally satisfy the
+            Trotter-decomposable or block-encodable protocol.
+        time: Evolution time, a finite real number.
+        method: Path selection, one of ``auto``, ``trotter`` or ``qsp``; ``auto`` picks
+            by the operator protocol.
+        steps: Number of repeated segments of the Trotter product formula, a positive
+            integer.
+        qsp: An actual implementation of the form qsp(BE, time) returning a
+            BlockEncoding; needed only by the ``qsp`` path.
 
     Returns:
-        BlockEncoding: 演化 exp(-iHt) 的块编码，Trotter 路径尺度为 1.0。
+        BlockEncoding: Block encoding of the evolution exp(-iHt); the Trotter path has
+        scale 1.0.
     """
     requires(operator, HermitianProtocol, path="HamSim.operator")
     if operator.hermitian is not True:
         raise ValidationError(
-            "Hamiltonian simulation 需要 Hermitian；非 Hermitian 动力学请使用 QODE"
+            "Hamiltonian simulation requires a Hermitian operator; use QODE for"
+            " non-Hermitian dynamics"
         )
     finite_real(time, "HamSim.time")
     if method not in {"auto", "trotter", "qsp"}:
-        raise ValidationError("未知 Hamiltonian simulation 方法")
+        raise ValidationError("Unknown Hamiltonian simulation method")
     if method == "auto":
         method = "trotter" if isinstance(operator, TrotterizableProtocol) else "qsp"
     if method == "qsp":
         requires(operator, BlockEncodingProtocol, path="QSP.operator")
         if not callable(qsp):
             raise ValidationError(
-                "QSP 路径需要注入实际 qsp(BE,time) 实现；当前库没有通用 QSP-HamSim 内核"
+                "The QSP path requires injecting an actual qsp implementation of a block"
+                " encoding and a time; this library has no generic QSP-HamSim kernel"
             )
         encoded = as_block_encoding(cast("BlockEncodingProtocol", operator))
         result = qsp(encoded, time)
         require_instance(result, BlockEncoding, "QSP.output")
         if result.width != encoded.width:
-            raise ValidationError("QSP 返回的目标宽度不一致")
+            raise ValidationError("QSP returned an inconsistent target width")
         return result
     requires(operator, TrotterizableProtocol, path="Trotter.operator")
     positive_integer(steps, "Trotter.steps")
     terms = tuple(cast("TrotterizableProtocol", operator).trotter_list())
     if not terms:
-        raise ValidationError("trotter_list() 需要非空项列表")
+        raise ValidationError("trotter_list must return a nonempty term list")
     evolutions: list[Operation] = []
     for term in terms:
         require_instance(term, TrotterTerm, "Trotter.term")
-        # 每项必须提供无后选择的酉演化；一般多项式 BE 不能替代它。
+        # Each term must provide a postselection-free unitary evolution; a generic
+        # polynomial block encoding cannot substitute for it.
         evolution = cast("EvolvableProtocol", term.operator).evolution(
             term.coefficient * time / steps
         )
@@ -364,16 +406,17 @@ def hamiltonian_simulation(
         require_instance(evolution, Operation, "Trotter.term.evolution")
         if any(r.type.width for r in evolution.module.registers if r.name != "target"):
             raise ValidationError(
-                "当前 Trotter 实现要求各项演化仅有 target，其他公开寄存器须为零宽"
+                "The current Trotter implementation requires each term evolution to expose"
+                " only target; other public registers must have zero width"
             )
         if not any(r.name == "target" for r in evolution.module.registers):
-            raise ValidationError("Trotter 项演化需要 target 寄存器")
+            raise ValidationError("Each Trotter term evolution needs a target register")
         evolutions.append(evolution)
     widths = {
         next(r.type.width for r in op.module.registers if r.name == "target") for op in evolutions
     }
     if len(widths) != 1:
-        raise ValidationError("Trotter 项演化的目标宽度不一致")
+        raise ValidationError("Inconsistent target widths among Trotter term evolutions")
     width = widths.pop()
     b = Builder(
         _name("trotter_protocol", *evolutions, steps),

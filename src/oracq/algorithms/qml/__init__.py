@@ -1,1 +1,1 @@
-"量子机器学习：推荐系统、主成分分析、半定规划与量子卷积网络。"
+"Quantum machine learning: recommendation systems, principal component analysis, semidefinite programming, and quantum convolutional networks."

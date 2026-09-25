@@ -1,4 +1,4 @@
-"""空间离散化结果与可替换 QODE 生成器的组装接口。"""
+"""Assembly interface between spatial discretization results and replaceable QODE generators."""
 
 from __future__ import annotations
 
@@ -15,14 +15,16 @@ from oracq.algorithms.input_model.oracles import (
 
 @dataclass(frozen=True)
 class DiscretePDE:
-    """空间离散化后的线性 PDE 输入对象。
+    """Linear PDE input object after spatial discretization.
 
-    只保存离散生成元、初态制备和标签；网格、边界、量纲等应用元数据不由该类型携带。
+    It stores only the discrete generator, the initial state preparation, and a label;
+    application metadata such as the grid, boundaries, and dimensions is not carried by
+    this type.
 
     Attributes:
-        generator: 离散生成元 G 的块编码，对应 ``u' = Gu``。
-        initial: 初态制备。
-        label: 问题标签。
+        generator: Block encoding of the discrete generator G, corresponding to ``u' = Gu``.
+        initial: Initial state preparation.
+        label: Problem label.
     """
 
     generator: BlockEncoding
@@ -34,17 +36,17 @@ def make_qpde(
     qode: Callable[[BlockEncoding, StatePreparation, float], StateOracle],
     discretizer: Callable[[object], DiscretePDE] = lambda problem: cast("DiscretePDE", problem),
 ) -> Callable[[object, float], StateOracle]:
-    """把三参数线性 QODE 协议包装成 QPDE 生成函数。
+    """Wrap a three-argument linear QODE protocol into a QPDE generation function.
 
     Args:
-        qode: ``(generator, initial, time) -> StateOracle`` 形式的线性求解协议。
-        discretizer: 把问题对象映射为具有 ``generator`` 与 ``initial`` 属性的对象（如 ``DiscretePDE``）的可调用，默认原样返回。
+        qode: A linear solve protocol of the form ``(generator, initial, time) -> StateOracle``.
+        discretizer: A callable mapping the problem object to an object with ``generator`` and ``initial`` attributes (e.g. ``DiscretePDE``); returns its input unchanged by default.
 
     Returns:
-        callable: 形如 ``(problem, final_time) -> StateOracle`` 的生成函数。
+        callable: A generation function of the form ``(problem, final_time) -> StateOracle``.
     """
     def generate(problem: object, final_time: float) -> StateOracle:
-        """离散化问题对象后交给线性求解协议演化。"""
+        """Discretize the problem object and hand it to the linear solve protocol for evolution."""
         discrete = discretizer(problem)
         result = qode(discrete.generator, discrete.initial, final_time)
         return result
@@ -54,7 +56,7 @@ def make_qpde(
 
 @dataclass(frozen=True)
 class PDEInput:
-    """空间离散化后的输入模型，允许直接为 PolynomialODE；不要求稠密矩阵。"""
+    """Input model after spatial discretization; may directly be a PolynomialODE; no dense matrix is required."""
 
     model: object
     label: str = "open_spatial_discretization"
@@ -64,19 +66,20 @@ def qpde_solver(
     qode: Callable[[object, float], StateOracle],
     spatial_discretizer: Callable[[object], object] = lambda problem: cast("PDEInput", problem).model,
 ) -> Callable[[object, float], StateOracle]:
-    """把 ``(model, time)`` 形式的求解协议包装成 QPDE 生成函数。
+    """Wrap a ``(model, time)``-shaped solve protocol into a QPDE generation function.
 
-    与 ``make_qpde`` 不同，这里把离散化结果作为单个模型直接交给 ``qode``，适合 ``PolynomialODE`` 等模型级协议。
+    Unlike ``make_qpde``, the discretization result is passed to ``qode`` directly as a
+    single model, which suits model-level protocols such as ``PolynomialODE``.
 
     Args:
-        qode: ``(model, time) -> StateOracle`` 形式的求解协议。
-        spatial_discretizer: 从问题对象提取模型的可调用，默认取 ``problem.model``。
+        qode: A solve protocol of the form ``(model, time) -> StateOracle``.
+        spatial_discretizer: A callable extracting the model from the problem object; defaults to ``problem.model``.
 
     Returns:
-        callable: 形如 ``(problem, time) -> StateOracle`` 的生成函数。
+        callable: A generation function of the form ``(problem, time) -> StateOracle``.
     """
     def generate(problem: object, time: float) -> StateOracle:
-        """提取问题模型后交给求解协议演化。"""
+        """Extract the problem model and hand it to the solve protocol for evolution."""
         return qode(spatial_discretizer(problem), time)
 
     return generate

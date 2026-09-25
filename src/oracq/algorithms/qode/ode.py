@@ -1,4 +1,4 @@
-"""线性 QODE 的问题对象、可替换协议与 history 组装。"""
+"""Problem objects, replaceable protocols, and history assembly for linear QODEs."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from oracq.infrastructure.ir import ValidationError
 
 @dataclass(frozen=True)
 class QODEProblem:
-    """u'=Gu 的问题；dissipative 是数学声明，不是语言证明。"""
+    """The u'=Gu problem; dissipative is a mathematical declaration, not a language proof."""
 
     generator: BlockEncoding
     initial: StatePreparation
@@ -50,7 +50,7 @@ class QODEProblem:
         dissipative: bool | None = None, initial_norm: float | None = None,
         evidence: str = "caller_declared_unverified",
     ) -> None:
-        """提供方在问题构造边界归一，后续算法读取具体视图。"""
+        """Providers are normalized at the problem construction boundary; downstream algorithms read concrete views."""
         for key, value in (
             ("generator", generator), ("initial", initial), ("dissipative", dissipative),
             ("initial_norm", initial_norm), ("evidence", evidence),
@@ -59,27 +59,27 @@ class QODEProblem:
         self.__post_init__()
 
     def __post_init__(self) -> None:
-        """把生成元与初态规范化为对应视图，并校验耗散声明、初值范数与说明字段。"""
+        """Normalize the generator and initial state into the corresponding views, and validate the dissipativity declaration, the initial norm, and the evidence field."""
         object.__setattr__(self, "generator", as_block_encoding(self.generator))
         object.__setattr__(self, "initial", as_state_preparation(self.initial))
         require_instance(self.initial, StatePreparation, "QODEProblem.initial")
         if self.dissipative is not None and type(self.dissipative) is not bool:
-            raise ValidationError("dissipative 必须是 bool 或 None")
+            raise ValidationError("dissipative must be bool or None")
         if self.initial_norm is not None:
             finite_real(self.initial_norm, "QODEProblem.initial_norm", minimum=0, strict=True)
         if not isinstance(self.evidence, str) or not self.evidence:
-            raise ValidationError("QODEProblem.evidence 需要非空说明")
+            raise ValidationError("QODEProblem.evidence requires a nonempty description")
 
 
 @dataclass(frozen=True)
 class QODESolver:
-    """带契约检查的线性 QODE 求解协议包装。
+    """Linear QODE solve-protocol wrapper with contract checking.
 
     Attributes:
-        provides: 输出声明满足的协议集合。
-        name: 协议名，用于契约、属性与错误信息。
-        kernel: 实际内核，形如 ``(generator, initial, time) -> StateOracle`` 的可调用。
-        requires_dissipative: 为 True 时，问题级 ``solve`` 必须收到 ``dissipative=True`` 的声明。
+        provides: Set of protocols the output is declared to satisfy.
+        name: Protocol name, used in contracts, attributes, and error messages.
+        kernel: The actual kernel; a callable of the form ``(generator, initial, time) -> StateOracle``.
+        requires_dissipative: When True, the problem-level ``solve`` must receive a ``dissipative=True`` declaration.
     """
 
     provides = (StateOracleProtocol,)
@@ -88,28 +88,28 @@ class QODESolver:
     requires_dissipative: bool = False
 
     def __post_init__(self) -> None:
-        """校验协议名非空、内核可调用与耗散前提字段为 bool。"""
+        """Validate that the protocol name is nonempty, the kernel is callable, and the dissipativity precondition field is bool."""
         if (
             not self.name
             or not callable(self.kernel)
             or type(self.requires_dissipative) is not bool
         ):
-            raise ValidationError("QODESolver 需要名称、可调用内核与 bool 前提字段")
+            raise ValidationError("QODESolver requires a name, a callable kernel, and a bool precondition field")
 
     @property
     def contract(self) -> AlgorithmContract:
-        """返回该协议的算子-态契约。
+        """Return the operator-state contract of this protocol.
 
-        前提包含自治齐次 ``u'=Gu``；``requires_dissipative`` 为 True 时追加 ``Hermitian(G)<=0`` 的要求，Schrödingerization 协议还追加辅助窗口与恢复区域的验证责任。
+        The preconditions include the autonomous homogeneous ``u'=Gu``; when ``requires_dissipative`` is True the requirement ``Hermitian(G)<=0`` is appended, and the Schrödingerization protocol additionally appends the validation responsibility for the auxiliary window and the recovery region.
 
         Returns:
-            AlgorithmContract: 协议契约，``assumptions`` 为按协议定制的前提元组。
+            AlgorithmContract: The protocol contract; ``assumptions`` is the tuple of protocol-specific preconditions.
         """
-        assumptions = ["自治齐次 u'=Gu；矩阵契约与数值近似待算法层核验"]
+        assumptions = ["autonomous homogeneous u'=Gu; the matrix contract and numerical approximations pending algorithm-layer validation"]
         if self.requires_dissipative:
-            assumptions.append("Hermitian(G)<=0；问题级 solve 必须声明 dissipative=True")
+            assumptions.append("Hermitian(G)<=0; the problem-level solve must declare dissipative=True")
         if self.name == "schrodingerization":
-            assumptions.append("辅助窗口、Fourier 约定与所选恢复区域需要应用层验证")
+            assumptions.append("the auxiliary window, Fourier convention, and the chosen recovery region require application-layer validation")
         return replace(operator_state_contract(self.name), assumptions=tuple(assumptions))
 
     def check(
@@ -118,15 +118,15 @@ class QODESolver:
         initial: StatePreparationProtocol | None = None,
         time: float | None = None,
     ) -> ContractReport:
-        """检查输入是否满足该协议的契约，并把未满足项汇集成报告。
+        """Check whether the inputs satisfy this protocol's contract, collecting unsatisfied items into a report.
 
         Args:
-            generator: 生成元块编码；也可直接传入 ``QODEProblem``，此时改用问题对象内的生成元与初态。
-            initial: 初态制备；传入 ``QODEProblem`` 时被忽略。
-            time: 演化时长；给出时一并检查其为有限非负实数。
+            generator: Generator block encoding; a ``QODEProblem`` may also be passed directly, in which case the generator and initial state inside the problem object are used instead.
+            initial: Initial state preparation; ignored when a ``QODEProblem`` is passed.
+            time: Evolution duration; when given, it is also checked to be a finite non-negative real number.
 
         Returns:
-            ContractReport: 检查报告，``issues`` 汇集布局、调用能力与前提声明方面的全部未满足项。
+            ContractReport: The check report; ``issues`` collects all unsatisfied items regarding layout, invocation capabilities, and precondition declarations.
         """
         return self._resolve(generator, initial, time).report
 
@@ -134,7 +134,7 @@ class QODESolver:
         self, generator: BlockEncodingProtocol | QODEProblem,
         initial: StatePreparationProtocol | None = None, time: float | None = None,
     ) -> ResolvedInputs:
-        """保留本次取得的视图，并把问题级前提检查合并到同一报告。"""
+        """Keep the views obtained this time and merge the problem-level precondition checks into the same report."""
         problem = generator if isinstance(generator, QODEProblem) else None
         if problem is not None:
             generator, initial = problem.generator, problem.initial
@@ -161,7 +161,7 @@ class QODESolver:
                     self.name + ".generator.dissipative",
                     True,
                     problem.dissipative,
-                    "需要显式声明生成元耗散，或先做可追踪的整体移位",
+                    "An explicit generator dissipativity declaration is required, or a traceable global shift must be applied first",
                 )
             )
         return replace(resolved, report=replace(report, issues=tuple(issues)))
@@ -169,7 +169,7 @@ class QODESolver:
     def _generate(
         self, generator: BlockEncoding, initial: StatePreparation, time: float
     ) -> StateOracle:
-        """运行内核生成输出，并核验输出宽度与伴随、受控能力契约。"""
+        """Run the kernel to generate the output, and verify the output width and the adjoint and controlled capability contracts."""
         result = self.kernel(generator, initial, time)
         require_instance(result, StateOracle, self.name + ".output")
         if result.width != generator.width:
@@ -180,7 +180,7 @@ class QODESolver:
                 self.name + ".output",
                 generator.width,
                 result.width,
-                "输出目标宽度必须与输入相同",
+                "The output target width must equal the input width",
             )
         _, issues = InputRequirement(
             "output", (StateOracleProtocol,), adjoint=True, controlled=True
@@ -194,7 +194,7 @@ class QODESolver:
     def __call__(
         self, generator: BlockEncodingProtocol, initial: StatePreparationProtocol, time: float
     ) -> StateOracle:
-        """兼容入口：数学前提仍由调用者承担；推荐问题级 solve。"""
+        """Compatibility entry: mathematical preconditions remain the caller's responsibility; the problem-level solve is recommended."""
         resolved = self._resolve(generator, initial, time)
         resolved.report.require()
         finite_real(time, self.name + ".time", minimum=0)
@@ -203,18 +203,18 @@ class QODESolver:
         )
 
     def solve(self, problem: QODEProblem, time: float) -> StateOracle:
-        """问题级求解入口：检查契约后演化，并把声明来源写入输出属性。
+        """Problem-level solve entry: check the contract, evolve, and write the declaration provenance into the output attributes.
 
         Args:
-            problem: ``QODEProblem`` 问题对象。
-            time: 演化时长，须为有限非负实数。
+            problem: A ``QODEProblem`` problem object.
+            time: Evolution duration; must be a finite non-negative real number.
 
         Returns:
-            StateOracle: 输出态 oracle；模块属性保存 ``evidence``、耗散声明与初值范数（若提供），不添加虚构的范数恢复能力。
+            StateOracle: The output state oracle; module attributes store ``evidence``, the dissipativity declaration, and the initial norm when provided, without adding a fabricated norm recovery capability.
 
         Raises:
-            ContractError: 契约检查未通过（含耗散前提未声明）。
-            ValidationError: ``problem`` 不是 ``QODEProblem``，或 ``time`` 不是有限非负实数。
+            ContractError: The contract check failed (including an undeclared dissipativity precondition).
+            ValidationError: ``problem`` is not a ``QODEProblem``, or ``time`` is not a finite non-negative real number.
         """
         require_instance(problem, QODEProblem, self.name + ".problem")
         resolved = self._resolve(problem, time=time)
@@ -223,7 +223,7 @@ class QODESolver:
         result = self._generate(
             resolved.get("generator", BlockEncoding), resolved.get("initial", StatePreparation), time
         )
-        # 保存声明来源；不添加虚构的物理范数恢复能力。
+        # Store declaration provenance; no fabricated physical norm recovery capability is added.
         attrs = dict(result.operation.module.attributes)
         attrs["qode_input_evidence"] = problem.evidence
         if problem.dissipative is not None:
@@ -238,7 +238,7 @@ class QODESolver:
         )
 
 
-# 旧名称保留为同一类型的别名。
+# The old name is retained as an alias of the same type.
 QODEProtocol = QODESolver
 
 
@@ -247,29 +247,29 @@ def make_euler_history_qode(
     *,
     steps: int = 2,
 ) -> Callable[[BlockEncoding, StatePreparation, float], StateOracle]:
-    """把 QLSS 求解器包装成隐式 Euler 时间离散的 QODE 生成函数。
+    """Wrap a QLSS solver into an implicit-Euler time-discretized QODE generation function.
 
-    在历史寄存器上装配一次求解全部时间步的线性系统：矩阵为 ``I - dt*(Q⊗G) - S``（Q 选择全部非零时刻，S 为截断的步进移位），右端把初态放在零号时刻，随后调用 ``qlss`` 求解并选取末时刻子空间。
+    It assembles, on the history register, a single linear system solving all time steps at once: the matrix is ``I - dt*(Q⊗G) - S`` (Q selects all nonzero times, S is the truncated step shift), the right-hand side places the initial state at time zero, then ``qlss`` is invoked to solve and the final-time subspace is selected.
 
     Args:
-        qlss: 线性系统求解协议，接收矩阵与右端制备并返回 ``StateOracle``。
-        steps: 时间步数，须为正整数。
+        qlss: A linear-system solve protocol that takes a matrix and a right-hand-side preparation and returns a ``StateOracle``.
+        steps: Number of time steps; must be a positive integer.
 
     Returns:
-        callable: 形如 ``(generator, initial, final_time) -> StateOracle`` 的生成函数，输出为末时刻的态。
+        callable: A generation function of the form ``(generator, initial, final_time) -> StateOracle`` whose output is the final-time state.
 
     Raises:
-        ValidationError: ``steps`` 不是正整数；生成阶段中输入布局或时间无效。
+        ValidationError: ``steps`` is not a positive integer; or the input layout or time is invalid at generation time.
     """
     if type(steps) is not int or steps < 1:
-        raise ValidationError("时间步数必须为正整数")
+        raise ValidationError("The number of time steps must be a positive integer")
 
     def generate(
         generator: BlockEncoding, initial: StatePreparation, final_time: float
     ) -> StateOracle:
-        """在历史寄存器上求解全部时间步并读出末时刻的态。"""
+        """Solve all time steps on the history register and read out the final-time state."""
         if generator.width != initial.width or final_time <= 0:
-            raise ValidationError("QODE 输入布局或时间无效")
+            raise ValidationError("Invalid QODE input layout or time")
         nt = steps.bit_length()
         dt = final_time / steps
         q = projector(nt, range(1, steps + 1))
@@ -294,22 +294,24 @@ def linear_qode(
     hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
     **options: object,
 ) -> QODESolver:
-    """通用 u'=Gu 接口，可直接注入既有 QHAM / make_qpde。
+    """Generic u'=Gu interface that can be injected directly into existing QHAM / make_qpde.
 
     Args:
-        method: 求解方法，取 ``schrodingerization``、``lchs`` 或 ``cbmd``。
-        hamiltonian_function: 形如 (BE, time) 返回 BlockEncoding 的哈密顿量模拟实现，
-            缺省为截断 Taylor。
-        **options: 方法配置；仅接受 ``plan``，类型须与所选方法匹配。
+        method: Solve method; one of ``schrodingerization``, ``lchs``, or ``cbmd``.
+        hamiltonian_function: Hamiltonian simulation implementation of the form (BE, time)
+            returning a BlockEncoding; defaults to truncated Taylor.
+        **options: Method configuration; only ``plan`` is accepted, and its type must match the
+            chosen method.
 
     Returns:
-        QODESolver: 包装所选方法内核的求解协议，lchs/cbmd 路径要求耗散声明。
+        QODESolver: The solve protocol wrapping the chosen method's kernel; the lchs/cbmd paths
+        require a dissipativity declaration.
     """
 
     if not callable(hamiltonian_function):
-        raise ValidationError("hamiltonian_function 必须可调用")
+        raise ValidationError("hamiltonian_function must be callable")
     if set(options) - {"plan"}:
-        raise ValidationError("未知 QODE 配置：" + ", ".join(sorted(set(options) - {"plan"})))
+        raise ValidationError("Unknown QODE options: " + ", ".join(sorted(set(options) - {"plan"})))
     if method == "schrodingerization":
         if options.get("plan") is not None:
             require_instance(options["plan"], SchrodingerPlan, "schrodingerization.plan")
@@ -322,7 +324,7 @@ def linear_qode(
             ),
         )
     if method not in {"lchs", "cbmd"}:
-        raise ValidationError("未知线性 QODE 方法")
+        raise ValidationError("Unknown linear QODE method")
     algorithm = lchs_qode if method == "lchs" else cbmd_qode
     if options.get("plan") is not None:
         require_instance(
@@ -330,7 +332,7 @@ def linear_qode(
         )
 
     def generate(generator: BlockEncoding, initial: StatePreparation, time: float) -> StateOracle:
-        """构造 LinearODE 输入模型并调用对应算法内核。"""
+        """Build the LinearODE input model and invoke the corresponding algorithm kernel."""
         model = LinearODE(HermitianParts.from_operator(scale(-1, generator)), initial)
         return algorithm(
             model,

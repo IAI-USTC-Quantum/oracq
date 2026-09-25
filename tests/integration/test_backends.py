@@ -1,4 +1,4 @@
-"""真实 UnifiedQuantum 与 PySparQ 对拍；用具有这两个依赖的解释器运行。"""
+"""Real UnifiedQuantum and PySparQ cross-checks; run with an interpreter that has both dependencies installed."""
 
 import cmath
 import math
@@ -37,7 +37,7 @@ class BackendTests(unittest.TestCase):
 
         ps.System.add_register("existing", ps.StateStorageType.General, 1)
         try:
-            with self.assertRaisesRegex(ValidationError, "非空"):
+            with self.assertRaisesRegex(ValidationError, "the PySparQ global register table is not empty"):
                 run_pysparq(identity(1).operation.program())
             self.assertEqual(ps.System.get_activated_register_size(), 1)
         finally:
@@ -50,7 +50,7 @@ class BackendTests(unittest.TestCase):
 
         b = Builder("budget", {"q": Bits(5)})
         b.h(b["q"])
-        with self.assertRaisesRegex(ValidationError, "数量预算"):
+        with self.assertRaisesRegex(ValidationError, "PySparQ execution exceeds the sparse-state budget"):
             run_pysparq(b.finish().program(), max_states=4)
         self.assertEqual(ps.System.get_activated_register_size(), 0)
 
@@ -152,7 +152,7 @@ class BackendTests(unittest.TestCase):
         self.compare(p)
 
     def test_pysparq_native_rir_cross_validation(self):
-        """PySparQ 原生 RIR 解释器与既有三条路径独立实现对拍。"""
+        """The PySparQ native RIR interpreter is independently cross-checked against the existing three paths."""
         leaf = Builder("load", {"a": UInt(2), "d": UInt(3)}, {"table": QRAM(2, 3)})
         leaf.qram("table", leaf["a"], leaf["d"])
         op = leaf.finish()

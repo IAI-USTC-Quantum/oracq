@@ -1,4 +1,4 @@
-"普通、无副作用的 Roe 数学函数；可经典调用，也可由 compile_function 编译。"
+"Plain side-effect-free Roe math functions; callable classically or compilable by compile_function."
 
 from __future__ import annotations
 
@@ -6,16 +6,16 @@ import math
 
 
 def pick3(index: int, first: float, second: float, third: float) -> float:
-    """按整数索引选取三个值之一，索引不在 0..2 范围时返回 ``0.0``。
+    """Select one of three values by integer index; returns ``0.0`` when the index is outside 0..2.
 
     Args:
-        index: 选取索引，取 0..2；越界时不选任何分支。
-        first: 索引 0 选中的值。
-        second: 索引 1 选中的值。
-        third: 索引 2 选中的值。
+        index: Selection index in 0..2; out of range selects no branch.
+        first: Value selected for index 0.
+        second: Value selected for index 1.
+        third: Value selected for index 2.
 
     Returns:
-        float: 被选中的值；索引越界时为 ``0.0``。
+        float: The selected value; ``0.0`` when the index is out of range.
     """
     if index == 0:
         return first
@@ -29,16 +29,16 @@ def pick3(index: int, first: float, second: float, third: float) -> float:
 def conserved_to_primitive(
     rho: float, momentum: float, energy: float, gamma: float
 ) -> tuple[float, float, float]:
-    """把一维 Euler 守恒变量换算为原始变量。
+    """Convert one-dimensional Euler conserved variables to primitive variables.
 
     Args:
-        rho: 密度。
-        momentum: 动量密度。
-        energy: 总能量密度。
-        gamma: 比热比。
+        rho: Density.
+        momentum: Momentum density.
+        energy: Total energy density.
+        gamma: Ratio of specific heats.
 
     Returns:
-        tuple: ``(velocity, pressure, enthalpy)``，焓为总能量加压强除以密度。
+        tuple: ``(velocity, pressure, enthalpy)``, with enthalpy defined as total energy plus pressure divided by density.
     """
     velocity = momentum / rho
     pressure = (gamma - 1) * (energy - 0.5 * momentum * velocity)
@@ -47,20 +47,21 @@ def conserved_to_primitive(
 
 
 def euler_entry(velocity: float, enthalpy: float, row: int, col: int, gamma: float) -> float:
-    """返回一维 Euler 通量 Jacobi 矩阵的指定元素。
+    """Return the requested element of the one-dimensional Euler flux Jacobian matrix.
 
-    元素只用流速与焓表示；行、列索引与守恒变量 ``(rho, momentum, energy)``
-    的次序对应，从零开始编号。
+    Elements are expressed using only flow velocity and enthalpy; row and column
+    indices follow the ordering of the conserved variables ``(rho, momentum, energy)``,
+    numbered from zero.
 
     Args:
-        velocity: 流速。
-        enthalpy: 比焓，定义同 ``conserved_to_primitive`` 的返回值。
-        row: 行索引，取 0..2。
-        col: 列索引，取 0..2。
-        gamma: 比热比。
+        velocity: Flow velocity.
+        enthalpy: Specific enthalpy, defined as in the return value of ``conserved_to_primitive``.
+        row: Row index, in 0..2.
+        col: Column index, in 0..2.
+        gamma: Ratio of specific heats.
 
     Returns:
-        float: Jacobi 矩阵第 ``row`` 行、第 ``col`` 列的元素。
+        float: The element at row ``row`` and column ``col`` of the Jacobian matrix.
     """
     square = velocity * velocity
     first = pick3(col, 0.0, 1.0, 0.0)
@@ -75,17 +76,18 @@ def euler_entry(velocity: float, enthalpy: float, row: int, col: int, gamma: flo
 
 
 def entropy_absolute(eigenvalue: float, delta: float) -> float:
-    """带 Harten 熵修正的特征值绝对值。
+    """Absolute value of an eigenvalue with the Harten entropy fix.
 
-    ``delta`` 为正且特征值绝对值小于它时，返回平滑值
-    ``(eigenvalue**2+delta**2)/(2*delta)``；否则直接返回绝对值。
+    When ``delta`` is positive and the absolute value of the eigenvalue is smaller,
+    the smoothed value ``(eigenvalue**2+delta**2)/(2*delta)`` is returned;
+    otherwise the plain absolute value is returned.
 
     Args:
-        eigenvalue: 特征值。
-        delta: 熵修正阈值，非正时关闭修正。
+        eigenvalue: The eigenvalue.
+        delta: Entropy fix threshold; the fix is disabled when non-positive.
 
     Returns:
-        float: 修正后的特征值绝对值。
+        float: The entropy-fixed absolute value of the eigenvalue.
     """
     value = abs(eigenvalue)
     if delta <= 0:
@@ -107,28 +109,30 @@ def frozen_roe_face(
     gamma: float = 1.4,
     entropy_delta: float = 0.125,
 ) -> tuple[float, float]:
-    """计算 frozen-Roe 左右系数矩阵在指定行列处的元素。
+    """Compute the element at the given row and column of the frozen-Roe left and right coefficient matrices.
 
-    由左右守恒状态做 Roe 平均得到平均流速与焓；特征值 ``u-c``、``u``、
-    ``u+c`` 经熵修正取绝对值后，按 ``R*diag(a)*R**-1`` 组装 ``|A|`` 的元素。
-    再与 ``euler_entry`` 给出的两侧通量 Jacobi 矩阵元素组合，返回
-    ``0.5*(A_l+|A|)`` 与 ``0.5*(A_r-|A|)`` 在 ``row``、``col`` 处的值，作为
-    Roe 通量对左右状态的分摊系数。
+    Roe averaging of the left and right conserved states yields the mean flow
+    velocity and enthalpy; the eigenvalues ``u-c``, ``u`` and ``u+c`` are made
+    absolute with the entropy fix, and the elements of ``|A|`` are assembled as
+    ``R*diag(a)*R**-1``. Combined with the flux Jacobian elements on both sides
+    given by ``euler_entry``, this returns the values of ``0.5*(A_l+|A|)`` and
+    ``0.5*(A_r-|A|)`` at ``row`` and ``col``, as the Roe flux share coefficients
+    applied to the left and right states.
 
     Args:
-        rho_l: 左侧密度。
-        m_l: 左侧动量密度。
-        e_l: 左侧总能量密度。
-        rho_r: 右侧密度。
-        m_r: 右侧动量密度。
-        e_r: 右侧总能量密度。
-        row: 矩阵元素行索引，取 0..2。
-        col: 矩阵元素列索引，取 0..2。
-        gamma: 比热比。
-        entropy_delta: Harten 熵修正阈值。
+        rho_l: Left-side density.
+        m_l: Left-side momentum density.
+        e_l: Left-side total energy density.
+        rho_r: Right-side density.
+        m_r: Right-side momentum density.
+        e_r: Right-side total energy density.
+        row: Row index of the matrix element, in 0..2.
+        col: Column index of the matrix element, in 0..2.
+        gamma: Ratio of specific heats.
+        entropy_delta: Harten entropy fix threshold.
 
     Returns:
-        tuple: ``(left, right)``，左右系数矩阵在指定行列处的元素。
+        tuple: ``(left, right)``, the elements of the left and right coefficient matrices at the given row and column.
     """
     ul, pl, hl = conserved_to_primitive(rho_l, m_l, e_l, gamma)
     ur, pr, hr = conserved_to_primitive(rho_r, m_r, e_r, gamma)

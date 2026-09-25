@@ -1,1 +1,1 @@
-"量子偏微分方程求解：QODE 协议之上的 QPDE 输入与求解封装。"
+"Quantum PDE solving: QPDE input and solve wrappers on top of QODE protocols."

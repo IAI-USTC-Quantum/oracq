@@ -1,4 +1,4 @@
-"""PREPARE–SELECT 标准分解与 alias 采样 PREPARE 的数值见证。"""
+"""Numerical witnesses for the PREPARE–SELECT standard decomposition and alias-sampling PREPARE."""
 
 import cmath
 import math
@@ -27,7 +27,7 @@ ALPHA = sum(abs(c) for c in COEFFICIENTS)
 
 
 def dense_hamiltonian(terms):
-    """按仓库 bit 约定（bit i 作用于 target[i]，小端）展开 Σ c_i P_i。"""
+    """Expand Σ c_i P_i following the repository bit convention (bit i acts on target[i], little-endian)."""
     size = 1 << len(terms[0][1])
     matrix = [[0j] * size for _ in range(size)]
     for coefficient, word in terms:
@@ -194,7 +194,7 @@ class PrepareSelectTests(unittest.TestCase):
         self.assertFalse(unresolved(program))
         self.assertEqual(dict(walk.module.attributes)["algorithm"], "qubitization_walk")
         matrix = dense_hamiltonian(TERMS)
-        # walk = (2|0><0| - I)·BE：signal=0 块上的振幅即 H/alpha。
+        # walk = (2|0><0| - I)·BE: the amplitudes on the signal=0 block are exactly H/alpha.
         for column in range(4):
             state = simulate(program, initial={"target": column})
             for row in range(4):

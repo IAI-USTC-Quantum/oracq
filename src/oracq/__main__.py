@@ -1,4 +1,4 @@
-"已序列化 RIR 的验证、后端导出与小规模执行。"
+"Validation, backend export and small-scale execution of serialized RIR."
 
 from __future__ import annotations
 
@@ -26,10 +26,11 @@ from oracq import (
 
 
 def main() -> None:
-    """命令行入口：按子命令验证、检查、规范化、导出或执行已序列化的 RIR。
+    """Command-line entry point: validate, inspect, canonicalize, export or execute serialized RIR per subcommand.
 
-    子命令包括 validate、inspect、canonicalize、emit、run、requirements、
-    bind 与 compile-function；输入与取值错误统一经 ``parser.exit`` 以退出码 2 报告。
+    Subcommands include validate, inspect, canonicalize, emit, run, requirements,
+    bind and compile-function; input and value errors are uniformly reported
+    through ``parser.exit`` with exit code 2.
     """
     parser = argparse.ArgumentParser(prog="oracq")
     parser.add_argument(
@@ -48,11 +49,11 @@ def main() -> None:
     )
     parser.add_argument("input", type=Path)
     parser.add_argument("-o", "--output", type=Path)
-    parser.add_argument("--format", choices=["yaml", "json"], default="yaml", help="RIR 输出文本格式")
+    parser.add_argument("--format", choices=["yaml", "json"], default="yaml", help="RIR output text format")
     parser.add_argument("--memory", type=Path)
     parser.add_argument("--bindings", type=Path)
-    parser.add_argument("--report", type=Path, help="绑定诊断报告的 JSON 路径")
-    parser.add_argument("--allow-open", action="store_true", help="资源分析保留未实现 oracle 的调用台账")
+    parser.add_argument("--report", type=Path, help="JSON path for the binding diagnostic report")
+    parser.add_argument("--allow-open", action="store_true", help="keep the call ledger of unimplemented oracles in resource analysis")
     parser.add_argument(
         "--backend", choices=["reference", "originir", "pysparq"], default="reference"
     )
@@ -63,8 +64,8 @@ def main() -> None:
     parser.add_argument("--width", type=int, default=12)
     parser.add_argument("--fraction", type=int, default=6)
     parser.add_argument("--degree", type=int, default=6)
-    parser.add_argument("--constants", default="{}", help="生成期常量 JSON 对象")
-    parser.add_argument("--inputs", help="输入类型 JSON 对象")
+    parser.add_argument("--constants", default="{}", help="JSON object of generation-time constants")
+    parser.add_argument("--inputs", help="JSON object of input types")
     parser.add_argument("--mir-output", type=Path)
     args = parser.parse_args()
     try:
@@ -74,16 +75,16 @@ def main() -> None:
 
             inputs = json.loads(args.inputs) if args.inputs else None
             if inputs is not None and not isinstance(inputs, dict):
-                raise ValueError("--inputs 必须为 JSON 对象")
+                raise ValueError("--inputs must be a JSON object")
             if inputs is not None:
                 if any(isinstance(v, dict) and set(v) != {"index"} for v in inputs.values()):
-                    raise ValueError("索引类型需要 {index: 位宽}")
+                    raise ValueError("index types require an index bit width")
                 inputs = {
                     k: Index(v["index"]) if isinstance(v, dict) else v for k, v in inputs.items()
                 }
             constants = json.loads(args.constants)
             if not isinstance(constants, dict):
-                raise ValueError("--constants 必须为 JSON 对象")
+                raise ValueError("--constants must be a JSON object")
             compiled = compile_function(
                 args.input.read_text(),
                 entry=args.function,
@@ -111,7 +112,7 @@ def main() -> None:
             )
         elif args.command == "validate":
             missing = unresolved(program)
-            # state 在 validate 分支为状态描述字符串，在 run 分支为执行终态。
+            # state is a status description string in the validate branch and the final execution state in the run branch.
             state: str | RegisterState = (
                 f"open ({len(missing)} unresolved oracles)" if missing else "closed"
             )
@@ -125,7 +126,7 @@ def main() -> None:
             )
         elif args.command == "bind":
             if args.bindings is None:
-                raise ValueError("bind 需要 --bindings JSON 清单")
+                raise ValueError("bind requires a --bindings JSON manifest")
             manifest = json.loads(args.bindings.read_text())
             bindings: dict[str, Binding | Operation] = {}
             for name, item in manifest.items():
@@ -174,7 +175,7 @@ def main() -> None:
                 options, report = {}, {}
                 if args.native_arithmetic:
                     if args.backend != "pysparq":
-                        raise ValueError("--native-arithmetic 需要 --backend pysparq")
+                        raise ValueError("--native-arithmetic requires --backend pysparq")
                     from oracq.algorithms.common.arithmetic import arithmetic_native_registry
 
                     options = {
@@ -183,7 +184,7 @@ def main() -> None:
                         ),
                         "report": report,
                     }
-                # runner 按 backend 动态选择，**options 为异构关键字包，无法静态验证。
+                # runner is chosen dynamically by backend; **options is a heterogeneous keyword pack that cannot be statically verified.
                 state = runner(program, memory, **options)  # type: ignore[arg-type]
                 result = (
                     json.dumps(

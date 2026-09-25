@@ -1,4 +1,4 @@
-"""纯数学函数编译契约、路径状态和模块边界。"""
+"""Pure-math function compilation contracts, path states, and module boundaries."""
 
 import unittest
 
@@ -55,7 +55,7 @@ class MathFunctionTests(unittest.TestCase):
 
     def test_future_imports_and_module_docstring_are_ignored(self):
         result = compile_function(
-            '"""模块说明。"""\n'
+            '"""Module docstring."""\n'
             "from __future__ import annotations\n"
             "import math\n"
             "def norm(x: float) -> float:\n"

@@ -1,4 +1,4 @@
-"MIR → 模块化 RIR 的自动 compute/XOR/uncompute。"
+"Automatic compute/XOR/uncompute lowering from MIR to modular RIR."
 
 from __future__ import annotations
 
@@ -17,19 +17,20 @@ from oracq.infrastructure.mathfunc.numeric import MathConfig, Numeric, NumericEm
 def ports(
     name: str, kind: str, fmt: FixedFormat, index_width: int = 0
 ) -> list[tuple[str, RegType]]:
-    """按数学类型展开一个端口的物理寄存器名与位宽。
+    """Expand one port's physical register names and bit widths by math kind.
 
-    complex 拆为实部/虚部两个定点寄存器，real 占一个定点字，
-    bool 占一位，index 占 ``index_width`` 位的无符号寄存器。
+    complex splits into real/imaginary fixed-point registers, real occupies
+    one fixed-point word, bool one bit, and index an unsigned register of
+    ``index_width`` bits.
 
     Args:
-        name: 端口基名；复数端口在其上追加 ``_real``/``_imag`` 后缀。
-        kind: 端口类型，为 real、complex、bool 或 index。
-        fmt: ``FixedFormat`` 定点格式，决定数值端口的寄存器位宽。
-        index_width: index 类型的无符号位宽。
+        name: The port base name; complex ports append the ``_real``/``_imag`` suffixes to it.
+        kind: The port kind: real, complex, bool or index.
+        fmt: The ``FixedFormat`` fixed-point format, deciding numeric ports' register widths.
+        index_width: The unsigned bit width of the index kind.
 
     Returns:
-        list: ``(寄存器名, Bits)`` 对组成的列表。
+        list: A list of ``(register name, Bits)`` pairs.
     """
     if kind == "complex":
         return [(name + "_real", Bits(fmt.width)), (name + "_imag", Bits(fmt.width))]
@@ -38,15 +39,15 @@ def ports(
 
 @dataclass(frozen=True)
 class CompiledFunction:
-    """一次数学函数编译的完整结果。
+    """The complete result of one math function compilation.
 
     Attributes:
-        operation: 降低得到的可逆 ``Operation``；输入保持不变，输出与 status 以 XOR 写回。
-        math_ir: 生成该模块的 ``MathProgram`` 原对象。
-        fmt: 生成使用的 ``FixedFormat`` 定点格式。
-        output_names: 入口各返回值对应的输出端口名。
-        input_layout: 各逻辑输入到其展开物理寄存器名的对应表，每项为 (参数名, (寄存器名, ...))。
-        output_layout: 各逻辑输出到其展开物理寄存器名的对应表，结构与 ``input_layout`` 相同。
+        operation: The lowered reversible ``Operation``; inputs stay unchanged, outputs and status are XOR-written back.
+        math_ir: The original ``MathProgram`` object that produced the module.
+        fmt: The ``FixedFormat`` fixed-point format used for generation.
+        output_names: The output port names of the entry's return values.
+        input_layout: Mapping from each logical input to its expanded physical register names; each entry is (parameter name, (register name, ...)).
+        output_layout: Mapping from each logical output to its expanded physical register names, structured like ``input_layout``.
     """
 
     operation: Operation
@@ -57,26 +58,27 @@ class CompiledFunction:
     output_layout: tuple[tuple[str, tuple[str, ...]], ...]
 
     def program(self) -> Program:
-        """返回编译结果的完整 RIR 程序。
+        """Return the full RIR program of the compilation result.
 
         Returns:
-            Program: 入口模块与依赖模块合并后的程序；语义同 ``Operation.program``。
+            Program: The program merging the entry module and its dependency modules; semantics match ``Operation.program``.
         """
         return self.operation.program()
 
 
 class Lowerer:
-    """把 MIR 数学函数图降低为模块化 RIR 的可逆量子模块。
+    """Lowers an MIR math function graph into reversible quantum modules of modular RIR.
 
-    每个函数（含 helper）降低为独立 RIR 模块，调用保留为 Call，
-    不在降低阶段展开。输入端口保持不变，结果与状态位以 XOR 写回，
-    私有中间量最终反算清零。
+    Every function, helpers included, lowers to an independent RIR module;
+    calls are kept as Call and are not expanded during lowering. Input
+    ports stay unchanged, results and status bits are XOR-written back,
+    and private intermediates are finally uncomputed to zero.
 
     Args:
-        program: 待降低的 ``MathProgram``；构造时立即做完整校验。
-        fmt: ``FixedFormat`` 定点格式。
-        config: ``MathConfig`` 数学核阶数与近似区间配置。
-        output_names: 入口各返回值的输出寄存器名；省略时单返回值为 out，多返回值依次为 out_0、out_1 等。
+        program: The ``MathProgram`` to lower; fully validated immediately at construction.
+        fmt: The ``FixedFormat`` fixed-point format.
+        config: The ``MathConfig`` math kernel degree and approximation interval configuration.
+        output_names: Output register names of the entry's return values; when omitted a single return is out and multiple returns are out_0, out_1 and so on.
     """
 
     def __init__(
@@ -86,7 +88,7 @@ class Lowerer:
         config: MathConfig,
         output_names: Sequence[str] | None = None,
     ) -> None:
-        """校验并绑定 MIR 程序与降低配置，初始化函数降低缓存。"""
+        """Validate and bind the MIR program and lowering configuration, and initialize the function lowering cache."""
         self.program: MathProgram = program.validate()
         self.fmt: FixedFormat = fmt
         self.config: MathConfig = config
@@ -94,16 +96,16 @@ class Lowerer:
         self.cache: dict[str, CompiledFunction] = {}
 
     def lower(self, key: str) -> CompiledFunction:
-        """降低指定函数并缓存结果，同一函数只编译一次。
+        """Lower the named function and cache the result; each function is compiled once.
 
         Args:
-            key: ``program.function_map`` 中的函数符号名，通常为入口。
+            key: Function symbol name in ``program.function_map``, usually the entry.
 
         Returns:
-            CompiledFunction: 该函数的模块、输入/输出布局与生成配置。
+            CompiledFunction: The function's module, input/output layouts and generation configuration.
 
         Raises:
-            ValidationError: 输出端口名与返回值个数不符、展开后的寄存器重名，或定点格式容不下 index 参数的完整范围。
+            ValidationError: The output port names do not match the number of return values, expanded registers collide, or the fixed-point format cannot hold an index parameter's full range.
         """
         if key in self.cache:
             return self.cache[key]
@@ -116,7 +118,7 @@ class Lowerer:
             else tuple("out_" + str(i) for i in range(len(graph.returns)))
         )
         if len(names) != len(graph.returns):
-            raise ValidationError("output_names 与返回值个数不符")
+            raise ValidationError("output_names does not match the number of return values")
         in_layout = [(p.name, ports(p.name, p.kind, self.fmt, p.width)) for p in graph.parameters]
         out_layout = [
             (name, ports(name, graph.nodes[index].kind, self.fmt))
@@ -126,7 +128,7 @@ class Lowerer:
             ("status", Bits(2))
         ]
         if len({name for name, _ in physical}) != len(physical):
-            raise ValidationError("展开后的输入/输出/status 寄存器重名，请指定 output_names")
+            raise ValidationError("expanded input/output/status registers collide; specify output_names")
         b = Builder(
             _name("function", key, self.fmt, self.config, names),
             dict(physical),
@@ -149,7 +151,7 @@ class Lowerer:
             refs = tuple(b[name] for name, _ in layout)
             if p.kind == "index":
                 if p.width + self.fmt.fraction >= self.fmt.width:
-                    raise ValidationError("定点格式容不下 Index 的完整无符号范围")
+                    raise ValidationError("the fixed-point format cannot hold the full unsigned range of Index")
                 word = e.local()
                 b.xor(refs[0], word[self.fmt.fraction : self.fmt.fraction + p.width])
                 refs = (word,)
@@ -160,7 +162,7 @@ class Lowerer:
         called: dict[tuple[str, tuple[int, ...]], list[Numeric]] = {}
 
         def value(index: int) -> Numeric:
-            """按需递归求值指定节点并缓存其电路表示。"""
+            """Recursively evaluate the named node on demand and cache its circuit representation."""
             if index in values:
                 return values[index]
             node = graph.nodes[index]
@@ -199,7 +201,7 @@ class Lowerer:
                     actual: dict[str, Ref] = {}
                     for (_, names_), arg in zip(child.input_layout, args, strict=True):
                         if len(names_) != len(arg.parts):
-                            raise ValidationError("helper 输入类型展开不匹配")
+                            raise ValidationError("helper input type expansion mismatch")
                         actual.update(zip(names_, arg.parts, strict=True))
                     returned: list[tuple[str, tuple[Ref, ...]]] = []
                     flag = e.local(2)

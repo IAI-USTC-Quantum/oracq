@@ -1,9 +1,11 @@
-"""QCNN（arXiv:1911.01117）构件的语义与端到端验证。
+"""Semantic and end-to-end validation of QCNN (arXiv:1911.01117) building blocks.
 
-验证分四层：经典基底（im2col/前向/池化/QRAM 树）逐元素精确；QRAM 行
-制备与角度量化镜像一致；Hadamard 内积电路的测量概率满足 Eq. (20)；
-采样驱动的输出满足 Eq. (34)-(39) 的语义（max 池化恢复区域最大值、
-eta 阈值置零、average 池化收敛到 f^2 加权期望）。
+Validation has four layers: the classical substrate (im2col/forward/pooling/QRAM trees)
+is exact element by element; QRAM row preparation agrees with the angle-quantized
+mirror; the Hadamard inner-product circuit's measurement probabilities satisfy
+Eq. (20); and the sampled output satisfies the semantics of Eq. (34)-(39) (max
+pooling recovers regional maxima, the eta threshold zeroes outputs, average
+pooling converges to the f^2-weighted expectation).
 """
 
 import math

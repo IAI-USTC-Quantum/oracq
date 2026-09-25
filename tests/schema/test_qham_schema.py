@@ -1,4 +1,4 @@
-"""PDE/QCL 的独立 JSON 表示与约束。"""
+"""Standalone JSON representations and constraints of PDE/QCL."""
 
 import json
 import unittest

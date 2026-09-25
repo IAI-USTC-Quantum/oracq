@@ -1,14 +1,19 @@
-"""DQI（Decoded Quantum Interferometry，解码量子干涉优化）的 GF(2) max-XORSAT 生成器。
+"""GF(2) max-XORSAT generator for DQI (Decoded Quantum Interferometry).
 
-实现 Jordan et al. 2024（arXiv:2408.08292，图 4）的线路骨架：在 m 比特
-error 寄存器制备权重 l 的 Dicke 态，施加右端项相位 ``(-1)**(v.y)``，把 ``B^T y``
-可逆计算进 n 比特 syndrome 寄存器，再用可逆经典译码器把 error 寄存器卸载回
-``|0>``，最后对 syndrome 寄存器做 Hadamard 变换并测量。译码器是输入模型的一
-部分，以开放声明（abstract）加分批绑定（bind）的三层范式接入。
+Implements the circuit skeleton of Jordan et al. 2024 (arXiv:2408.08292,
+figure 4): prepare a Dicke state of weight l on the m-bit error register,
+apply the right-hand-side phase ``(-1)**(v.y)``, reversibly compute ``B^T y``
+into the n-bit syndrome register, then unload the error register back to
+``|0>`` with a reversible classical decoder, and finally apply the Hadamard
+transform to the syndrome register and measure. The decoder is part of the
+input model and plugs in through the three-layer paradigm of open
+declaration (abstract) plus batched binding (bind).
 
-当前只支持 GF(2)：GF(q) 情形需要 q 元离散 Fourier 变换与广义 Dicke 态，
-寄存器还需按 ``log2(q)`` 分子寄存器组织，留作扩展。测量后保留 error 寄存器
-为零的分支（后选）由调用方完成。
+Only GF(2) is supported for now: the GF(q) case needs a q-ary discrete
+Fourier transform and generalized Dicke states, and the register would
+additionally have to be organized into subregisters of ``log2(q)`` bits,
+left as future work. Keeping the branches where the error register is zero
+after measurement (postselection) is up to the caller.
 """
 
 from __future__ import annotations
@@ -37,16 +42,19 @@ from oracq.algorithms.input_model.oracles import (
 from oracq.infrastructure.builder import Builder, Operation
 from oracq.infrastructure.ir import Bits, ValidationError
 
-# 显式幅度/穷举译码只服务小实例见证，超出该规模应换成专用制备线路或高效译码器。
+# Explicit-amplitude and bruteforce decoding only serve small-instance witnesses; beyond that scale, switch to dedicated preparation circuits or efficient decoders.
 _EXPLICIT_LIMIT = 16
 
 
 @dataclass(frozen=True)
 class XorSatInstance:
-    """GF(2) max-XORSAT 实例：约束组 ``Bx = v`` 的稀疏行表示。
+    """GF(2) max-XORSAT instance: a sparse row representation of the constraint system ``Bx = v``.
 
-    rows 每行一个约束，内容为参与该约束的变量下标，行内不重复；rhs 为右端项 ``v``，
-    长度与行数相同，取值 0 或 1；num_variables 为变量数 n，也是 syndrome 寄存器的位宽。
+    rows holds one constraint per row, listing the variable indices that take
+    part in that constraint, with no repetition inside a row; rhs is the
+    right-hand side ``v``, of the same length as the number of rows and valued
+    0 or 1; num_variables is the number of variables n, also the bit width of
+    the syndrome register.
     """
 
     rows: tuple[tuple[int, ...], ...]
@@ -54,7 +62,7 @@ class XorSatInstance:
     num_variables: int
 
     def __post_init__(self) -> None:
-        """规范化并校验约束行、右端项与变量下标的构造期约束。"""
+        """Normalize and validate the construction-time constraints on constraint rows, the right-hand side, and variable indices."""
         positive_integer(self.num_variables, "XorSatInstance.num_variables", maximum=64)
         rows = tuple(tuple(row) for row in self.rows)
         rhs = tuple(self.rhs)
@@ -62,18 +70,18 @@ class XorSatInstance:
             fail(
                 "CONFIG_VALUE",
                 "XorSatInstance.rows",
-                "非空且与 rhs 等长",
+                "non-empty and of the same length as rhs",
                 (len(rows), len(rhs)),
-                "约束行必须非空且与右端项等长",
+                "constraint rows must be non-empty and of the same length as the right-hand side",
             )
         for row in rows:
             if not row or len(set(row)) != len(row):
                 fail(
                     "CONFIG_VALUE",
                     "XorSatInstance.rows",
-                    "非空且无重复下标",
+                    "non-empty with no duplicate indices",
                     row,
-                    "约束行必须非空且行内变量下标不重复",
+                    "constraint rows must be non-empty with no duplicated variable indices inside a row",
                 )
             for index in row:
                 positive_integer(
@@ -86,26 +94,27 @@ class XorSatInstance:
             fail(
                 "CONFIG_VALUE",
                 "XorSatInstance.rhs",
-                "0 或 1",
+                "0 or 1",
                 rhs,
-                "右端项必须取 0 或 1，不能是 bool",
+                "right-hand side entries must be 0 or 1 and must not be bool",
             )
         object.__setattr__(self, "rows", rows)
         object.__setattr__(self, "rhs", rhs)
 
     @property
     def num_constraints(self) -> int:
-        """约束数 m，即 error 寄存器的位宽。"""
+        """Number of constraints m, i.e. the bit width of the error register."""
         return len(self.rows)
 
     def satisfied_count(self, assignment: int) -> int:
-        """统计给定整数赋值满足的约束数。
+        """Count the constraints satisfied by a given integer assignment.
 
         Args:
-            assignment: 赋值的整数编码，取 0..2^变量数−1，第 j 位是变量 j 的取值。
+            assignment: Integer encoding of the assignment, in 0..2^number of
+                variables−1, with bit j holding the value of variable j.
 
         Returns:
-            int: 该赋值满足的约束条数。
+            int: Number of constraints satisfied by that assignment.
         """
         positive_integer(
             assignment,
@@ -121,49 +130,53 @@ class XorSatInstance:
 
 @dataclass(frozen=True)
 class DecoderOracle(OracleView):
-    """综合征译码器的可逆形式，是 DQI 的关键开放输入。
+    """Reversible form of a syndrome decoder, the key open input of DQI.
 
-    语义为 ``|syndrome, error> -> |syndrome, error XOR D(syndrome)>``，其中
-    ``D`` 是经典译码函数（例如 belief propagation 的可逆实现）。无法译码的
-    综合征可以映射到任意错误模式，对应分支在后选中被淘汰。
+    The semantics are ``|syndrome, error> -> |syndrome, error XOR
+    D(syndrome)>``, where ``D`` is the classical decoding function (for
+    example a reversible implementation of belief propagation). Undecodable
+    syndromes may map to arbitrary error patterns; the corresponding branches
+    are eliminated by postselection.
     """
 
     oracle_kind = "reversible_function"
     operation: Operation
 
     def decoder(self) -> DecoderOracle:
-        """译码器角色访问器，返回自身；与其他 ``OracleView`` 的角色方法一致。
+        """Decoder role accessor, returns itself; consistent with the role methods of other ``OracleView`` classes.
 
         Returns:
-            DecoderOracle: 自身引用，保持角色访问器接口一致。
+            DecoderOracle: A reference to itself, keeping the role accessor
+            interface uniform.
         """
         return self
 
     def __post_init__(self) -> None:
-        """校验包装操作具有 syndrome 与 error 签名。"""
+        """Validate that the wrapped operation has the syndrome and error signature."""
         validate_signature(self.operation, ("syndrome", "error"), "DecoderOracle")
 
     @property
     def syndrome_width(self) -> int:
-        """syndrome 寄存器位宽，直接读取 RIR 寄存器签名。"""
+        """Bit width of the syndrome register, read directly from the RIR register signature."""
         return next(r.type.width for r in self.operation.module.registers if r.name == "syndrome")
 
     @property
     def error_width(self) -> int:
-        """error 寄存器位宽，直接读取 RIR 寄存器签名。"""
+        """Bit width of the error register, read directly from the RIR register signature."""
         return next(r.type.width for r in self.operation.module.registers if r.name == "error")
 
 
 def abstract_decoder(name: str, syndrome_width: int, error_width: int) -> DecoderOracle:
-    """声明译码器槽位；高效经典译码算法经 bind 分批绑定。
+    """Declare a decoder slot; efficient classical decoding algorithms are bound in batches via bind.
 
     Args:
-        name: 译码器槽位的声明模块名。
-        syndrome_width: syndrome 寄存器位宽，取 1..64。
-        error_width: error 寄存器位宽，取 1..64。
+        name: Declared module name of the decoder slot.
+        syndrome_width: Bit width of the syndrome register, in 1..64.
+        error_width: Bit width of the error register, in 1..64.
 
     Returns:
-        DecoderOracle: 体为空、由 bind 延迟绑定实现的译码器槽位句柄。
+        DecoderOracle: Handle of the decoder slot with an empty body, whose
+        implementation is bound later by bind.
     """
     positive_integer(syndrome_width, "abstract_decoder.syndrome_width", maximum=64)
     positive_integer(error_width, "abstract_decoder.error_width", maximum=64)
@@ -180,16 +193,19 @@ def abstract_decoder(name: str, syndrome_width: int, error_width: int) -> Decode
 def table_decoder(
     syndrome_width: int, error_width: int, table: Mapping[int, int], *, name: str | None = None
 ) -> DecoderOracle:
-    """用显式查询表实现译码器的 gate 见证；只译码表中列出的综合征。
+    """A gate witness implementing the decoder with an explicit lookup table; only the syndromes listed in the table are decoded.
 
     Args:
-        syndrome_width: syndrome 寄存器位宽，即实例的变量数 n。
-        error_width: error 寄存器位宽，即实例的约束数 m。
-        table: 综合征整数值到错误模式整数值的映射。
-        name: 可选模块名。
+        syndrome_width: Bit width of the syndrome register, i.e. the
+            instance's variable count n.
+        error_width: Bit width of the error register, i.e. the instance's
+            constraint count m.
+        table: Map from syndrome integer values to error pattern integer
+            values.
+        name: Optional module name.
 
     Returns:
-        DecoderOracle: 未列出的综合征映射到零错误模式。"""
+        DecoderOracle: Syndromes not listed map to the zero error pattern."""
     positive_integer(syndrome_width, "table_decoder.syndrome_width", maximum=64)
     positive_integer(error_width, "table_decoder.error_width", maximum=64)
     items = tuple(sorted(table.items()))
@@ -203,7 +219,7 @@ def table_decoder(
             or type(error) is not int
             or not (0 <= syndrome < 1 << syndrome_width and 0 <= error < 1 << error_width)
         ):
-            raise ValidationError("译码查询表的综合征或错误模式越界")
+            raise ValidationError("a syndrome or error pattern in the decoder lookup table is out of range")
         if error:
             with b.control(b["syndrome"], syndrome):
                 for bit in range(error_width):
@@ -217,18 +233,22 @@ def table_decoder(
 def bruteforce_decoder(
     instance: XorSatInstance, *, max_weight: int | None = None, name: str | None = None
 ) -> DecoderOracle:
-    """穷举最小权重译码器：为每个综合征给出权重不超过 max_weight 的最轻错误。
+    """Bruteforce minimum-weight decoder: gives each syndrome the lightest error of weight at most max_weight.
 
-    枚举全部 2**m 个错误模式，只接受 m <= 16 的小实例；大实例应绑定高效
-    译码器的可逆实现。等权重并列时保留枚举序最小的错误模式。
+    Enumerates all 2**m error patterns and only accepts small instances with
+    m <= 16; larger instances should bind a reversible implementation of an
+    efficient decoder. On equal-weight ties the error pattern that comes
+    first in enumeration order is kept.
 
     Args:
-        instance: 被译码的 XOR 实例，约束数不超过 16。
-        max_weight: 错误模式的权重上限，取 0..约束数；缺省为约束数。
-        name: 可选的生成模块名。
+        instance: The XOR instance being decoded, with at most 16 constraints.
+        max_weight: Weight cap for error patterns, in 0..constraint count;
+            defaults to the constraint count.
+        name: Optional name of the generated module.
 
     Returns:
-        DecoderOracle: 每个综合征映射到最轻错误模式的显式查表译码器。
+        DecoderOracle: An explicit lookup-table decoder mapping each syndrome
+        to the lightest error pattern.
     """
     require_instance(instance, XorSatInstance, "bruteforce_decoder.instance")
     m = instance.num_constraints
@@ -238,7 +258,7 @@ def bruteforce_decoder(
             "bruteforce_decoder.m",
             f"<= {_EXPLICIT_LIMIT}",
             m,
-            "穷举译码器只接受小规模实例",
+            "the bruteforce decoder only accepts small instances",
         )
     if max_weight is None:
         max_weight = m
@@ -271,18 +291,20 @@ def bruteforce_decoder(
 
 
 def dicke_state(m: int, weight: int) -> StatePreparation:
-    """制备 m 比特、权重 weight 的 Dicke 态 ``|D_l^m>``。
+    """Prepare the m-bit Dicke state ``|D_l^m>`` of weight weight.
 
-    采用显式幅度的多路旋转构造，只接受 m <= 16 的小规模；大规模制备需要
-    专门的 Dicke 态线路（如 Bartschi-Eidenbenz 的 O(l*m) 构造），可作为
-    state_prep_isometry 开放声明另行接入。
+    Built by multi-way rotations from explicit amplitudes and only accepts
+    small sizes with m <= 16; large-scale preparation needs dedicated Dicke
+    state circuits (such as the O(l*m) construction of Bartschi-Eidenbenz),
+    which can be attached separately as a state_prep_isometry open
+    declaration.
 
     Args:
-        m: 目标位数，范围 1..16。
-        weight: Hamming 权重，范围 0..m。
+        m: Number of target bits, in 1..16.
+        weight: Hamming weight, in 0..m.
 
     Returns:
-        StatePreparation: 零输入制备，target 位宽为 m。"""
+        StatePreparation: A zero-input preparation whose target width is m."""
     positive_integer(m, "dicke_state.m", maximum=_EXPLICIT_LIMIT)
     positive_integer(weight, "dicke_state.weight", minimum=0, maximum=m)
     amplitude = 1 / math.sqrt(comb(m, weight))
@@ -291,18 +313,24 @@ def dicke_state(m: int, weight: int) -> StatePreparation:
 
 
 def dqi(instance: XorSatInstance, decoder: DecoderOracle, *, weight: int) -> Operation:
-    """组装 DQI 主线路（GF(2)，论文图 4 的单权重版本）。
+    """Assemble the main DQI circuit (GF(2), the single-weight version of figure 4 in the paper).
 
     Args:
-        instance: XorSatInstance，约束数 m 与变量数 n 决定寄存器位宽。
-        decoder: DecoderOracle，接口宽度必须与实例的 n/m 一致；可以是抽象声明。
-        weight: Dicke 态权重 l，范围 0..m；译码半径需覆盖该权重才有意义。
+        instance: XorSatInstance; the constraint count m and variable count n
+            determine the register widths.
+        decoder: DecoderOracle whose interface widths must match the
+            instance's n and m; it may be an abstract declaration.
+        weight: Dicke state weight l, in 0..m; meaningful only when the
+            decoding radius covers this weight.
 
     Returns:
-        Operation: 寄存器为 error(m) 与 syndrome(n)。从全零初态出发，在译码
-        成功的分支上 error 回到 ``|0>``，syndrome 经 Hadamard 后以正比于
-        ``K_l(u(x))**2`` 的概率测得赋值 x，其中 u(x) 是未满足约束数、``K_l``
-        是 Krawtchouk 多项式。后选 error 为零由调用方完成。"""
+        Operation: Registers error(m) and syndrome(n). Starting from the
+        all-zero state, error returns to ``|0>`` on the branches where
+        decoding succeeds, and after the Hadamard transform syndrome measures
+        assignment x with probability proportional to ``K_l(u(x))**2``, where
+        u(x) is the number of unsatisfied constraints and ``K_l`` is the
+        Krawtchouk polynomial. Postselecting on zero error is up to the
+        caller."""
     require_instance(instance, XorSatInstance, "dqi.instance")
     require_instance(decoder, DecoderOracle, "dqi.decoder")
     m, n = instance.num_constraints, instance.num_variables
@@ -313,7 +341,7 @@ def dqi(instance: XorSatInstance, decoder: DecoderOracle, *, weight: int) -> Ope
             "dqi.decoder",
             (n, m),
             (decoder.syndrome_width, decoder.error_width),
-            "译码器位宽必须与实例的 n/m 一致",
+            "the decoder widths must match the n and m of the instance",
         )
     preparation = dicke_state(m, weight)
     b = Builder(

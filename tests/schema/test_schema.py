@@ -1,4 +1,4 @@
-"""用真实 JSON Schema 验证器检查规范序列化实例；Schema 本身保持 JSON。"""
+"""Check specification serialization instances with a real JSON Schema validator; the schema itself stays JSON."""
 
 import json
 import unittest

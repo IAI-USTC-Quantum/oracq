@@ -1,4 +1,4 @@
-"周期网格上的结构化 PDE 端口：移位 LCU、分量选择和同点收缩。"
+"Structured PDE ports on periodic grids: shifted LCU, component selection, and same-point contraction."
 
 from __future__ import annotations
 
@@ -31,25 +31,32 @@ from oracq.infrastructure.ir import Bits, Ref, ValidationError, fuse
 
 
 def derivative_encoding(grid: Grid, derivative: tuple[tuple[str, int], ...]) -> BlockEncoding:
-    """构造周期网格上空间导数的移位 LCU 块编码。
+    """Build a shifted-LCU block encoding of a spatial derivative on a periodic grid.
 
-    每个轴的导数按中心差分模板分解为若干循环移位项，项系数为模板权重除以
-    ``spacing**order``；各轴算子复合到整个空间地址寄存器上，各算子只作用
-    于自己轴的地址位。无导数的轴贡献恒等，模板系数全部相消的轴贡献零算子。
+    The derivative on each axis is decomposed into cyclic shift terms by the
+    centered difference stencil, with term coefficients equal to the stencil
+    weights divided by ``spacing**order``; the per-axis operators compose onto
+    the whole spatial address register, each acting only on its own axis's
+    address bits. An axis without a derivative contributes the identity, and
+    an axis whose stencil coefficients cancel entirely contributes the zero
+    operator.
 
     Args:
-        grid: 周期边界、各轴长度均为 2 的幂的 ``Grid``。
-        derivative: 形如 ``((axis, order), ...)`` 的导数说明。
+        grid: A ``Grid`` with periodic boundary and axis lengths that are
+            powers of 2.
+        derivative: Derivative specification of the form ``((axis, order),
+            ...)``.
 
     Returns:
-        BlockEncoding: target 为空间寄存器（宽 ``grid.spatial_width``）的
-        差分算子块编码。
+        BlockEncoding: Block encoding of the difference operator whose target
+        is the spatial register of width ``grid.spatial_width``.
 
     Raises:
-        ValidationError: 网格边界不是周期，或存在非 2 的幂的轴长。
+        ValidationError: The grid boundary is not periodic, or some axis
+            length is not a power of 2.
     """
     if grid.boundary != "periodic" or any(n & (n - 1) for n in grid.shape):
-        raise ValidationError("结构化移位端口需要各轴为二次幂的周期网格；其他边界可提供自己的 BE")
+        raise ValidationError("structured shift ports require a periodic grid with power-of-two axis lengths; other boundaries may provide their own BE")
     width = grid.spatial_width
     result = identity(width)
     cursor = 0
@@ -81,30 +88,38 @@ def derivative_encoding(grid: Grid, derivative: tuple[tuple[str, int], ...]) -> 
 def coefficient_encoding(
     discretization: Discretization, monomial: Monomial, *, max_words: int = 4096
 ) -> BlockEncoding:
-    """构造已知系数对角乘子的门实现块编码。
+    """Build a gate-implemented block encoding of the known-coefficient diagonal multiplier.
 
-    逐地址求出已知场（含其空间导数）与单项式系数的乘积值，按地址受控旋转
-    单个 signal 量子比特并补偿复相位，使 signal 投影回零时实现对角值除以
-    ``alpha`` 的作用；值取遍整个空间地址寄存器，网格外的填充地址为 0。
+    The product of the known fields, including their spatial derivatives, and
+    the monomial coefficient is evaluated address by address; a single signal
+    qubit is rotated under address control with the complex phase compensated
+    so that projecting the signal back to zero applies the diagonal value
+    divided by ``alpha``; values range over the whole spatial address
+    register, with padded addresses outside the grid equal to 0.
 
     Args:
-        discretization: 提供网格与已知场数据的 ``Discretization``。
-        monomial: 待编码的单项式；无已知场且网格无填充位时退化为常数缩放。
-        max_words: 门系数表允许的最大地址数。
+        discretization: The ``Discretization`` providing the grid and known
+            field data.
+        monomial: The monomial to encode; degenerates to a constant scaling
+            when there are no known fields and the grid has no padding bits.
+        max_words: Maximum number of addresses allowed for the gate
+            coefficient table.
 
     Returns:
-        BlockEncoding: target 为空间寄存器、``alpha`` 为对角值最大模的
-        块编码；对角值全为零时返回零算子。
+        BlockEncoding: Block encoding whose target is the spatial register and
+        whose ``alpha`` is the largest modulus of the diagonal values; returns
+        the zero operator when all diagonal values are zero.
 
     Raises:
-        ValidationError: 系数表超过 ``max_words`` 预算。
+        ValidationError: The coefficient table exceeds the ``max_words``
+            budget.
     """
     grid = discretization.grid
     width = grid.spatial_width
     if not monomial.known and grid.size == 1 << width:
         return scale(monomial.coefficient, identity(width))
     if 1 << width > max_words:
-        raise ValidationError("已知系数的门实现超过预算；请绑定 QRAM/自定义系数 BE")
+        raise ValidationError("the gate implementation of known coefficients exceeds the budget; bind a QRAM or custom coefficient BE instead")
     values = [
         discretization.known_product(monomial, row) if row < grid.size else 0j
         for row in range(1 << width)
@@ -132,35 +147,43 @@ def qram_coefficient_encoding(
     angle_width: int = 8,
     max_words: int = 4096,
 ) -> BlockEncoding:
-    """已知系数对角线的开放角数据库编码；同一份程序可绑定 gate 或 QRAM 数据库。
+    """Open angle-database encoding of the known-coefficient diagonal; the same program can bind either a gate or a QRAM database.
 
-    与 coefficient_encoding 的合同一致（target 为空间位、alpha 相同），但系数数据
-    不烧进门里：对角值 alpha*cos(theta_a/2) 的角度字留在开放的 XOR 数据库槽位中，
-    运行时表由 qram_coefficient_memory 单独计算。仅接受实系数数据；
-    角度量化引入不超过 alpha*pi/2**angle_width 的幅值误差。
+    The contract matches coefficient_encoding (target on the spatial bits and
+    the same alpha), but the coefficient data is not burned into gates: the
+    angle words for diagonal values alpha*cos(theta_a/2) stay in open XOR
+    database slots, and the runtime table is computed separately by
+    qram_coefficient_memory. Only real coefficient data is accepted; angle
+    quantization introduces an amplitude error of at most
+    alpha*pi/2**angle_width.
 
     Args:
-        discretization: 提供网格与已知场数据的 ``Discretization``。
-        monomial: 待编码的单项式；无已知场且网格无填充位时退化为常数缩放。
-        angle_width: 角度字的位宽，决定对角值的量化精度。
-        max_words: 角数据库允许的最大地址数。
+        discretization: The ``Discretization`` providing the grid and known
+            field data.
+        monomial: The monomial to encode; degenerates to a constant scaling
+            when there are no known fields and the grid has no padding bits.
+        angle_width: Bit width of an angle word, determining the quantization
+            precision of diagonal values.
+        max_words: Maximum number of addresses allowed for the angle
+            database.
 
     Returns:
-        BlockEncoding: 对角值留在开放 XOR 数据库槽位中的块编码，``alpha``
-        为对角值的最大模，对角值全为零时返回零算子。
+        BlockEncoding: Block encoding with diagonal values left in open XOR
+        database slots, ``alpha`` equal to the largest modulus of the diagonal
+        values; returns the zero operator when all diagonal values are zero.
     """
     grid = discretization.grid
     width = grid.spatial_width
     if not monomial.known and grid.size == 1 << width:
         return scale(monomial.coefficient, identity(width))
     if 1 << width > max_words:
-        raise ValidationError("已知系数的 QRAM 角表超过预算；请提供自定义系数 BE")
+        raise ValidationError("the QRAM angle table of known coefficients exceeds the budget; provide a custom coefficient BE instead")
     values = [
         discretization.known_product(monomial, row) if row < grid.size else 0j
         for row in range(1 << width)
     ]
     if any(v.imag for v in values):
-        raise ValidationError("QRAM 角编码的系数数据必须为实数")
+        raise ValidationError("coefficient data for QRAM angle encoding must be real")
     alpha = max((abs(v.real) for v in values), default=0)
     if not alpha:
         return zero(width)
@@ -171,16 +194,20 @@ def qram_coefficient_encoding(
 def qram_coefficient_memory(
     discretization: Discretization, monomial: Monomial, *, angle_width: int = 8
 ) -> dict[int, int]:
-    """与 qram_coefficient_encoding 对应的运行时角表（地址 -> 角度字）。
+    """Runtime angle table matching qram_coefficient_encoding (address -> angle word).
 
     Args:
-        discretization: 提供网格与已知场数据的 ``Discretization``。
-        monomial: 编码时使用的同一单项式，须与编码调用保持一致。
-        angle_width: 角度字的位宽，须与编码调用保持一致。
+        discretization: The ``Discretization`` providing the grid and known
+            field data.
+        monomial: The same monomial used at encoding time; must agree with the
+            encoding call.
+        angle_width: Bit width of an angle word; must agree with the encoding
+            call.
 
     Returns:
-        dict[int, int]: 空间地址到角度字的映射；可退化为常数缩放或对角值
-        全为零时返回空表。
+        dict[int, int]: Mapping from spatial address to angle word; an empty
+        table when the encoding degenerates to a constant scaling or all
+        diagonal values are zero.
     """
     grid = discretization.grid
     width = grid.spatial_width
@@ -208,28 +235,40 @@ def term_encoding(
     max_coefficient_words: int = 4096,
     coefficient_encoder: Callable[..., BlockEncoding] = coefficient_encoding,
 ) -> BlockEncoding:
-    """为单个 PDE 方程项构造结构化差分端口的多线性块编码。
+    """Build the multilinear block encoding of the structured difference port for a single PDE equation term.
 
-    端口由各因子字段的中心差分导数、已知系数对角乘子、分量选择与外导数
-    组装而成：因子各自在空间位上差分，多因子情形先收缩到同一点再对角
-    合并；signal 中的两个拒绝位分别标记分量不符与（多因子时）各因子不在
-    同一点的输入坐标，零阶项则标记非零地址并在空间位上取均匀叠加。
-    不物化端口矩阵。
+    The port is assembled from the centered-difference derivatives of each
+    factor field, the known-coefficient diagonal multiplier, component
+    selection, and the outer derivative: each factor is differentiated on its
+    own spatial bits, and in the multi-factor case the factors are contracted
+    to the same point before the diagonal merge; the two reject bits in the
+    signal flag input coordinates whose components mismatch and, for multiple
+    factors, factors not at the same point, while order-zero terms flag
+    nonzero addresses and prepare a uniform superposition on the spatial
+    bits. The port matrix is never materialized.
 
     Args:
-        discretization: 提供网格、分量布局与已知数据的 ``Discretization``。
-        term: 含输出分量与一个单项式的 ``EquationTerm``。
-        max_coefficient_words: 传给系数编码器的地址数预算。
-        coefficient_encoder: 系数对角乘子的编码函数，合同同
-            ``coefficient_encoding``（如 ``qram_coefficient_encoding``）。
+        discretization: The ``Discretization`` providing the grid, component
+            layout, and known data.
+        term: An ``EquationTerm`` carrying the output component and one
+            monomial.
+        max_coefficient_words: Address budget passed to the coefficient
+            encoder.
+        coefficient_encoder: Encoding function for the coefficient diagonal
+            multiplier, with the same contract as ``coefficient_encoding``
+            (e.g. ``qram_coefficient_encoding``).
 
     Returns:
-        BlockEncoding: target 宽 ``max(1, arity)*discretization.width`` 的
-        矩形块编码，``rectangular_arity`` 属性记录元数；``alpha`` 为系数、
-        外导数与各因子导数的 alpha 之积，零阶项另乘 ``sqrt(2**spatial_width)``。
+        BlockEncoding: Rectangular block encoding whose target width is
+        ``max(1, arity)*discretization.width``, with the arity recorded in the
+        ``rectangular_arity`` attribute; ``alpha`` is the product of the
+        alphas of the coefficient, the outer derivative, and each factor
+        derivative, with an extra factor ``sqrt(2**spatial_width)`` for
+        order-zero terms.
 
     Raises:
-        ValidationError: 端口 target 宽超过 64，或系数编码器报告超预算。
+        ValidationError: The port target width exceeds 64, or the coefficient
+            encoder reports an exceeded budget.
     """
     n = discretization.width
     ns = discretization.grid.spatial_width
@@ -238,7 +277,7 @@ def term_encoding(
     arity = len(monomial.fields)
     width = max(1, arity) * n
     if width > 64:
-        raise ValidationError("单个多线性端口超过当前 BE target 包装宽度")
+        raise ValidationError("a single multilinear port exceeds the current BE target packing width")
     derivatives = [derivative_encoding(discretization.grid, a.derivative) for a in monomial.fields]
     outer = derivative_encoding(discretization.grid, monomial.outer_derivative)
     coefficient = coefficient_encoder(discretization, monomial, max_words=max_coefficient_words)
@@ -336,22 +375,25 @@ def structured_fd_bindings(
     max_coefficient_words: int = 4096,
     coefficient_encoder: Callable[..., BlockEncoding] = coefficient_encoding,
 ) -> QHAMBindings:
-    """基本矩阵从移位与收缩生成，不物化 N^r × N^r 的端口矩阵。
+    """Base matrices are generated from shifts and contractions, without materializing N^r x N^r port matrices.
 
     Args:
-        discretization: 提供网格、分量布局与已知数据的 ``Discretization``。
-        initial: 长度为 ``discretization.dimension`` 的初值向量；范数为零时
-            改用第一个基矢制备。
-        max_coefficient_words: 传给系数编码器的地址数预算。
-        coefficient_encoder: 系数对角乘子的编码函数，合同同
-            ``coefficient_encoding``（如 ``qram_coefficient_encoding``）。
+        discretization: The ``Discretization`` providing the grid, component
+            layout, and known data.
+        initial: Initial vector of length ``discretization.dimension``; when
+            its norm is zero the first basis vector is prepared instead.
+        max_coefficient_words: Address budget passed to the coefficient
+            encoder.
+        coefficient_encoder: Encoding function for the coefficient diagonal
+            multiplier, with the same contract as ``coefficient_encoding``
+            (e.g. ``qram_coefficient_encoding``).
 
     Returns:
-        QHAMBindings: 各端口绑定到移位 LCU 块编码、并含初值制备与范数的
-        QHAM 绑定集合。
+        QHAMBindings: QHAM binding set with each port bound to a shifted-LCU
+        block encoding, including the initial-state preparation and norm.
     """
     if len(initial) != discretization.dimension:
-        raise ValidationError("初值需要完整寄存器布局")
+        raise ValidationError("initial values require the full register layout")
     ports: list[tuple[str, PortBinding]] = []
     for port in discretization.pde.ports:
         encoded = lcu(

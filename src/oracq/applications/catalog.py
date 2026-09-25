@@ -1,4 +1,4 @@
-"可重复生成的范式案例目录：开放 IR、绑定计划与有限具体实例。"
+"Reproducibly generated catalog of paradigm cases: open IR, binding plans and a finite set of concrete instances."
 
 from __future__ import annotations
 
@@ -72,16 +72,16 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Case:
-    """一条范式参考案例：开放程序、实现绑定与宿主内存数据。
+    """One paradigm reference case: an open program, implementation bindings and host memory data.
 
     Attributes:
-        name: 案例名，为 ``CASES`` 中的条目之一。
-        program: 案例的 ``Program``，抽象槽位待 ``bindings`` 填充。
-        bindings: 槽位名到 ``Binding`` 或 ``Operation`` 的映射；未列出的槽位保持开放。
-        memory: QRAM 案例的宿主侧内存表，键为绑定资源映射所引用的名字。
-        source: 出处标识元组（语言规范、规格测试或参考负载条目）。
-        notes: 案例适用范围的限定说明元组。
-        readout: 导出后按序执行的末端 ``ReadoutAction`` 读出动作元组。
+        name: Case name, one of the entries of ``CASES``.
+        program: The case's ``Program``; abstract slots await filling by ``bindings``.
+        bindings: Mapping of slot names to ``Binding`` or ``Operation``; unlisted slots stay open.
+        memory: Host-side memory tables of QRAM cases; keys are the names referenced by binding resource maps.
+        source: Tuple of provenance identifiers (language specification, spec tests or reference workload entries).
+        notes: Tuple of qualifying notes on the case's applicability boundary.
+        readout: Tuple of terminal ``ReadoutAction`` readout actions executed in order after export.
     """
 
     name: str
@@ -93,20 +93,21 @@ class Case:
     readout: tuple[ReadoutAction, ...] = ()
 
     def closed(self) -> Program:
-        """按 ``bindings`` 绑定 ``program`` 的开放槽位，返回闭合后的 ``Program``。
+        """Bind the open slots of ``program`` per ``bindings`` and return the closed ``Program``.
 
         Returns:
-            Program: 各开放槽位替换为绑定实现后的闭合程序。
+            Program: The closed program with each open slot replaced by its bound implementation.
         """
         return bind(self.program, self.bindings)
 
     def artifact(self) -> OriginIRArtifact:
-        """导出闭合程序的 OriginIR 产物。
+        """Export the OriginIR artifact of the closed program.
 
         Returns:
-            OriginIRArtifact: ``closed()`` 结果的 OriginIR 导出产物。
+            OriginIRArtifact: The OriginIR export artifact of the ``closed()`` result.
 
-        OriginIR 导出器在本方法内延迟导入，核心代码不因此引入后端依赖。"""
+        The OriginIR exporter is imported lazily inside this method, so core
+        code gains no backend dependency."""
         from oracq.infrastructure.backends import export_originir
 
         return export_originir(self.closed())
@@ -147,17 +148,19 @@ CASES = (
     "register_views",
     "measure_reset",
 )
-"""``build_case`` 接受的全部案例名。
+"""All case names accepted by ``build_case``.
 
-命名约定：多数案例以应用家族为前缀（如 ``dj_``、``grover_``、``qham_``）；
-``_gate`` 后缀表示固定门级实现，``_qram`` 后缀表示绑定 QRAM 数据库并
-携带宿主内存表的实现，``_qode``/``_qpde`` 后缀区分求解器封装层级；
-其余无后缀的名字是原语或单一算法的演示案例。
+Naming convention: most cases are prefixed with an application family (e.g.
+``dj_``, ``grover_``, ``qham_``); the ``_gate`` suffix denotes a fixed
+gate-level implementation, the ``_qram`` suffix denotes an implementation that
+binds QRAM databases and carries host memory tables, and the
+``_qode``/``_qpde`` suffixes distinguish solver wrapper layers; the remaining
+unsuffixed names are demo cases of primitives or single algorithms.
 """
 
 
 def _sparse_case(name: str) -> Case:
-    """构造稀疏访问案例；``costa`` 前缀时再叠加 Costa QLSS 求解组装。"""
+    """Build a sparse access case; with the ``costa`` prefix, additionally layer on the Costa QLSS solver assembly."""
     access = abstract_sparse_access("Sparse", 1, 2, 2)
     amplitude = declare(
         "SparseAmplitude", {"value": Bits(2), "amplitude": Bits(1)}, paradigm="reversible_function"
@@ -192,15 +195,15 @@ def _sparse_case(name: str) -> Case:
         binding,
         memory,
         ("language-spec-v2 §E.4; reference-workloads 4/5; CKS §1.1",),
-        ("T†SWAP T 稀疏候选构造；矩阵与归一化的验证留到下一阶段。",),
+        ("T†SWAP T sparse candidate construction; validation of the matrix and normalization is deferred to the next stage.",),
     )
 
 
 def _qfvm_case(name: str) -> Case:
-    """构造 QFVM 范式案例；``qram`` 后缀把各数据库槽位绑定到宿主内存表。"""
+    """Build a QFVM paradigm case; the ``qram`` suffix binds the database slots to host memory tables."""
     inputs = qfvm_inputs()
-    # QLSSProtocol.__call__ 在 algorithms 侧标注宽松（*args -> SolveResult | StateOracle），
-    # 此处按 qfvm_step 的协议用法收窄为求解回调。
+    # QLSSProtocol.__call__ is loosely annotated on the algorithms side (*args -> SolveResult | StateOracle);
+    # narrowed here to the solver callback as used by qfvm_step.
     state = qfvm_step(
         inputs, cast("Callable[..., StateOracle]", make_costa_qlss(CostaConfig(steps=1)))
     )
@@ -245,21 +248,21 @@ def _qfvm_case(name: str) -> Case:
         memory,
         ("reference-workloads 1: QFVM sparse inputs, T_L†SWAP T_R, QLSS/filter",),
         (
-            "物理条目绑定为明确的玩具查表函数，不冒充完整 Roe 实现。",
-            "本例验证双向访问、资源绑定和过滤求解器组装；流体与量子正确性待下一阶段。",
+            "The physical entry is bound to an explicit toy lookup function and does not pretend to be a full Roe implementation.",
+            "This case validates bidirectional access, resource binding and filtered solver assembly; fluid and quantum correctness await the next stage.",
         ),
     )
 
 
 def _qham_case(name: str) -> Case:
-    """构造 QHAM m=1 提升系统案例；``qpde`` 后缀改经 QPDE 封装求解。"""
+    """Build the QHAM m=1 lifted-system case; the ``qpde`` suffix instead solves through the QPDE wrapper."""
     linear_impl = matrix_pauli_encoding([[-0.2, 0.1], [0.1, -0.2]])
     fold_impl = matrix_pauli_encoding([[0, 0.5, 0, 0], [0, 0, -0.5, 0], [0, 0, 0, 0], [0, 0, 0, 0]])
     linear = abstract_block_encoding("QhamLinear", 1, linear_impl.signal_qubits, linear_impl.alpha)
     fold = abstract_block_encoding("QhamFold", 2, fold_impl.signal_qubits, fold_impl.alpha)
     lifted = qham_lift_m1(linear, fold)
     initial = abstract_state_prep("QhamInitial", lifted.width)
-    # QLSSProtocol.__call__ 在 algorithms 侧标注宽松，按生成函数协议收窄。
+    # QLSSProtocol.__call__ is loosely annotated on the algorithms side; narrowed per the generator function protocol.
     qode = make_euler_history_qode(
         cast(
             "Callable[[BlockEncoding, StatePreparation], StateOracle]",
@@ -280,25 +283,26 @@ def _qham_case(name: str) -> Case:
         {},
         ("reference-workloads 6; generator-protocols §8; QHAM m=1 lifted system",),
         (
-            "m=1、两个空间点；提升维数 10，补齐到 16。",
-            "通过 QODE 历史系统与 Costa/filter 生成；本阶段不验证 HAM 收敛与条件解态。",
+            "m=1 with two spatial points; the lifted dimension is 10, padded to 16.",
+            "Generated through the QODE history system and Costa/filter; HAM convergence and the conditioned solution state are not validated at this stage.",
         ),
     )
 
 
 def build_case(name: str) -> Case:
-    """按名称构建一条范式参考案例。
+    """Build one paradigm reference case by name.
 
-    全部案例由固定常量生成，可重复构造；QRAM 案例同时给出宿主内存表。
+    All cases are generated from fixed constants and can be constructed
+    reproducibly; QRAM cases also provide host memory tables.
 
     Args:
-        name: 案例名，必须是 ``CASES`` 中的条目。
+        name: Case name; must be one of the entries of ``CASES``.
 
     Returns:
-        Case: 对应的案例，含实现绑定、内存数据与读出动作（如适用）。
+        Case: The corresponding case, with implementation bindings, memory data and readout actions where applicable.
 
     Raises:
-        KeyError: 案例名不在 ``CASES`` 中。
+        KeyError: The case name is not in ``CASES``.
     """
     if name not in CASES:
         raise KeyError(name)
@@ -312,13 +316,13 @@ def build_case(name: str) -> Case:
     if name == "python_generators":
 
         def count(n: int) -> int:
-            """按递推返回第 n 个 Fibonacci 数，作为生成期常量。"""
+            """Return the n-th Fibonacci number by recursion, as a generation-time constant."""
             return 1 if n < 2 else count(n - 1) + count(n - 2)
 
         width = count(3)
 
         def generate(depth: int) -> Operation:
-            """递归构造 ``depth`` 层嵌套 ``Repeat`` 调用的演示模块。"""
+            """Recursively build a demo module with ``depth`` levels of nested ``Repeat`` calls."""
             b = Builder(f"recursive_{depth}", {"q": Bits(width)}, attributes={"const_alpha": 2.5})
             if depth:
                 with b.repeat(2):
@@ -364,7 +368,7 @@ def build_case(name: str) -> Case:
             },
             {},
             ("spec-tests 07-scientific/carleman-step",),
-            ("二次标量模型的三阶截断提升；只验收组装，不认证截断误差。",),
+            ("Third-order truncated lift of a quadratic scalar model; only the assembly is accepted, the truncation error is not certified.",),
         )
     if name == "schrodingerisation":
         from oracq.algorithms.qode.legacy import make_schrodingerisation_qode
@@ -384,7 +388,7 @@ def build_case(name: str) -> Case:
             },
             {},
             ("spec-tests 07-scientific/schrodingerization; QODE alternative",),
-            ("Hamiltonian lift 是显式 oracle 边界；演示绑定只检查范式，不声称复现特定 PDE。",),
+            ("The Hamiltonian lift is an explicit oracle boundary; the demo binding only checks the paradigm and does not claim to reproduce any specific PDE.",),
         )
     if name == "banked_qram":
         from oracq.algorithms.input_model.oracles import banked_database
@@ -397,7 +401,7 @@ def build_case(name: str) -> Case:
             {cast(Operation, slot).module.name: Binding(cast(Operation, impl), {"bank0": "low", "bank1": "high"})},
             {"low": {0: 5}, "high": {0: 7}},
             ("reference-workloads 1 packed flow words; register-level storage",),
-            ("96 位逻辑数据拆成 64/32 位两个 bank；本例验收描述，不在密集模拟器执行。",),
+            ("The 96-bit logical data is split into two banks of 64/32 bits; this case accepts the description only and is not executed on the dense simulator.",),
         )
     if name == "register_views":
         from oracq.infrastructure.ir import fuse
@@ -436,7 +440,7 @@ def build_case(name: str) -> Case:
                 else implementation.operation
             },
             {"truth": [0, 1, 1, 0]} if name.endswith("qram") else {},
-            ("Deutsch–Jozsa 用户新增负载",),
+            ("Deutsch–Jozsa user-added workload",),
         )
     if name.startswith("grover_"):
         from oracq.algorithms.common.search import phase_from_database
@@ -506,7 +510,7 @@ def build_case(name: str) -> Case:
             bindings,
             memory,
             ("reference-workloads 4/5; language-spec-v2 §E.10",),
-            ("general walk 与实际 unary Dolph–Chebyshev LCU filtering；数值认证待后续。",),
+            ("general walk with actual unary Dolph–Chebyshev LCU filtering; numerical certification is deferred.",),
         )
     if name in {"qpe", "qsvt", "oaa", "lchs", "heat_qode"}:
         impl = (
@@ -544,11 +548,11 @@ def build_case(name: str) -> Case:
             bindings,
             {},
             ("language-spec-v2 §E.7–E.11; spec-tests 05-qsvt-qpe/07-scientific",),
-            ("此例验证调用范式；给定相位或生成元绑定不构成 PDE/指数函数精度保证。",),
+            ("This case validates the calling paradigm; binding a given phase or generator does not constitute an accuracy guarantee for PDEs or the exponential function.",),
         )
     if name == "be_algebra":
         a = abstract_block_encoding("A", 1, 0, 1.0)
-        # 分支间复用短变量名 b（其余分支为 Builder）；正确修法是重命名，但本任务禁止改名。
+        # The short variable name b is reused across branches (other branches use Builder); the proper fix is a rename, but this task forbids renames.
         b = abstract_block_encoding("B", 1, 1, 2.0)  # type: ignore[assignment]
         combined = lcu(
             [
@@ -596,7 +600,7 @@ def build_case(name: str) -> Case:
 
 
 def _one_signal_identity(alpha: float) -> Operation:
-    """返回按 ``alpha`` 缩放并补一个信号位的恒等块编码实现。"""
+    """Return an identity block encoding implementation scaled by ``alpha`` and padded with one signal bit."""
     from oracq.algorithms.input_model.operators import scale
 
     return pad_signal(scale(alpha, identity(1)), 1).operation

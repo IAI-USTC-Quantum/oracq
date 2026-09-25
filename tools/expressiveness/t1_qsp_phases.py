@@ -1,14 +1,15 @@
-"""oracq 侧 T1：矩阵求逆 QSP 相位序列（κ=8, ε=1e-2）。
+"""oracq side of T1: QSP phase sequence for matrix inversion (κ=8, ε=1e-2).
 
-规格与判定阈值见 ~/projects/oracq-dev/benchmarks/t1/SPEC.md。
-独立可运行：
+The specification and pass thresholds are in ~/projects/oracq-dev/benchmarks/t1/SPEC.md.
+Standalone run:
 
     cd ~/projects/qcfd-dev/oracq && \
     PYTHONPATH=src ~/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python \
     tools/expressiveness/t1_qsp_phases.py
 
-目标多项式为库文档约定（algorithms/qsvt.py qsvt_matrix_inversion 内部构造）：
-c·J_b(x) = c·(1−(1−x²)^b)/x，b = ceil(ln(1/ε)/−ln(1−1/κ²))，缩放 c = 1/(3·sup J_b)。
+The target polynomial follows the library documentation convention (constructed
+internally by qsvt_matrix_inversion in algorithms/qsvt.py):
+c·J_b(x) = c·(1−(1−x²)^b)/x, b = ceil(ln(1/ε)/−ln(1−1/κ²)), scaling c = 1/(3·sup J_b).
 """
 
 import math
@@ -22,7 +23,7 @@ KAPPA, EPS, MAX_DEGREE, THRESHOLD = 8, 1e-2, 40, 1e-2
 
 
 def inversion_poly(b):
-    """c·J_b 的升幂实系数（常数项在前）与缩放 c。"""
+    """Real coefficients of c·J_b in ascending powers (constant term first) and the scaling c."""
     f = [0.0] * (2 * b)
     for m in range(1, b + 1):
         f[2 * m - 1] = ((-1.0) ** (m + 1)) * math.comb(b, m)

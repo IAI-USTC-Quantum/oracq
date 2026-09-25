@@ -1,4 +1,4 @@
-"""描述导出与可选执行后端的公共入口。"""
+"""Public entry point for description export and optional execution backends."""
 
 from oracq.infrastructure.backends.originir import (
     OriginIRArtifact,

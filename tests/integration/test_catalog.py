@@ -1,4 +1,4 @@
-"""新应用只做真实 OriginIR-ext 语法验收，不进行算法数值认证。"""
+"""New applications only run real OriginIR-ext syntax acceptance; no algorithmic numerical certification is performed."""
 
 import unittest
 

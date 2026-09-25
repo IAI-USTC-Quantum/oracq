@@ -1,9 +1,11 @@
-"""表达力基准 T3：HHL 2×2 的 oracq QLSS 路径。
+"""Expressiveness benchmark T3: the oracq QLSS path on a 2×2 HHL problem.
 
-任务：A=[[1,-1/3],[-1/3,1]]，b=[1,0]；用 CKS Chebyshev 求解器
-（oracq.algorithms.qlss.cks_chebyshev，稀疏访问输入模型）求条件解态，
-见证为恢复向量方向对 numpy.linalg.solve 独立参考的误差
-（Chebyshev 截断方法误差 + 定点量化误差，阈值见 benchmarks/t3/SPEC.md）。
+Task: A=[[1,-1/3],[-1/3,1]], b=[1,0]; use the CKS Chebyshev solver
+(oracq.algorithms.qlss.cks_chebyshev, sparse-access input model) to produce
+the conditional solution state; the witness is the error of the recovered
+vector direction against the independent numpy.linalg.solve reference
+(Chebyshev truncation method error + fixed-point quantization error; see
+benchmarks/t3/SPEC.md for thresholds).
 """
 
 import math
@@ -39,7 +41,7 @@ def package_version():
 
 
 def cks_coefficients(order):
-    """CKS 系数独立闭式重算（math.comb，不依赖库内实现）。"""
+    """Independent closed-form recomputation of the CKS coefficients (math.comb, not relying on the in-library implementation)."""
     return [
         4.0
         * (-1) ** j
@@ -50,7 +52,7 @@ def cks_coefficients(order):
 
 
 def chebyshev_apply(matrix, alpha, coefficients, vector):
-    """P(M)v，P = Σ c_j T_{2j+1}，M = matrix/alpha；独立矩阵递推。"""
+    """P(M)v with P = Σ c_j T_{2j+1}, M = matrix/alpha; independent matrix recurrence."""
     m = np.asarray(matrix, dtype=float) / alpha
     t2 = 2 * (m @ m) - np.eye(m.shape[0])
     u_prev, u_curr = m.copy(), 2 * (t2 @ m) - m

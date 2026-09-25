@@ -1,4 +1,4 @@
-"""语言核心与 BE 组合的行为验证，测试只依赖包自身与 Python 标准库。"""
+"""Behavioral validation of the language core and BE composition; the tests depend only on the package itself and the Python standard library."""
 
 import json
 import math
@@ -51,19 +51,19 @@ class LanguageTests(unittest.TestCase):
             b.call(empty, q=b["q"])
         program = b.finish().program()
         self.assertLess(len(export_originir(program).text), 50000)
-        with self.assertRaisesRegex(ValidationError, "预算"):
+        with self.assertRaisesRegex(ValidationError, "expansion budget"):
             simulate(program)
 
     def test_mutable_instruction_operands_are_rejected(self):
         b = Builder("main", {"q": Bits(1)})
         b.emit(Primitive("x", [b["q"]]))
-        with self.assertRaisesRegex(ValidationError, "不可变"):
+        with self.assertRaisesRegex(ValidationError, "primitive operands must be immutable"):
             b.finish()
 
     def test_sparse_state_budget(self):
         b = Builder("main", {"q": Bits(8)})
         b.h(b["q"])
-        with self.assertRaisesRegex(ValidationError, "数量预算"):
+        with self.assertRaisesRegex(ValidationError, "sparse state count budget"):
             simulate(b.finish().program(), max_states=4)
 
     def test_register_broadcast_is_one_ir_node(self):
@@ -105,7 +105,7 @@ class LanguageTests(unittest.TestCase):
     def test_view_rejects_overlap(self):
         b = Builder("main", {"a": Bits(3)})
         b.x(fuse(b["a"][:2], b["a"][1:]))
-        with self.assertRaisesRegex(ValidationError, "重叠"):
+        with self.assertRaisesRegex(ValidationError, "overlapping qubits within a view"):
             b.finish()
 
     def test_view_rejects_invalid_slices(self):
@@ -117,14 +117,14 @@ class LanguageTests(unittest.TestCase):
     def test_binary_alias(self):
         b = Builder("main", {"a": Bits(3)})
         b.xor(b["a"][:2], b["a"][1:])
-        with self.assertRaisesRegex(ValidationError, "重叠"):
+        with self.assertRaisesRegex(ValidationError, "operands alias or overlap"):
             b.finish()
 
     def test_protected_control(self):
         b = Builder("main", {"q": Bits(3)})
         with b.control(b["q"][0]):
             b.x(b["q"])
-        with self.assertRaisesRegex(ValidationError, "控制"):
+        with self.assertRaisesRegex(ValidationError, "operands modify a protected control register"):
             b.finish()
 
     def test_control_value_bounds(self):
@@ -155,7 +155,7 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(len(p.main.body), 1)
         self.assertLess(text.count("DEF "), 45)
         self.assertLess(len(text), 50000)
-        with self.assertRaisesRegex(ValidationError, "预算"):
+        with self.assertRaisesRegex(ValidationError, "expansion budget"):
             simulate(p)
 
     def test_empty_repeat_does_not_iterate(self):
@@ -210,7 +210,7 @@ class LanguageTests(unittest.TestCase):
     def test_call_shape_and_resource_checks(self):
         b = Builder("main", {"a": Bits(2), "d": UInt(3)}, {"table": QRAM(2, 3)})
         b.call(lookup(), a=b["a"], d=b["d"], resources={"mem": "table"})
-        with self.assertRaisesRegex(ValidationError, "类型"):
+        with self.assertRaisesRegex(ValidationError, "module argument type mismatch"):
             b.finish()
 
     def test_same_module_specialized_for_two_qrams(self):
@@ -228,7 +228,7 @@ class LanguageTests(unittest.TestCase):
     def test_call_cycle_rejected(self):
         ref = Ref((Span("q", 0, 1),), Bits(1))
         m = Module("a", (Register("q", Bits(1)),), (), (Call("a", (ref,)),))
-        with self.assertRaisesRegex(ValidationError, "递归"):
+        with self.assertRaisesRegex(ValidationError, "recursion"):
             validate(Program("a", (m,)))
 
     def test_conflicting_modules_rejected(self):
@@ -237,7 +237,7 @@ class LanguageTests(unittest.TestCase):
         b.x(b["q"])
         c = Builder("main", {"q": Bits(1)})
         c.call(a, q=c["q"])
-        with self.assertRaisesRegex(ValidationError, "冲突"):
+        with self.assertRaisesRegex(ValidationError, "conflicting definitions"):
             c.call(b.finish(), q=c["q"])
 
     def test_roundtrip_retains_modules(self):
@@ -264,14 +264,14 @@ class LanguageTests(unittest.TestCase):
             ("json", '{"tag":"Program","tag":"Program"}'),
             ("yaml", "{tag: Program, tag: Program}"),
         ]:
-            with self.subTest(fmt=fmt), self.assertRaisesRegex(ValidationError, "重复"):
+            with self.subTest(fmt=fmt), self.assertRaisesRegex(ValidationError, "duplicate"):
                 loads(duplicate)
 
     def test_yaml_rejects_nonfinite_and_implicit_scalars(self):
         for literal in ["[.nan]", "[.inf]", "[-.inf]"]:
-            with self.subTest(literal=literal), self.assertRaisesRegex(ValidationError, "非法数值"):
+            with self.subTest(literal=literal), self.assertRaisesRegex(ValidationError, "invalid number"):
                 loads(f"tag: Program\nmodules: {literal}\n")
-        with self.assertRaisesRegex(ValidationError, "非法 YAML 标量"):
+        with self.assertRaisesRegex(ValidationError, "invalid YAML scalar"):
             loads("tag: Program\nday: 2026-01-02\n")
         with self.assertRaises(ValidationError):
             loads("tag: Program\n\tversion: '0.3'")
@@ -288,7 +288,7 @@ class LanguageTests(unittest.TestCase):
             (("big", 1e16), ("small", 1.5e-7), ("note", "no"), ("day", "2026-01-02")),
             (),
         )
-        # dumps 按模块名排序输出，构造时即按该顺序放置模块以便逐字节比较。
+        # dumps outputs modules sorted by name; modules are placed in that order at construction time for byte-for-byte comparison.
         p = Program("main", (attr, b.finish().program().main))
         text = dumps(p)
         self.assertEqual(p.modules[0].attributes[0][1], 1e16)

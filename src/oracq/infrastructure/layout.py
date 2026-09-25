@@ -1,4 +1,4 @@
-"模块私有工作区的顺序复用布局。"
+"Sequential-reuse layout of module-private workspaces."
 
 from __future__ import annotations
 
@@ -7,22 +7,23 @@ from oracq.infrastructure.linking import calls
 
 
 def workspace_table(program: Program) -> dict[str, int]:
-    """计算每个入口可达模块所需的私有工作区位数。
+    """Compute the private workspace bit count needed by each entry-reachable module.
 
-    位数为模块自身 ``locals`` 宽度之和加上其被调模块工作区位数的最大值；
-    顺序调用复用同一段物理工作区。
+    The count is the sum of the module's own ``locals`` widths plus the maximum
+    workspace bit count of its callees; sequential calls reuse the same stretch
+    of physical workspace.
 
     Args:
-        program: 调用图无环的 ``Program``。
+        program: ``Program`` whose call graph is acyclic.
 
     Returns:
-        dict: 模块名到位数的映射；入口不可达的模块不出现在表中。
+        dict: mapping from module names to bit counts; modules unreachable from the entry do not appear.
     """
     result: dict[str, int]
     modules, result = program.module_map, {}
 
     def visit(key: str) -> int:
-        """递归求模块自身 ``locals`` 宽度与被调链工作区最大值之和。"""
+        """Recursively compute the module's own ``locals`` width plus the maximum workspace of its callee chain."""
         if key in result:
             return result[key]
         module = modules[key]

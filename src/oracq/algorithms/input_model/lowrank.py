@@ -1,11 +1,13 @@
-"""量子化学低秩分解（DF/THC）哈密顿量的 LCU/块编码组装。
+"""LCU/block-encoding assembly for quantum-chemistry low-rank decomposition (DF/THC) Hamiltonians.
 
-实现 Berry et al. 2019、von Burg et al. 2021 的双因子分解（DF）与
-Lee et al. 2021 的张量超收缩（THC）的"低秩张量 → LCU → BE"管道，
-对应算法覆盖工作板的 C1 项。积分张量作为经典输入数据给出，本模块不做
-真实的化学积分计算；显式小矩阵路径面向验证用的小实例，大规模时
-``U_r``/``G_r`` 的谱与旋转角度表应改走 QRAM 数据绑定（参见 prepare_select
-的 qram_prepare/alias_prepare 三层范式）。
+Implements the "low-rank tensor -> LCU -> BE" pipeline of the double factorization (DF)
+of Berry et al. 2019 and von Burg et al. 2021, and of the tensor hypercontraction
+(THC) of Lee et al. 2021, corresponding to item C1 of the algorithm coverage board.
+Integral tensors are given as classical input data; this module performs no real
+chemical integral computation. The explicit small-matrix path targets small
+validation instances; at large scale the spectra and rotation angle tables of
+``U_r``/``G_r`` should instead go through QRAM data binding (see the three-layer
+qram_prepare/alias_prepare paradigm of prepare_select).
 """
 
 from __future__ import annotations
@@ -30,25 +32,25 @@ _MATRIX_LIMIT_QUBITS = 5
 def _as_complex_matrix(
     value: Iterable[Iterable[complex]], path: str
 ) -> tuple[tuple[complex, ...], ...]:
-    """把输入规范化为元素有限的复方阵元组，维度限制为 2..32 的二的幂。"""
+    """Normalize the input into a tuple-of-rows square complex matrix with finite entries, with dimension restricted to powers of two in 2..32."""
     try:
         matrix = tuple(tuple(complex(v) for v in row) for row in value)
     except TypeError as exc:
-        raise ValidationError(f"{path} 的元素必须是数值") from exc
+        raise ValidationError(f"{path} entries must be numeric") from exc
     if not matrix or any(len(row) != len(matrix) for row in matrix):
-        raise ValidationError(f"{path} 必须是非空方阵")
+        raise ValidationError(f"{path} must be a non-empty square matrix")
     d = len(matrix)
     if d < 2 or d & (d - 1) or d > (1 << _MATRIX_LIMIT_QUBITS):
-        raise ValidationError(f"{path} 的维度必须是 2..32 内二的幂")
+        raise ValidationError(f"{path} dimension must be a power of two in 2..32")
     if not all(math.isfinite(v.real) and math.isfinite(v.imag) for row in matrix for v in row):
-        raise ValidationError(f"{path} 的元素必须有限")
+        raise ValidationError(f"{path} entries must be finite")
     return matrix
 
 
 def _matmul(
     a: Sequence[Sequence[complex]], b: Sequence[Sequence[complex]]
 ) -> tuple[tuple[complex, ...], ...]:
-    """计算两个复方阵的矩阵乘积，返回行主序嵌套元组。"""
+    """Compute the matrix product of two square complex matrices, returned as a row-major nested tuple."""
     return tuple(
         tuple(sum(ar[k] * b[k][j] for k in range(len(b))) for j in range(len(b[0]))) for ar in a
     )
@@ -57,35 +59,37 @@ def _matmul(
 def _check_unitary(
     matrix: Sequence[Sequence[complex]], path: str, *, tolerance: float = 1e-9
 ) -> None:
-    """校验方阵的列正交归一性，不满足时抛 ``ValidationError``。"""
+    """Check the column orthonormality of a square matrix; raise ``ValidationError`` when it fails."""
     d = len(matrix)
     for i in range(d):
         for j in range(d):
             value = sum(matrix[k][i].conjugate() * matrix[k][j] for k in range(d))
             if abs(value - (1 if i == j else 0)) > tolerance:
-                raise ValidationError(f"{path} 必须是酉矩阵（列正交归一）")
+                raise ValidationError(f"{path} must be a unitary matrix with orthonormal columns")
 
 
 def diagonalize_symmetric(
     matrix: Iterable[Iterable[float]], *, tolerance: float = 1e-12, max_sweeps: int = 100
 ) -> tuple[tuple[float, ...], tuple[tuple[float, ...], ...]]:
-    """实对称矩阵的 Jacobi 特征分解：返回 (特征值, 特征向量矩阵)，满足 ``G = V diag(λ) Vᵀ``。
+    """Jacobi eigendecomposition of a real symmetric matrix: returns eigenvalues and the eigenvector matrix satisfying ``G = V diag(λ) Vᵀ``.
 
-    这是 DF 输入模型的经典预处理：对称阵 ``G_r`` 对角化后，特征向量矩阵按
-    ``from_symmetric`` 折叠进旋转 ``U_r``。特征向量矩阵的列是特征向量。
+    This is the classical preprocessing of the DF input model: after the symmetric
+    matrix ``G_r`` is diagonalized, the eigenvector matrix is folded into the
+    rotation ``U_r`` by ``from_symmetric``. The columns of the eigenvector matrix
+    are the eigenvectors.
 
     Args:
-        matrix: 实对称方阵，元素须为有限实数。
-        tolerance: 对称性检查与收敛判定共用的容差。
-        max_sweeps: Jacobi 扫描轮数上限，超限未收敛时报错。
+        matrix: Real symmetric square matrix with finite real entries.
+        tolerance: Tolerance shared by the symmetry check and the convergence test.
+        max_sweeps: Maximum number of Jacobi sweeps; an error is raised if convergence is not reached in time.
 
     Returns:
         tuple[tuple[float, ...], tuple[tuple[float, ...], ...]]:
-        ``(特征值元组, 列为特征向量的矩阵)``，满足 ``G = V diag(λ) Vᵀ``。
+        ``(eigenvalue tuple, matrix whose columns are the eigenvectors)``, satisfying ``G = V diag(λ) Vᵀ``.
     """
     raw = tuple(tuple(row) for row in matrix)
     if not raw or any(len(row) != len(raw) for row in raw):
-        raise ValidationError("diagonalize_symmetric.matrix 必须是非空方阵")
+        raise ValidationError("diagonalize_symmetric.matrix must be a non-empty square matrix")
     d = len(raw)
     for row in raw:
         for value in row:
@@ -94,7 +98,7 @@ def diagonalize_symmetric(
     for p in range(d):
         for q in range(p + 1, d):
             if abs(a[p][q] - a[q][p]) > tolerance:
-                raise ValidationError("diagonalize_symmetric.matrix 必须是实对称矩阵")
+                raise ValidationError("diagonalize_symmetric.matrix must be a real symmetric matrix")
     v = [[1.0 if i == j else 0.0 for j in range(d)] for i in range(d)]
     for _ in range(max_sweeps):
         off = max((abs(a[p][q]) for p in range(d) for q in range(p + 1, d)), default=0.0)
@@ -121,17 +125,20 @@ def diagonalize_symmetric(
                     v[k][p] = c * vkp - s * vkq
                     v[k][q] = s * vkp + c * vkq
     else:
-        raise ValidationError("Jacobi 特征分解未在 max_sweeps 内收敛")
+        raise ValidationError("Jacobi eigendecomposition did not converge within max_sweeps")
     return tuple(a[k][k] for k in range(d)), tuple(tuple(row) for row in v)
 
 
 @dataclass(frozen=True)
 class DoubleFactorization:
-    """DF 输入模型（CP input model）：``H = scalar·I + Σ_r U_r diag(g_r) U_r†`` 的小实例表示。
+    """DF input model (CP input model): small-instance representation of ``H = scalar·I + Σ_r U_r diag(g_r) U_r†``.
 
-    rotations 是显式小酉矩阵，spectra 是对称阵 ``G_r`` 经经典对角化后的实特征值；
-    物理 DF 中 ``G_r`` 由 ``from_symmetric`` 接收并折叠进旋转。显式矩阵路径仅面向
-    验证用小实例；大规模时谱范数表与旋转角度走 QRAM 数据绑定。
+    rotations holds explicit small unitary matrices and spectra holds the real
+    eigenvalues obtained by classically diagonalizing the symmetric matrices
+    ``G_r``; in physical DF the ``G_r`` are received by ``from_symmetric`` and
+    folded into the rotations. The explicit-matrix path targets small validation
+    instances only; at large scale the spectral norm tables and rotation angles
+    go through QRAM data binding.
     """
 
     scalar: float
@@ -139,26 +146,26 @@ class DoubleFactorization:
     spectra: tuple[tuple[float, ...], ...]
 
     def __post_init__(self) -> None:
-        """校验标量、各秩旋转的酉性与谱长度，并规范化存储格式。"""
+        """Validate the scalar, the unitarity of each rank rotation, and the spectrum lengths, and normalize the storage format."""
         finite_real(self.scalar, "DoubleFactorization.scalar")
         rotations = tuple(
             _as_complex_matrix(r, f"DoubleFactorization.rotations[{i}]")
             for i, r in enumerate(self.rotations)
         )
         if not rotations:
-            raise ValidationError("DoubleFactorization 至少需要一个秩项")
+            raise ValidationError("DoubleFactorization requires at least one rank term")
         if len(rotations) != len(self.spectra):
-            raise ValidationError("DoubleFactorization 的 rotations 与 spectra 数量不一致")
+            raise ValidationError("DoubleFactorization has mismatched counts of rotations and spectra")
         d = len(rotations[0])
         if any(len(r) != d for r in rotations):
-            raise ValidationError("DoubleFactorization 的各秩旋转维度不一致")
+            raise ValidationError("DoubleFactorization rank rotations have inconsistent dimensions")
         for i, rotation in enumerate(rotations):
             _check_unitary(rotation, f"DoubleFactorization.rotations[{i}]")
         spectra: list[tuple[float, ...]] = []
         for i, spectrum in enumerate(self.spectra):
             values = tuple(spectrum)
             if len(values) != d:
-                raise ValidationError(f"DoubleFactorization.spectra[{i}] 的长度必须等于维度 {d}")
+                raise ValidationError(f"DoubleFactorization.spectra[{i}] length must equal dimension {d}")
             for value in values:
                 finite_real(value, f"DoubleFactorization.spectra[{i}]")
             spectra.append(tuple(float(v) for v in values))
@@ -173,58 +180,60 @@ class DoubleFactorization:
         rotations: Iterable[Iterable[Iterable[complex]]],
         factors: Iterable[Iterable[Iterable[float]]],
     ) -> DoubleFactorization:
-        """从显式酉 ``U_r`` 与实对称 ``G_r`` 构造：``G_r = V_r diag(g_r) V_rᵀ`` 折叠为 ``U_r V_r``。
+        """Construct from explicit unitaries ``U_r`` and real symmetric ``G_r``: ``G_r = V_r diag(g_r) V_rᵀ`` is folded into ``U_r V_r``.
 
         Args:
-            scalar: 恒等项系数。
-            rotations: 各秩的显式酉矩阵 ``U_r``。
-            factors: 与旋转一一对应、同维的实对称阵 ``G_r``。
+            scalar: Coefficient of the identity term.
+            rotations: Explicit unitary matrices ``U_r`` of each rank.
+            factors: Real symmetric matrices ``G_r`` paired one-to-one with the rotations, of matching dimension.
 
         Returns:
-            DoubleFactorization: 折叠 ``U_r V_r`` 后谱不变的 DF 输入模型。
+            DoubleFactorization: DF input model with the spectrum unchanged after folding ``U_r V_r``.
         """
         rotations = tuple(rotations)
         factors = tuple(factors)
         if len(rotations) != len(factors):
-            raise ValidationError("from_symmetric 的 rotations 与 factors 数量不一致")
+            raise ValidationError("from_symmetric has mismatched counts of rotations and factors")
         combined: list[tuple[tuple[complex, ...], ...]] = []
         spectra: list[tuple[float, ...]] = []
         for rotation, factor in zip(rotations, factors, strict=True):
             unitary = _as_complex_matrix(rotation, "from_symmetric.rotations")
             eigenvalues, vectors = diagonalize_symmetric(factor)
             if len(vectors) != len(unitary):
-                raise ValidationError("from_symmetric 的旋转与对称阵维度不一致")
+                raise ValidationError("from_symmetric has inconsistent rotation and symmetric matrix dimensions")
             combined.append(_matmul(unitary, vectors))
             spectra.append(eigenvalues)
         return cls(scalar, tuple(combined), tuple(spectra))
 
     @property
     def width(self) -> int:
-        """目标量子位数。"""
+        """Number of target qubits."""
         return (len(self.rotations[0]) - 1).bit_length()
 
     @property
     def rank(self) -> int:
-        """DF 秩项数。"""
+        """Number of DF rank terms."""
         return len(self.rotations)
 
 
 @dataclass(frozen=True)
 class THCDecomposition:
-    """THC 输入模型：``H = Σ_{μν} ζ_{μν} L_μ L_ν†``，``L_μ`` 为显式小矩阵叶算符。
+    """THC input model: ``H = Σ_{μν} ζ_{μν} L_μ L_ν†`` where ``L_μ`` are explicit small-matrix leaf operators.
 
-    coefficients 是实对称的 ``ζ`` 矩阵，leaves 是同维显式小矩阵；叶算符无需酉或
-    Hermitian，乘积 ``L_μ L_ν†`` 的块编码由 matrix_pauli_encoding 与 BE 乘积组装。
+    coefficients is the real symmetric ``ζ`` matrix and leaves holds explicit
+    small matrices of matching dimension; the leaf operators need not be unitary
+    or Hermitian, and the block encoding of the product ``L_μ L_ν†`` is assembled
+    from matrix_pauli_encoding and BE products.
     """
 
     coefficients: tuple[tuple[float, ...], ...]
     leaves: tuple[tuple[tuple[complex, ...], ...], ...]
 
     def __post_init__(self) -> None:
-        """校验 ζ 矩阵的实对称性、维度一致性与叶算符格式。"""
+        """Validate the real symmetry of the ζ matrix, dimensional consistency, and the leaf operator format."""
         zeta = tuple(tuple(row) for row in self.coefficients)
         if not zeta or any(len(row) != len(zeta) for row in zeta):
-            raise ValidationError("THCDecomposition.coefficients 必须是非空方阵")
+            raise ValidationError("THCDecomposition.coefficients must be a non-empty square matrix")
         for row in zeta:
             for value in row:
                 finite_real(value, "THCDecomposition.coefficients")
@@ -232,31 +241,31 @@ class THCDecomposition:
         for mu in range(size):
             for nu in range(mu + 1, size):
                 if abs(zeta[mu][nu] - zeta[nu][mu]) > 1e-12:
-                    raise ValidationError("THCDecomposition.coefficients 必须是实对称矩阵")
+                    raise ValidationError("THCDecomposition.coefficients must be a real symmetric matrix")
         if len(self.leaves) != size:
-            raise ValidationError("THCDecomposition 的 leaves 数量必须与 ζ 的维度一致")
+            raise ValidationError("THCDecomposition leaves count must match the ζ dimension")
         leaves = tuple(
             _as_complex_matrix(leaf, f"THCDecomposition.leaves[{i}]")
             for i, leaf in enumerate(self.leaves)
         )
         if len({len(leaf) for leaf in leaves}) != 1:
-            raise ValidationError("THCDecomposition 的叶算符维度不一致")
+            raise ValidationError("THCDecomposition leaf operators have inconsistent dimensions")
         object.__setattr__(self, "coefficients", zeta)
         object.__setattr__(self, "leaves", leaves)
 
     @property
     def width(self) -> int:
-        """目标量子位数。"""
+        """Number of target qubits."""
         return (len(self.leaves[0]) - 1).bit_length()
 
     @property
     def leaf_count(self) -> int:
-        """THC 叶算符个数。"""
+        """Number of THC leaf operators."""
         return len(self.leaves)
 
 
 def _emit_transposition(builder: Builder, ref: Ref, first: int, second: int) -> None:
-    """沿 Gray 路径用多控 X 交换 ``|first>`` 与 ``|second>``，其余基态不动。"""
+    """Swap ``|first>`` and ``|second>`` along a Gray-code path with multi-controlled X gates, leaving other basis states unchanged."""
     path = [first]
     for bit in range(ref.width):
         if ((first ^ second) >> bit) & 1:
@@ -271,7 +280,7 @@ def _emit_transposition(builder: Builder, ref: Ref, first: int, second: int) -> 
 
 
 def _zyz(matrix: Sequence[Sequence[complex]]) -> tuple[float, float, float, float]:
-    """二阶酉的 ``e^{iφ} Rz(α) Ry(β) Rz(γ)`` 精确分解（模拟器约定见 execution.gate_matrix）。"""
+    """Exact ``e^{iφ} Rz(α) Ry(β) Rz(γ)`` decomposition of a second-order unitary (simulator convention in execution.gate_matrix)."""
     a00, a01, a10, a11 = matrix[0][0], matrix[0][1], matrix[1][0], matrix[1][1]
     beta = 2 * math.atan2(abs(a10), abs(a00))
     if abs(a10) <= _SYNTHESIS_TOLERANCE:
@@ -289,7 +298,7 @@ def _zyz(matrix: Sequence[Sequence[complex]]) -> tuple[float, float, float, floa
 def _emit_controlled_two_by_two(
     builder: Builder, ref: Ref, bit: int, anchor: int, matrix: Sequence[Sequence[complex]]
 ) -> None:
-    """在其余位固定为 ``anchor`` 的子空间上施加 ``matrix``（基序为 bit=0,1）。"""
+    """Apply ``matrix`` on the subspace where the remaining bits equal ``anchor`` (basis order bit=0,1)."""
     phi, alpha, beta, gamma = _zyz(matrix)
     controls = fuse(ref[:bit], ref[bit + 1 :])
     value = (anchor & ((1 << bit) - 1)) | ((anchor >> (bit + 1)) << bit)
@@ -307,7 +316,7 @@ def _emit_controlled_two_by_two(
 def _emit_two_level(
     builder: Builder, ref: Ref, p: int, q: int, matrix: Sequence[Sequence[complex]]
 ) -> None:
-    """施加只作用于 ``span{|p>, |q>}`` 的两能级酉，基序为 (``|p>``, ``|q>``)。"""
+    """Apply a two-level unitary acting only on ``span{|p>, |q>}``, with basis order (``|p>``, ``|q>``)."""
     bit = ((p ^ q) & -(p ^ q)).bit_length() - 1
     moved = p ^ (1 << bit)
     if moved != q:
@@ -322,7 +331,7 @@ def _emit_two_level(
 
 
 def _emit_unitary(builder: Builder, ref: Ref, matrix: Sequence[Sequence[complex]]) -> None:
-    """两能级分解合成显式小酉矩阵：逐列消元为对角相位后按逆序回放。"""
+    """Synthesize an explicit small unitary by two-level decomposition: eliminate column by column down to diagonal phases, then replay in reverse order."""
     d = len(matrix)
     u = [list(row) for row in matrix]
     steps: list[tuple[int, int, tuple[tuple[complex, complex], tuple[complex, complex]]]] = []
@@ -357,7 +366,7 @@ def _emit_unitary(builder: Builder, ref: Ref, matrix: Sequence[Sequence[complex]
 
 
 def _rotation_operation(matrix: Sequence[Sequence[complex]]) -> Operation:
-    """把显式小酉矩阵经两能级分解合成为量子操作。"""
+    """Synthesize an explicit small unitary matrix into a quantum operation via two-level decomposition."""
     n = (len(matrix) - 1).bit_length()
     b = Builder(_name("df_rotation", matrix), {"target": Bits(n)})
     _emit_unitary(b, b["target"], matrix)
@@ -365,16 +374,17 @@ def _rotation_operation(matrix: Sequence[Sequence[complex]]) -> Operation:
 
 
 def _diagonal_encoding(spectrum: Sequence[float]) -> BlockEncoding:
-    """对角阵的受控旋转块编码：单比特信号，``cos(θ_t/2) = g_t/α``，``α = Σ_p |g_p|``。
+    """Controlled-rotation block encoding of a diagonal matrix: single-bit signal, ``cos(θ_t/2) = g_t/α``, ``α = Σ_p |g_p|``.
 
-    对每个基态 ``|t>`` 施加受控 ``Ry(θ_t)``，(0,0) 块恰为 ``diag(g)/α``；
-    ``α`` 取谱的 1-范数，与外层 DF/THC 组装的报告口径一致。
+    A controlled ``Ry(θ_t)`` is applied for each basis state ``|t>`` so the (0,0)
+    block is exactly ``diag(g)/α``; ``α`` is the 1-norm of the spectrum, matching
+    the reporting convention of the outer DF/THC assembly.
     """
     d = len(spectrum)
     n = (d - 1).bit_length()
     alpha = sum(abs(g) for g in spectrum)
     if not alpha:
-        raise ValidationError("对角谱不能全部为零")
+        raise ValidationError("diagonal spectrum cannot be all zero")
     b = Builder(
         _name("df_diagonal", spectrum),
         {"target": Bits(n), "signal": Bits(1)},
@@ -392,7 +402,7 @@ def _diagonal_encoding(spectrum: Sequence[float]) -> BlockEncoding:
 def _conjugated_encoding(
     rotation: Sequence[Sequence[complex]], spectrum: Sequence[float]
 ) -> BlockEncoding:
-    """``U diag(g) U†`` 的块编码：对角块编码两侧共轭施加两能级合成的 ``U``。"""
+    """Block encoding of ``U diag(g) U†``: apply the two-level-synthesized ``U`` conjugately on both sides of the diagonal block encoding."""
     n = (len(rotation) - 1).bit_length()
     rotation_op = _rotation_operation(rotation)
     diagonal = _diagonal_encoding(spectrum)
@@ -411,19 +421,21 @@ def _conjugated_encoding(
 def double_factorized_encoding(
     df: DoubleFactorization, *, name: str | None = None
 ) -> BlockEncoding:
-    """DF 哈密顿量的 LCU 块编码：外层 PREPARE 在秩指标 ``r`` 上，权重 ``∝ ‖g_r‖₁``。
+    """LCU block encoding of a DF Hamiltonian: the outer PREPARE runs over the rank index ``r`` with weights ``∝ ‖g_r‖₁``.
 
-    SELECT 受控施加 ``U_r diag(g_r)/‖g_r‖₁ U_r†`` 的项块编码，其中对角 ``G_r``
-    演化用显式 PREPARE–SELECT 实现，``U_r`` 用两能级分解合成；``scalar`` 项并入
-    同一外层 LCU。alpha 取 ``|scalar| + Σ_r ‖g_r‖₁`` 并在 ``df_lambda`` 属性报告。
-    产物可直接交给 transforms.qubitization_walk。
+    SELECT applies the term block encoding of ``U_r diag(g_r)/‖g_r‖₁ U_r†`` under
+    control, where the diagonal ``G_r`` evolution uses an explicit PREPARE–SELECT
+    and ``U_r`` is synthesized by two-level decomposition; the ``scalar`` term
+    joins the same outer LCU. alpha is ``|scalar| + Σ_r ‖g_r‖₁`` and is reported
+    in the ``df_lambda`` attribute. The result can be fed directly to
+    transforms.qubitization_walk.
 
     Args:
-        df: DF 输入模型实例。
-        name: 当前实现未使用，仅为接口兼容保留。
+        df: DF input model instance.
+        name: Unused by the current implementation; kept only for interface compatibility.
 
     Returns:
-        BlockEncoding: ``H = scalar·I + Σ_r U_r diag(g_r) U_r†`` 的 LCU 块编码。
+        BlockEncoding: LCU block encoding of ``H = scalar·I + Σ_r U_r diag(g_r) U_r†``.
     """
     require_instance(df, DoubleFactorization, "double_factorized_encoding.df")
     del name
@@ -435,7 +447,7 @@ def double_factorized_encoding(
         if sum(abs(g) for g in spectrum):
             terms.append((1.0, _conjugated_encoding(rotation, spectrum)))
     if not terms:
-        raise ValidationError("DF 哈密顿量的所有系数为零")
+        raise ValidationError("all coefficients of the DF Hamiltonian are zero")
     out = lcu(terms)
     return BlockEncoding(
         annotate(
@@ -451,17 +463,19 @@ def double_factorized_encoding(
 
 
 def thc_encoding(thc: THCDecomposition) -> BlockEncoding:
-    """THC 哈密顿量的 LCU 块编码：外层 PREPARE 在 ``(μ, ν)`` 对上，权重 ``∝ |ζ_{μν}|·α_μ α_ν``。
+    """LCU block encoding of a THC Hamiltonian: the outer PREPARE runs over ``(μ, ν)`` pairs with weights ``∝ |ζ_{μν}|·α_μ α_ν``.
 
-    每个 ``(μ, ν)`` 项是 ``L_μ L_ν†`` 的块编码乘积（叶算符经 matrix_pauli_encoding
-    编码，``α_μ`` 为其 Pauli l1 上界）。alpha 取 ``Σ_{μν} |ζ_{μν}| α_μ α_ν`` 并在
-    ``thc_lambda`` 属性报告。产物可直接交给 transforms.qubitization_walk。
+    Each ``(μ, ν)`` term is a block-encoding product of ``L_μ L_ν†`` (leaf
+    operators encoded via matrix_pauli_encoding, with ``α_μ`` their Pauli l1
+    bound). alpha is ``Σ_{μν} |ζ_{μν}| α_μ α_ν`` and is reported in the
+    ``thc_lambda`` attribute. The result can be fed directly to
+    transforms.qubitization_walk.
 
     Args:
-        thc: THC 输入模型实例。
+        thc: THC input model instance.
 
     Returns:
-        BlockEncoding: ``Σ_{μν} ζ_{μν} L_μ L_ν†`` 的 LCU 块编码。
+        BlockEncoding: LCU block encoding of ``Σ_{μν} ζ_{μν} L_μ L_ν†``.
     """
     require_instance(thc, THCDecomposition, "thc_encoding.thc")
     encodings = [matrix_pauli_encoding(leaf) for leaf in thc.leaves]
@@ -472,7 +486,7 @@ def thc_encoding(thc: THCDecomposition) -> BlockEncoding:
             if zeta:
                 terms.append((zeta, product(encodings[mu], adjoints[nu])))
     if not terms:
-        raise ValidationError("THC 哈密顿量的所有系数为零")
+        raise ValidationError("all coefficients of the THC Hamiltonian are zero")
     out = lcu(terms)
     return BlockEncoding(
         annotate(

@@ -1,4 +1,4 @@
-"""第二阶段结构测试；不宣称数值算法已获验证。"""
+"""Stage-two structural tests; they make no claim that the numerical algorithms are validated."""
 
 import unittest
 from dataclasses import replace
@@ -32,7 +32,7 @@ class Stage2StructureTests(unittest.TestCase):
     def test_private_workspace_does_not_replace_public_interface(self):
         b = Builder("private_only", {})
         b.local("scratch", Bits(1))
-        with self.assertRaisesRegex(ValidationError, "非空量子接口"):
+        with self.assertRaisesRegex(ValidationError, "nonempty quantum interface"):
             b.finish()
 
     def test_dirty_workspace_rejected_at_return(self):

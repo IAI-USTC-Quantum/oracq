@@ -1,4 +1,4 @@
-"""Hermitian 分解与自治线性 ODE 的共享输入模型。"""
+"""Shared input model of Hermitian decompositions and autonomous linear ODEs."""
 
 from __future__ import annotations
 
@@ -19,30 +19,32 @@ from oracq.infrastructure.ir import ValidationError
 
 @dataclass(frozen=True)
 class HermitianParts:
-    """A=L+iH；Hermitian/半正定性质是输入模型声明，不由语言证明。"""
+    """A=L+iH; the Hermitian/positive-semidefinite properties are input-model declarations, not proved by the language."""
 
     hermitian: BlockEncoding
     h: BlockEncoding
 
     def __post_init__(self) -> None:
-        """把两个分量规范化为块编码并校验宽度一致。"""
+        """Normalize the two components into block encodings and validate matching widths."""
         object.__setattr__(self, "hermitian", as_block_encoding(self.hermitian))
         object.__setattr__(self, "h", as_block_encoding(self.h))
         require_instance(self.h, BlockEncoding, "HermitianParts.H")
         if self.hermitian.width != self.h.width:
-            raise ValidationError("Hermitian parts 宽度不匹配")
+            raise ValidationError("Hermitian parts widths do not match")
 
     @classmethod
     def from_operator(cls, a: BlockEncoding) -> HermitianParts:
-        """从算子 A 的块编码构造 Hermitian 分解 ``A = L + iH``。
+        """Construct the Hermitian decomposition ``A = L + iH`` from the block encoding of operator A.
 
-        以 ``a`` 与其伴随的 LCU 组合出 ``L = (A + A†)/2`` 与 ``H = (A - A†)/(2i)``。
+        Combines ``a`` and its adjoint via an LCU to build ``L = (A + A†)/2`` and
+        ``H = (A - A†)/(2i)``.
 
         Args:
-            a: 算子 A 的块编码。
+            a: Block encoding of the operator A.
 
         Returns:
-            HermitianParts: 对应的 Hermitian 分解；各分量的 Hermitian 性质仍由调用方声明。
+            HermitianParts: The corresponding Hermitian decomposition; the Hermitian nature
+            of each component remains caller-declared.
         """
         adj = adjoint_be(a)
         return cls(lcu([(0.5, a), (0.5, adj)]), lcu([(-0.5j, a), (0.5j, adj)]))
@@ -50,12 +52,12 @@ class HermitianParts:
 
 @dataclass(frozen=True)
 class LinearODE:
-    """自治线性 ODE ``u' = -Au``（其中 ``A = L + iH``）的共享输入模型。
+    """Shared input model of the autonomous linear ODE ``u' = -Au`` (with ``A = L + iH``).
 
     Attributes:
-        parts: A 的 ``HermitianParts`` 分解。
-        initial: 初态制备，目标宽度须与 ``parts`` 一致。
-        label: 模型标签，默认标明方程形式。
+        parts: The ``HermitianParts`` decomposition of A.
+        initial: Initial state preparation; its target width must match ``parts``.
+        label: Model label; the default spells out the equation form.
     """
 
     parts: HermitianParts
@@ -63,8 +65,8 @@ class LinearODE:
     label: str = "du_dt_equals_minus_A_u"
 
     def __post_init__(self) -> None:
-        """校验 parts 类型、规范化初态并核对宽度一致。"""
+        """Validate the parts type, normalize the initial state, and check matching widths."""
         require_instance(self.parts, HermitianParts, "LinearODE.parts")
         object.__setattr__(self, "initial", as_state_preparation(self.initial))
         if self.parts.hermitian.width != self.initial.width:
-            raise ValidationError("线性 ODE 初态和算子宽度不匹配")
+            raise ValidationError("Linear ODE initial state and operator widths do not match")

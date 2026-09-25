@@ -1,4 +1,4 @@
-"Python 生成阶段构造器。生成结果不包含 Python 可调用对象。"
+"Python generation-stage builder. Generated results contain no Python callables."
 
 from __future__ import annotations
 
@@ -34,44 +34,44 @@ if TYPE_CHECKING:
     from oracq.infrastructure.estimate import ResourceEstimate
 
 RegisterSpec: TypeAlias = dict[str, RegType]
-"""Builder 构造器的寄存器规格：寄存器名到存储类型的映射。"""
+"""Register specification for the Builder constructor: a mapping from register names to storage types."""
 
 
 @dataclass(frozen=True)
 class Operation:
-    """入口模块连同其依赖模块构成的完整 RIR 操作。
+    """A complete RIR operation consisting of an entry module and its dependency modules.
 
     Attributes:
-        module: 入口模块定义。
-        dependencies: 入口之外的全部被依赖模块定义。
+        module: entry module definition.
+        dependencies: all dependency module definitions other than the entry.
     """
 
     module: Module
     dependencies: tuple[Module, ...] = ()
 
     def unitary(self) -> Operation:
-        """RIR 操作的全寄存器酉作用；不表示某个目标矩阵本身是酉矩阵。
+        """Full-register unitary action of the RIR operation; does not claim any target matrix is itself unitary.
 
         Returns:
-            Operation: 原样返回自身；RIR 操作本身即全寄存器空间上的酉演化。
+            Operation: returns itself unchanged; an RIR operation is itself unitary evolution on the full register space.
         """
         return self
 
     def state_preparation(self) -> StatePreparation:
-        """把完整公开寄存器空间作为目标，制备 U|0>。
+        """Prepare U|0> with the full public register space as target.
 
         Returns:
-            StatePreparation: 以 ``from_unitary`` 包装本操作得到的态制备对象。
+            StatePreparation: state preparation object obtained by wrapping this operation via ``from_unitary``.
         """
         from oracq.algorithms.input_model.oracles import StatePreparation
 
         return StatePreparation.from_unitary(self)
 
     def block_encoding(self) -> BlockEncoding:
-        """完整酉矩阵自身的 alpha=1、零信号 BE；保留原模块调用。
+        """Trivial alpha=1, zero-signal block encoding of the full unitary itself; keeps the original module calls.
 
         Returns:
-            BlockEncoding: 缩放因子为 1.0、信号寄存器零宽的平凡块编码。
+            BlockEncoding: trivial block encoding with scaling factor 1.0 and a zero-width signal register.
         """
         from oracq.algorithms.input_model.operators import _name, block_encoding
         from oracq.algorithms.input_model.oracles import invoke, resources_for
@@ -88,49 +88,49 @@ class Operation:
 
     @classmethod
     def from_program(cls, program: Program) -> Operation:
-        """由序列化程序恢复入口操作及模块依赖，保留开放声明。
+        """Recover the entry operation and module dependencies from a serialized program, keeping open declarations.
 
         Args:
-            program: 待恢复的完整 RIR 程序；入口之外的模块转为依赖。
+            program: complete RIR program to recover; modules other than the entry become dependencies.
 
         Returns:
-            Operation: 入口为 ``program.main``、依赖为其余全部模块的操作。
+            Operation: operation whose entry is ``program.main`` and whose dependencies are all remaining modules.
         """
         validate(program)
         return cls(program.main, tuple(m for m in program.modules if m.name != program.entry))
 
     def program(self) -> Program:
-        """把入口模块与依赖合并成模块按名字排序并经校验的 ``Program``。
+        """Merge the entry module and dependencies into a validated ``Program`` with modules sorted by name.
 
         Returns:
-            Program: 以 ``module.name`` 为入口的程序。
+            Program: program with ``module.name`` as its entry.
 
         Raises:
-            ValidationError: 同名依赖模块存在冲突定义，或合并结果违反 RIR 规则。
+            ValidationError: conflicting definitions exist for a dependency module name, or the merged result violates RIR rules.
         """
         modules: dict[str, Module] = {}
         for item in (*self.dependencies, self.module):
             if item.name in modules and modules[item.name] != item:
-                raise ValidationError(f"同名模块定义冲突：{item.name}")
+                raise ValidationError(f"conflicting definitions for module name: {item.name}")
             modules[item.name] = item
         return validate(Program(self.module.name, tuple(modules[k] for k in sorted(modules))))
 
     def quantikz(self, **kwargs: bool | str | None) -> str:
-        """把入口模块绘制成 quantikz 代码；结构保持 RIR，不展开调用。
+        """Render the entry module as quantikz code; structure stays RIR with no call expansion.
 
         Returns:
-            str: 绘制入口模块得到的 quantikz LaTeX 源码。
+            str: quantikz LaTeX source produced by rendering the entry module.
         """
         from oracq.infrastructure.backends.quantikz import quantikz
 
-        # **kwargs 转发到仅关键字参数，mypy 无法验证异构关键字包。
+        # **kwargs forwards into keyword-only parameters; mypy cannot verify heterogeneous keyword packs.
         return quantikz(self, **kwargs)  # type: ignore[arg-type]
 
     def estimate(self, **kwargs: bool) -> ResourceEstimate:
-        """Toffoli+Clifford+T+QRAM 级别的组合式资源估计（Repeat 符号相乘）。
+        """Composable Toffoli+Clifford+T+QRAM level resource estimation with Repeat counts multiplied symbolically.
 
         Returns:
-            ResourceEstimate: 按 Toffoli、Clifford、T 与 QRAM 查询数汇总的估计结果。
+            ResourceEstimate: estimate summarized by Toffoli, Clifford, T and QRAM query counts.
         """
         from oracq.infrastructure.estimate import estimate_resources
 
@@ -138,16 +138,17 @@ class Operation:
 
 
 class Builder:
-    """逐指令构造 RIR 模块的生成阶段构造器；生成结果不含 Python 可调用对象。
+    """Generation-stage builder that constructs an RIR module instruction by instruction; generated results contain no Python callables.
 
     Args:
-        name: 生成的模块名。
-        registers: 公开寄存器名到位宽类型的映射。
-        resources: 公开 QRAM 资源名到规格的映射；省略时模块无资源。
-        attributes: 追加到模块的属性键值对；省略时为空。
+        name: name of the module to generate.
+        registers: mapping from public register names to bit width types.
+        resources: mapping from public QRAM resource names to specifications; omitted means the module has no resources.
+        attributes: attribute key-value pairs appended to the module; omitted means empty.
 
-    公开寄存器经 ``builder[name]`` 取 ``Ref`` 视图，``local`` 声明模块私有
-    工作寄存器，``finish`` 关闭构造器并返回经校验的 ``Operation``。
+    Public registers are accessed as ``Ref`` views via ``builder[name]``, ``local``
+    declares module-private work registers, and ``finish`` closes the builder
+    and returns a validated ``Operation``.
     """
 
     def __init__(
@@ -158,7 +159,7 @@ class Builder:
         *,
         attributes: dict | None = None,
     ) -> None:
-        """声明模块签名并初始化指令帧、引用表与依赖表。"""
+        """Declare the module signature and initialize the instruction frames, reference table and dependency table."""
         self.name: str = name
         self.attributes: tuple[tuple[str, str | int | float | bool], ...] = tuple(
             sorted((attributes or {}).items())
@@ -178,172 +179,172 @@ class Builder:
         self._closed: bool = False
 
     def local(self, name: str, type: RegType) -> Ref:
-        """声明一个模块私有工作寄存器并返回覆盖它的完整视图。
+        """Declare a module-private work register and return the full view covering it.
 
         Args:
-            name: 寄存器名，不得与公开寄存器、资源或其他局部寄存器重名。
-            type: 寄存器的类型与位宽。
+            name: register name; must not collide with a public register, a resource or another local register.
+            type: type and bit width of the register.
 
         Returns:
-            Ref: 覆盖整个新寄存器的引用。
+            Ref: reference covering the entire new register.
 
         Raises:
-            ValidationError: 名字冲突，或构造器已经结束。
+            ValidationError: name conflict, or the builder is already closed.
         """
         if self._closed or name in self._refs or name in {r.name for r in self.resources}:
-            raise ValidationError("局部寄存器名字冲突或构造器已结束")
+            raise ValidationError("local register name conflict or the builder is already closed")
         self.locals.append(Register(name, type))
         ref = Ref((Span(name, 0, type.width),), type)
         self._refs[name] = ref
         return ref
 
     def __getitem__(self, name: str) -> Ref:
-        """按公开或局部寄存器名取覆盖整个寄存器的 ``Ref`` 视图。"""
+        """Return the full-register ``Ref`` view for a public or local register name."""
         return self._refs[name]
 
     def emit(self, instruction: Instruction) -> None:
-        """把一条 RIR 指令追加到当前最内层作用域。
+        """Append one RIR instruction to the current innermost scope.
 
         Args:
-            instruction: RIR ``Instruction`` 节点。
+            instruction: RIR ``Instruction`` node.
 
         Raises:
-            ValidationError: 构造器已经结束。
+            ValidationError: the builder is already closed.
         """
         if self._closed:
-            raise ValidationError("构造器已经结束")
+            raise ValidationError("the builder is already closed")
         self._frames[-1].append(instruction)
 
     def gate(self, name: str, target: Ref, angle: float | None = None) -> None:
-        """发射单目标 ``Primitive`` 门。
+        """Emit a single-target ``Primitive`` gate.
 
         Args:
-            name: 门名。
-            target: 目标视图。
-            angle: 旋转类门的弧度角；非旋转门省略。
+            name: gate name.
+            target: target view.
+            angle: angle in radians for rotation gates; omitted for non-rotation gates.
         """
         self.emit(Primitive(name, (target,), angle=angle))
 
     def h(self, target: Ref) -> None:
-        """发射 Hadamard 门。
+        """Emit a Hadamard gate.
 
         Args:
-            target: 承受门作用的目标视图。
+            target: target view the gate acts on.
         """
         self.gate("h", target)
 
     def x(self, target: Ref) -> None:
-        """发射 Pauli-X 门。
+        """Emit a Pauli-X gate.
 
         Args:
-            target: 承受门作用的目标视图。
+            target: target view the gate acts on.
         """
         self.gate("x", target)
 
     def z(self, target: Ref) -> None:
-        """发射 Pauli-Z 门。
+        """Emit a Pauli-Z gate.
 
         Args:
-            target: 承受门作用的目标视图。
+            target: target view the gate acts on.
         """
         self.gate("z", target)
 
     def ry(self, target: Ref, angle: float) -> None:
-        """发射绕 Y 轴旋转 ``angle`` 弧度的门。
+        """Emit a gate rotating by ``angle`` radians about the Y axis.
 
         Args:
-            target: 承受旋转的目标视图。
-            angle: 旋转角，单位为弧度。
+            target: target view the rotation acts on.
+            angle: rotation angle in radians.
         """
         self.gate("ry", target, angle)
 
     def rz(self, target: Ref, angle: float) -> None:
-        """发射绕 Z 轴旋转 ``angle`` 弧度的门。
+        """Emit a gate rotating by ``angle`` radians about the Z axis.
 
         Args:
-            target: 承受旋转的目标视图。
-            angle: 旋转角，单位为弧度。
+            target: target view the rotation acts on.
+            angle: rotation angle in radians.
         """
         self.gate("rz", target, angle)
 
     def xor(self, source: Ref, target: Ref) -> None:
-        """发射按位异或门，把 ``source`` 的值异或进等宽的 ``target``。
+        """Emit a bitwise XOR gate that XORs the value of ``source`` into the equal-width ``target``.
 
         Args:
-            source: 提供被异或值的源视图。
-            target: 与 ``source`` 等宽、累积异或结果的目标视图。
+            source: source view providing the value to XOR in.
+            target: target view of the same width as ``source`` that accumulates the XOR result.
         """
         self.emit(Primitive("xor", (source, target)))
 
     def swap(self, first: Ref, second: Ref) -> None:
-        """发射 ``first`` 与 ``second`` 两个等宽视图的交换门。
+        """Emit a swap gate between the two equal-width views ``first`` and ``second``.
 
         Args:
-            first: 参与交换的第一个视图。
-            second: 与 ``first`` 等宽的第二个视图。
+            first: first view participating in the swap.
+            second: second view of the same width as ``first``.
         """
         self.emit(Primitive("swap", (first, second)))
 
     def add_const(self, target: Ref, value: int) -> None:
-        """发射常量加法门，把 ``target`` 加上 ``value`` 并按位宽回绕。
+        """Emit a constant-addition gate that adds ``value`` to ``target`` with wraparound by bit width.
 
         Args:
-            target: 承受加法并按其位宽回绕的目标视图。
-            value: 要加上的整型常量。
+            target: target view that undergoes the addition and wraps by its bit width.
+            value: integer constant to add.
         """
         self.emit(Primitive("add_const", (target,), value=value))
 
     def global_phase(self, angle: float) -> None:
-        """发射全局相位门，整体幅值乘以 ``exp(i*angle)``。
+        """Emit a global phase gate that multiplies the overall amplitude by ``exp(i*angle)``.
 
         Args:
-            angle: 整体相位角，单位为弧度。
+            angle: overall phase angle in radians.
         """
         self.emit(Primitive("gphase", (), angle=angle))
 
     def qram(self, resource: str, address: Ref, data: Ref) -> None:
-        """发射 QRAM 读取：按 ``address`` 查询 ``resource``，把命中的字异或进 ``data``。
+        """Emit a QRAM read: query ``resource`` at ``address`` and XOR the hit word into ``data``.
 
         Args:
-            resource: 被查询的 QRAM 资源名。
-            address: 提供查询单元地址的视图。
-            data: 命中数据字异或进去的等宽目标视图。
+            resource: name of the QRAM resource to query.
+            address: view providing the address of the cell to query.
+            data: equal-width target view into which the hit data word is XORed.
         """
         self.emit(Load(resource, address, data))
 
     def store(self, resource: str, address: Ref, data: Ref) -> None:
-        """发射 QRAM 写入：把 ``data`` 存入 ``resource`` 的 ``address`` 单元。
+        """Emit a QRAM write: store ``data`` into cell ``address`` of ``resource``.
 
         Args:
-            resource: 写入的目标 QRAM 资源名。
-            address: 指定写入单元的地址视图。
-            data: 提供写入数据的源视图。
+            resource: name of the target QRAM resource to write.
+            address: address view specifying the cell to write.
+            data: source view providing the data to write.
         """
         self.emit(Store(resource, address, data))
 
     def call(
         self, operation: Operation, *, resources: dict[str, str] | None = None, **arguments: Ref
     ) -> None:
-        """原样调用另一个 ``Operation``；被调模块保留为 ``Call`` 节点，不在生成期展开。
+        """Call another ``Operation`` as-is; the callee stays a ``Call`` node and is not expanded at generation time.
 
         Args:
-            operation: 被调用的操作；其模块与依赖一并登记为本模块的依赖。
-            resources: 被调模块资源形参名到本模块资源名的映射。
-            **arguments: 以被调模块寄存器名为关键字的实参视图。
+            operation: operation to call; its module and dependencies are registered as dependencies of this module.
+            resources: mapping from callee resource formal parameter names to this module's resource names.
+            **arguments: argument views keyed by callee register names.
 
         Raises:
-            ValidationError: 量子或资源参数名不匹配，或同名依赖模块定义冲突。
+            ValidationError: quantum or resource argument names do not match, or conflicting definitions exist for a dependency module name.
         """
         target = operation.module
         if set(arguments) != {r.name for r in target.registers}:
-            raise ValidationError("模块调用的量子参数名字不匹配")
+            raise ValidationError("module call quantum argument names do not match")
         resources = resources or {}
         if set(resources) != {r.name for r in target.resources}:
-            raise ValidationError("模块调用的资源参数名字不匹配")
+            raise ValidationError("module call resource argument names do not match")
         for module in (*operation.dependencies, target):
             existing = self._dependencies.get(module.name)
             if existing is not None and existing != module:
-                raise ValidationError(f"同名模块定义冲突：{module.name}")
+                raise ValidationError(f"conflicting definitions for module name: {module.name}")
             self._dependencies[module.name] = module
         self.emit(
             Call(
@@ -357,9 +358,9 @@ class Builder:
     def _block(
         self, factory: Callable[[tuple[Instruction, ...]], Instruction]
     ) -> Iterator[Builder]:
-        """打开新指令帧，正常退出时把帧内指令经 ``factory`` 聚合后发射。"""
+        """Open a new instruction frame; on normal exit aggregate the frame's instructions through ``factory`` and emit them."""
         if self._closed:
-            raise ValidationError("构造器已经结束")
+            raise ValidationError("the builder is already closed")
         self._frames.append([])
         try:
             yield self
@@ -371,49 +372,49 @@ class Builder:
             self.emit(factory(nodes))
 
     def repeat(self, count: int) -> AbstractContextManager[Builder]:
-        """打开重复 ``count`` 次的作用域；体内指令聚合为 ``Repeat`` 节点，计数保持符号，不在生成期展开。
+        """Open a scope repeated ``count`` times; body instructions aggregate into a ``Repeat`` node whose count stays symbolic and is not expanded at generation time.
 
         Args:
-            count: 体内作用域重复执行的次数；保持符号存入 ``Repeat`` 节点。
+            count: number of times the body scope repeats; stored symbolically in the ``Repeat`` node.
 
         Returns:
-            ``with`` 语句使用的作用域上下文；块须按 ``with`` 层级全部关闭后才能 ``finish``。
+            scope context for use with a ``with`` statement; all blocks must be closed per their ``with`` nesting before ``finish``.
         """
         return self._block(lambda body: Repeat(count, body))
 
     def control(self, register: Ref, value: int | None = None) -> AbstractContextManager[Builder]:
-        """打开受控作用域；体内指令聚合为 ``Control`` 节点。
+        """Open a controlled scope; body instructions aggregate into a ``Control`` node.
 
         Args:
-            register: 控制视图。
-            value: 生效的整数掩码；省略时取寄存器全一掩码。
+            register: control view.
+            value: integer mask that activates the scope; omitted means the all-ones mask of the register.
 
         Returns:
-            ``with`` 语句使用的作用域上下文；块须按 ``with`` 层级全部关闭后才能 ``finish``。
+            scope context for use with a ``with`` statement; all blocks must be closed per their ``with`` nesting before ``finish``.
         """
         if value is None:
             value = (1 << register.width) - 1
         return self._block(lambda body: Control(register, value, body))
 
     def adjoint(self) -> AbstractContextManager[Builder]:
-        """打开逆作用域；体内指令聚合为 ``Adjoint`` 块，执行时整体逆序取逆。
+        """Open an inverse scope; body instructions aggregate into an ``Adjoint`` block executed in reverse order with each operation inverted.
 
         Returns:
-            ``with`` 语句使用的作用域上下文；块须按 ``with`` 层级全部关闭后才能 ``finish``。
+            scope context for use with a ``with`` statement; all blocks must be closed per their ``with`` nesting before ``finish``.
         """
         return self._block(Adjoint)
 
     def finish(self) -> Operation:
-        """结束构造：组装模块与全部登记依赖，经校验后返回 ``Operation`` 并关闭构造器。
+        """Finish construction: assemble the module with all registered dependencies, validate and return an ``Operation``, then close the builder.
 
         Returns:
-            Operation: 入口为本次构造的模块，依赖为登记过的被调模块。
+            Operation: operation whose entry is the module built here and whose dependencies are the registered callees.
 
         Raises:
-            ValidationError: 构造器已结束、仍有未关闭的作用域，或组装结果违反 RIR 规则。
+            ValidationError: the builder is already closed, scopes are still open, or the assembled result violates RIR rules.
         """
         if self._closed or len(self._frames) != 1:
-            raise ValidationError("构造器已结束或仍有未关闭的控制块")
+            raise ValidationError("the builder is already closed or control blocks are still open")
         operation = Operation(
             Module(
                 self.name,

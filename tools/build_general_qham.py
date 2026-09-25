@@ -1,4 +1,4 @@
-"""自动生成一般 QHAM 的推导、数学见证、开放/闭合量子描述。"""
+"""Automatically generate derivations, mathematical witnesses, and open/closed quantum descriptions for the general QHAM."""
 
 import json
 import math

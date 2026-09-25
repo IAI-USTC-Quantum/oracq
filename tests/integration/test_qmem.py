@@ -1,4 +1,4 @@
-"""qmem 指针式寻址的真实后端对拍；用具有 uniqc 和 pysparq 的解释器运行。"""
+"""Real-backend cross-checks of qmem pointer-style addressing; run with an interpreter that has uniqc and pysparq installed."""
 
 import unittest
 
@@ -67,14 +67,16 @@ class QmemBackendTests(unittest.TestCase):
         b = Builder("wr", {"a": UInt(2), "v": UInt(4)}, {"ram": QRAM(2, 4)})
         QMem(b, "ram")[b["a"]].store(b["v"])
         program = b.finish().program()
-        # 存储单元按经典单元建模：文本执行器（UnifiedQuantum、PySparQ）暂不接受运行期写，
-        # 必须在执行入口明确报错；参考模拟器仍然可以执行。
+        # Storage cells are modeled as classical cells: the text executors
+        # (UnifiedQuantum, PySparQ) do not yet accept runtime writes and must
+        # fail explicitly at the execution entry; the reference simulator can
+        # still execute them.
         simulate(program, {"ram": [0, 0, 0, 0]})
-        with self.assertRaisesRegex(ValidationError, "UnifiedQuantum 执行暂不支持"):
+        with self.assertRaisesRegex(ValidationError, "UnifiedQuantum execution does not yet support"):
             run_originir(program, {"ram": [0, 0, 0, 0]})
-        with self.assertRaisesRegex(ValidationError, "PySparQ 适配器暂不支持"):
+        with self.assertRaisesRegex(ValidationError, "the PySparQ adapter does not yet support"):
             run_pysparq(program, {"ram": [0, 0, 0, 0]})
-        with self.assertRaisesRegex(ValidationError, "PySparQ RIR 解释器暂不支持"):
+        with self.assertRaisesRegex(ValidationError, "the PySparQ RIR interpreter does not yet support"):
             run_pysparq_rir(program, {"ram": [0, 0, 0, 0]})
 
 

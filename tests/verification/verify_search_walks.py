@@ -1,17 +1,20 @@
-"""搜索与量子行走算法的论文级数值验证。
+"""Publication-grade numerical validation of search and quantum-walk algorithms.
 
-覆盖 search.py（Grover 成功率曲线、振幅放大）、walks.py（Hadamard coin 环上
-行走）、graph_walks.py（邻接 oracle 端到端、Szegedy 行走、MNRS 搜索、经典
-Markov 链参考例程），并为同组文档页涉及的相邻入口提供端到端数值：
-transforms.qubitization_walk（Chebyshev 旋转）、qsvt.fixed_point_search
-（YLC 不动点保证）、estimation.amplitude_estimation（量子计数读出）、
-qlss.costa_walk（算符幺正性）。
+Covers search.py (Grover success-rate curves, amplitude amplification),
+walks.py (Hadamard-coin walks on a cycle), graph_walks.py (adjacency-oracle
+end to end, Szegedy walk, MNRS search, classical Markov-chain reference
+routines), and provides end-to-end numerics for adjacent entries touched by
+the same documentation group: transforms.qubitization_walk (Chebyshev
+rotation), qsvt.fixed_point_search (YLC fixed-point guarantee),
+estimation.amplitude_estimation (quantum-counting readout), and
+qlss.costa_walk (operator unitarity).
 
-经典参考全部独立构造：闭式公式 sin²((2k+1)θ) / YLC P_S / Dirichlet 核、
-numpy 组装的行走空间反射算子与 Markov 链线性方程组，不复用被测模块内部
-辅助函数。
+All classical references are constructed independently: closed-form formulas
+sin^2((2k+1)theta) / YLC P_S / the Dirichlet kernel, and numpy-assembled
+walk-space reflection operators and Markov-chain linear systems, without
+reusing internal helpers of the modules under test.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_search_walks.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_search_walks.py
 """
 
 from __future__ import annotations
@@ -37,7 +40,7 @@ ALL_PATHS = ("reference", "rir-pysparq", "adapter-pysparq", "originir-ext")
 
 
 def _register_amplitudes(vector, widths):
-    """OriginIR 态向量 → 寄存器元组稀疏字典（键序与 reference 路径一致）。"""
+    """OriginIR state vector -> register-tuple sparse dictionary (key order matching the reference path)."""
     result = {}
     for index, amplitude in enumerate(vector):
         if amplitude:
@@ -50,7 +53,7 @@ def _register_amplitudes(vector, widths):
 
 
 def _execute(path, program, memory=None):
-    """按路径名执行并把输出统一为寄存器元组 → 振幅的字典。"""
+    """Execute per path name and unify the output into a register-tuple -> amplitude dictionary."""
     if path == "reference":
         return reference(program, memory)
     if path == "rir-pysparq":
@@ -59,24 +62,24 @@ def _execute(path, program, memory=None):
         return adapter_pysparq(program, memory)
     if path == "originir-ext":
         if memory is not None:
-            raise ValueError("OriginIR-ext 后端不接收 QRAM 数据")
+            raise ValueError("the OriginIR-ext backend does not accept QRAM data")
         widths = [r.type.width for r in program.main.registers]
         return _register_amplitudes(originir_ext(program), widths)
     raise ValueError(path)
 
 
 def _marginal(state, index, value):
-    """目标寄存器取 value 的边缘概率。"""
+    """Marginal probability of the target register taking value."""
     return sum(abs(a) ** 2 for key, a in state.items() if key[index] == value)
 
 
 # ---------------------------------------------------------------------------
-# Grover 与振幅放大（search.py）
+# Grover and amplitude amplification (search.py)
 # ---------------------------------------------------------------------------
 
 
 def _grover_case(report, name, phase_oracle, width, marked, iterations, note):
-    """多个迭代数上的成功率对照 sin²((2k+1)θ)，并逐基态核对两级分布。"""
+    """Success rates vs sin^2((2k+1)theta) over several iteration counts, with the two-level distribution checked per basis state."""
     from oracq.algorithms.common.search import grover
 
     size, t = 1 << width, len(marked)
@@ -104,7 +107,7 @@ def _grover_case(report, name, phase_oracle, width, marked, iterations, note):
             "max_distribution_error": dist_error,
             "per_iteration": per_iteration,
         },
-        criterion="各路径 marked 概率与逐基态分布对照 sin²((2k+1)θ) 两级公式（误差 < 1e-9）",
+        criterion="each path's marked probability and per-basis-state distribution match the two-level sin^2((2k+1)theta) formulas (error < 1e-9)",
         passed=prob_error < 1e-9 and dist_error < 1e-9,
     )
 
@@ -122,7 +125,7 @@ def verify_grover_phase_marks(report):
         phase_marks(3, (5,)),
         3,
         (5,),
-        (0, 1, 2, 3, 4),  # 含越过最优迭代数后的振荡下行段
+        (0, 1, 2, 3, 4),  # includes the oscillating descent past the optimal iteration count
         "phase_marks",
     )
 
@@ -131,7 +134,7 @@ def verify_grover_xor_database(report):
     from oracq.algorithms.common.search import phase_from_database
     from oracq.algorithms.input_model.oracles import gate_database
 
-    # t=2/8 时 θ=π/6：k=1 精确放大到 1，k=2 回落 1/4，检验过冲段
+    # t=2/8 gives theta=pi/6: k=1 amplifies exactly to 1, k=2 falls back to 1/4, testing the overshoot segment
     database = gate_database(3, 1, {5: 1, 6: 1})
     _grover_case(
         report,
@@ -148,7 +151,7 @@ def verify_amplify_success(report):
     from oracq.algorithms.common.search import amplify_success
     from oracq.algorithms.input_model.oracles import StateOracle, annotate
 
-    # 成功子空间 signal==0 的初态概率 cos²θ = sin²(π/8)，θ_a = π/8
+    # Initial probability cos^2 theta = sin^2(pi/8) of the signal==0 success subspace, theta_a = pi/8
     theta = 3 * math.pi / 8
     b = Builder("amplify_source", {"target": Bits(2), "signal": Bits(1)})
     b.h(b["target"])
@@ -171,18 +174,18 @@ def verify_amplify_success(report):
         paths=list(ALL_PATHS),
         parameters={"initial_probability": math.cos(theta) ** 2, "iterations": [0, 1, 2, 3]},
         metrics={"max_prob_error": worst, "per_iteration": per_iteration},
-        criterion="零信号成功概率对照 sin²((2k+1)θ_a)（误差 < 1e-9，含过冲回落）",
+        criterion="zero-signal success probability vs sin^2((2k+1)theta_a) (error < 1e-9, overshoot and fallback included)",
         passed=worst < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# Coined 环上行走（walks.py）
+# Coined walks on a cycle (walks.py)
 # ---------------------------------------------------------------------------
 
 
 def _coined_cycle_reference(width, steps):
-    """独立的 numpy 语义参考：H coin 后按 0/1 条件 ±1 移位，从 |0,0> 出发。"""
+    """Independent numpy semantics reference: H coin then a conditional +/-1 shift on coin 0/1, starting from |0,0>."""
     size = 1 << width
     state = {(0, 0): 1.0 + 0j}
     for _ in range(steps):
@@ -200,7 +203,7 @@ def _coined_cycle_reference(width, steps):
 
 
 def _classical_cycle_distribution(width, steps):
-    """经典对称随机游走（p=1/2）在环上的位置分布，二项分布 mod N。"""
+    """Position distribution of a classical symmetric random walk (p=1/2) on the cycle: binomial mod N."""
     size = 1 << width
     distribution = [0.0] * size
     for right in range(steps + 1):
@@ -221,8 +224,9 @@ def _cycle_walk_case(report, width, steps_range):
     for steps in steps_range:
         program = cycle_walk(width, steps=steps).program()
         expected = _coined_cycle_reference(width, steps)
-        # steps=0 时程序不含任何门，UniQC 对零门线路没有 qubit mapping（空序列 max），
-        # 故零步情形只走寄存器级路径；这是 OriginIR 后端对空程序的限制，非被测模块问题。
+        # With steps=0 the program contains no gates and UniQC has no qubit mapping for zero-gate circuits (max of an
+        # empty sequence), so the zero-step case runs only the register-level paths; this is an OriginIR-backend
+        # limitation on empty programs, not an issue of the module under test.
         paths = ALL_PATHS if steps else tuple(p for p in ALL_PATHS if p != "originir-ext")
         for path in paths:
             state = _execute(path, program)
@@ -232,7 +236,7 @@ def _cycle_walk_case(report, width, steps_range):
             for (pos, _coin), amp in expected.items():
                 expected_probs[pos] += abs(amp) ** 2
             tv_distance = max(tv_distance, tvd(actual_probs, expected_probs))
-    # 信息性指标：量子弹道输运 vs 经典扩散（末步平均环距离）
+    # Informative metric: quantum ballistic transport vs classical diffusion (mean ring distance at the final step)
     final = max(steps_range)
     quantum_state = _execute("reference", cycle_walk(width, steps=final).program())
     quantum_mean = sum(
@@ -250,18 +254,18 @@ def _cycle_walk_case(report, width, steps_range):
             f"mean_ring_distance_quantum_s{final}": quantum_mean,
             f"mean_ring_distance_classical_s{final}": classical_mean,
         },
-        criterion="全振幅对照独立 coin-walk 参考（误差 < 1e-9）；平均环距离为信息性指标",
+        criterion="full amplitudes vs the independent coin-walk reference (error < 1e-9); mean ring distance is an informative metric",
         passed=amp_error < 1e-9 and tv_distance < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# 图邻接与 Szegedy/MNRS（graph_walks.py）
+# Graph adjacency and Szegedy/MNRS (graph_walks.py)
 # ---------------------------------------------------------------------------
 
 
 def _cycle_table(n):
-    """偶环的交替边染色邻居表（满足对合性 N(N(v,j),j)=v）。"""
+    """Alternating edge-coloring neighbor table of an even cycle (satisfying the involution N(N(v,j),j)=v)."""
     return [
         [(v + 1) % n if v % 2 == 0 else (v - 1) % n, (v - 1) % n if v % 2 == 0 else (v + 1) % n]
         for v in range(n)
@@ -269,7 +273,7 @@ def _cycle_table(n):
 
 
 def _complete_table(n):
-    """带自环补齐的完全图：N(v,j)=j，D=N。"""
+    """Complete graph padded with self-loops: N(v,j)=j, D=N."""
     return [list(range(n)) for _ in range(n)]
 
 
@@ -277,7 +281,7 @@ HYPERCUBE_Q3 = [[v ^ 1, v ^ 2, v ^ 4, v] for v in range(8)]
 
 
 def _szegedy_reference(neighbors):
-    """独立组装行走空间算子：返回 (维度布局, W, 初态, marked 相位对角)。"""
+    """Independently assemble the walk-space operators: returns (dimension layout, W, initial state, marked phase diagonal)."""
     import numpy as np
 
     n, d = len(neighbors), len(neighbors[0])
@@ -301,7 +305,7 @@ def _szegedy_reference(neighbors):
 
 
 def _mnrs_reference(neighbors, marked, steps):
-    """MNRS 迭代 (M·W)^steps 作用在初态上的独立 numpy 参考。"""
+    """Independent numpy reference of (M*W)^steps acting on the initial state, MNRS style."""
     import numpy as np
 
     ref = _szegedy_reference(neighbors)
@@ -318,7 +322,7 @@ def _mnrs_reference(neighbors, marked, steps):
 
 
 def _walk_space_dict(ref, vector):
-    """numpy 行走空间向量 → (current, peer, index) 稀疏振幅字典。"""
+    """numpy walk-space vector -> (current, peer, index) sparse amplitude dictionary."""
     n = 1 << ref["v"]
     d = 1 << ref["g"] if ref["g"] else 1
     result = {}
@@ -332,7 +336,7 @@ def _walk_space_dict(ref, vector):
 
 
 def _embed_walk_dict(ref, amplitudes):
-    """把 (current, peer, index) 键折成 target 整值，与驱动程序的 (target, work) 键对齐。"""
+    """Fold the (current, peer, index) keys into the target integer value, aligning with the driver's (target, work) keys."""
     return {
         (ref["index"](current, peer, j), 0): amplitude
         for (current, peer, j), amplitude in amplitudes.items()
@@ -340,7 +344,7 @@ def _embed_walk_dict(ref, amplitudes):
 
 
 def verify_adjacency_superposition(report):
-    """邻接 oracle 端到端：vertex/index 全叠加一次穷举全部 32 个查询。"""
+    """Adjacency oracle end to end: vertex/index full superposition exhausts all 32 queries in one run."""
     from oracq.algorithms.input_model.graph_walks import gate_adjacency
 
     oracle = gate_adjacency(HYPERCUBE_Q3)
@@ -360,13 +364,13 @@ def verify_adjacency_superposition(report):
         paths=list(ALL_PATHS),
         parameters={"vertices": 8, "degree": 4, "queries": 32},
         metrics={"max_amplitude_error": worst, "foreign_branch_weight": foreign},
-        criterion="叠加查询逐分支 XOR 邻居表（振幅误差 < 1e-9，表外分支权重为 0）",
+        criterion="superposed queries match the XOR neighbor table branch by branch (amplitude error < 1e-9, zero weight off the table)",
         passed=worst < 1e-9 and foreign < 1e-18,
     )
 
 
 def verify_szegedy_walk(report):
-    """Szegedy 行走步：幺正矩阵与初态上演化均对照独立反射算子组装。"""
+    """Szegedy walk step: both the unitary matrix and the evolution on the initial state vs the independent reflection-operator assembly."""
     import numpy as np
 
     from oracq.algorithms.input_model.graph_walks import (
@@ -380,7 +384,7 @@ def verify_szegedy_walk(report):
     v, g = ref["v"], ref["g"]
     adjacency = gate_adjacency(neighbors)
     walk = szegedy_walk(adjacency)
-    # 幺正层：to_matrix 对照 (2Π_B-I)(2Π_A-I)
+    # Unitary level: to_matrix vs (2*Pi_B - I)(2*Pi_A - I)
     driver = Builder(
         "szegedy_unitary",
         {"current": Bits(v), "peer": Bits(v), "index": Bits(g)},
@@ -389,7 +393,7 @@ def verify_szegedy_walk(report):
     invoke(driver, walk, "walk", current=driver["current"], peer=driver["peer"], index=driver["index"])
     unitary = originir_unitary(driver.finish().program())
     matrix_error = float(np.abs(unitary - ref["walk"]).max())
-    # 态层：setup 后 1/3 步演化，四路径对照
+    # State level: 1/3 steps of evolution after setup, compared on all four paths
     setup = szegedy_setup(adjacency)
     state_error = 0.0
     for steps in (1, 3):
@@ -418,13 +422,13 @@ def verify_szegedy_walk(report):
         paths=[*ALL_PATHS, "originir-ext+to_matrix"],
         parameters={"vertices": 8, "degree": 2, "walk_qubits": 2 * v + g, "steps": [1, 3]},
         metrics={"matrix_max_error": matrix_error, "state_max_error": state_error},
-        criterion="行走幺正与演化态对照独立反射算子组装（误差 < 1e-9）",
+        criterion="walk unitary and evolved states vs the independent reflection-operator assembly (error < 1e-9)",
         passed=matrix_error < 1e-9 and state_error < 1e-9,
     )
 
 
 def _hitting_reference(transition, marked):
-    """独立求解 (I - P_free) h = 1（marked 顶点为 0）。"""
+    """Independently solve (I - P_free) h = 1 (marked vertices fixed at 0)."""
     import numpy as np
 
     n = len(transition)
@@ -455,7 +459,7 @@ def _mnrs_case(report, name, neighbors, marked, paths, memory=None):
     v = max(1, (n - 1).bit_length())
     from oracq.algorithms.input_model.oracles import phase_marks
 
-    # 独立经典参考：首达时间决定 MNRS 步数 ceil(pi/4 * sqrt(H_avg))
+    # Independent classical reference: hitting times determine the MNRS step count ceil(pi/4 * sqrt(H_avg))
     transition = _transition_reference(neighbors)
     hits = _hitting_reference(transition, marked)
     average_h = sum(hits) / (n - len(marked))
@@ -486,7 +490,7 @@ def _mnrs_case(report, name, neighbors, marked, paths, memory=None):
             "degree": len(neighbors[0]),
             "marked": list(marked),
             "steps": steps,
-            "memory": "QRAM 邻居表" if memory else None,
+            "memory": "QRAM neighbor table" if memory else None,
         },
         metrics={
             "marked_probability": expected_prob,
@@ -495,7 +499,7 @@ def _mnrs_case(report, name, neighbors, marked, paths, memory=None):
             "classical_avg_hitting_time": average_h,
             "steps_over_sqrt_h": steps / math.sqrt(average_h),
         },
-        criterion="搜索末态全振幅对照独立 MNRS 参考（误差 < 1e-9）；步数/√H 与 π/4 为信息性指标",
+        criterion="search final state's full amplitudes vs the independent MNRS reference (error < 1e-9); steps/sqrt(H) vs pi/4 is an informative metric",
         passed=state_error < 1e-9 and prob_error < 1e-9,
     )
 
@@ -518,7 +522,7 @@ def verify_mnrs_search(report):
 
 
 def verify_mnrs_search_qram(report):
-    """QRAM 邻接的端到端搜索；OriginIR-ext 不含 QRAM 资源，仅走参考与 PySparQ。"""
+    """End-to-end search with QRAM adjacency; OriginIR-ext carries no QRAM resources, so only reference and PySparQ are used."""
     from oracq.algorithms.input_model.graph_walks import qram_adjacency
 
     neighbors = _complete_table(4)
@@ -556,19 +560,19 @@ def verify_mnrs_search_qram(report):
             "vertices": 4,
             "degree": 4,
             "steps": steps,
-            "originir_excluded": "OriginIR-ext 线路不含 QRAM 资源，无法执行 QRAM 程序",
+            "originir_excluded": "the OriginIR-ext circuit carries no QRAM resources and cannot execute QRAM programs",
         },
         metrics={
             "marked_probability": marked_probability,
             "max_state_error": state_error,
         },
-        criterion="QRAM 绑定后搜索末态对照独立 MNRS 参考（误差 < 1e-9）",
+        criterion="after QRAM binding, the search final state matches the independent MNRS reference (error < 1e-9)",
         passed=state_error < 1e-9,
     )
 
 
 def verify_markov_helpers(report):
-    """transition_matrix / hitting_times / suggest_steps 对照独立 Markov 链参考。"""
+    """transition_matrix / hitting_times / suggest_steps vs independent Markov-chain references."""
     from oracq.algorithms.input_model.graph_walks import (
         hitting_times,
         suggest_steps,
@@ -579,7 +583,7 @@ def verify_markov_helpers(report):
         "complete_k4": _complete_table(4),
         "hypercube_q3": HYPERCUBE_Q3,
         "cycle8": _cycle_table(8),
-        # 非正则图：路径 0-1-2-3 以自环补齐到 D=2
+        # Non-regular graph: the path 0-1-2-3 padded with self-loops to D=2
         "padded_path4": [[1, 0], [0, 2], [1, 3], [2, 3]],
     }
     transition_error = hitting_error = 0.0
@@ -601,12 +605,12 @@ def verify_markov_helpers(report):
         expected_steps = max(1, math.ceil(math.pi / 4 * math.sqrt(average_h)))
         if suggest_steps(actual, set(marked)) != expected_steps:
             suggest_mismatch += 1
-    # 环上闭式解 h(v) = d(N-d)：独立闭式对照
+    # Closed form on the cycle h(v) = d(N-d): an independent closed-form comparison
     cycle_hits = hitting_times(transition_matrix(_cycle_table(8)), {0})
     closed_form_error = max(
         abs(cycle_hits[k] - min(k, 8 - k) * (8 - min(k, 8 - k))) for k in range(8)
     )
-    # 完全图 Grover 极限：H_avg = N/|M|，步数恢复 ceil(pi/4 sqrt(N/|M|))
+    # Complete-graph Grover limit: H_avg = N/|M|, steps recover ceil(pi/4 sqrt(N/|M|))
     grover_limit = []
     for n in (4, 8, 16):
         transition = transition_matrix(_complete_table(n))
@@ -626,7 +630,7 @@ def verify_markov_helpers(report):
             "cycle_closed_form_error": closed_form_error,
             "suggest_mismatch": suggest_mismatch,
         },
-        criterion="转移矩阵/首达时间对照独立 numpy 解（误差 < 1e-9），步数公式逐例一致",
+        criterion="transition matrix / hitting times vs independent numpy solves (error < 1e-9), step formula agrees case by case",
         passed=transition_error < 1e-9
         and hitting_error < 1e-9
         and closed_form_error < 1e-9
@@ -635,12 +639,12 @@ def verify_markov_helpers(report):
 
 
 # ---------------------------------------------------------------------------
-# 同组文档页涉及的相邻入口（transforms/qsvt/estimation/qlss）
+# Adjacent entries touched by the same documentation group (transforms/qsvt/estimation/qlss)
 # ---------------------------------------------------------------------------
 
 
 def _householder_be(theta):
-    """零信号块为 cos θ 的厄米（Householder 型）块编码：U = Ry(2θ)·Z ⊗ I_target。"""
+    """Hermitian (Householder-style) block encoding whose zero-signal block is cos theta: U = Ry(2*theta)*Z tensor I_target."""
     from oracq.algorithms.input_model.operators import BlockEncoding
     from oracq.algorithms.input_model.oracles import annotate
 
@@ -651,7 +655,7 @@ def _householder_be(theta):
 
 
 def verify_qubitization_walk(report):
-    """厄米 BE 上行走 k 次的零信号概率对照 Chebyshev T_k(x)²，并核对幺正分解与谱。"""
+    """Zero-signal probability of k walk applications on a Hermitian BE vs Chebyshev T_k(x)^2, plus the unitary decomposition and spectrum."""
     import numpy as np
 
     from oracq.algorithms.common.transforms import qubitization_walk
@@ -675,7 +679,7 @@ def verify_qubitization_walk(report):
             deviation = max(deviation, abs(_marginal(_execute(path, program), 1, 0) - theory))
         prob_error = max(prob_error, deviation)
         per_step.append({"k": k, "theory": theory, "max_deviation": deviation})
-    # 幺正关系 W == (2Π-I)U 与谱：两个二维子空间各贡献 e^{±i·π/6}
+    # Unitary relation W == (2*Pi - I)U and the spectrum: each of the two 2D subspaces contributes e^{+/-i*pi/6}
     unitary_walk = originir_unitary(walk.program())
     unitary_be = originir_unitary(_householder_be(math.pi / 6).operation.program())
     projector = np.diag([1.0 if (i >> 1) == 0 else 0.0 for i in range(4)])
@@ -697,7 +701,7 @@ def verify_qubitization_walk(report):
             "eigenphase_error": eigenphase_error,
             "per_step": per_step,
         },
-        criterion="零信号概率对照 T_k(x)²，W=(2Π-I)U 与转角 ±arccos(x)（误差 < 1e-9）",
+        criterion="zero-signal probability vs T_k(x)^2, W=(2*Pi-I)U with rotation angles +/-arccos(x) (error < 1e-9)",
         passed=prob_error < 1e-9 and relation_error < 1e-9 and eigenphase_error < 1e-9,
     )
 
@@ -706,11 +710,11 @@ def _fixed_point_case(report, name, x, delta, degree):
     from oracq.algorithms.common.qsvt import fixed_point_search
     from oracq.algorithms.input_model.oracles import diagonal_block_encoding, gate_database
 
-    # 标量 BE：对角块 cos(angle/2) ≡ x（两基态相同）
+    # Scalar BE: diagonal block cos(angle/2) == x (both basis states identical)
     database = gate_database(1, 1, {0: 1, 1: 1})
     be = diagonal_block_encoding(database, angle_scale=2 * math.acos(x))
     program = fixed_point_search(be, delta, degree).operation.program()
-    # 独立闭式：P_S(x) = 1 - δ² T_L²(c√(1-x²))，c = T_{1/L}(1/δ)
+    # Independent closed form: P_S(x) = 1 - delta^2 T_L^2(c*sqrt(1-x^2)), c = T_{1/L}(1/delta)
     c = math.cosh(math.acosh(1.0 / delta) / degree)
     u = c * math.sqrt(1.0 - x * x)
     chebyshev = math.cosh(degree * math.acosh(u)) if u > 1 else math.cos(degree * math.acos(u))
@@ -731,7 +735,7 @@ def _fixed_point_case(report, name, x, delta, degree):
             "max_error": error,
             "bound_1_minus_delta2": 1.0 - delta * delta,
         },
-        criterion="零信号成功概率对照 YLC 闭式（误差 < 1e-9）；阈值外应有 P_S ≥ 1-δ²",
+        criterion="zero-signal success probability vs the YLC closed form (error < 1e-9); outside the threshold one should have P_S >= 1-delta^2",
         passed=error < 1e-9 and (x < threshold or theory >= 1.0 - delta * delta),
     )
 
@@ -742,7 +746,7 @@ def verify_fixed_point_search(report):
 
 
 def _qae_reference_distribution(a, precision):
-    """QAE 相位读出的独立参考：本征相位 ±θ/π 上的 Dirichlet 核叠加。"""
+    """Independent reference of the QAE phase readout: Dirichlet-kernel superposition at eigenphases +/-theta/pi."""
     grid = 1 << precision
     phi = math.asin(math.sqrt(a)) / math.pi
 
@@ -758,7 +762,7 @@ def _qae_reference_distribution(a, precision):
 
 
 def verify_quantum_counting(report):
-    """n=3、3/8 标记的量子计数：相位分布对照 Dirichlet 核，读出 t̂。"""
+    """Quantum counting with n=3 and 3/8 marked: phase distribution vs the Dirichlet kernel; readout of t-hat."""
     from oracq.algorithms.common.estimation import amplitude_estimation
     from oracq.algorithms.input_model.oracles import uniform_state
 
@@ -776,7 +780,7 @@ def verify_quantum_counting(report):
             measured_dist = actual
     peak = max(measured_dist, key=measured_dist.get)
     estimate = size * math.sin(math.pi * peak / grid) ** 2
-    # QAE 保证：落在真值一个栅格步内的概率 ≥ 8/π²
+    # QAE guarantee: probability of landing within one grid step of the truth >= 8/pi^2
     central_mass = sum(
         prob
         for y, prob in measured_dist.items()
@@ -793,13 +797,13 @@ def verify_quantum_counting(report):
             "central_mass": central_mass,
             "qae_mass_bound": 8 / math.pi**2,
         },
-        criterion="相位分布 TVD < 1e-9；|t̂ - t| ≤ 1 且中心栅格质量 ≥ 8/π²",
+        criterion="phase distribution TVD < 1e-9; |t-hat - t| <= 1 and central grid mass >= 8/pi^2",
         passed=tv_distance < 1e-9 and abs(estimate - t) <= 1.0 and central_mass >= 8 / math.pi**2,
     )
 
 
 def verify_costa_walk_unitarity(report):
-    """costa_walk 组装算子的幺正性与后端一致性（kernel 物理通道上游标注为未验证原型）。"""
+    """Unitarity and cross-backend agreement of the operator assembled by costa_walk (the kernel's physical channel upstream is labeled an unverified prototype)."""
     import numpy as np
 
     from oracq.algorithms.input_model.oracles import (
@@ -826,7 +830,7 @@ def verify_costa_walk_unitarity(report):
         paths=["originir-ext+to_matrix", "reference", "rir-pysparq", "adapter-pysparq"],
         parameters={"target_width": 1, "signal_width": 6, "fs": 0.5},
         metrics={"unitarity_deviation": deviation, "cross_path_state_error": state_error},
-        criterion="W†W - I 最大偏差 < 1e-9 且四路径零输入态一致",
+        criterion="max deviation of W^dagger W - I < 1e-9 and the four paths agree on the zero-input state",
         passed=deviation < 1e-9 and state_error < 1e-9,
     )
 
@@ -834,8 +838,8 @@ def verify_costa_walk_unitarity(report):
 def run():
     report = Report(
         "search_walks",
-        "Grover/振幅放大成功率曲线、coined 环行走、邻接 oracle 与 Szegedy/MNRS "
-        "端到端行走数值，并覆盖同组文档页涉及的 qubitization/定点搜索/量子计数/Costa 行走。",
+        "Grover/amplitude-amplification success curves, coined cycle walks, adjacency-oracle and Szegedy/MNRS end-to-end walk numerics, "
+        "plus the qubitization/fixed-point search/quantum counting/Costa walk entries touched by the same documentation group.",
     )
     verify_grover_phase_marks(report)
     verify_grover_xor_database(report)

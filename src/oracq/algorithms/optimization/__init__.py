@@ -1,1 +1,1 @@
-"量子优化与变分方法：DQI 解码量子干涉、QAOA/VQE 变分电路与 Jordan 梯度估计。"
+"Quantum optimization and variational methods: DQI decoded quantum interferometry, QAOA/VQE variational circuits, and Jordan gradient estimation."

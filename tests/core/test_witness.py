@@ -1,4 +1,4 @@
-"""witness 断言库的自证测试：正确程序通过、故意错误的构造抛 AssertionError。"""
+"""Self-tests for the witness assertion library: correct programs pass, deliberately wrong constructions raise AssertionError."""
 
 import math
 import unittest
@@ -13,7 +13,7 @@ COEFFICIENTS = (0.6, -0.8, 0.3j, -0.5)
 
 
 def bell_program():
-    """两比特 Bell 电路：H 后 CNOT，是酉程序的最小正例。"""
+    """A two-qubit Bell circuit: H followed by CNOT, the minimal positive example of a unitary program."""
     b = Builder("bell", {"q": Bits(2)})
     b.h(b["q"][0])
     b.xor(b["q"][0], b["q"][1])
@@ -21,7 +21,7 @@ def bell_program():
 
 
 class _FakeState:
-    """simulate 返回值的替身：witness 只依赖 .amplitudes。"""
+    """A stand-in for simulate's return value: witness only relies on .amplitudes."""
 
     def __init__(self, amplitudes):
         self.amplitudes = amplitudes
@@ -32,7 +32,7 @@ class UnitaryWitnessTests(unittest.TestCase):
         witness.assert_unitary(self, bell_program())
 
     def test_non_normalized_column_fails(self):
-        # 原语只能拼出酉程序，非酉反例通过替换 witness.simulate 的返回构造。
+        # Primitives can only build unitary programs; the non-unitary counterexample is built by replacing witness.simulate's return value.
         with self.assertRaises(AssertionError):
             original = witness.simulate
             witness.simulate = lambda program, initial=None: _FakeState({(0, 0): 0.5})
@@ -42,7 +42,7 @@ class UnitaryWitnessTests(unittest.TestCase):
                 witness.simulate = original
 
     def test_non_orthogonal_columns_fail(self):
-        # 所有列相同：各自归一但两两内积为 1。
+        # All columns identical: each normalized, but pairwise inner products equal 1.
         with self.assertRaises(AssertionError):
             original = witness.simulate
             witness.simulate = lambda program, initial=None: _FakeState(
@@ -79,7 +79,7 @@ class UncomputationWitnessTests(unittest.TestCase):
             )
 
     def test_dirty_local_fails(self):
-        # simulate 在 LocalExit 处抛 ValidationError，原语须转成 AssertionError。
+        # simulate raises ValidationError at LocalExit; the primitive must convert it to AssertionError.
         b = Builder("dirty_local", {"source": Bits(1)})
         b.x(b.local("scratch", Bits(1)))
         with self.assertRaises(AssertionError):

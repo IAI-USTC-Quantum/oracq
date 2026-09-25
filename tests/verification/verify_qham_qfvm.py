@@ -1,33 +1,51 @@
-"""QHAM 与 QFVM 的论文级数值验证。
+"""Publication-grade numerical validation of QHAM and QFVM.
 
-QHAM 侧（applications/qham + algorithms/qham.py + algorithms/pde.py）：
-- 提升生成元 BE 经 aux 寄存器一次运行取出全矩阵，逐元素对照 reference.py 的
-  独立经典矩阵（结构化移位端口与谱嵌入 Pauli 端口两种输入模型）；
-- 同一问题在 stencil / spectral / QRAM 角表三种输入模型下的生成元一致性，
-  以及 QRAM 系数角编码的逐点真值（diagonal_block_encoding + 角表）；
-- 提升初态制备对照直接构造的张量字权重向量；有限 Taylor QODE 端到端链对照
-  经典 (I+tG)Y_in；显式耗散移位 G-mu*I 的矩阵级验证；
-- 同伦权重、生成行规则 vs 独立链式法则（reference.py），以及 HAM 部分和对
-  精确 Riccati 解的收缩收敛（测得收缩因子对照 |1+eta|）。
+QHAM side (applications/qham + algorithms/qham.py + algorithms/pde.py):
+- The lifted-generator BE retrieves the full matrix in one run through the
+  aux register, compared element-wise against the independent classical
+  matrix of reference.py (two input models: the structured stencil port and
+  the spectral-embedding Pauli port);
+- Generator consistency of the same problem under the three input models
+  stencil / spectral / QRAM angle table, plus the pointwise truth of the QRAM
+  coefficient angle encoding (diagonal_block_encoding + angle table);
+- Lifted initial-state preparation vs a directly constructed tensor-word
+  weight vector; the finite-Taylor QODE end-to-end chain vs the classical
+  (I+tG)Y_in; matrix-level validation of the explicit dissipative shift
+  G - mu*I;
+- Homotopy weights, generation-row rules vs the independent chain rule
+  (reference.py), and contraction convergence of the HAM partial sums
+  against the exact Riccati solution (measured contraction factor vs
+  |1+eta|).
 
-QFVM 侧（applications/qfvm.py + roe.py + roe_formulas.py + flow_data.py）：
-- 编译后的 roe_face 定点电路与独立的定点仿真 oracle 位级对拍（脚本内按
-  fixed_arithmetic 文档语义 toward_zero/modular_wrap 重实现），方法误差
-  （对照 float64 roe_formulas）单独报告；
-- 稀疏条目 oracle 在 8 分支叠加下逐元素对照同一定点仿真矩阵（含 west/center/
-  east 三带与零结构），补齐对角 padding_value 的独立案例；
-- 位置 oracle 全列叠加验证：每列完整置换 + 槽位映射对照独立几何语义；
-- RHS 残差态制备（QRAM 角度树 + 符号）对照独立残差计算；
-- flow_data 单步更新恒等式：F*(L,R)=left.L+right.R 对照矩阵求逆实现、
-  M.u-mass.u=residual、局部更新 patch 与全量重算一致、ptheta 逐点真值。
+QFVM side (applications/qfvm.py + roe.py + roe_formulas.py + flow_data.py):
+- The compiled fixed-point roe_face circuit compared bit-level against an
+  independent fixed-point simulation oracle (re-implemented in this script
+  per the documented fixed_arithmetic semantics toward_zero/modular_wrap);
+  the method error (vs the float64 roe_formulas) is reported separately;
+- The sparse-entry oracle compared element-wise under an 8-branch
+  superposition against the same fixed-point simulation matrix (west/center/
+  east bands and zero structure included), plus an independent case for the
+  padding diagonal padding_value;
+- The location oracle validated with all-column superposition: full
+  permutation per column + slot mapping vs the independent geometric
+  semantics;
+- RHS residual-state preparation (QRAM angle tree + sign) vs the independent
+  residual computation;
+- flow_data single-step update identities: F*(L,R) = left.L + right.R vs the
+  matrix-inversion implementation, M.u - mass.u = residual, local update
+  patches identical to a full recomputation, and the ptheta pointwise truth.
 
-格式说明：roe_face 的 compile_function 要求 Index(2) 的行列输入可表示，
-故最小可用定点为 FixedFormat(5,2)；entropy_delta 取 0.5 使 2δ、δ²、δ 在
-该格式下全部精确可表示。若小数位不足以表示 2δ（如 FixedFormat(4,1) 配默认
-δ=0.125，2δ=0.25 截断为 raw 0），熵修正分支除零，条目按文档化的 totalize
-行为静默归零；既有集成测试只覆盖 padding 对角，未覆盖非零 Roe 条目。
+Format note: roe_face's compile_function requires the row/column Index(2)
+inputs to be representable, so the minimal usable fixed point is
+FixedFormat(5,2); entropy_delta is taken as 0.5 so that 2*delta, delta^2 and
+delta are all exactly representable in that format. If the fraction bits
+cannot represent 2*delta (e.g. FixedFormat(4,1) with the default
+delta=0.125, where 2*delta=0.25 truncates to raw 0), the entropy-correction
+branch divides by zero and the entry silently zeroes per the documented
+totalize behavior; the existing integration tests cover only the padding
+diagonal, not the non-zero Roe entries.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_qham_qfvm.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_qham_qfvm.py
 """
 
 from __future__ import annotations
@@ -79,13 +97,14 @@ from oracq.applications.roe_formulas import frozen_roe_face
 from oracq.infrastructure.layout import workspace_table
 
 # ---------------------------------------------------------------------------
-# 独立定点仿真 oracle：按 fixed_arithmetic 文档语义重实现
-# （toward_zero 幅度截断、模回绕、status[0]=定义域、status[1]=越出字长）
+# Independent fixed-point simulation oracle: re-implemented per the documented
+# fixed_arithmetic semantics (toward_zero magnitude truncation, modular wrap,
+# status[0] = domain, status[1] = word-length overflow)
 # ---------------------------------------------------------------------------
 
 
 class Fx:
-    """定点字仿真：raw 为 n 位无符号字，decode 按二进制补码。"""
+    """Fixed-point word simulation: raw is an n-bit unsigned word, decoded as two's complement."""
 
     def __init__(self, fmt, raw, flags):
         self.fmt = fmt
@@ -174,10 +193,11 @@ def _pick3(index, first, second, third):
 
 
 def roe_face_fx(fmt, rho_l, m_l, e_l, rho_r, m_r, e_r, row, col, *, gamma, entropy_delta):
-    """按 frozen_roe_face 源码求值顺序仿真定点流水线；输入为实际数值。
+    """Simulate the fixed-point pipeline in the evaluation order of the frozen_roe_face source; inputs are actual numeric values.
 
-    常量处理与编译器一致：纯常量子表达式先按 float 求值，再按 fmt.encode
-    截断进入定点域。返回 (left, right, (invalid, overflow))。
+    Constant handling matches the compiler: purely constant subexpressions
+    are evaluated in float first, then truncated into the fixed-point domain
+    via fmt.encode. Returns (left, right, (invalid, overflow)).
     """
     flags = [0, 0]
 
@@ -250,7 +270,7 @@ def roe_face_fx(fmt, rho_l, m_l, e_l, rho_r, m_r, e_r, row, col, *, gamma, entro
 
 
 def qfvm_entry_fx(fmt, cells, source, rowvar, colvar, band, *, mass, dx, gamma, entropy_delta):
-    """仿真 roe_entry 的带选择与质量项；cells[i] 为 (rho, m, e) 实际值三元组。"""
+    """Simulate the band selection and mass term of roe_entry; cells[i] is an (rho, m, e) tuple of actual values."""
     left0, right0, flags0 = roe_face_fx(
         fmt, *cells[(source - 1) % len(cells)], *cells[source % len(cells)],
         rowvar, colvar, gamma=gamma, entropy_delta=entropy_delta,
@@ -272,7 +292,7 @@ def qfvm_entry_fx(fmt, cells, source, rowvar, colvar, band, *, mass, dx, gamma, 
     return value.raw, (0, 0)
 
 
-# QFVM 统一流场（fmt=(5,2) 精确可表示，全部中间量在 [-4, 3.75] 内）
+# Unified QFVM flow field (fmt=(5,2) exactly representable; all intermediates within [-4, 3.75])
 QFVM_FMT = FixedFormat(5, 2)
 QFVM_STATES = [(1.0, 0.0, 1.0), (1.0, 0.25, 1.0), (1.25, 0.0, 1.0), (1.25, -0.25, 1.0)]
 QFVM_DELTA = 0.5
@@ -284,10 +304,11 @@ QFVM_MEMORY = {
 
 
 def _qfvm_matrices(fmt, cells, *, mass, dx, gamma, entropy_delta):
-    """按几何 ABI 独立重建 D_float（float64 Roe 公式）与 D_emu（定点仿真，raw 字）。
+    """Independently rebuild D_float (float64 Roe formulas) and D_emu (fixed-point simulation, raw words) per the geometric ABI.
 
-    D = [[0, M], [M^T, 0]] 作用在 (half, cell*4+var) 坐标上，补齐变量 var=3
-    的行列只在精确对角给 padding_value。返回 (D_float, D_emu_raw)。
+    D = [[0, M], [M^T, 0]] acts on (half, cell*4+var) coordinates; the rows
+    and columns of the padding variable var=3 receive padding_value only on
+    the exact diagonal. Returns (D_float, D_emu_raw).
     """
     n = len(cells)
     size = 2 * 4 * n
@@ -341,7 +362,7 @@ def _face_block_float(cell_l, cell_r, *, gamma, entropy_delta):
 
 
 def _script_flux(cell_l, cell_r, *, gamma, entropy_delta):
-    """脚本侧 Roe 数值通量：F* = left.U_L + right.U_R（Euler 一次齐次 F=A.U）。"""
+    """Script-side Roe numerical flux: F* = left.U_L + right.U_R (Euler is degree-1 homogeneous, F = A.U)."""
     left, right = _face_block_float(cell_l, cell_r, gamma=gamma, entropy_delta=entropy_delta)
     return tuple(
         sum(left[i][j] * cell_l[j] for j in range(3))
@@ -351,7 +372,7 @@ def _script_flux(cell_l, cell_r, *, gamma, entropy_delta):
 
 
 # ---------------------------------------------------------------------------
-# QHAM 共享构造
+# QHAM shared constructions
 # ---------------------------------------------------------------------------
 
 
@@ -364,10 +385,11 @@ def _quadratic_problem():
 
 
 def _aux_matrix(operation, width, signal_qubits, alpha, raw_dimension, matrix, *, name):
-    """aux 寄存器叠加技巧：一次运行取出 BE 全矩阵（signal==0 块）。
+    """aux-register superposition trick: retrieve the full BE matrix (signal==0 block) in one run.
 
-    |c>_aux|c>_target 叠加下，(c, r, 0) 的振幅即 M[r][c]/alpha/sqrt(2^w)。
-    返回 (最大元素偏差, 缺失支撑数, 越界支撑数)。
+    Under the |c>_aux |c>_target superposition, the amplitude of (c, r, 0) is
+    exactly M[r][c]/alpha/sqrt(2^w). Returns (max element deviation, missing
+    support count, out-of-range support count).
     """
     b = Builder(
         name,
@@ -414,7 +436,7 @@ def verify_qham_generator_stencil(report, context):
         paths=["rir-pysparq"],
         parameters={"raw_dimension": raw, "width": be.width, "alpha": be.alpha},
         metrics={"max_error": worst, "missing_support": missing, "pad_leakage": pad},
-        criterion="全矩阵逐元素 < 1e-9（对照 reference 独立矩阵），支撑恰好且填充块为零",
+        criterion="full matrix element-wise < 1e-9 (against the independent reference matrix), support exact and padding block zero",
         passed=worst < 1e-9 and missing == 0 and pad == 0,
     )
 
@@ -434,7 +456,7 @@ def verify_qham_generator_spectral(report, context):
         paths=["rir-pysparq"],
         parameters={"raw_dimension": raw, "width": be.width, "alpha": be.alpha},
         metrics={"max_error": worst, "missing_support": missing, "pad_leakage": pad},
-        criterion="谱嵌入端口的全矩阵与参考矩阵逐元素 < 1e-9（两输入模型同一矩阵）",
+        criterion="the spectral-embedding port's full matrix matches the reference matrix element-wise < 1e-9 (both input models give the same matrix)",
         passed=worst < 1e-9 and missing == 0 and pad == 0,
     )
 
@@ -461,13 +483,13 @@ def verify_qham_generator_cross_paths(report, context):
         paths=["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
         parameters={"total_qubits": total_qubits, "budget": 24},
         metrics={"max_pairwise_deviation": deviation},
-        criterion="四条真实后端路径两两振幅偏差 < 1e-9",
+        criterion="pairwise amplitude deviation across the four real backend paths < 1e-9",
         passed=deviation < 1e-9,
     )
 
 
 def verify_qham_input_models(report):
-    """线性 PDE（空间变系数 nu）下三种端口实现的一致性。"""
+    """Consistency of the three port implementations for a linear PDE (spatially varying coefficient nu)."""
     u = Field("u")
     pde = PolynomialPDE.from_equations({"u": 0.5 * Known("nu") * u.d("x", 1) - 0.2 * u})
     plan = QHAMPlan(pde, 1)
@@ -490,7 +512,7 @@ def verify_qham_input_models(report):
         )
         measured[tag] = (worst, missing, pad)
         alphas[tag] = be.alpha
-    # QRAM 角表系数：同一程序在绑定时换成 qram_database + 角表内存
+    # QRAM angle-table coefficients: the same program swaps in qram_database + angle-table memory at binding time
     from functools import partial
 
     bindings = structured_fd_bindings(
@@ -542,7 +564,7 @@ def verify_qham_input_models(report):
             "qram_angle_bound": angle_bound,
         },
         criterion=(
-            "stencil/spectral 全矩阵 < 1e-9；QRAM 角表偏差不超过 alpha*pi/2^angle_width"
+            "stencil/spectral full matrices < 1e-9; the QRAM angle-table deviation does not exceed alpha*pi/2^angle_width"
         ),
         passed=measured["stencil"][0] < 1e-9
         and measured["spectral"][0] < 1e-9
@@ -553,7 +575,7 @@ def verify_qham_input_models(report):
 
 
 def verify_qram_coefficient_pointwise(report):
-    """QRAM 系数角编码逐点真值：对角 BE 在每个地址的振幅对照 v/alpha。"""
+    """QRAM coefficient angle-encoding pointwise truth: the diagonal BE's amplitude at every address vs v/alpha."""
     u = Field("u")
     pde = PolynomialPDE.from_equations({"u": 0.5 * Known("nu") * u.d("x", 1) - 0.2 * u})
     grid = Grid(("x",), (4,), (1.0,))
@@ -593,7 +615,7 @@ def verify_qram_coefficient_pointwise(report):
             "quantization_bound": bound,
             "cross_path_deviation": cross,
         },
-        criterion="逐地址振幅与 v/alpha 的偏差 <= pi/2^(aw+1)（角量化界），且两路径一致",
+        criterion="per-address amplitude deviation from v/alpha <= pi/2^(aw+1) (the angle quantization bound), and both paths agree",
         passed=worst <= bound and cross < 1e-9,
     )
 
@@ -625,7 +647,7 @@ def verify_qham_lifted_initial(report, context):
         parameters={
             "raw_dimension": len(lifted),
             "total_qubits": total_qubits,
-            "note": "71 qubits 超过 UniQC 24 预算，仅走 pysparq 路径",
+            "note": "71 qubits exceeds the UniQC budget of 24; only the pysparq path is used",
         },
         metrics={
             "max_error": worst,
@@ -633,7 +655,7 @@ def verify_qham_lifted_initial(report, context):
             "classical_log_norm": math.log(norm),
             "dirty_work_states": dirty_work,
         },
-        criterion="提升初态逐振幅 < 1e-9（对照张量字权重直接构造），log 范数一致，work 复净",
+        criterion="lifted initial state amplitude by amplitude < 1e-9 (vs the direct tensor-word weight construction), log norms agree, work returned clean",
         passed=worst < 1e-9
         and abs(model.log_initial_norm - math.log(norm)) < 1e-12
         and dirty_work == 0,
@@ -661,7 +683,7 @@ def verify_qham_taylor_and_shift(report, context):
         )
         results[tag] = worst
     pairwise = abs(results["stencil_model"] - results["spectral_model"])
-    # 显式耗散移位：G - mu*I 作用在完整 2^w 空间（含填充子空间的 -mu 对角）
+    # Explicit dissipative shift: G - mu*I acts on the full 2^w space (the padding subspace gets the -mu diagonal)
     model = context["stencil_model"]
     shifted = model.dissipative_shift()
     be = shifted.generator
@@ -690,8 +712,8 @@ def verify_qham_taylor_and_shift(report, context):
             "growth_shift": shifted.growth_shift,
         },
         criterion=(
-            "两种输入模型的 Taylor 解均对照经典 (I+tG)Y_in < 1e-9；"
-            "移位生成元在完整 2^w 空间（含填充子空间 -mu 对角）全矩阵 < 1e-9"
+            "both input models' Taylor solutions match the classical (I+tG)Y_in < 1e-9; "
+            "the shifted generator's full matrix on the complete 2^w space (padding subspace -mu diagonal included) < 1e-9"
         ),
         passed=max(results.values()) < 1e-9 and pairwise < 1e-9 and worst_shift < 1e-9
         and missing == 0 and pad == 0 and shifted.growth_shift == mu,
@@ -704,7 +726,7 @@ def _exact_riccati(t, u0=0.2, a=-0.2, b=0.1):
 
 
 def _ham_partial_sum(disc, order, eta, u0, final_time, dt):
-    """对 HAM 递推做同步 RK4 积分：U'_k = L U_k + prev_k（prev 按同伦步代数递推）。"""
+    """Synchronous RK4 integration of the HAM recursion: U'_k = L U_k + prev_k (prev recursed by the homotopy-step algebra)."""
     dim = disc.dimension
     port_l = [[disc.entry("L", r, c) for c in range(dim)] for r in range(dim)]
     U = [list(u0)] + [[0.0] * dim for _ in range(order)]
@@ -747,7 +769,7 @@ def _ham_partial_sum(disc, order, eta, u0, final_time, dt):
 
 
 def verify_qham_homotopy_contraction(report):
-    # (a) 同伦权重对照显式公式
+    # (a) Homotopy weights against the explicit formulas
     weight_worst = 0.0
     for eta in (-1.0, -0.4, 0.2):
         for power in range(5):
@@ -757,7 +779,7 @@ def verify_qham_homotopy_contraction(report):
                 abs(HomotopyWeight("physical", power).evaluate(eta) - (1 - (1 + eta) ** power)),
             )
     weight_worst = max(weight_worst, abs(HomotopyWeight().evaluate(-0.4) - 1.0))
-    # (b) 生成行规则（linear_action）对照独立链式法则（chain_rule）
+    # (b) Generation-row rules (linear_action) vs the independent chain rule (chain_rule)
     rule_residual = 0.0
     plan, disc = _quadratic_problem()
     for eta in (-1.0, -0.4, 0.2):
@@ -786,7 +808,7 @@ def verify_qham_homotopy_contraction(report):
         )
     )
     rule_residual = max(rule_residual, residual_b)
-    # (c) HAM 部分和对精确 Riccati 解的收缩收敛；测得收缩因子对照 |1+eta|
+    # (c) Contraction convergence of the HAM partial sums vs the exact Riccati solution; measured contraction factor vs |1+eta|
     final_time = 0.5
     convergence = {}
     ratio_ok = True
@@ -817,14 +839,14 @@ def verify_qham_homotopy_contraction(report):
             "mean_ratio_-0.8": convergence["-0.8"]["mean_ratio"],
         },
         criterion=(
-            "权重精确；行规则 vs 链式法则 < 1e-9；HAM 误差随阶收缩且平均收缩因子 ≈ |1+eta|"
+            "weights exact; row rules vs chain rule < 1e-9; HAM errors contract with order and the mean contraction factor is approximately |1+eta|"
         ),
         passed=weight_worst < 1e-12 and rule_residual < 1e-9 and ratio_ok and monotone,
     )
 
 
 def verify_pde_wrappers(report):
-    """algorithms/pde.py 的 DiscretePDE / make_qpde / qpde_solver 数值直通。"""
+    """Numerical pass-through of DiscretePDE / make_qpde / qpde_solver from algorithms/pde.py."""
     laplacian = [[2.0 if r == c else (-1.0 if (r - c) % 4 in (1, 3) else 0.0) for c in range(4)] for r in range(4)]
     be = scale(-0.1, matrix_pauli_encoding(laplacian))
     prep = gate_state_prep([1.0, 0.0, 0.0, 0.0])
@@ -853,13 +875,13 @@ def verify_pde_wrappers(report):
         paths=["rir-pysparq"],
         parameters={"time": time, "alpha_evolution": alpha_e},
         metrics={"max_error": worst},
-        criterion="两条 wrapper 链的态均对照经典 (I+tG)psi/alpha < 1e-9",
+        criterion="both wrapper chains' states match the classical (I+tG)psi/alpha < 1e-9",
         passed=worst < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# QFVM 案例
+# QFVM cases
 # ---------------------------------------------------------------------------
 
 
@@ -913,7 +935,7 @@ def verify_roe_face_pointwise(report):
         state = rir_pysparq(b.finish().program(), max_steps=8_000_000)
         for basis, amplitude in state.items():
             if abs(abs(amplitude) - 1 / math.sqrt(len(state))) > 1e-9:
-                raise AssertionError(f"roe_face/{tag}: 分支振幅不均匀 {amplitude}")
+                raise AssertionError(f"roe_face/{tag}: non-uniform branch amplitude {amplitude}")
             values = dict(zip(names, basis, strict=True))
             args = [fmt.decode(values[k]) for k in ("rho_l", "m_l", "e_l", "rho_r", "m_r", "e_r")]
             left, right, flags = roe_face_fx(
@@ -921,10 +943,10 @@ def verify_roe_face_pointwise(report):
             )
             if values["left"] != left.raw or values["right"] != right.raw:
                 raise AssertionError(
-                    f"roe_face/{tag}: 位级不一致 {values} vs emu ({left.raw}, {right.raw})"
+                    f"roe_face/{tag}: bit-level mismatch {values} vs emu ({left.raw}, {right.raw})"
                 )
             if values["status"] != flags[0] + 2 * flags[1]:
-                raise AssertionError(f"roe_face/{tag}: status 不一致 {values['status']} vs {flags}")
+                raise AssertionError(f"roe_face/{tag}: status mismatch {values['status']} vs {flags}")
             fl, fr = frozen_roe_face(*args, values["row"], values["col"], entropy_delta=QFVM_DELTA)
             method_worst = max(
                 method_worst, abs(fmt.decode(values["left"]) - fl), abs(fmt.decode(values["right"]) - fr)
@@ -936,8 +958,8 @@ def verify_roe_face_pointwise(report):
         parameters={"format": "5.2", "entropy_delta": QFVM_DELTA, "branches": total},
         metrics={"exact_raw_match_branches": total, "method_max_error": method_worst},
         criterion=(
-            "全部叠加分支（16+8+8=32）的输出 raw 与 status 和独立定点仿真逐位一致（不一致即抛错）；"
-            "方法误差（对照 float64 Roe 公式）单独报告"
+            "all superposition branches (16+8+8=32) have outputs raw and status bit-identical to the independent fixed-point simulation (any mismatch raises); "
+            "the method error (vs the float64 Roe formulas) is reported separately"
         ),
         passed=True,
     )
@@ -964,7 +986,7 @@ def verify_qfvm_entry_matrix(report):
     )
     memory = dict(QFVM_MEMORY)
     memory["geometry"] = geometry_cells(inputs)
-    # 列 5（cell1/var1/half0），行取 half1 的 cells{0..3} x vars{0,1} 共 8 分支
+    # Column 5 (cell1/var1/half0), rows take half1's cells{0..3} x vars{0,1}: 8 branches
     program = _qfvm_entry_driver(inputs, entry, [0, 2], [4], [0, 2, 3], "entry_sample")
     state = rir_pysparq(program, memory, max_steps=60_000_000)
     impl_worst = 0.0
@@ -972,11 +994,11 @@ def verify_qfvm_entry_matrix(report):
     zero_ok = True
     for (row, column, data), amplitude in state.items():
         if abs(amplitude - 1 / math.sqrt(8)) > 1e-9:
-            raise AssertionError(f"entry_sample: 分支振幅异常 {amplitude}")
+            raise AssertionError(f"entry_sample: anomalous branch amplitude {amplitude}")
         emulated = d_emu[row][column]
         if data != emulated:
             raise AssertionError(
-                f"entry_sample: ({row},{column}) raw {data} != 仿真 {emulated}"
+                f"entry_sample: ({row},{column}) raw {data} != emulation {emulated}"
             )
         impl_worst = max(impl_worst, abs(fmt.decode(data) - fmt.decode(emulated)))
         method_worst = max(method_worst, abs(fmt.decode(emulated) - d_float[row][column]))
@@ -987,16 +1009,16 @@ def verify_qfvm_entry_matrix(report):
         paths=["rir-pysparq"],
         parameters={
             "column": 5,
-            "rows": "half=1, cells 0-3, vars 0-1 (8 分支叠加)",
+            "rows": "half=1, cells 0-3, vars 0-1 (8-branch superposition)",
             "format": "5.2",
-            "note": "条目电路约 1.6e7 展开门，叠加穷举该列三带非零元与零结构",
+            "note": "the entry circuit has about 1.6e7 expansion gates; the superposition sweep covers this column's three non-zero bands and the zero structure",
         },
         metrics={
             "impl_max_error": impl_worst,
             "method_max_error": method_worst,
             "zero_structure_ok": zero_ok,
         },
-        criterion="采样条目 raw 与独立定点仿真逐位一致；方法误差对照 float64 矩阵单独报告",
+        criterion="sampled entry raws are bit-identical to the independent fixed-point simulation; the method error vs the float64 matrix is reported separately",
         passed=zero_ok,
     )
 
@@ -1007,7 +1029,7 @@ def verify_qfvm_entry_padding(report):
     entry = qfvm_sparse_access(inputs, entropy_delta=QFVM_DELTA).entry
     memory = dict(QFVM_MEMORY)
     memory["geometry"] = geometry_cells(inputs)
-    # 列 7（cell1/var3/half0），行 {7, 23}：精确对角给 padding，半块外为零
+    # Column 7 (cell1/var3/half0), rows {7, 23}: the exact diagonal receives padding, outside the half-block is zero
     program = _qfvm_entry_driver(inputs, entry, [0, 1, 2], [0, 1, 2], [4], "entry_padding")
     state = rir_pysparq(program, memory, max_steps=60_000_000)
     padding_raw = fmt.encode(1.0)
@@ -1021,13 +1043,13 @@ def verify_qfvm_entry_padding(report):
         paths=["rir-pysparq"],
         parameters={"column": 7, "rows": [7, 23], "padding_value": 1.0},
         metrics={"diagonal_raw": matched.get((7, 7)), "off_block_raw": matched.get((23, 7))},
-        criterion="补齐变量精确对角为 padding_value 的 raw，扩张块外为零",
+        criterion="the padding variable's exact diagonal holds the padding_value raw, and outside the expanded block is zero",
         passed=diag_ok and off_ok and len(matched) == 2,
     )
 
 
 def _geometry_expected(inputs):
-    """按文档化 ABI 独立重算几何表（不调用 geometry_cells）。"""
+    """Independently recompute the geometry table per the documented ABI (without calling geometry_cells)."""
     cw, w = inputs.cell_width, inputs.width
     n, table = 1 << cw, {}
     for row in range(1 << w):
@@ -1101,7 +1123,7 @@ def verify_qfvm_location(report):
             "dirty_work_states": dirty_work,
         },
         criterion=(
-            "几何表逐点一致；32 列全叠加下每列都是完整置换，9 槽位映射与独立几何语义一致"
+            "geometry table pointwise identical; under the 32-column full superposition every column is a complete permutation, and the 9 slot mappings match the independent geometric semantics"
         ),
         passed=pointwise == 0
         and permutation_ok
@@ -1116,7 +1138,7 @@ def verify_qfvm_rhs_preparation(report):
     inputs = roe_qfvm_inputs(fmt=fmt, angle_width=aw)
     flow = RoeFlowData(QFVM_STATES, fmt=fmt, entropy_delta=QFVM_DELTA, angle_width=aw)
     memories = qfvm_memories(inputs, flow)
-    # 独立残差：脚本侧通量 + fmt 量化往返
+    # Independent residual: script-side fluxes + fmt quantization round trip
     fluxes = [
         _script_flux(QFVM_STATES[i], QFVM_STATES[(i + 1) % 4], gamma=1.4, entropy_delta=QFVM_DELTA)
         for i in range(4)
@@ -1144,7 +1166,7 @@ def verify_qfvm_rhs_preparation(report):
         if expected != 0 and abs(amplitude) > 1e-6 and (amplitude.real > 0) != (expected > 0):
             sign_bad += 1
     total_prob = sum(abs(v) ** 2 for v in state.values())
-    # 角度/符号 bank 逐点真值（对照独立平方和树）
+    # Angle/sign banks pointwise truth (against an independent sum-of-squares tree)
     tree = [0.0] * (8 * 4)
     for address, value in enumerate(residual):
         tree[16 + address] = value * value
@@ -1176,8 +1198,8 @@ def verify_qfvm_rhs_preparation(report):
             "flow_norm_vs_tree": abs(flow.rhs_norm - norm),
         },
         criterion=(
-            "制备振幅与独立残差/范数一致（角量化容差 0.01），符号精确，"
-            "角度树/符号 bank 逐点真值"
+            "prepared amplitudes match the independent residual/norm (angle quantization tolerance 0.01), signs exact, "
+            "angle tree/sign bank pointwise truth"
         ),
         passed=amplitude_worst < 0.01
         and sign_bad == 0
@@ -1189,7 +1211,7 @@ def verify_qfvm_rhs_preparation(report):
 
 
 def verify_qfvm_single_step(report):
-    """flow_data 单步更新与 Roe 通量的经典恒等式（对照矩阵求逆独立实现）。"""
+    """Classical identities of the flow_data single-step update and the Roe flux (vs an independent matrix-inversion implementation)."""
     from oracq.applications.flow_data import riemann_flux
 
     gamma, delta = 1.4, 0.125
@@ -1216,8 +1238,9 @@ def verify_qfvm_single_step(report):
                 consistency_worst,
                 max(abs(a - b) for a, b in zip(via_blocks, physical, strict=True)),
             )
-    # M.u - mass.u == -residual：矩阵编码 mass*I 减残差通量差（隐式 FVM 线性化的标准
-    # 符号约定；residual 按 flow_data 定义为 F*_{i-1} - F*_i，M 由 frozen_roe_face 三带构造）
+    # M.u - mass.u == -residual: the matrix encodes mass*I minus the residual flux difference (the standard sign
+    # convention of the implicit FVM linearization; residual is defined by flow_data as F*_{i-1} - F*_i, and M is
+    # built from the frozen_roe_face three bands)
     d_float, _ = _qfvm_matrices(
         QFVM_FMT, QFVM_STATES, mass=1.0, dx=1.0, gamma=1.4, entropy_delta=QFVM_DELTA
     )
@@ -1235,7 +1258,7 @@ def verify_qfvm_single_step(report):
             (fluxes[cell][var] - fluxes[(cell - 1) % 4][var]) / 1.0 if var < 3 else 0.0 - u_vec[i]
         )
         residual_worst = max(residual_worst, abs(mu - expected))
-    # RoeFlowData 残差 bank 与独立量化残差一致；局部更新 patch 精确
+    # The RoeFlowData residual bank matches the independent quantized residual; local update patches are exact
     flow = RoeFlowData(QFVM_STATES, fmt=QFVM_FMT, entropy_delta=QFVM_DELTA, angle_width=8)
     quantized_worst = 0.0
     for cell in range(4):
@@ -1259,7 +1282,7 @@ def verify_qfvm_single_step(report):
     locality_ok = (
         set(patch.recomputed_faces) == {1, 2} and set(patch.recomputed_cells) == {1, 2, 3}
     )
-    # ptheta 逐点真值
+    # ptheta pointwise truth
     table = ptheta_cells(QFVM_FMT, 8, 8.0)
     ptheta_bad = sum(
         1
@@ -1284,8 +1307,8 @@ def verify_qfvm_single_step(report):
             "ptheta_mismatches": ptheta_bad,
         },
         criterion=(
-            "F*=left.L+right.R 对照求逆实现 < 1e-9；M.u-mass.u=-residual（隐式符号约定）< 1e-9；"
-            "局部更新与全量重算一致；ptheta 逐点精确"
+            "F* = left.L + right.R vs the inversion implementation < 1e-9; M.u - mass.u = -residual (implicit sign convention) < 1e-9; "
+            "local updates match a full recomputation; ptheta exact pointwise"
         ),
         passed=flux_worst < 1e-9
         and consistency_worst < 1e-9
@@ -1300,7 +1323,7 @@ def verify_qfvm_single_step(report):
 def run():
     report = Report(
         "qham_qfvm",
-        "QHAM 生成元/同伦步/初态/求解链与 QFVM Roe 通量/条目/位置/RHS 的论文级数值验证。",
+        "Publication-grade numerical validation of the QHAM generator/homotopy steps/initial state/solve chain and the QFVM Roe fluxes/entries/locations/RHS.",
     )
     context = {}
     verify_qham_generator_stencil(report, context)

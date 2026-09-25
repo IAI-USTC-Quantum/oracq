@@ -1,27 +1,40 @@
-"""Hamiltonian 模拟与 QSVT 标准变换的论文级数值验证。
+"""Publication-grade numerical validation of Hamiltonian simulation and standard QSVT transforms.
 
-覆盖 src/oracq/algorithms/hamiltonian.py 与 src/oracq/algorithms/qsvt.py：
+Covers src/oracq/algorithms/hamiltonian.py and src/oracq/algorithms/qsvt.py:
 
-- trotter_hamsim / hamiltonian_simulation：线路幺正（UniQC ``Circuit.to_matrix``）
-  与乘积公式的独立经典矩阵逐元素对拍（单项精确、含恒等项全局相位、1–4 量子位）；
-  以 scipy.linalg.expm 为独立 oracle 拟合一阶 Lie–Trotter 的收敛阶（误差 ∝ 1/steps）。
-- qsp_phases / qsvt_sequence / qubitization_walk：相位合成往返（numpy 按文档约定
-  独立实现的 QSP 响应）、电路零信号块与目标多项式在后端四条路径上逐点对拍、
-  qubitization 的 W^n 零信号块 = T_n(x) 递推见证。
+- trotter_hamsim / hamiltonian_simulation: circuit unitaries (UniQC
+  ``Circuit.to_matrix``) compared element-wise against independent classical
+  matrices from the product formula (single-term exact, identity term global
+  phase, 1-4 qubits); the convergence order of first-order Lie-Trotter (error
+  proportional to 1/steps) is fitted with scipy.linalg.expm as the independent
+  oracle.
+- qsp_phases / qsvt_sequence / qubitization_walk: phase-synthesis round trip
+  (QSP response independently implemented with numpy per the documented
+  convention), circuit zero-signal blocks vs the target polynomial pointwise
+  over four backend paths, and the W^n zero-signal block of qubitization =
+  T_n(x) recurrence witness.
 - qsvt_hamiltonian_simulation / qsvt_matrix_inversion / eigenstate_filter /
-  gibbs_purification（density.py，QSVT 消费端）：零信号块与 scipy expm /
-  numpy.linalg.inv / 解析过滤多项式 / 经典 Gibbs 态对拍；报告实现误差与方法误差、
-  恢复逆矩阵的条件数对比、通阻带压制、迹距离与成功概率。
-- oblivious_amplification：库算子 W = U·[R U† R U]（历史缺陷已修复：原迭代体
-  [R U† R U] 缺收尾 U，零信号块退化为 2B†B − I、不执行放大）。修复后零信号块
-  满足切比雪夫放大恒等式 ΠWΠ = B(4B†B − 3I)（精确验证）；脚本按文献序列
-  U R U† R U 独立组装，断言库算子与之逐振幅一致（回归钉），V/2 → −V 放大
-  语义见 docs/manual/algorithms/oblivious-amplification.md 的数值验证节。
+  gibbs_purification (density.py, QSVT consumers): zero-signal blocks compared
+  against scipy expm / numpy.linalg.inv / the analytic filter polynomial /
+  the classical Gibbs state; reporting implementation vs method error,
+  recovered-inverse condition-number comparison, pass/stop-band suppression,
+  trace distance, and success probability.
+- oblivious_amplification: the library operator W = U*[R U^dagger R U] (a
+  historical defect is fixed: the original iterate [R U^dagger R U] lacked the
+  trailing U, and its zero-signal block degenerated to 2B^dagger B - I,
+  performing no amplification). After the fix the zero-signal block satisfies
+  the Chebyshev amplification identity Pi W Pi = B(4B^dagger B - 3I) (verified
+  exactly); the script independently assembles the literature sequence
+  U R U^dagger R U and asserts the library operator matches it amplitude by
+  amplitude (a regression pin); the V/2 -> -V amplification semantics appear
+  in the numerical-validation section of
+  docs/manual/algorithms/oblivious-amplification.md.
 
-经典 oracle 全部独立：numpy/scipy/math 闭式与矩阵例程均在本脚本内直接构造，
-不复用被测模块的内部辅助函数。
+All classical oracles are independent: numpy/scipy/math closed forms and
+matrix routines are constructed directly in this script without reusing
+internal helpers of the modules under test.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_hamiltonian.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_hamiltonian.py
 """
 
 from __future__ import annotations
@@ -72,7 +85,7 @@ from oracq.infrastructure.ir import Bits
 from oracq.infrastructure.layout import workspace_table
 
 # ---------------------------------------------------------------------------
-# 独立经典 oracle：Pauli 矩阵、乘积公式、QSP 响应、目标多项式。
+# Independent classical oracles: Pauli matrices, product formula, QSP response, target polynomials.
 # ---------------------------------------------------------------------------
 
 _PAULI = {
@@ -84,7 +97,7 @@ _PAULI = {
 
 
 def pauli_matrix(word):
-    """Pauli 词的稠密矩阵；word[i] 作用于第 i 量子位（权重 2^i，与 RIR 寄存器一致）。"""
+    """Dense matrix of a Pauli word; word[i] acts on qubit i (weight 2^i, matching the RIR register)."""
     result = _PAULI[word[0]]
     for letter in word[1:]:
         result = np.kron(_PAULI[letter], result)
@@ -96,14 +109,14 @@ def hamiltonian_matrix(terms):
 
 
 def term_unitary(coefficient, word, time):
-    """exp(−i·c·t·P) 的闭式：P² = I 故为 cos(ct)·I − i·sin(ct)·P。"""
+    """Closed form of exp(-i*c*t*P): since P^2 = I it is cos(ct)*I - i*sin(ct)*P."""
     theta = coefficient * time
     dim = 1 << len(word)
     return math.cos(theta) * np.eye(dim) - 1j * math.sin(theta) * pauli_matrix(word)
 
 
 def product_formula(terms, final_time, steps):
-    """一阶 Lie–Trotter 乘积公式的经典矩阵（项序与电路作用顺序一致）。"""
+    """Classical matrix of the first-order Lie-Trotter product formula (term order matches the circuit application order)."""
     dim = 1 << len(terms[0][1])
     step = np.eye(dim, dtype=complex)
     for coefficient, word in terms:
@@ -112,10 +125,10 @@ def product_formula(terms, final_time, steps):
 
 
 def qsp_response_ref(x, phases):
-    """按模块 docstring 的反射约定用 numpy 独立实现的 QSP 响应。
+    """QSP response independently implemented with numpy, following the reflection convention of the module docstring.
 
-    p(x) = [S(φ_0) W(x) S(φ_1) W(x) … S(φ_d)]_00，S(φ) = diag(e^{iφ}, e^{−iφ})，
-    W(x) = [[x, s], [s, −x]]。与被测 qsvt.qsp_response 互为独立实现。
+    p(x) = [S(phi_0) W(x) S(phi_1) W(x) ... S(phi_d)]_00, S(phi) = diag(e^{i*phi}, e^{-i*phi}),
+    W(x) = [[x, s], [s, -x]]. Independent of the qsvt.qsp_response under test.
     """
     s = math.sqrt(max(0.0, 1.0 - x * x))
     walk = np.array([[x, s], [s, -x]])
@@ -128,7 +141,7 @@ def qsp_response_ref(x, phases):
 
 
 def chebyshev_coeffs(n):
-    """T_n 的升幂单项式系数（三重递推，独立实现）。"""
+    """Ascending monomial coefficients of T_n (triple recursion, independently implemented)."""
     if n == 0:
         return (1.0,)
     if n == 1:
@@ -150,7 +163,7 @@ def poly_eval(coeffs, x):
 
 
 def matrix_polynomial(coeffs, mat):
-    """升幂系数多项式的矩阵 Horner 求值（独立 oracle）。"""
+    """Matrix Horner evaluation of a polynomial with ascending coefficients (independent oracle)."""
     result = np.zeros_like(mat)
     for c in reversed(coeffs):
         result = result @ mat + c * np.eye(mat.shape[0])
@@ -158,26 +171,26 @@ def matrix_polynomial(coeffs, mat):
 
 
 def chebyshev_value(n, x):
-    """T_n(x)，|x| > 1 时用双曲延拓。"""
+    """T_n(x), using the hyperbolic continuation when |x| > 1."""
     if abs(x) <= 1.0:
         return math.cos(n * math.acos(x))
     return math.cosh(n * math.acosh(abs(x))) * (1.0 if x > 0 or n % 2 == 0 else -1.0)
 
 
 def filter_polynomial(gap, degree, x):
-    """Lin–Tong 过滤多项式 f(x) = T_d(g(x²))/T_d(r) 的独立求值。"""
+    """Independent evaluation of the Lin-Tong filter polynomial f(x) = T_d(g(x^2))/T_d(r)."""
     r = (1.0 + gap**2) / (1.0 - gap**2)
     g = 2.0 * (x * x - gap**2) / (1.0 - gap**2) - 1.0
     return chebyshev_value(degree, g) / math.cosh(degree * math.acosh(r))
 
 
 def jacobi_anger_tail(t, kmax):
-    """e^{itx} 的 Jacobi–Anger 截断尾部上界 2·Σ_{j>K} |J_j(t)|（scipy 独立求值）。"""
+    """Truncated Jacobi-Anger tail bound 2*sum_{j>K} |J_j(t)| of e^{itx} (independently evaluated with scipy)."""
     return float(2.0 * sum(abs(bessel_j(j, t)) for j in range(kmax + 1, kmax + 200)))
 
 
 def gibbs_reference(matrix, beta):
-    """经典 Gibbs 态 e^{−βH}/Tr（scipy expm，独立 oracle）。"""
+    """Classical Gibbs state e^{-beta*H}/Tr (scipy expm, independent oracle)."""
     weights = scipy_expm(-beta * np.asarray(matrix, dtype=complex))
     return weights / np.trace(weights)
 
@@ -187,29 +200,31 @@ def trace_distance(rho, sigma):
 
 
 # ---------------------------------------------------------------------------
-# 后端执行辅助：列读出零信号块、预算预判、统一条目解码。
+# Backend execution helpers: column-readout zero-signal block, budget precheck, unified entry decoding.
 # ---------------------------------------------------------------------------
 
 
 def budget_qubits(program):
-    """寄存器 + 工作区总量（OriginIR 态向量预算 24 量子位）。"""
+    """Registers + workspace total (OriginIR state-vector budget is 24 qubits)."""
     return sum(r.type.width for r in program.main.registers) + workspace_table(program)[
         program.entry
     ]
 
 
 def embed_unitary(circuit, dim):
-    """把 UniQC to_matrix 的幺正嵌入到 dim 维。
+    """Embed the UniQC to_matrix unitary into dimension dim.
 
-    UniQC 按最高被引用量子位定矩阵维数，会裁掉尾部没有任何门的量子位
-    （如 Pauli 词尾随的 I）；被裁部分作用为恒等，故右 Kronecker 恒等因子。
-    本验证中所有程序的已用量子位均为前缀，嵌入是精确的。
+    UniQC sizes the matrix by the highest referenced qubit and truncates
+    trailing qubits that carry no gates (e.g. an I trailing a Pauli word); the
+    truncated part acts as the identity, so a right Kronecker identity factor
+    is applied. In this validation all used qubits of every program form a
+    prefix, so the embedding is exact.
     """
     current = circuit.shape[0]
     if current == dim:
         return circuit
     if current > dim or dim % current:
-        raise AssertionError(f"幺正维数 {current} 无法嵌入 {dim}")
+        raise AssertionError(f"unitary dimension {current} cannot be embedded into {dim}")
     return np.kron(np.eye(dim // current, dtype=complex), circuit)
 
 
@@ -226,7 +241,7 @@ def _decode_index(index, widths):
 
 
 def _iter_entries(state, widths):
-    """把 dict 稀疏态与 originir 稠密态向量统一为 (寄存器值元组, 振幅) 迭代。"""
+    """Unify dict sparse states and dense originir state vectors into (register-value tuple, amplitude) iteration."""
     if isinstance(state, dict):
         yield from state.items()
     else:
@@ -236,12 +251,12 @@ def _iter_entries(state, widths):
 
 
 def run_column(operation, runner, column):
-    """X 门制备 target 基态列后执行（四条路径统一走 driver，起点均为 |0>）。"""
+    """Prepare the target basis-state column with X gates, then execute (all four paths use the driver uniformly, starting from |0>)."""
     return runner(basis_program(operation, {"target": column}, name=f"column_{column}"))
 
 
 def zero_signal_block(operation, runner, dim):
-    """逐列读出 signal == 0 分支的 target 块与该列成功概率。"""
+    """Read out the target block of the signal == 0 branch column by column, plus the per-column success probability."""
     widths = _register_widths(operation)
     block = np.zeros((dim, dim), dtype=complex)
     success = []
@@ -257,12 +272,12 @@ def zero_signal_block(operation, runner, dim):
 
 
 # ---------------------------------------------------------------------------
-# A. Trotter 线路语义：幺正 vs 乘积公式独立矩阵。
+# A. Trotter circuit semantics: unitary vs independent product-formula matrices.
 # ---------------------------------------------------------------------------
 
 
 def verify_trotter_single_term(report):
-    """单项 Pauli 演化（steps=1 无 Trotter 误差）：幺正与闭式逐元素一致。"""
+    """Single-term Pauli evolution (steps=1, no Trotter error): unitary matches the closed form element-wise."""
     instances = [
         (0.7, "X", 0.4),
         (-0.3, "Y", 1.1),
@@ -290,13 +305,13 @@ def verify_trotter_single_term(report):
         paths=["originir-ext+to_matrix"],
         parameters={"instances": len(instances)},
         metrics={"max_error": worst, "per_word": per_word},
-        criterion="单项演化幺正等于 cos(ct)I − i·sin(ct)P（max_error < 1e-12）",
+        criterion="single-term evolution unitary equals cos(ct)I - i*sin(ct)P (max_error < 1e-12)",
         passed=worst < 1e-12,
     )
 
 
 def verify_trotter_product_formula(report):
-    """多项非对易分解：幺正与乘积公式经典矩阵逐步数/时间逐元素一致。"""
+    """Multi-term non-commuting decompositions: unitary matches the product-formula classical matrix element-wise over step/time sweeps."""
     instances = [
         (
             "1q",
@@ -345,13 +360,13 @@ def verify_trotter_product_formula(report):
                 "qubits": budget_qubits(program),
             },
             metrics={"max_error": worst, "trotter_gap_vs_expm": gap},
-            criterion="线路幺正等于乘积公式矩阵（max_error < 1e-12）",
+            criterion="circuit unitary equals the product-formula matrix (max_error < 1e-12)",
             passed=worst < 1e-12,
         )
 
 
 def verify_trotter_superposition_cross(report):
-    """3 量子位 TFIM 在均匀叠加输入下的四路径对拍（一次运行覆盖全部基态）。"""
+    """3-qubit TFIM on uniform-superposition input, four-path cross-check (one run covers all basis states)."""
     terms = [(0.9, "ZZI"), (0.9, "IZZ"), (0.6, "XII"), (0.6, "IXI"), (0.6, "IIX")]
     operation = trotter_hamsim(terms, 0.9, steps=3)
     program = superposition_program(operation, ["target"])
@@ -375,13 +390,13 @@ def verify_trotter_superposition_cross(report):
         paths=list(deviations),
         parameters={"steps": 3, "time": 0.9, "qubits": budget_qubits(program)},
         metrics={"max_deviation": worst, "per_path": deviations},
-        criterion="四路径叠加态与乘积公式逐振幅一致（max_deviation < 1e-9）",
+        criterion="superposition state agrees with the product formula amplitude by amplitude on all four paths (max_deviation < 1e-9)",
         passed=worst < 1e-9,
     )
 
 
 def _convergence_scan(terms, time, grid):
-    """对固定 t 扫步数 r，返回谱范数误差序列（幺正路径，vs scipy expm）。"""
+    """Sweep the step count r for fixed t; returns the spectral-norm error sequence (unitary path, vs scipy expm)."""
     exact = scipy_expm(-1j * hamiltonian_matrix(terms) * time)
     errors = []
     for steps in grid:
@@ -394,7 +409,7 @@ def _convergence_scan(terms, time, grid):
 
 
 def verify_trotter_convergence(report):
-    """一阶 Lie–Trotter 收敛阶拟合：log–log 斜率应接近 −1（误差 ∝ t²/r）。"""
+    """First-order Lie-Trotter convergence-order fit: the log-log slope should be close to -1 (error proportional to t^2/r)."""
     instances = [
         ("2q", [(0.9, "ZZ"), (0.6, "XI"), (0.45, "IX")], 1.0, [1, 2, 4, 8, 16, 32, 64]),
         (
@@ -418,18 +433,18 @@ def verify_trotter_convergence(report):
                 "fitted_order": -slope,
                 "error_at_max_steps": errors[-1],
             },
-            criterion="拟合收敛阶在 [0.8, 1.3]（一阶乘积公式理论值 1）",
+            criterion="fitted convergence order within [0.8, 1.3] (theoretical value 1 for a first-order product formula)",
             passed=0.8 <= -slope <= 1.3,
         )
 
 
 # ---------------------------------------------------------------------------
-# B. hamiltonian_simulation 协议层（Trotter 路由与 QSP 注入）。
+# B. hamiltonian_simulation protocol layer (Trotter routing and QSP injection).
 # ---------------------------------------------------------------------------
 
 
 def verify_protocol_trotter(report):
-    """PauliHamiltonian 经协议路由到 Trotter：幺正精确等于乘积公式。"""
+    """PauliHamiltonian routed through the protocol to Trotter: unitary exactly equals the product formula."""
     terms = [(0.9, "ZZ"), (0.6, "XI"), (0.45, "IX")]
     operator = PauliHamiltonian(terms)
     exact = scipy_expm(-1j * hamiltonian_matrix(terms))
@@ -450,20 +465,20 @@ def verify_protocol_trotter(report):
             "max_error_vs_product_formula": worst_formula,
             "trotter_gap_vs_expm": gaps,
         },
-        criterion="协议组央幺正等于乘积公式（< 1e-12）且 r=16 的 expm 偏差小于 r=2",
+        criterion="protocol-assembled unitary equals the product formula (< 1e-12) and the expm deviation at r=16 is smaller than at r=2",
         passed=worst_formula < 1e-12 and gaps["16"] < gaps["2"],
     )
 
 
 def verify_protocol_qsp_injection(report):
-    """EncodedOperator 经 auto 路由到注入的 QSVT 内核：零信号块 vs scipy expm。"""
+    """EncodedOperator routed via auto to an injected QSVT kernel: zero-signal block vs scipy expm."""
     terms = [(0.6, "Z"), (0.4, "X")]
     ham = PauliHamiltonian(terms)
     operator = EncodedOperator(ham.block_encoding(), True)
     time = 0.5
 
     def injected_qsp(be, evolution_time):
-        # e^{iτA/α} 中取 τ = −t·α 即得 e^{−itH}
+        # taking tau = -t*alpha in e^{i*tau*A/alpha} yields e^{-i*t*H}
         return qsvt_hamiltonian_simulation(be, -evolution_time * be.alpha, error=0.02)
 
     result = hamiltonian_simulation(operator, time, method="auto", qsp=injected_qsp)
@@ -480,18 +495,18 @@ def verify_protocol_qsp_injection(report):
         paths=["reference", "rir-pysparq", "originir-ext"],
         parameters={"time": time, "qsp_error": 0.02, "sim_scale": scale},
         metrics={"max_error": worst, "success_probability": success},
-        criterion="零信号块 ≈ e^{−itH}/sim_scale（max_error < 3e-2，含 QSVT 逼近预算）",
+        criterion="zero-signal block approximates e^{-itH}/sim_scale (max_error < 3e-2, QSVT approximation budget included)",
         passed=worst < 3e-2,
     )
 
 
 # ---------------------------------------------------------------------------
-# C. QSP 相位合成、QSVT 序列约定与 qubitization。
+# C. QSP phase synthesis, QSVT sequence convention, and qubitization.
 # ---------------------------------------------------------------------------
 
 
 def verify_phase_synthesis(report):
-    """qsp_phases 往返：合成相位经独立响应求值回到目标多项式（401 点网格）。"""
+    """qsp_phases round trip: synthesized phases fed through the independent response recover the target polynomial (401-point grid)."""
     grid = [-1.0 + 2.0 * i / 400 for i in range(401)]
     targets = {f"chebyshev-T{n}": (chebyshev_coeffs(n), None) for n in range(1, 7)}
     targets["explicit-imag"] = ((0.0, 0.5), (0.0, math.sqrt(0.75)))
@@ -514,13 +529,13 @@ def verify_phase_synthesis(report):
         paths=["numpy-independent-response"],
         parameters={"grid_points": len(grid), "targets": len(targets)},
         metrics={"max_error": worst, "per_target": errors},
-        criterion="合成相位往返误差 < 1e-8（模块声称典型 1e-9 量级）",
+        criterion="synthesized-phase round-trip error < 1e-8 (module claims a typical 1e-9 order)",
         passed=worst < 1e-8,
     )
 
 
 def verify_qsvt_sequence_convention(report):
-    """随机相位下 qsvt_sequence 电路零信号块与独立响应逐点一致（四路径）。"""
+    """qsvt_sequence circuit zero-signal block vs the independent response under random phases, pointwise (four paths)."""
     rng = random.Random(20240901)
     phases = tuple(rng.uniform(-math.pi, math.pi) for _ in range(6))
     matrix = [[0.85, 0.0], [0.0, -0.55]]
@@ -544,13 +559,13 @@ def verify_qsvt_sequence_convention(report):
         paths=list(deviations),
         parameters={"phases": len(phases), "spectral_points": xs},
         metrics={"max_deviation": worst, "per_path": deviations},
-        criterion="四路径零信号块与独立 QSP 响应一致（max_deviation < 1e-9）",
+        criterion="zero-signal block on all four paths matches the independent QSP response (max_deviation < 1e-9)",
         passed=worst < 1e-9,
     )
 
 
 def verify_qsvt_sequence_matrix_block(report):
-    """2 量子位非对角 BE：qsvt_sequence 的完整零信号块等于矩阵多项式 T_4(A/α)。"""
+    """2-qubit non-diagonal BE: the full zero-signal block of qsvt_sequence equals the matrix polynomial T_4(A/alpha)."""
     terms = [(0.45, "ZZ"), (0.25, "XI"), (-0.15, "IZ"), (0.10, "II")]
     matrix = hamiltonian_matrix(terms)
     be = matrix_pauli_encoding(matrix)
@@ -572,13 +587,13 @@ def verify_qsvt_sequence_matrix_block(report):
         paths=used,
         parameters={"degree": 4, "alpha": be.alpha, "qubits": 4},
         metrics={"max_error": worst},
-        criterion="零信号块等于矩阵多项式 T_4(A/α)（max_error < 1e-9）",
+        criterion="zero-signal block equals the matrix polynomial T_4(A/alpha) (max_error < 1e-9)",
         passed=worst < 1e-9,
     )
 
 
 def verify_qubitization(report):
-    """qubitization_walk：W^n 的零信号块等于 T_n(x)（n = 1..5，双本征态）。"""
+    """qubitization_walk: the zero-signal block of W^n equals T_n(x) (n = 1..5, two eigenstates)."""
     matrix = [[0.85, 0.0], [0.0, -0.55]]
     be = matrix_pauli_encoding(matrix)
     walk = qubitization_walk(be)
@@ -611,18 +626,18 @@ def verify_qubitization(report):
         paths=["reference", "rir-pysparq", "originir-ext"],
         parameters={"powers": [1, 2, 3, 5], "spectral_points": xs},
         metrics={"max_error": worst},
-        criterion="W^n 零信号块等于 T_n(x)（max_error < 1e-12）",
+        criterion="zero-signal block of W^n equals T_n(x) (max_error < 1e-12)",
         passed=worst < 1e-12,
     )
 
 
 # ---------------------------------------------------------------------------
-# D. QSVT 标准变换：HamSim、矩阵求逆、特征态过滤。
+# D. Standard QSVT transforms: HamSim, matrix inversion, eigenstate filtering.
 # ---------------------------------------------------------------------------
 
 
 def verify_qsvt_hamsim(report):
-    """qsvt_hamiltonian_simulation：零信号块 vs scipy expm；方法误差与实现误差分列。"""
+    """qsvt_hamiltonian_simulation: zero-signal block vs scipy expm; method error and implementation error listed separately."""
     matrix = np.array([[0.5, 0.2], [0.2, -0.3]])
     be = matrix_pauli_encoding(matrix)
     for time in (0.7, 2.0):
@@ -644,7 +659,7 @@ def verify_qsvt_hamsim(report):
                 "method_tail_bound": tail,
                 "total_error_bound": worst + tail,
             },
-            criterion="块·sim_scale 与 e^{itA/α} 的总偏差 < 2×error（0.02）",
+            criterion="total deviation of block*sim_scale from e^{itA/alpha} < 2x error (0.02)",
             passed=worst + tail < 0.02,
         )
 
@@ -669,7 +684,7 @@ def _inversion_case(report, name, matrix, kappa, error, runners):
     relative = float(
         np.linalg.norm(block / scale - exact_inverse, 2) / np.linalg.norm(exact_inverse, 2)
     )
-    # 每个奇异值带 ≤ error 的相对偏差，故恢复条件数落在 κ·[(1−e)/(1+e), (1+e)/(1−e)]
+    # Each singular value carries a relative deviation <= error, so the recovered condition number lies in kappa*[(1-e)/(1+e), (1+e)/(1-e)]
     kappa_exact = float(np.linalg.cond(matrix))
     band = (kappa_exact * (1 - error) / (1 + error), kappa_exact * (1 + error) / (1 - error))
     report.case(
@@ -684,14 +699,14 @@ def _inversion_case(report, name, matrix, kappa, error, runners):
             "kappa_band": list(band),
             "success_probability": success,
         },
-        criterion="恢复逆的相对谱误差 ≤ 1.05×error 且恢复条件数落在 κ·(1±e)/(1∓e) 区间",
+        criterion="relative spectral error of the recovered inverse <= 1.05x error and the recovered condition number lies in the kappa*(1+/-e)/(1-/+e) band",
         passed=relative <= 1.05 * error and band[0] <= kappa_recovered <= band[1],
     )
 
 
 def verify_qsvt_inversion(report):
-    """qsvt_matrix_inversion：块/缩放 vs numpy 精确逆；条件数对比；error 扫描。"""
-    matrix_k2 = [[0.6, -0.2], [-0.2, 0.6]]  # 本征值 0.4/0.8，κ = 2
+    """qsvt_matrix_inversion: block/scale vs the numpy exact inverse; condition-number comparison; error sweep."""
+    matrix_k2 = [[0.6, -0.2], [-0.2, 0.6]]  # eigenvalues 0.4/0.8, kappa = 2
     for error in (0.15, 0.10):
         _inversion_case(
             report,
@@ -704,7 +719,7 @@ def verify_qsvt_inversion(report):
     _inversion_case(
         report,
         "qsvt-inversion-kappa3-1q",
-        [[0.4, -0.2], [-0.2, 0.4]],  # 本征值 0.2/0.6，κ = 3
+        [[0.4, -0.2], [-0.2, 0.4]],  # eigenvalues 0.2/0.6, kappa = 3
         3.0,
         0.4,
         (reference, rir_pysparq, originir_ext),
@@ -720,8 +735,8 @@ def verify_qsvt_inversion(report):
 
 
 def verify_eigenstate_filter(report):
-    """eigenstate_filter：零信号块对角幅度 vs 解析过滤多项式；通阻带压制。"""
-    # 1 量子位带中心平移（docs 案例）：谱变量平移后一通一阻。
+    """eigenstate_filter: zero-signal-block diagonal magnitudes vs the analytic filter polynomial; pass/stop-band suppression."""
+    # 1-qubit band-center shift (docs case): after shifting the spectral variable, one pass and one stop.
     be = matrix_pauli_encoding([[0.05, 0.0], [0.0, 0.5]])
     gap, degree, center = 0.2, 8, 0.1
     flt = eigenstate_filter(be, gap, degree, center=center)
@@ -743,11 +758,11 @@ def verify_eigenstate_filter(report):
             "stopband_amplitude": expected[1],
             "suppression_attribute": attrs["suppression"],
         },
-        criterion="块对角幅度等于解析过滤多项式（max_error < 1e-5，合成度数 16 的剥离噪声量级）"
-        "且阻带 ≤ suppression",
+        criterion="block diagonal magnitudes equal the analytic filter polynomial (max_error < 1e-5, the stripping-noise order of a synthesis degree 16)"
+        " and stopband <= suppression",
         passed=worst < 1e-5 and abs(expected[1]) <= attrs["suppression"] + 1e-9,
     )
-    # 2 量子位四个本征值：两个通带两个阻带。
+    # 2-qubit four eigenvalues: two passbands and two stopbands.
     matrix = [[0.02, 0, 0, 0], [0, -0.03, 0, 0], [0, 0, 0.4, 0], [0, 0, 0, 0.55]]
     be2 = matrix_pauli_encoding(matrix)
     gap2, degree2 = 0.2, 6
@@ -771,24 +786,28 @@ def verify_eigenstate_filter(report):
             "stopband_max": stopband,
             "suppression_attribute": attrs2["suppression"],
         },
-        criterion="全部四个本征态幅度与解析多项式一致（max_error < 1e-5，剥离自检容差）"
-        "且阻带 ≤ suppression",
+        criterion="all four eigenstate magnitudes match the analytic polynomial (max_error < 1e-5, stripping self-check tolerance)"
+        " and stopband <= suppression",
         passed=worst2 < 1e-5 and stopband <= attrs2["suppression"] + 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# E. Oblivious 振幅放大与 Gibbs 态制备。
+# E. Oblivious amplitude amplification and Gibbs-state preparation.
 # ---------------------------------------------------------------------------
 
 
 def verify_oaa_iterate_identity(report):
-    """库算子 W = U·[R U† R U] 的代数恒等式：ΠWΠ = B(4B†B − 3I)（对任意 BE 精确）。
+    """Algebraic identity of the library operator W = U*[R U^dagger R U]: Pi W Pi = B(4B^dagger B - 3I) (exact for any BE).
 
-    历史缺陷已修复：原迭代体 [R U† R U] 的零信号块退化为 2B†B − I，不执行
-    文献中的 OAA 放大（见组报告与 oaa-standard-sequence 案例）；修复后的
-    算子补上收尾 U，零信号块为切比雪夫放大 B(4B†B − 3I)——对零信号块为
-    V/2 的输入恰为 −V。本案例把库函数实际实现的语义钉死到机器精度。
+    A historical defect is fixed: the zero-signal block of the original iterate
+    [R U^dagger R U] degenerated to 2B^dagger B - I, performing none of the OAA
+    amplification from the literature (see the group report and the
+    oaa-standard-sequence case); the fixed operator adds the trailing U and its
+    zero-signal block is the Chebyshev amplification B(4B^dagger B - 3I) --
+    which is exactly -V for an input whose zero-signal block is V/2. This case
+    pins the semantics the library function actually implements to machine
+    precision.
     """
     matrix = np.array([[0.6, -0.2], [-0.2, 0.6]])
     be = matrix_pauli_encoding(matrix)
@@ -804,17 +823,19 @@ def verify_oaa_iterate_identity(report):
         paths=["reference", "rir-pysparq", "originir-ext"],
         parameters={"alpha": be.alpha, "iterations": 1},
         metrics={"max_error": worst},
-        criterion="ΠWΠ 等于 B(4B†B − 3I)（max_error < 1e-12）",
+        criterion="Pi W Pi equals B(4B^dagger B - 3I) (max_error < 1e-12)",
         passed=worst < 1e-12,
     )
 
 
 def verify_oaa_standard_sequence(report):
-    """标准 OAA 序列 U R U† R U：V/2 块编码经一次迭代恢复 −V（文献语义）。
+    """Standard OAA sequence U R U^dagger R U: a V/2 block encoding recovers -V after one iteration (literature semantics).
 
-    序列用库公开组件（invoke + reflect_zero + adjoint）在脚本内组装；修复后
-    的库 oblivious_amplification 与之逐振幅一致——本案例同时断言两者相等，
-    作为"库 = 标准三查询序列"的回归钉。
+    The sequence is assembled in-script from public library components
+    (invoke + reflect_zero + adjoint); the fixed library
+    oblivious_amplification matches it amplitude by amplitude -- this case
+    asserts both equalities at once, serving as the regression pin that
+    "library == the standard three-query sequence".
     """
     vb = Builder("oaa_v", {"target": Bits(1), "signal": Bits(0)})
     vb.ry(vb["target"][0], 0.9)
@@ -829,13 +850,13 @@ def verify_oaa_standard_sequence(report):
             [math.sin(theta_y / 2), math.cos(theta_y / 2)],
         ]
     )
-    be = linear_combination(1.0, vbe, 1.0, zero(1))  # 零信号块 = V/2，α = 2
+    be = linear_combination(1.0, vbe, 1.0, zero(1))  # zero-signal block = V/2, alpha = 2
     b = Builder(
         "oaa_standard",
         {"target": Bits(1), "signal": Bits(be.signal_qubits)},
         resources_for(("a", be.operation)),
     )
-    # 文献标准序列 U R U† R U：与修复后的库算子逐振幅一致
+    # Literature standard sequence U R U^dagger R U: matches the fixed library operator amplitude by amplitude
     invoke(b, be.operation, "a", target=b["target"], signal=b["signal"])
     reflect_zero(b, b["signal"])
     with b.adjoint():
@@ -858,7 +879,7 @@ def verify_oaa_standard_sequence(report):
     report.case(
         "oaa-standard-sequence-amplification",
         paths=["reference", "rir-pysparq", "originir-ext"],
-        parameters={"iterations": 1, "input_block": "V/2 (V 幺正)"},
+        parameters={"iterations": 1, "input_block": "V/2 (V unitary)"},
         metrics={
             "max_error_vs_minus_V": worst,
             "library_vs_script_error": lib_vs_script,
@@ -867,8 +888,8 @@ def verify_oaa_standard_sequence(report):
             "amplification": amplification,
         },
         criterion=(
-            "零信号块等于 −V（max_error < 1e-12），幅度放大 0.5 → 1.0；"
-            "库算子与脚本组装的标准序列逐振幅一致（library_vs_script_error < 1e-12）"
+            "zero-signal block equals -V (max_error < 1e-12), amplitude amplified 0.5 -> 1.0; "
+            "the library operator matches the script-assembled standard sequence amplitude by amplitude (library_vs_script_error < 1e-12)"
         ),
         passed=worst < 1e-12 and lib_vs_script < 1e-12,
     )
@@ -901,13 +922,13 @@ def _gibbs_case(report, name, matrix, beta, error, runners):
         paths=[r.__name__ for r in runners],
         parameters={"beta": beta, "error": error, "qubits": sum(widths)},
         metrics={"trace_distance": worst, "success_probability": success},
-        criterion=f"约化密度矩阵与经典 Gibbs 态的迹距离 < 3×error（{3 * error:.2f}）",
+        criterion=f"trace distance between the reduced density matrix and the classical Gibbs state < 3x error ({3 * error:.2f})",
         passed=worst < 3 * error,
     )
 
 
 def verify_gibbs(report):
-    """gibbs_purification：后选择偏迹与经典 Gibbs 态的迹距离（对角/非对角/β=0）。"""
+    """gibbs_purification: post-selected partial trace vs the classical Gibbs state (trace distance; diagonal/non-diagonal/beta=0)."""
     _gibbs_case(
         report,
         "gibbs-trace-distance-nondiag",
@@ -937,8 +958,8 @@ def verify_gibbs(report):
 def run():
     report = Report(
         "hamiltonian",
-        "Trotter/协议层/QSVT 标准变换的幺正-乘积公式对拍、收敛阶拟合、"
-        "多项式逐点对拍、求逆条件数对比与 Gibbs 迹距离，覆盖 1–4 量子位。",
+        "Unitary-vs-product-formula cross-checks for Trotter/the protocol layer/standard QSVT transforms, convergence-order fits, "
+        "pointwise polynomial comparisons, inversion condition-number checks, and Gibbs trace distances, covering 1-4 qubits.",
     )
     verify_trotter_single_term(report)
     verify_trotter_product_formula(report)

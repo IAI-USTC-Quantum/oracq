@@ -1,4 +1,4 @@
-"""同一 QFVM 稀疏问题切换 CKS / Costa 的可审阅产物。"""
+"""Reviewable artifacts for switching the same QFVM sparse problem between CKS and Costa."""
 
 import hashlib
 import json
@@ -59,7 +59,7 @@ def main():
                 "closed_cost": estimate_resources(closed).to_dict(),
                 "program_sha256": hashlib.sha256(dumps(closed).encode()).hexdigest(),
                 "memory_sha256": hashlib.sha256(memory_text.encode()).hexdigest(),
-                "scope": "输入适配、绑定和资源分析；本脚本不认证求解精度与成功概率",
+                "scope": "input adaptation, binding, and resource analysis; this script does not certify solution accuracy or success probability",
                 "input_model": protocol.input_model,
                 "adapter_trace": result.adapter_trace,
                 "alpha": result.input_alpha,

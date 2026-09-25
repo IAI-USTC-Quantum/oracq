@@ -1,4 +1,4 @@
-"QRAM 数据结构的指针式读写：C 风格基地址、偏移、多维视图与随机写。"
+"Pointer-style reads and writes of QRAM data structures: C-style base addresses, offsets, multidimensional views and random writes."
 
 from __future__ import annotations
 
@@ -11,39 +11,39 @@ from oracq.infrastructure.ir import QRAM, Ref, UInt, ValidationError
 
 @dataclass(frozen=True)
 class _Addr:
-    """地址表达式：constant + Σ(寄存器视图 × 正系数)，按 2^地址宽度取模。"""
+    """Address expression: constant + Σ(register view × positive coefficient), taken modulo 2^address width."""
 
     constant: int = 0
     terms: tuple[tuple[Ref, int], ...] = ()
 
     def plus_const(self, value: int) -> _Addr:
-        """返回常量项平移 ``value`` 后的新地址表达式。
+        """Return a new address expression with the constant term shifted by ``value``.
 
         Args:
-            value: 加到常量项上的整数偏移，可正可负。
+            value: integer offset added to the constant term; may be positive or negative.
 
         Returns:
-            _Addr: 常量项平移后的新地址表达式；原表达式不变。
+            _Addr: new address expression with the shifted constant term; the original is unchanged.
         """
         return _Addr(self.constant + value, self.terms)
 
     def plus_ref(self, ref: Ref, coefficient: int = 1) -> _Addr:
-        """返回追加一项 ``ref × coefficient`` 后的新地址表达式。
+        """Return a new address expression with one term ``ref × coefficient`` appended.
 
         Args:
-            ref: 参与求地址和的寄存器视图。
-            coefficient: 视图乘上的整数系数；缺省为 1。
+            ref: register view participating in the address sum.
+            coefficient: integer coefficient multiplying the view; defaults to 1.
 
         Returns:
-            _Addr: 追加该项后的新地址表达式；原表达式不变。
+            _Addr: new address expression with the term appended; the original is unchanged.
         """
         return _Addr(self.constant, self.terms + ((ref, coefficient),))
 
 
 def _fresh_local(builder: Builder, prefix: str, width: int) -> Ref:
-    """分配首个空闲的 ``{prefix}_{i}`` ``UInt(width)`` 局部寄存器并返回其视图。"""
+    """Allocate the first free ``{prefix}_{i}`` ``UInt(width)`` local register and return its view."""
     if getattr(builder, "_closed", False):
-        raise ValidationError("构造器已经结束")
+        raise ValidationError("the builder is already closed")
     existing = {r.name for r in builder.locals} | {
         r.name for r in getattr(builder, "registers", ())
     }
@@ -54,10 +54,10 @@ def _fresh_local(builder: Builder, prefix: str, width: int) -> Ref:
 
 
 def _ripple_add(builder: Builder, target: Ref, source: Ref, carry: Ref | None) -> None:
-    """target += source（模 2^w），source 保持不变；carry 为零初始工作区。
+    """target += source modulo 2^w, source unchanged; carry is zero-initialized workspace.
 
-    逐位进位链：c_{i+1} = maj(target_i, source_i, c_i)，sum_i = target_i ⊕ source_i ⊕ c_i。
-    进位位留在 carry 中，由整体 Adjoint 回放复净。
+    Bit-by-bit carry chain: c_{i+1} = maj(target_i, source_i, c_i), sum_i = target_i ⊕ source_i ⊕ c_i.
+    Carry bits stay in carry and are restored to zero by replaying under an overall Adjoint.
     """
     width = target.width
     for i in range(width):
@@ -72,14 +72,14 @@ def _ripple_add(builder: Builder, target: Ref, source: Ref, carry: Ref | None) -
                     builder.x(carry[i])
         builder.xor(bit_s, bit_t)
         if i:
-            # i>0 蕴含 width>1，此时调用方保证 carry 已分配（span>1）。
+            # i>0 implies width>1, in which case the caller guarantees carry is allocated (span>1).
             builder.xor(cast(Ref, carry)[i - 1], bit_t)
 
 
 def _run_steps(
     builder: Builder, steps: list[tuple[str, Ref, Ref | None, Ref | int | None]]
 ) -> None:
-    """按步骤序列合成地址：copy 为异或拷贝、add 为逐位加法、const 为常量加。"""
+    """Synthesize an address from a step sequence: copy is an XOR copy, add is bit-by-bit addition, const is a constant addition."""
     for kind, target, source, extra in steps:
         if kind == "copy":
             builder.xor(cast(Ref, source), target)
@@ -90,7 +90,7 @@ def _run_steps(
 
 
 class QMem:
-    """QRAM 资源的多维数组视图：row-major 展平，下标可为整数或寄存器视图。"""
+    """Multidimensional array view of a QRAM resource: row-major flattening, with indices being integers or register views."""
 
     def __init__(
         self,
@@ -100,40 +100,40 @@ class QMem:
         shape: tuple[int, ...] | None = None,
         _base: _Addr | None = None,
     ) -> None:
-        """初始化 QRAM 数组视图。
+        """Initialize the QRAM array view.
 
         Args:
-            builder: 已声明该 QRAM 资源的构造器。
-            resource: QRAM 资源名。
-            shape: row-major 形状元组；缺省为覆盖整个地址空间的一维数组。
-            _base: 视图共享的基地址表达式；缺省从零地址开始。
+            builder: builder that has declared this QRAM resource.
+            resource: QRAM resource name.
+            shape: row-major shape tuple; defaults to a one-dimensional array covering the entire address space.
+            _base: base address expression shared by the view; defaults to starting at address zero.
 
         Raises:
-            ValidationError: 资源未在构造器中声明、shape 非法或单元总数超过地址空间。
+            ValidationError: the resource is not declared in the builder, shape is invalid, or the total cell count exceeds the address space.
         """
         specs = {r.name: r.type for r in builder.resources}
         if resource not in specs:
-            raise ValidationError(f"构造器没有声明 QRAM 资源：{resource}")
+            raise ValidationError(f"builder has not declared the QRAM resource: {resource}")
         self.builder: Builder = builder
         self.resource: str = resource
         self.spec: QRAM = specs[resource]
         if shape is None:
             shape = (1 << self.spec.address_width,)
         if not isinstance(shape, tuple) or not shape:
-            raise ValidationError("shape 必须是非空正整数元组")
+            raise ValidationError("shape must be a nonempty tuple of positive integers")
         cells = 1
         for dim in shape:
             if type(dim) is not int or dim <= 0:
-                raise ValidationError("shape 必须是非空正整数元组")
+                raise ValidationError("shape must be a nonempty tuple of positive integers")
             cells *= dim
         if cells > 1 << self.spec.address_width:
-            raise ValidationError("shape 的单元总数超过 QRAM 地址空间")
+            raise ValidationError("total cell count of shape exceeds the QRAM address space")
         self.shape: tuple[int, ...] = shape
         self._base: _Addr = _base if _base is not None else _Addr()
 
     @property
     def strides(self) -> tuple[int, ...]:
-        """row-major 各维跨步，即沿该维前进一个下标对应的地址增量。"""
+        """Row-major strides per dimension, i.e. the address increment of advancing one index along that dimension."""
         result = [1] * len(self.shape)
         for axis in range(len(self.shape) - 2, -1, -1):
             result[axis] = result[axis + 1] * self.shape[axis + 1]
@@ -141,90 +141,90 @@ class QMem:
 
     @property
     def address_width(self) -> int:
-        """底层 QRAM 资源的地址宽度。"""
+        """Address width of the underlying QRAM resource."""
         return self.spec.address_width
 
     @property
     def data_width(self) -> int:
-        """底层 QRAM 资源的数据字宽度。"""
+        """Data word width of the underlying QRAM resource."""
         return self.spec.data_width
 
     def ptr(self, base: int | Ref | None = None) -> QPtr:
-        """返回指针；base 为整数偏移或持有地址的寄存器视图（量子指针）。
+        """Return a pointer; base is an integer offset or a register view holding an address, a quantum pointer.
 
         Args:
-            base: 整数偏移，或位宽不超过地址宽度的寄存器视图；省略时
-                沿用当前视图的基地址。
+            base: integer offset, or a register view whose bit width does not exceed
+                the address width; omitted keeps the base address of the current view.
 
         Returns:
-            QPtr: 指向平移后基地址的量子内存指针。
+            QPtr: quantum memory pointer to the shifted base address.
 
         Raises:
-            ValidationError: 基地址既不是整数、寄存器视图，或位宽超限。
+            ValidationError: the base is neither an integer nor a register view, or its bit width exceeds the limit.
         """
         if base is None:
             return QPtr(self, self._base)
         if isinstance(base, Ref):
             if base.width > self.spec.address_width:
-                raise ValidationError("指针寄存器宽度超过地址宽度")
+                raise ValidationError("pointer register width exceeds the address width")
             return QPtr(self, self._base.plus_ref(base))
         if type(base) is int:
             return QPtr(self, self._base.plus_const(base))
-        raise ValidationError("指针基地址必须是整数或寄存器视图")
+        raise ValidationError("pointer base address must be an integer or a register view")
 
     def __getitem__(
         self, key: int | slice | Ref | tuple[int | slice | Ref, ...]
     ) -> QMem | QPtr:
-        """按多维下标访问视图。
+        """Access the view by multidimensional indices.
 
         Args:
-            key: 每维下标为整数、寄存器视图或切片；缺省维度按整维切片补全。
+            key: per-dimension index as an integer, register view or slice; missing dimensions are completed as full-dimension slices.
 
         Returns:
-            QMem | QPtr: 含切片维时的子数组视图，或全部维度精确定位时的指针。
+            QMem | QPtr: sub-array view when a sliced dimension is present, or a pointer when every dimension resolves exactly.
 
         Raises:
-            ValidationError: 维数与 shape 不符、切片步长非 1、下标越界或类型非法。
+            ValidationError: the dimension count does not match shape, a slice step is not 1, an index is out of bounds, or a type is invalid.
         """
         if not isinstance(key, tuple):
             key = (key,)
         if len(key) < len(self.shape):
             key = key + (slice(None),) * (len(self.shape) - len(key))
         if len(key) != len(self.shape):
-            raise ValidationError("下标维数与 shape 不符")
+            raise ValidationError("index dimension count does not match shape")
         addr, sliced, new_shape = self._base, False, list(self.shape)
         for axis, (index, size, stride) in enumerate(
             zip(key, self.shape, self.strides, strict=True)
         ):
             if isinstance(index, slice):
                 if index.step not in (None, 1):
-                    raise ValidationError("切片步长只支持 1")
+                    raise ValidationError("only slice steps of 1 are supported")
                 start = 0 if index.start is None else index.start
                 stop = size if index.stop is None else index.stop
                 if type(start) is not int or type(stop) is not int or not 0 <= start < stop <= size:
-                    raise ValidationError("切片边界非法")
+                    raise ValidationError("invalid slice bounds")
                 addr = addr.plus_const(start * stride)
                 new_shape[axis] = stop - start
                 sliced = True
             elif isinstance(index, Ref):
                 if (1 << index.width) > size:
-                    raise ValidationError(f"第 {axis} 维量子下标宽度超过维度长度")
+                    raise ValidationError(f"quantum index width exceeds the dimension length for axis {axis}")
                 addr = addr.plus_ref(index, stride)
             elif type(index) is int:
                 if not 0 <= index < size:
-                    raise ValidationError("下标越界")
+                    raise ValidationError("index out of bounds")
                 addr = addr.plus_const(index * stride)
             else:
-                raise ValidationError("下标必须是整数、寄存器视图或切片")
+                raise ValidationError("indices must be integers, register views or slices")
         if sliced:
             return QMem(self.builder, self.resource, shape=tuple(new_shape), _base=addr)
         return QPtr(self, addr)
 
     def _emit(self, addr: _Addr, data: Ref, kind: str) -> None:
-        """解引用：物化地址表达式后发射 Load（XOR 读）或 Store（随机写）。"""
+        """Dereference: materialize the address expression, then emit a Load (XOR read) or Store (random write)."""
         builder, spec = self.builder, self.spec
         if data.width != spec.data_width:
-            raise ValidationError("数据寄存器宽度与 QRAM 数据宽度不符")
+            raise ValidationError("data register width does not match the QRAM data width")
         address_width = spec.address_width
         constant = addr.constant % (1 << address_width)
         direct = (
@@ -245,7 +245,7 @@ class QMem:
         occupied: list[tuple[int, int]] = []
         for ref, coefficient in addr.terms:
             if coefficient < 1:
-                raise ValidationError("地址系数必须为正整数")
+                raise ValidationError("address coefficients must be positive integers")
             for shift in range(coefficient.bit_length()):
                 if not (coefficient >> shift) & 1:
                     continue
@@ -253,8 +253,8 @@ class QMem:
                 if span <= 0:
                     break
                 target, source = temp[shift : shift + span], ref[:span]
-                # 位移片段落在尚未写过的区间时，temp 该段仍为零，XOR 即赋值，无需加法器；
-                # 与已占用区间重叠（如指针 + 量子偏移的和）才合成逐位进位加法。
+                # When a shifted fragment falls in a not-yet-written range, that segment of temp is still zero, so XOR assigns it and no adder is needed;
+                # only overlaps with an occupied range (such as a pointer + quantum offset sum) synthesize a bit-by-bit carry addition.
                 if all(shift >= end or shift + span <= start for start, end in occupied):
                     steps.append(("copy", target, source, None))
                 else:
@@ -274,75 +274,75 @@ class QMem:
 
 
 class QPtr:
-    """QRAM 指针：基地址 + 偏移，可解引用读（XOR-Load）或随机写（Store）。"""
+    """QRAM pointer: base address + offset, dereferenceable for reads (XOR-Load) or random writes (Store)."""
 
     def __init__(self, mem: QMem, addr: _Addr) -> None:
-        """绑定指针所属的内存视图与地址表达式。
+        """Bind the memory view the pointer belongs to and its address expression.
 
         Args:
-            mem: 指针指向的数组视图。
-            addr: 指针持有的地址表达式。
+            mem: array view the pointer targets.
+            addr: address expression held by the pointer.
         """
         self.mem: QMem = mem
         self.addr: _Addr = addr
 
     def __add__(self, other: int | Ref) -> QPtr:
-        """返回沿地址前进 ``other`` 后的新指针。
+        """Return a new pointer advanced along the address by ``other``.
 
         Args:
-            other: 整数偏移或持有偏移的寄存器视图。
+            other: integer offset or a register view holding the offset.
 
         Returns:
-            QPtr: 偏移后的新指针，原指针不变。
+            QPtr: new pointer after the offset; the original pointer is unchanged.
 
         Raises:
-            ValidationError: 偏移既不是整数也不是寄存器视图。
+            ValidationError: the offset is neither an integer nor a register view.
         """
         if type(other) is int:
             return QPtr(self.mem, self.addr.plus_const(other))
         if isinstance(other, Ref):
             return QPtr(self.mem, self.addr.plus_ref(other))
-        raise ValidationError("指针偏移必须是整数或寄存器视图")
+        raise ValidationError("pointer offsets must be integers or register views")
 
     def __radd__(self, other: int | Ref) -> QPtr:
-        """支持 ``整数 + 指针`` 写法，转发到 ``__add__``。
+        """Support the ``integer + pointer`` form by forwarding to ``__add__``.
 
         Args:
-            other: 整数偏移或持有偏移的寄存器视图。
+            other: integer offset or a register view holding the offset.
 
         Returns:
-            QPtr: 偏移后的新指针。
+            QPtr: new pointer after the offset.
         """
         return self.__add__(other)
 
     def __sub__(self, other: int) -> QPtr:
-        """返回沿地址回退整数 ``other`` 后的新指针。
+        """Return a new pointer moved back along the address by the integer ``other``.
 
         Args:
-            other: 整数偏移。
+            other: integer offset.
 
         Returns:
-            QPtr: 基地址减去偏移后的新指针。
+            QPtr: new pointer with the offset subtracted from the base address.
 
         Raises:
-            ValidationError: 偏移不是整数。
+            ValidationError: the offset is not an integer.
         """
         if type(other) is not int:
-            raise ValidationError("指针减法只支持整数偏移")
+            raise ValidationError("pointer subtraction only supports integer offsets")
         return QPtr(self.mem, self.addr.plus_const(-other))
 
     def load(self, data: Ref) -> None:
-        """XOR-Load：data ^= M[addr]；地址计算自动复净，叠加地址天然支持。
+        """XOR-Load: data ^= M[addr]; address computation is automatically restored to zero, and superposed addresses are naturally supported.
 
         Args:
-            data: 与数据字等宽、异或进命中内容的视图。
+            data: view of the same width as the data word, into which the hit content is XORed.
         """
         self.mem._emit(self.addr, data, "load")
 
     def store(self, data: Ref) -> None:
-        """随机写：M[addr] := d。执行时地址与数据须处于确定基矢；不计门成本。
+        """Random write: M[addr] := d. At execution time the address and data must be in a definite basis state; no gate cost is counted.
 
         Args:
-            data: 与数据字等宽、提供写入内容的视图。
+            data: view of the same width as the data word, providing the content to write.
         """
         self.mem._emit(self.addr, data, "store")

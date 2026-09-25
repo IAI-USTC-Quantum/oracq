@@ -1,4 +1,4 @@
-"""qdata 量子数据结构读路径的真实后端对拍；用具有 uniqc 和 pysparq 的解释器运行。"""
+"""Real-backend cross-checks of qdata quantum data structure read paths; run with an interpreter that has uniqc and pysparq installed."""
 
 import unittest
 
@@ -18,7 +18,7 @@ AW = 10
 
 class QDataBackendTests(unittest.TestCase):
     def compare_sparse(self, program, memory):
-        """高工作区案例保留参考执行器与两个真实 PySparQ 路径的对拍。"""
+        """High-workspace cases keep the cross-check of the reference executor against two real PySparQ paths."""
         expected = simulate(program, memory).amplitudes
         for native in (
             run_pysparq(program, memory).amplitudes,
@@ -29,7 +29,7 @@ class QDataBackendTests(unittest.TestCase):
                 self.assertAlmostEqual(expected[key], native[key], places=9)
 
     def compare(self, program, memory):
-        """预算内案例额外覆盖真实 OriginIR 稠密后端。"""
+        """In-budget cases additionally cover the real OriginIR dense backend."""
         self.compare_sparse(program, memory)
         vector = simulate(program, memory).statevector()
         origin = list(run_originir(program, memory))
@@ -69,11 +69,13 @@ class QDataBackendTests(unittest.TestCase):
         self.compare(b.finish().program(), {"entries": matrix.snapshot()["entries"]})
 
     def test_row_and_amplitude_preparation(self):
-        # 地址计算私有工作区固定占 16 位；4 位角字的行制备共 24 位。
+        # The address-computation private workspace always occupies 16 bits; row
+        # preparation of a 4-bit angle word takes 24 bits in total.
         self.check_row_and_amplitude_preparation(4, self.compare)
 
     def test_wide_row_and_amplitude_preparation_sparse_backends(self):
-        # 保留原 10 位角字及全部输入；行制备共 30 位，采用真实稀疏后端。
+        # Keeps the original 10-bit angle word and all inputs; row preparation
+        # takes 30 bits in total, using the real sparse backends.
         self.check_row_and_amplitude_preparation(AW, self.compare_sparse)
 
     def check_row_and_amplitude_preparation(self, angle_width, compare):

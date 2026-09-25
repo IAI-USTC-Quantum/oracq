@@ -1,27 +1,34 @@
-"""量子奇异值变换（QSVT）标准变换库（Gilyén et al. 2019, arXiv:1806.01838）。
+"""Standard transformation library for quantum singular value transformation, QSVT
+(Gilyén et al. 2019, arXiv:1806.01838).
 
-约定（与 transforms.qsvt_sequence 逐步对齐，并经参考模拟逐点验证）：
-``qsvt_sequence(a, Φ)`` 在奇异值 x 的二维不变子空间上实现
+Conventions, aligned step by step with transforms.qsvt_sequence and verified
+pointwise against the reference simulator: on the two-dimensional invariant
+subspace of a singular value x, ``qsvt_sequence(a, Φ)`` realizes
 
     p(x) = [S(φ_0) W(x) S(φ_1) W(x) … W(x) S(φ_d)]_00,
     W(x) = [[x, s], [s, -x]],  s = √(1 − x²),  S(φ) = diag(e^{iφ}, e^{−iφ}),
 
-相位按时间顺序排列（φ_0 最先作用），共 d 次 BE 调用、 d+1 个相位。
-可实现对 (P, Q) 的充要条件：deg P ≤ d、deg Q ≤ d−1、P 的奇偶性为 d mod 2、
-Q 的奇偶性为 (d−1) mod 2，且多项式恒等式 P P̄ + (1−x²) Q Q̄ ≡ 1 成立；
-特别地必有 ``|P(±1)| = 1`` （端点饱和）。
+with the phases ordered in time, φ_0 acting first, for d block-encoding calls
+and d+1 phases in total. The pair, P and Q, is realizable if and only if
+deg P ≤ d, deg Q ≤ d−1, the parity of P equals d mod 2, the parity of Q equals
+(d−1) mod 2, and the polynomial identity P P̄ + (1−x²) Q Q̄ ≡ 1 holds; in
+particular ``|P(±1)| = 1`` must hold, the endpoint saturation.
 
-相位合成采用 Gilyén 论文的补多项式求根 + 逐层剥离（layer stripping）：
-给定实目标 f 与可选虚部补全 h（均为实系数多项式），令 P = f + i·h，
-从 R = (1 − f² − h²)/(1−x²) 的根构造 Q，再逆向递推恢复相位。
-端点不饱和的实目标（如 1/x 的截断近似）必须借助非零虚部补全；
-此时用 (U_Φ + U_{−Φ})/2 的 LCU 组合提取实部（−Φ 恰好实现 P̄），
-块编码即为 f(A/α)。
+Phase synthesis follows the Gilyén paper's complementary-polynomial root
+finding plus layer stripping: given a real target f and an optional imaginary
+completion h, both real-coefficient polynomials, set P = f + i·h, construct
+Q from the roots of R = (1 − f² − h²)/(1−x²), then recover the phases by
+backward recursion. Real targets that do not saturate at the endpoints, such
+as truncated approximations of 1/x, must use a nonzero imaginary completion;
+the real part is then extracted by the LCU combination of (U_Φ + U_{−Φ})/2,
+where −Φ realizes exactly P̄, and the block encoding equals f(A/α).
 
-数值边界：求根用纯 Python Durand–Kerner 迭代，剥离用双精度复数；
-合成度数限制为 40，且每次合成后用 qsp_response 做往返自检，
-超限抛出 ValidationError。度数几十以内、补多项式根分离良好时
-往返误差通常在 1e-9 量级。
+Numerical boundaries: root finding uses pure-Python Durand–Kerner iteration
+and stripping uses double-precision complex arithmetic; the synthesis degree
+is capped at 40, and every synthesis is followed by a round-trip self-check
+with qsp_response that raises ValidationError beyond the limits. For degrees
+within a few tens and well-separated complementary-polynomial roots, the
+round-trip error is typically on the order of 1e-9.
 """
 
 from __future__ import annotations
@@ -54,12 +61,13 @@ _STRIP_TOL = 1e-5
 
 
 # ---------------------------------------------------------------------------
-# 多项式工具：升幂系数（常数项在前），实系数用 float、复系数用 complex。
+# Polynomial utilities: ascending coefficients with the constant term first;
+# real coefficients use float and complex coefficients use complex.
 # ---------------------------------------------------------------------------
 
 
 def _trim(p: Sequence[float | complex], tol: float = 1e-12) -> tuple[float | complex, ...]:
-    """移除尾部幅值低于容差的系数，并把多项式收紧为元组。"""
+    """Drop trailing coefficients below the tolerance and tighten the polynomial into a tuple."""
     p = list(p)
     while len(p) > 1 and abs(p[-1]) <= tol * max(1.0, max(abs(c) for c in p)):
         p.pop()
@@ -69,7 +77,7 @@ def _trim(p: Sequence[float | complex], tol: float = 1e-12) -> tuple[float | com
 def _add(
     a: Sequence[float | complex], b: Sequence[float | complex]
 ) -> tuple[float | complex, ...]:
-    """逐系数相加两个多项式，较短的以零补齐。"""
+    """Add two polynomials coefficient by coefficient, zero-padding the shorter one."""
     n = max(len(a), len(b))
     return tuple((a[i] if i < len(a) else 0) + (b[i] if i < len(b) else 0) for i in range(n))
 
@@ -77,14 +85,14 @@ def _add(
 def _sub(
     a: Sequence[float | complex], b: Sequence[float | complex]
 ) -> tuple[float | complex, ...]:
-    """逐系数相减两个多项式。"""
+    """Subtract two polynomials coefficient by coefficient."""
     return _add(a, tuple(-v for v in b))
 
 
 def _mul(
     a: Sequence[float | complex], b: Sequence[float | complex]
 ) -> tuple[float | complex, ...]:
-    """按卷积相乘两个多项式。"""
+    """Multiply two polynomials by convolution."""
     out = [0j] * (len(a) + len(b) - 1)
     for i, x in enumerate(a):
         for j, y in enumerate(b):
@@ -93,12 +101,12 @@ def _mul(
 
 
 def _scale(c: float | complex, p: Sequence[float | complex]) -> tuple[float | complex, ...]:
-    """把多项式逐系数乘以同一标量。"""
+    """Multiply every coefficient of the polynomial by the same scalar."""
     return tuple(c * v for v in p)
 
 
 def _eval(p: Sequence[float | complex], x: float | complex) -> complex:
-    """以 Horner 法求多项式在 ``x`` 处的值。"""
+    """Evaluate the polynomial at ``x`` with Horner's method."""
     v = 0j
     for c in reversed(p):
         v = v * x + c
@@ -106,37 +114,38 @@ def _eval(p: Sequence[float | complex], x: float | complex) -> complex:
 
 
 def _conj(p: Sequence[float | complex]) -> tuple[complex, ...]:
-    """逐系数取复共轭。"""
+    """Take the complex conjugate coefficient by coefficient."""
     return tuple(complex(v).conjugate() for v in p)
 
 
 def _realify(p: Sequence[float | complex], *, tol: float = 1e-10) -> tuple[float, ...]:
-    """校验虚部近零后把系数收紧为 ``float`` 元组。"""
+    """Verify the imaginary parts are near zero and tighten the coefficients into a ``float`` tuple."""
     scale = max(1.0, max(abs(c) for c in p))
     if any(abs(complex(c).imag) > tol * scale for c in p):
-        raise ValidationError("内部多项式应为实系数")
+        raise ValidationError("An internal polynomial must have real coefficients")
     return tuple(float(complex(c).real) for c in p)
 
 
 def _deg(p: Sequence[float | complex]) -> int:
-    """返回升幂系数表示的多项式度数。"""
+    """Return the degree of the polynomial given by ascending coefficients."""
     return len(p) - 1
 
 
 def _grid(n: int = _GRID) -> tuple[float, ...]:
-    """返回 [−1, 1] 上的 Chebyshev 余弦节点网格。"""
+    """Return the Chebyshev cosine-node grid on [−1, 1]."""
     return tuple(math.cos(math.pi * j / n) for j in range(n + 1))
 
 
 def _sup_norm(p: Sequence[float | complex]) -> float:
-    """返回多项式在 Chebyshev 网格上的最大幅值。"""
+    """Return the maximum magnitude of the polynomial on the Chebyshev grid."""
     return max(abs(_eval(p, x)) for x in _grid())
 
 
 def _roots(
     coeffs: Iterable[float | complex], *, iters: int = 4000, tol: float = 1e-30
 ) -> list[complex]:
-    """Durand–Kerner 同时求根；输入升幂首一化前的任意实/复系数。"""
+    """Simultaneous Durand–Kerner root finding; accepts arbitrary real or complex ascending
+    coefficients before monic normalization."""
     coeffs = _trim(tuple(complex(c) for c in coeffs))
     n = _deg(coeffs)
     if n <= 0:
@@ -160,7 +169,8 @@ def _roots(
 
 
 def _cluster(roots: Iterable[complex], *, rel: float = 2e-5) -> list[tuple[complex, int]]:
-    """按相对距离把数值根聚成重根簇，返回 [(质心, 重数), …]。"""
+    """Cluster numerical roots into multiple-root groups by relative distance, returning
+    [(centroid, multiplicity), …]."""
     clusters: list[list[int | complex]] = []
     for r in sorted(roots, key=lambda z: (abs(z), z.real, z.imag)):
         for cluster in clusters:
@@ -173,7 +183,7 @@ def _cluster(roots: Iterable[complex], *, rel: float = 2e-5) -> list[tuple[compl
 
 
 def _chebyshev_t(n: int) -> tuple[float, ...]:
-    """T_n 的升幂单项式系数。"""
+    """Ascending monomial coefficients of T_n."""
     if n == 0:
         return (1.0,)
     if n == 1:
@@ -187,25 +197,27 @@ def _chebyshev_t(n: int) -> tuple[float, ...]:
 
 
 # ---------------------------------------------------------------------------
-# QSP 响应与相位合成（reflection 约定，与 qsvt_sequence 一致）。
+# QSP response and phase synthesis, in the reflection convention shared with
+# qsvt_sequence.
 # ---------------------------------------------------------------------------
 
 
 def qsp_response(x: float, phases: Iterable[float]) -> complex:
-    """相位序列 Φ 在反射约定下实现的顶层左块 p(x)（x ∈ [−1, 1]）。
+    """Top-left block p(x) realized by the phase sequence Φ in the reflection
+    convention, for x ∈ [−1, 1].
 
     Args:
-        x: 求值点，取 [−1,1] 内的实数。
-        phases: QSP 相位序列 Φ，弧度制。
+        x: Evaluation point, a real number in [−1, 1].
+        phases: QSP phase sequence Φ, in radians.
 
     Returns:
-        complex: 相位序列实现的响应多项式 p(x) 的值。
+        complex: Value of the response polynomial p(x) realized by the phase sequence.
     """
     phases = tuple(float(p) for p in phases)
     s = math.sqrt(max(0.0, 1.0 - x * x))
     m00, m01, m10, m11 = 1 + 0j, 0j, 0j, 1 + 0j
     for i, phi in enumerate(phases):
-        if i:  # W(x) 左乘（时间上先于本步相位）
+        if i:  # W(x) applied on the left, earlier in time than this step's phase
             m00, m01, m10, m11 = (
                 x * m00 + s * m10,
                 x * m01 + s * m11,
@@ -218,51 +230,57 @@ def qsp_response(x: float, phases: Iterable[float]) -> complex:
 
 
 def _check_real_poly(coeffs: Iterable[float | complex], label: str) -> tuple[float, ...]:
-    """校验有限实系数并收紧为 ``float`` 元组。"""
+    """Validate finite real coefficients and tighten them into a ``float`` tuple."""
     values: list[float] = []
     for c in coeffs:
         z = complex(c)
         if not math.isfinite(z.real) or abs(z.imag) > 1e-12:
-            raise ValidationError(f"{label} 必须是有限实系数多项式")
+            raise ValidationError(f"{label} must be a polynomial with finite real coefficients")
         values.append(z.real)
     if not values:
-        raise ValidationError(f"{label} 不能为空")
+        raise ValidationError(f"{label} must not be empty")
     return cast("tuple[float, ...]", _trim(values))
 
 
 def _check_parity(coeffs: Sequence[float | complex], d: int, label: str) -> None:
-    """校验多项式的非零幂次均与 ``d`` 同奇偶。"""
+    """Verify that every nonzero power of the polynomial has the same parity as ``d``."""
     scale = max(1.0, max(abs(c) for c in coeffs))
     for k, c in enumerate(coeffs):
         if (d - k) % 2 and abs(c) > 1e-9 * scale:
-            raise ValidationError(f"{label} 的奇偶性与度数 d mod 2 不符")
+            raise ValidationError(f"{label} has parity inconsistent with the degree d mod 2")
 
 
 def _div_1mx2(dpoly: Sequence[float | complex], *, tol: float = 1e-8) -> tuple[float, ...]:
-    """计算 R = D/(1−x²)；要求 D(±1) = 0，否则抛出 ValidationError。"""
+    """Compute R = D/(1−x²); requires D(±1) = 0, otherwise a ValidationError is raised."""
     scale = max(1.0, max(abs(c) for c in dpoly))
     n = len(dpoly)
     r = [0j] * (n + 2)
     for j in range(n + 2):
         r[j] = (dpoly[j] if j < n else 0) + (r[j - 2] if j >= 2 else 0)
     if max(abs(r[n - 2]), abs(r[n - 1])) > tol * scale:
-        raise ValidationError("补多项式条件不满足：1 − f² − h² 不能被 1−x² 整除（端点未饱和）")
+        raise ValidationError(
+            "Complementary polynomial condition failed: 1 − f² − h² is not divisible by 1−x²"
+            " because the endpoints are not saturated"
+        )
     return _realify(_trim(r[: max(1, n - 2)]))
 
 
 def _q_from_roots(rpoly: Sequence[float], d: int) -> tuple[float | complex, ...] | None:
-    """由 R = (1−f²−h²)/(1−x²) 的根构造奇偶性为 (d−1) mod 2 的复系数 Q，使 Q Q̄ = R。"""
+    """Construct the complex-coefficient Q with parity (d−1) mod 2 from the roots of
+    R = (1−f²−h²)/(1−x²) such that Q Q̄ = R."""
     rpoly = cast("tuple[float, ...]", _trim(rpoly))
     if _deg(rpoly) <= 0:
         if rpoly[0] <= 0:
-            raise ValidationError("补多项式 R 恒为非正，无法谱分解")
+            raise ValidationError("The complementary polynomial R is nonpositive everywhere,"
+                                  " so no spectral decomposition exists")
         return (math.sqrt(rpoly[0]),) if d % 2 == 1 else None
     if _deg(rpoly) != 2 * d - 2:
-        raise ValidationError("补多项式度数与目标不匹配")
+        raise ValidationError("The complementary polynomial degree does not match the target")
     if rpoly[-1] <= 0:
-        raise ValidationError("补多项式首项系数必须为正")
+        raise ValidationError("The leading coefficient of the complementary polynomial must be"
+                              " positive")
     clusters = _cluster(_roots(rpoly))
-    factors: list[tuple[float | complex, ...]] = []  # 每个因子均为偶多项式；零根单独给出奇偶性
+    factors: list[tuple[float | complex, ...]] = []  # even polynomial factors; zero roots alone carry the parity
     zero_mult = 0
     used: set[int] = set()
     ctol = 1e-5
@@ -273,31 +291,33 @@ def _q_from_roots(rpoly: Sequence[float], d: int) -> tuple[float | complex, ...]
             zero_mult += m
             used.add(i)
             continue
-        if abs(c.imag) <= ctol * abs(c):  # 实根 r 与 −r
+        if abs(c.imag) <= ctol * abs(c):  # real root r together with −r
             partner = next(
                 (j for j, (c2, m2) in enumerate(clusters) if j > i and j not in used
                  and abs(c2 + c) <= ctol * max(1.0, abs(c)) and m2 == m),
                 None,
             )
             if partner is None or m % 2:
-                raise ValidationError("补多项式实根必须成对且为偶数重")
+                raise ValidationError("Real roots of the complementary polynomial must come in"
+                                      " pairs and have even multiplicity")
             rr = (abs(c.real) + abs(clusters[partner][0].real)) / 2
             for _ in range(m // 2):
                 factors.append((-(rr * rr), 0.0, 1.0))
             used.add(partner)
-        elif abs(c.real) <= ctol * abs(c):  # 纯虚根 i b 与 −i b（互为共轭）
+        elif abs(c.real) <= ctol * abs(c):  # purely imaginary root i b with −i b, mutual conjugates
             partner = next(
                 (j for j, (c2, m2) in enumerate(clusters) if j > i and j not in used
                  and abs(c2 + c) <= ctol * max(1.0, abs(c)) and m2 == m),
                 None,
             )
             if partner is None or m % 2:
-                raise ValidationError("补多项式纯虚根重数必须为偶数")
+                raise ValidationError("Purely imaginary roots of the complementary polynomial"
+                                      " must have even multiplicity")
             bb = (abs(c.imag) + abs(clusters[partner][0].imag)) / 2
             for _ in range(m // 2):
                 factors.append((bb * bb, 0.0, 1.0))  # x² − (ib)² = x² + b²
             used.add(partner)
-        else:  # 一般复根：四元组 {±ρ, ±ρ̄} 各 m 重；用对称化质心降低数值偏差
+        else:  # generic complex root: the quadruple {±ρ, ±ρ̄} each with multiplicity m; the symmetrized centroid reduces numerical bias
             sib = [
                 j
                 for j, (c2, m2) in enumerate(clusters)
@@ -309,7 +329,8 @@ def _q_from_roots(rpoly: Sequence[float], d: int) -> tuple[float | complex, ...]
                      or abs(c2 + c.conjugate()) <= ctol * max(1.0, abs(c)))
             ]
             if len(sib) != 3:
-                raise ValidationError("补多项式复根必须成共轭-反号四元组")
+                raise ValidationError("Complex roots of the complementary polynomial must form"
+                                      " conjugate-negated quadruples")
             members = [c] + [clusters[j][0] for j in sib]
             ra = sum(abs(v.real) for v in members) / 4
             rb = sum(abs(v.imag) for v in members) / 4
@@ -319,126 +340,145 @@ def _q_from_roots(rpoly: Sequence[float], d: int) -> tuple[float | complex, ...]
             used.update(sib)
         used.add(i)
     if len(used) != len(clusters):
-        raise ValidationError("补多项式根结构不完整，无法谱分解")
+        raise ValidationError("The complementary polynomial root structure is incomplete,"
+                              " so no spectral decomposition exists")
     if zero_mult % 2:
-        raise ValidationError("补多项式零根重数必须为偶数")
+        raise ValidationError("Zero roots of the complementary polynomial must have even"
+                              " multiplicity")
     m0 = zero_mult // 2
     if m0 % 2 != (d - 1) % 2:
-        raise ValidationError("补多项式谱因子的奇偶性与度数要求不符")
+        raise ValidationError("The parity of the complementary polynomial spectral factor"
+                              " contradicts the degree requirement")
     q: tuple[float | complex, ...] = (math.sqrt(float(rpoly[-1])),)
     for f in factors:
         q = _mul(q, f)
     q = _mul(q, (0.0, 1.0)) if m0 else q
     q = _trim(tuple(0.0 if abs(v) < 1e-12 else v for v in _scale(1.0, q)))
-    # 奇偶性：只保留与 d−1 同奇偶的幂次（数值噪声清零）
+    # Parity: keep only the powers with the same parity as d−1, zeroing numerical noise
     q = tuple(v if (d - 1 - k) % 2 == 0 else 0.0 for k, v in enumerate(q))
     resid = _sub(_trim(_mul(q, _conj(q))), rpoly)
     if max((abs(v) for v in resid), default=0.0) > 1e-5 * max(1.0, max(abs(c) for c in rpoly)):
-        raise ValidationError("补多项式谱分解自检失败（数值精度不足）")
+        raise ValidationError("The complementary polynomial spectral decomposition failed its"
+                              " self-check because of insufficient numerical precision")
     return q
 
 
 def _strip(
     ppoly: Sequence[float | complex], qpoly: Sequence[float | complex], d: int
 ) -> tuple[float, ...]:
-    """layer stripping：由 (P, Q) 逐层恢复相位，时间正序返回。"""
+    """Layer stripping: recover the phases layer by layer from (P, Q), returned in time order."""
     p, q = list(ppoly), list(qpoly)
     phases: list[float] = []
     for k in range(d, 0, -1):
         if abs(q[k - 1]) < 1e-13:
-            raise ValidationError("逐层剥离退化：补多项式首项过小，相位数值不稳定")
+            raise ValidationError("Layer stripping degenerated: the leading coefficient of the"
+                                  " complementary polynomial is too small and the phases are"
+                                  " numerically unstable")
         phi = cmath.phase(p[k] / q[k - 1]) / 2
         phases.append(phi)
         ei, ej = cmath.exp(-1j * phi), cmath.exp(1j * phi)
         pn = _add(_scale(ei, (0j,) + tuple(p)), _scale(ej, _sub(q, (0j, 0j) + tuple(q))))
         qn = _sub(_scale(ei, p), _scale(ej, (0j,) + tuple(q)))
-        # 理论上 x^k、x^{k+1} 与 x^{k−1} 的首部系数应精确相消；记录残差由自检兜底
+        # In theory the leading coefficients of x^k, x^{k+1} and x^{k−1} cancel exactly; residual errors are caught by the self-check
         p, q = list(_trim(pn[:k])), list(_trim(qn[: max(1, k - 1)]))
         if len(p) < k:
             p += [0j] * (k - len(p))
         if len(q) < max(1, k - 1):
             q += [0j] * (max(1, k - 1) - len(q))
     if abs(abs(p[0]) - 1.0) > 1e-6:
-        raise ValidationError("逐层剥离自检失败：零层相位模长偏离 1")
+        raise ValidationError("Layer stripping self-check failed: the magnitude of the zero-level"
+                              " phase deviates from 1")
     phases.append(cmath.phase(p[0]))
     return tuple(reversed(phases))
 
 
 def qsp_phases(coeffs: Iterable[float], imag: Iterable[float] | None = None) -> tuple[float, ...]:
-    """由实系数目标多项式合成 QSP 相位序列（时间正序，长度 d+1）。
+    """Synthesize a QSP phase sequence from a real-coefficient target polynomial, in
+    time order with length d+1.
 
-    coeffs 为升幂实系数（常数项在前），目标为 P = f（imag 为 None）或
-    P = f + i·h（imag 为 h 的升幂实系数）。可实现条件：f 与 h 的奇偶性均为
-    d mod 2、在 [−1,1] 上 f² + h² ≤ 1、端点饱和 f(±1)² + h(±1)² = 1，
-    且 R = (1 − f² − h²)/(1−x²) 非负并满足谱分解的根重数条件。
-    不提供 imag 时即为纯实目标，此时必须有 ``|f(±1)| = 1``。
+    coeffs holds ascending real coefficients with the constant term first; the
+    target is P = f when imag is None, or P = f + i·h when imag holds the
+    ascending real coefficients of h. The realizability conditions are: f and h
+    both have parity d mod 2; f² + h² ≤ 1 on [−1,1]; endpoint saturation
+    f(±1)² + h(±1)² = 1; and R = (1 − f² − h²)/(1−x²) is nonnegative and
+    satisfies the root multiplicity conditions of a spectral decomposition.
+    Omitting imag means a purely real target, which then requires
+    ``|f(±1)| = 1``.
 
     Args:
-        coeffs: 目标实部 f 的升幂实系数序列（常数项在前）。
-        imag: 虚部补全 h 的升幂实系数；缺省表示纯实目标。
+        coeffs: Ascending real coefficients of the target real part f, constant term first.
+        imag: Ascending real coefficients of the imaginary completion h; omit for a purely real target.
 
     Returns:
-        tuple[float, ...]: 时间正序的 QSP 相位序列，长度为目标度数加一。
+        tuple[float, ...]: QSP phase sequence in time order, with length equal to the target degree plus one.
     """
-    f = _check_real_poly(coeffs, "目标多项式")
+    f = _check_real_poly(coeffs, "target polynomial")
     d = _deg(f)
     if d > _MAX_DEGREE:
-        raise ValidationError(f"目标多项式度数超过合成上限 {_MAX_DEGREE}")
+        raise ValidationError(f"Target polynomial degree exceeds the synthesis limit {_MAX_DEGREE}")
     if d == 0:
         if abs(abs(f[0]) - 1.0) > 1e-9:
-            raise ValidationError("零次目标必须是单位模常数")
+            raise ValidationError("A degree-zero target must be a unit-modulus constant")
         return (cmath.phase(f[0]),)
-    _check_parity(f, d, "目标多项式")
-    h = _check_real_poly(imag, "虚部补全") if imag is not None else (0.0,)
+    _check_parity(f, d, "target polynomial")
+    h = _check_real_poly(imag, "imaginary completion") if imag is not None else (0.0,)
     if _trim(h) != (0.0,):
         if _deg(h) > d:
-            raise ValidationError("虚部补全度数不能超过目标度数")
-        _check_parity(h + (0.0,) * (d + 1 - len(h)), d, "虚部补全")
+            raise ValidationError("The imaginary completion degree must not exceed the target"
+                                  " degree")
+        _check_parity(h + (0.0,) * (d + 1 - len(h)), d, "imaginary completion")
     if _sup_norm(f) > 1.0 + 1e-6 and imag is None:
-        raise ValidationError("目标多项式在 [−1,1] 上超过上界 1")
+        raise ValidationError("The target polynomial exceeds the upper bound 1 on the interval"
+                              " from −1 to 1")
     bound = max(abs(complex(_eval(f, x), _eval(h, x))) for x in _grid())
     if bound > 1.0 + 1e-6:
-        raise ValidationError("P = f + i·h 在 [−1,1] 上超过单位圆盘")
+        raise ValidationError("P = f + i·h leaves the unit disk on the interval from −1 to 1")
     sat = max(abs(_eval(f, 1.0).real ** 2 + _eval(h, 1.0).real ** 2 - 1.0),
               abs(_eval(f, -1.0).real ** 2 + _eval(h, -1.0).real ** 2 - 1.0))
     if sat > 1e-6:
-        raise ValidationError("端点未饱和：需要 f(±1)² + h(±1)² = 1（可传入虚部补全）")
+        raise ValidationError("Endpoints are not saturated: f and h must satisfy the saturation"
+                              " identity at x = 1 and x = -1; provide an imaginary completion")
     dpoly = _trim(_sub((1.0,), _add(_mul(f, f), _mul(h, h))))
     rpoly = _div_1mx2(dpoly)
     if min((_eval(rpoly, x).real for x in _grid()), default=0.0) < -1e-9:
-        raise ValidationError("补多项式 R 在 [−1,1] 上取负值，谱分解不存在")
+        raise ValidationError("The complementary polynomial R takes negative values on the"
+                              " interval from −1 to 1, so no spectral decomposition exists")
     q = _q_from_roots(rpoly, d)
     if q is None:
-        raise ValidationError("补多项式谱因子的奇偶性与度数要求不符")
+        raise ValidationError("The parity of the complementary polynomial spectral factor"
+                              " contradicts the degree requirement")
     ppoly = _add(f, tuple(1j * v for v in h))
     phases = _strip(ppoly, q, d)
     err = max(abs(qsp_response(x, phases) - _eval(ppoly, x)) for x in _grid(512))
     if err > _STRIP_TOL:
-        raise ValidationError(f"相位合成往返自检失败（误差 {err:.2e}）：度数过高或补多项式病态")
+        raise ValidationError(f"Phase synthesis round-trip self-check failed with error {err:.2e}:"
+                              " degree too high or ill-conditioned complementary polynomial")
     return phases
 
 
 # ---------------------------------------------------------------------------
-# 组装辅助：相位序列 → BE，以及实部提取 LCU。
+# Assembly helpers: phase sequence to block encoding, and the real-part
+# extraction LCU.
 # ---------------------------------------------------------------------------
 
 
 def _wrap_qsvt_be(a: BlockEncoding, phases: Iterable[float]) -> BlockEncoding:
-    """按相位序列组装 QSVT 操作并包装为块编码。"""
+    """Assemble the QSVT operation from the phase sequence and wrap it as a block encoding."""
     return BlockEncoding(
         annotate(qsvt_sequence(a, phases), "block_encoding", be_alpha=1.0)
     )
 
 
 def _real_qsvt_be(a: BlockEncoding, phases: Iterable[float]) -> BlockEncoding:
-    """块编码 (P + P̄)(A/α)/2 = f(A/α)：−Φ 恰好实现 P̄，经 LCU 各半提取实部。"""
+    """Block encoding of (P + P̄)(A/α)/2 = f(A/α): −Φ realizes exactly P̄, and the
+    equal-weight LCU extracts the real part."""
     plus = _wrap_qsvt_be(a, phases)
     minus = _wrap_qsvt_be(a, tuple(-p for p in phases))
     return linear_combination(0.5, plus, 0.5, minus)
 
 
 def _finish(be: BlockEncoding, algorithm: str, **attributes: float) -> BlockEncoding:
-    """为最终块编码登记算法名与量化属性。"""
+    """Record the algorithm name and quantitative attributes on the final block encoding."""
     return BlockEncoding(
         annotate(
             be.operation,
@@ -453,47 +493,53 @@ def _finish(be: BlockEncoding, algorithm: str, **attributes: float) -> BlockEnco
 def _synthesize_with_imag(
     f: Sequence[float], imag_candidates: Iterable[Iterable[float]], label: str
 ) -> tuple[float, ...]:
-    """依次尝试虚部补全候选，全部失败时抛出 ValidationError。"""
+    """Try the imaginary completion candidates in turn; raise ValidationError when all fail."""
     for h in imag_candidates:
         try:
             return qsp_phases(f, imag=h)
         except ValidationError:
             continue
-    raise ValidationError(f"{label} 的虚部补全失败：请降低目标度数或放宽参数")
+    raise ValidationError(f"Imaginary completion failed for {label}: reduce the target degree"
+                          " or relax the parameters")
 
 
 # ---------------------------------------------------------------------------
-# 标准变换族。
+# Standard transformation family.
 # ---------------------------------------------------------------------------
 
 
 def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05) -> BlockEncoding:
-    """近似 A⁻¹ 的 QSVT 块编码（奇扩展多项式 J_b(x) = (1−(1−x²)^b)/x 的缩放）。
+    """QSVT block encoding approximating A⁻¹, a scaling of the odd extension polynomial
+    J_b(x) = (1−(1−x²)^b)/x.
 
-    目标多项式 f(x) = c·J_b(x)（升幂系数 ( −1)^m C(b, m+1) 解析给出），
-    在 ``|x| ≥ 1/κ`` 上相对误差不超过 error 地逼近 c/x，``||f||∞ ≤ 1/3``。
-    返回的 BE 的零信号块约为 inverse_scale · A⁻¹，inverse_scale = c·α。
+    The target polynomial is f(x) = c·J_b(x), with ascending coefficients
+    (−1)^m C(b, m+1) given analytically; it approximates c/x on ``|x| ≥ 1/κ``
+    with relative error at most error, and ``||f||∞ ≤ 1/3``. The zero-signal
+    block of the returned block encoding approximates inverse_scale · A⁻¹, with
+    inverse_scale = c·α.
 
     Args:
-        a: 待求逆矩阵 A 的块编码。
-        kappa: 条件数 κ，取不小于 1 的有限数。
-        error: 相对近似误差，取 (0,1)。
+        a: Block encoding of the matrix A to invert.
+        kappa: Condition number κ, a finite number not less than 1.
+        error: Relative approximation error, in (0,1).
 
     Returns:
-        BlockEncoding: 零信号块约为 inverse_scale·A⁻¹ 的矩阵求逆块编码。
+        BlockEncoding: Matrix inversion block encoding whose zero-signal block approximates
+        inverse_scale·A⁻¹.
     """
     require_instance(a, BlockEncoding, "qsvt_matrix_inversion.a")
     if not (math.isfinite(kappa) and kappa >= 1):
-        raise ValidationError("条件数 κ 必须是不小于 1 的有限数")
+        raise ValidationError("The condition number κ must be a finite number not less than 1")
     if not (0 < error < 1):
-        raise ValidationError("近似误差 error 必须在 (0,1) 内")
+        raise ValidationError("The approximation error must lie strictly between 0 and 1")
     if kappa == 1:
         b = 1
     else:
         b = max(1, math.ceil(math.log(1 / error) / -math.log(1 - 1 / kappa**2)))
     d = 2 * b - 1
     if d > _MAX_DEGREE:
-        raise ValidationError(f"κ={kappa} 需要度数 {d}，超过合成上限 {_MAX_DEGREE}；请放宽 error")
+        raise ValidationError(f"κ={kappa} requires degree {d} which exceeds the synthesis limit"
+                              f" {_MAX_DEGREE}; please relax error")
     f = tuple(
         ((-1.0) ** m) * math.comb(b, m + 1) if i % 2 == 1 else 0.0
         for i in range(d + 1)
@@ -504,7 +550,7 @@ def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05
     c_scale = 1.0 / (3.0 * norm)
     f = cast("tuple[float, ...]", _scale(c_scale, f))
     sat = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
-    phases = _synthesize_with_imag(f, [(0.0, sat)], "矩阵求逆多项式")
+    phases = _synthesize_with_imag(f, [(0.0, sat)], "matrix inversion polynomial")
     be = _real_qsvt_be(a, phases)
     return _finish(
         be,
@@ -519,33 +565,36 @@ def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05
 def eigenstate_filter(
     a: BlockEncoding, gap: float, degree: int, *, center: float = 0.0
 ) -> BlockEncoding:
-    """特征态过滤：块编码在 ``|x−center| ≤ gap`` 外被压到 1/T_d(r) 以下的尖峰多项式。
+    """Eigenstate filtering: a peaked polynomial block encoding that suppresses the
+    block below 1/T_d(r) outside ``|x−center| ≤ gap``.
 
-    目标为 Lin–Tong 型过滤多项式 f(x) = T_d(g(x²))/T_d(r)，
-    g(y) = 2(y−Δ²)/(1−Δ²) − 1，r = (1+Δ²)/(1−Δ²)；f 在 x=0 处饱和（``|f(0)|=1``），
-    在 ``|x| ≥ Δ`` 上 ``|f| ≤ 1/T_d(r)``。center 非零时先经 BE 线性组合平移谱。
+    The target is the Lin–Tong filter polynomial f(x) = T_d(g(x²))/T_d(r),
+    with g(y) = 2(y−Δ²)/(1−Δ²) − 1 and r = (1+Δ²)/(1−Δ²); f saturates at
+    x=0, ``|f(0)|=1``, and on ``|x| ≥ Δ`` it obeys ``|f| ≤ 1/T_d(r)``. A
+    nonzero center first shifts the spectrum via a block-encoding linear
+    combination.
 
     Args:
-        a: 输入算符的块编码。
-        gap: 过滤半宽 Δ，取 (0,1)；与中心距离不超过 Δ 的谱分量被保留。
-        degree: Chebyshev 过滤度数，取正整数；实际合成度数为其两倍。
-        center: 过滤中心的谱位置，取 (−1,1)；取 0 时不平移谱。
+        a: Block encoding of the input operator.
+        gap: Filter half-width Δ, in (0,1); spectral components within Δ of the center are kept.
+        degree: Chebyshev filter degree, a positive integer; the actual synthesis degree is twice it.
+        center: Spectral position of the filter center, in (−1,1); 0 shifts no spectrum.
 
     Returns:
-        BlockEncoding: 尖峰过滤块编码，suppression 属性为 1/T_d(r)。
+        BlockEncoding: Peaked filter block encoding, with the suppression attribute 1/T_d(r).
     """
     require_instance(a, BlockEncoding, "eigenstate_filter.a")
     if not (0 < gap < 1):
-        raise ValidationError("过滤宽度 gap 必须在 (0,1) 内")
+        raise ValidationError("The filter width gap must lie strictly between 0 and 1")
     if type(degree) is not int or degree < 1:
-        raise ValidationError("Chebyshev 度数必须为正整数")
+        raise ValidationError("The Chebyshev degree must be a positive integer")
     d2 = 2 * degree
     if d2 > _MAX_DEGREE:
-        raise ValidationError(f"合成度数 {d2} 超过上限 {_MAX_DEGREE}")
+        raise ValidationError(f"The synthesis degree {d2} exceeds the limit {_MAX_DEGREE}")
     shifted = a
     if center != 0.0:
         if not math.isfinite(center) or abs(center) >= 1:
-            raise ValidationError("过滤中心 center 必须在 (−1,1) 内")
+            raise ValidationError("The filter center must lie strictly between −1 and 1")
         shifted = linear_combination(1.0, a, -complex(center), identity(a.width))
     r = (1 + gap**2) / (1 - gap**2)
     norm_d = math.cosh(degree * math.acosh(r))  # T_d(r)
@@ -557,7 +606,7 @@ def eigenstate_filter(
         t0, t1 = t1, _sub(_scale(2.0, _mul(u, t1)), t0)
     f = cast("tuple[float, ...]", _scale(1.0 / norm_d, t1 if degree >= 1 else t0))
     sat = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
-    phases = _synthesize_with_imag(f, [(0.0, 0.0, sat)], "特征态过滤多项式")
+    phases = _synthesize_with_imag(f, [(0.0, 0.0, sat)], "eigenstate filter polynomial")
     be = _real_qsvt_be(shifted, phases)
     return _finish(
         be,
@@ -571,7 +620,7 @@ def eigenstate_filter(
 
 
 def _bessel_j(n: int, x: float) -> float:
-    """第一类 Bessel 函数 J_n(x)，幂级数纯 Python 实现。"""
+    """Bessel function of the first kind J_n(x), a pure-Python power series."""
     term = (x / 2) ** n / math.factorial(n)
     total = term
     m = 0
@@ -583,7 +632,8 @@ def _bessel_j(n: int, x: float) -> float:
 
 
 def _jacobi_anger(t: float, error: float) -> tuple[tuple[float, ...], tuple[float, ...], int]:
-    """e^{itx} 的 Jacobi–Anger 截断：返回 (偶支 cos 系数, 奇支 sin 系数, 截断度数 K)。"""
+    """Jacobi–Anger truncation of e^{itx}: returns the even-branch cos coefficients, the
+    odd-branch sin coefficients, and the truncation degree K."""
     kmax = min(_MAX_DEGREE, int(math.ceil(abs(t))) + 8 * int(math.ceil(math.log10(4 / error))) + 8)
     js = [_bessel_j(k, abs(t)) for k in range(kmax + 2)]
     suffix = [0.0] * (kmax + 3)
@@ -609,25 +659,29 @@ def _jacobi_anger(t: float, error: float) -> tuple[tuple[float, ...], tuple[floa
 def qsvt_hamiltonian_simulation(
     a: BlockEncoding, t: float, *, error: float = 0.01
 ) -> BlockEncoding:
-    """e^{itA/α} 的 QSVT 块编码：Jacobi–Anger 偶/奇两支分别合成，再经 LCU 组合。
+    """QSVT block encoding of e^{itA/α}: the Jacobi–Anger even and odd branches are
+    synthesized separately and then combined by an LCU.
 
-    偶支近似 cos(tx)、奇支近似 sin(tx)，统一缩放 s 使两支均留出虚部补全余量；
-    每支用 (U_Φ + U_{−Φ})/2 提取实部，最后按 1 与 i 做 LCU。
-    返回 BE 的零信号块约为 e^{itA/α}/sim_scale，sim_scale = 2s。
+    The even branch approximates cos(tx) and the odd branch approximates
+    sin(tx); a common scale s leaves headroom for the imaginary completion of
+    both branches. Each branch extracts the real part via (U_Φ + U_{−Φ})/2,
+    and the two are finally combined by an LCU with weights 1 and i. The
+    zero-signal block of the returned block encoding approximates
+    e^{itA/α}/sim_scale, with sim_scale = 2s.
 
     Args:
-        a: 演化生成元 A 的块编码。
-        t: 演化时间，取非零有限实数。
-        error: Jacobi–Anger 截断与合成误差，取 (0,1)。
+        a: Block encoding of the evolution generator A.
+        t: Evolution time, a nonzero finite real number.
+        error: Jacobi–Anger truncation and synthesis error, in (0,1).
 
     Returns:
-        BlockEncoding: 零信号块约为 e^{itA/α}/sim_scale 的块编码。
+        BlockEncoding: Block encoding whose zero-signal block approximates e^{itA/α}/sim_scale.
     """
     require_instance(a, BlockEncoding, "qsvt_hamiltonian_simulation.a")
     if not (math.isfinite(t) and t != 0):
-        raise ValidationError("演化时间 t 必须是非零有限实数")
+        raise ValidationError("The evolution time t must be a nonzero finite real number")
     if not (0 < error < 1):
-        raise ValidationError("近似误差 error 必须在 (0,1) 内")
+        raise ValidationError("The approximation error must lie strictly between 0 and 1")
     fc, fs, k = _jacobi_anger(t, error)
     s = 1.5 * max(_sup_norm(fc), _sup_norm(fs), 1e-3)
     fc, fs = (
@@ -636,10 +690,10 @@ def qsvt_hamiltonian_simulation(
     )
     dc, ds = _deg(fc), _deg(fs)
     if dc % 2 or ds % 2 == 0:
-        raise ValidationError("Jacobi–Anger 分支奇偶性异常")
+        raise ValidationError("Unexpected parity in the Jacobi–Anger branches")
 
     def cos_imags() -> Iterator[tuple[float, ...]]:
-        """逐个给出 cos 支可尝试的虚部补全多项式。"""
+        """Yield the imaginary completion polynomials to try for the cos branch, one at a time."""
         a0 = math.sqrt(max(0.0, 1.0 - _eval(fc, 0.0).real ** 2))
         a1 = math.sqrt(max(0.0, 1.0 - _eval(fc, 1.0).real ** 2))
         for m in range(1, dc // 2 + 1):
@@ -649,13 +703,13 @@ def qsvt_hamiltonian_simulation(
             )
 
     def sin_imags() -> Iterator[tuple[float, ...]]:
-        """逐个给出 sin 支可尝试的虚部补全多项式。"""
+        """Yield the imaginary completion polynomials to try for the sin branch, one at a time."""
         a1 = math.sqrt(max(0.0, 1.0 - _eval(fs, 1.0).real ** 2))
         for m in range(0, (ds - 1) // 2 + 1):
             yield tuple(a1 * (1.0 if i == 2 * m + 1 else 0.0) for i in range(ds + 1))
 
-    phases_c = _synthesize_with_imag(fc, cos_imags(), "哈密顿模拟 cos 支")
-    phases_s = _synthesize_with_imag(fs, sin_imags(), "哈密顿模拟 sin 支")
+    phases_c = _synthesize_with_imag(fc, cos_imags(), "Hamiltonian simulation cos branch")
+    phases_s = _synthesize_with_imag(fs, sin_imags(), "Hamiltonian simulation sin branch")
     uc = _real_qsvt_be(a, phases_c)
     us = _real_qsvt_be(a, phases_s)
     be = linear_combination(1.0, uc, 1j, us)
@@ -670,27 +724,34 @@ def qsvt_hamiltonian_simulation(
 
 
 def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
-    """Yoder–Low–Chuang 定点振幅放大的相位序列（时间正序，长度 degree+1）。
+    """Phase sequence for Yoder–Low–Chuang fixed-point amplitude amplification, in time
+    order with length degree+1.
 
-    构造依据 YLC 闭式补多项式：记 L = degree（BE 调用次数，必须为奇数）、
-    c = T_{1/L}(1/δ)，则 Q(x) = δc·R(c²(1−x²))，R(u) = T_L(√u)/√u 为解析多项式；
-    P 由 1 − (1−x²)Q² 的求根谱分解得到。实现的成功概率恰为
-    P_S(x) = 1 − δ² T_L²(c√(1−x²))：``|x| ≥ √(1−1/c²)`` 时 P_S ≥ 1 − δ²，
-    且阈值随 L 单调下降趋于 0（不动点性质）。
+    The construction follows the closed-form YLC complementary polynomial: let
+    L = degree, the number of block-encoding calls, which must be odd, and
+    c = T_{1/L}(1/δ); then Q(x) = δc·R(c²(1−x²)) where R(u) = T_L(√u)/√u is
+    an analytic polynomial, and P is obtained from the root-based spectral
+    decomposition of 1 − (1−x²)Q². The realized success probability is
+    exactly P_S(x) = 1 − δ² T_L²(c√(1−x²)): whenever ``|x| ≥ √(1−1/c²)``
+    we have P_S ≥ 1 − δ², and the threshold decreases monotonically in L
+    toward 0, the fixed-point property.
 
     Args:
-        delta: 失败概率上界 δ，取 (0,1)。
-        degree: 放大度数 L（BE 调用次数），取不超过合成上限一半的正奇数。
+        delta: Failure probability bound δ, in (0,1).
+        degree: Amplification degree L, the number of block-encoding calls, a positive odd
+            integer not exceeding half the synthesis limit.
 
     Returns:
-        tuple[float, ...]: 时间正序相位序列，长度为 degree+1。
+        tuple[float, ...]: Phase sequence in time order, with length degree+1.
     """
     if not (0 < delta < 1):
-        raise ValidationError("定点搜索误差 δ 必须在 (0,1) 内")
+        raise ValidationError("The fixed-point search error δ must lie strictly between 0 and 1")
     if type(degree) is not int or degree < 1 or degree % 2 == 0:
-        raise ValidationError("定点搜索度数（BE 调用次数）必须为正奇数")
+        raise ValidationError("The fixed-point search degree, the number of block-encoding calls,"
+                              " must be a positive odd integer")
     if degree > _MAX_DEGREE // 2:
-        raise ValidationError(f"定点搜索度数超过上限 {_MAX_DEGREE // 2}")
+        raise ValidationError(f"The fixed-point search degree exceeds the limit"
+                              f" {_MAX_DEGREE // 2}")
     L = degree
     c = math.cosh(math.acosh(1.0 / delta) / L)
     tcoeff = _chebyshev_t(L)
@@ -703,8 +764,9 @@ def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
     qpoly = _trim(_scale(delta * c, qpoly))
     fpoly = _trim(_sub((1.0,), _mul((1.0, 0.0, -1.0), _mul(qpoly, qpoly))))
     if abs(fpoly[0]) > 1e-8 or abs(fpoly[1]) > 1e-8:
-        raise ValidationError("YLC 补多项式构造异常：零根缺失")
-    ft = _trim(fpoly[2:])  # 除以 x²（零点二重根）
+        raise ValidationError("Abnormal YLC complementary polynomial construction: the zero root"
+                              " is missing")
+    ft = _trim(fpoly[2:])  # divide by x², the double root at zero
     clusters = _cluster(_roots(ft))
     factors: list[tuple[float | complex, ...]] = []
     used: set[int] = set()
@@ -723,13 +785,13 @@ def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
                  or abs(c2 + rt.conjugate()) <= ctol * max(1.0, abs(rt)))
         ]
         if len(sib) != 3:
-            raise ValidationError("YLC 谱分解根结构异常")
+            raise ValidationError("Abnormal root structure in the YLC spectral decomposition")
         for _ in range(m):
             factors.append((-rt * rt, 0.0, 1.0))
         used.update(sib)
         used.add(i)
     if 1 + 2 * len(factors) != L:
-        raise ValidationError("YLC 谱分解因子计数异常")
+        raise ValidationError("Abnormal factor count in the YLC spectral decomposition")
     ppoly: tuple[float | complex, ...] = (0.0, 1.0)
     for fct in factors:
         ppoly = _mul(ppoly, fct)
@@ -740,23 +802,25 @@ def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
         for x in _grid(512)
     )
     if err > _STRIP_TOL:
-        raise ValidationError(f"定点搜索相位自检失败（误差 {err:.2e}）")
+        raise ValidationError(f"Fixed-point search phase self-check failed with error {err:.2e}")
     return phases
 
 
 def fixed_point_search(a: BlockEncoding, delta: float, degree: int) -> BlockEncoding:
-    """定点振幅放大的 QSVT 组装：对 BE 应用 fixed_point_search_phases 的序列。
+    """QSVT assembly for fixed-point amplitude amplification: applies the phase sequence
+    from fixed_point_search_phases to a block encoding.
 
-    零信号块为复多项式 P(A/α)，成功概率 ``|P(x)|²`` 满足 YLC 不动点保证；
-    threshold 属性给出 √(1−1/c²) 的放大阈值。
+    The zero-signal block is the complex polynomial P(A/α), whose success
+    probability ``|P(x)|²`` satisfies the YLC fixed-point guarantee; the
+    threshold attribute gives the amplification threshold √(1−1/c²).
 
     Args:
-        a: 待放大的块编码。
-        delta: 失败概率上界 δ，取 (0,1)。
-        degree: 放大度数（BE 调用次数），取正奇数。
+        a: The block encoding to amplify.
+        delta: Failure probability bound δ, in (0,1).
+        degree: Amplification degree, the number of block-encoding calls, a positive odd integer.
 
     Returns:
-        BlockEncoding: 零信号块为 P(A/α) 的定点放大块编码。
+        BlockEncoding: Fixed-point amplification block encoding whose zero-signal block is P(A/α).
     """
     require_instance(a, BlockEncoding, "fixed_point_search.a")
     phases = fixed_point_search_phases(delta, degree)

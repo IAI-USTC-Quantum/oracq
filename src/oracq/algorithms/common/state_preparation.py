@@ -1,4 +1,5 @@
-"""初态扩展、编码作用与物理子空间选择的组合工具。"""
+"""Composition utilities for initial state extension, applying encodings and physical
+subspace selection."""
 
 from __future__ import annotations
 
@@ -15,16 +16,18 @@ from oracq.infrastructure.ir import Bits, ValidationError, fuse
 
 
 def extend_initial(prep: StatePreparation, extra_width: int) -> StatePreparation:
-    """把态制备 ``prep`` 的目标空间扩展 ``extra_width`` 个高位。
+    """Extend the target space of a state preparation ``prep`` by ``extra_width`` high
+    bits.
 
-    原制备作用于扩展后 target 的低位，新增高位保持零；零输入承诺保留。
+    The original preparation acts on the low bits of the extended target and
+    the new high bits stay zero; the zero-input promise is preserved.
 
     Args:
-        prep: 原始 ``StatePreparation``。
-        extra_width: 追加的高位量子位数。
+        prep: The original ``StatePreparation``.
+        extra_width: Number of high qubits to append.
 
     Returns:
-        StatePreparation: 目标宽度为 ``prep.width + extra_width`` 的制备。
+        StatePreparation: Preparation whose target width is ``prep.width + extra_width``.
     """
     b = Builder(
         _name("extend_initial", prep.operation, extra_width),
@@ -42,28 +45,29 @@ def select_subspace(
     *,
     label: str = "selection",
 ) -> StateOracle:
-    """从态 oracle 的目标空间中选出物理子空间。
+    """Select the physical subspace out of the target space of a state oracle.
 
-    低 ``output_width`` 位作为输出，其余高位并入 signal 并要求等于
-    ``high_value``；成功条件为整个 signal 寄存器复零。
+    The low ``output_width`` bits serve as the output, while the remaining
+    high bits are folded into signal and required to equal ``high_value``;
+    the success condition is that the whole signal register returns to zero.
 
     Args:
-        state: 宽度不小于 ``output_width`` 的输入 ``StateOracle``。
-        output_width: 选出的物理输出宽度。
-        high_value: 被丢弃高位必须等于的值，默认为零。
-        label: 生成模块名与算法属性使用的标签。
+        state: The input ``StateOracle``, with width not less than ``output_width``.
+        output_width: The selected physical output width.
+        high_value: The value that the discarded high bits must equal, zero by default.
+        label: Label used for the generated module name and algorithm attribute.
 
     Returns:
-        StateOracle: 输出宽度为 ``output_width``、signal 含原信号位与
-        附加高位的态 oracle。
+        StateOracle: State oracle with output width ``output_width`` and a signal
+        holding the original signal bits plus the appended high bits.
 
     Raises:
-        ValidationError: ``output_width`` 超出 ``state.width`` 或
-            ``high_value`` 越界。
+        ValidationError: ``output_width`` exceeds ``state.width``, or ``high_value``
+            is out of range.
     """
     extra = state.width - output_width
     if extra < 0 or not 0 <= high_value < 1 << extra:
-        raise ValidationError("输出子空间布局无效")
+        raise ValidationError("Invalid output subspace layout")
     b = Builder(
         _name(label, state.operation, output_width, high_value),
         {"target": Bits(output_width), "signal": Bits(state.signal_qubits + extra)},
@@ -84,23 +88,26 @@ def select_subspace(
 
 
 def apply_be_to_state(a: BlockEncoding, prep: StatePreparation) -> StateOracle:
-    """把块编码 ``a`` 作用到已制备的初态上，得到态 oracle。
+    """Apply a block encoding ``a`` to an already prepared initial state, yielding a
+    state oracle.
 
-    ``a`` 的信号位占 signal 低位，``prep`` 的工作区并入其高位；成功条件
-    为整个 signal 寄存器复零。
+    The signal bits of ``a`` occupy the low bits of signal and the workspace
+    of ``prep`` is folded into its high bits; the success condition is that
+    the whole signal register returns to zero.
 
     Args:
-        a: 作用算子的 ``BlockEncoding``。
-        prep: 与 ``a`` 同目标宽度的 ``StatePreparation``。
+        a: The ``BlockEncoding`` of the operator to apply.
+        prep: A ``StatePreparation`` with the same target width as ``a``.
 
     Returns:
-        StateOracle: 目标宽度不变、附带信号寄存器的态 oracle。
+        StateOracle: State oracle with unchanged target width and an attached signal
+        register.
 
     Raises:
-        ValidationError: 两者目标宽度不同。
+        ValidationError: The two target widths differ.
     """
     if a.width != prep.width:
-        raise ValidationError("算子与制备的目标宽度不符")
+        raise ValidationError("The operator and preparation target widths do not match")
     b = Builder(
         _name("apply_be_state", a.operation, prep.operation),
         {"target": Bits(a.width), "signal": Bits(a.signal_qubits + prep.work_width)},

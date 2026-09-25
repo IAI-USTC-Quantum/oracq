@@ -1,10 +1,12 @@
-"""Fokker–Planck/SDE 的线性 ODE 输入模型与纯 Python 经典见证。
+"""Linear ODE input model for Fokker–Planck/SDE and a pure-Python classical witness.
 
-一维 Ito 随机微分方程 ``dx = a(x) dt + sqrt(2 D(x)) dW`` 的概率密度满足
-Fokker–Planck 方程 ``p' = -∂x(a p) + ∂xx(D p)``。本模块在均匀网格上做零通量
-有限体积离散，得到列和为零的离散生成元 G；G 经显式 Pauli 展开成为
-BlockEncoding 后即可组装 QODEProblem/LinearODE，交给现有线性 ODE 求解器
-（LCHS 等）。生成元的耗散性是输入模型的声明，不由语言证明。
+The probability density of the one-dimensional Ito SDE ``dx = a(x) dt + sqrt(2 D(x)) dW``
+satisfies the Fokker–Planck equation ``p' = -∂x(a p) + ∂xx(D p)``. This module performs a
+zero-flux finite-volume discretization on a uniform grid, yielding a discrete generator G
+with zero column sums; once G becomes a BlockEncoding via an explicit Pauli expansion, a
+QODEProblem/LinearODE can be assembled and handed to the existing linear ODE solvers
+(LCHS etc.). The dissipativity of the generator is an input-model declaration, not proved
+by the language.
 """
 
 from __future__ import annotations
@@ -36,49 +38,49 @@ def _coefficients(
     *,
     nonnegative: bool = False,
 ) -> tuple[float, ...]:
-    """把常量或逐点向量统一成有限实数元组。"""
+    """Unify a constant or a pointwise vector into a tuple of finite reals."""
     if type(values) in (int, float):
         values = cast("Iterable[float]", (values,) * size)
     result = tuple(cast("Iterable[float]", values))
     if len(result) != size:
-        raise ValidationError(path + " 长度必须等于网格点数")
+        raise ValidationError(path + " length must equal the number of grid points")
     for value in result:
         finite_real(value, path, minimum=0 if nonnegative else None)
     return tuple(float(v) for v in result)
 
 
 def _uniform_points(grid: Iterable[float]) -> tuple[tuple[float, ...], float]:
-    """校验严格递增且均匀的网格坐标，返回 (points, spacing)。"""
+    """Validate strictly increasing uniform grid coordinates and return (points, spacing)."""
     points = tuple(grid)
     if len(points) < 2:
-        raise ValidationError("FokkerPlanckProblem.grid 至少需要两个网格点")
+        raise ValidationError("FokkerPlanckProblem.grid requires at least two grid points")
     for value in points:
         finite_real(value, "FokkerPlanckProblem.grid")
     spacing = (points[-1] - points[0]) / (len(points) - 1)
     if spacing <= 0:
-        raise ValidationError("FokkerPlanckProblem.grid 必须严格递增")
+        raise ValidationError("FokkerPlanckProblem.grid must be strictly increasing")
     tolerance = 1e-9 * max(1.0, abs(spacing))
     for left, right in zip(points, points[1:], strict=False):
         if abs((right - left) - spacing) > tolerance:
-            raise ValidationError("当前仅支持均匀网格，非均匀网格超出支持范围")
+            raise ValidationError("Only uniform grids are currently supported; non-uniform grids are out of scope")
     return tuple(float(p) for p in points), float(spacing)
 
 
 def _power_of_two_width(size: int, path: str) -> int:
-    """校验网格点数为不小于 2 的二的幂，并返回对应寄存器位数。"""
+    """Validate that the number of grid points is a power of two of at least 2 and return the corresponding register bit count."""
     if size < 2 or size & (size - 1):
-        raise ValidationError(path + " 需要二的幂个网格点以匹配量子寄存器宽度")
+        raise ValidationError(path + " requires a power-of-two number of grid points to match the quantum register width")
     return (size - 1).bit_length()
 
 
 @dataclass(frozen=True)
 class FokkerPlanckProblem:
-    """守恒形式 Fokker–Planck 算子的零通量有限体积离散输入模型。
+    """Zero-flux finite-volume discretization input model of the conservative-form Fokker–Planck operator.
 
     Args:
-        drift: 漂移系数 a(x)，可为常量或逐点向量。
-        diffusion: 扩散系数 D(x) >= 0，可为常量或逐点向量。
-        grid: 均匀递增的网格坐标序列。
+        drift: Drift coefficient a(x); a constant or a pointwise vector.
+        diffusion: Diffusion coefficient D(x) >= 0; a constant or a pointwise vector.
+        grid: Uniformly increasing grid coordinate sequence.
     """
 
     drift: int | float | Iterable[float]
@@ -86,7 +88,7 @@ class FokkerPlanckProblem:
     grid: Iterable[float]
 
     def __post_init__(self) -> None:
-        """校验均匀网格并把漂移、扩散系数规范化为逐点元组。"""
+        """Validate the uniform grid and normalize the drift and diffusion coefficients into pointwise tuples."""
         points, spacing = _uniform_points(self.grid)
         object.__setattr__(self, "points", points)
         object.__setattr__(self, "spacing", spacing)
@@ -102,21 +104,21 @@ class FokkerPlanckProblem:
 
     @property
     def size(self) -> int:
-        """网格点数，也是离散生成元矩阵的维数。"""
+        """Number of grid points; also the dimension of the discrete generator matrix."""
         return len(self.points)  # type: ignore[attr-defined]
 
     @property
     def width(self) -> int:
-        """网格对应的量子寄存器位数，等于 ``log2(size)``。
+        """Quantum register bit count for the grid, equal to ``log2(size)``.
 
-        网格点数不是二的幂时抛出 ``ValidationError``。"""
+        Raises ``ValidationError`` when the number of grid points is not a power of two."""
         return _power_of_two_width(self.size, "FokkerPlanckProblem")
 
     def generator_matrix(self) -> tuple[tuple[float, ...], ...]:
-        """返回离散生成元 G（列向量约定 ``p' = G p``，列和为零）。
+        """Return the discrete generator G (column-vector convention ``p' = G p``, zero column sums).
 
         Returns:
-            tuple[tuple[float, ...], ...]: 网格维数的方阵，按行嵌套的元组表示。
+            tuple[tuple[float, ...], ...]: A square matrix of grid dimension, as row-nested tuples.
         """
         size, h = self.size, self.spacing  # type: ignore[attr-defined]
         g = [[0.0] * size for _ in range(size)]
@@ -138,29 +140,29 @@ class FokkerPlanckProblem:
         return tuple(tuple(row) for row in g)
 
     def generator_encoding(self) -> BlockEncoding:
-        """小尺度显式 Pauli 展开的 BlockEncoding；不宣称量子加速。
+        """BlockEncoding via a small-scale explicit Pauli expansion; no quantum speedup is claimed.
 
         Returns:
-            BlockEncoding: 离散生成元 G 的显式 Pauli 展开块编码。
+            BlockEncoding: The explicit Pauli-expansion block encoding of the discrete generator G.
         """
         if self.width > 5:
-            raise ValidationError("显式 Pauli 展开仅用于不超过 32 点的小网格，大实例需要访问 oracle")
+            raise ValidationError("The explicit Pauli expansion is only for small grids of at most 32 points; larger instances require an access oracle")
         return matrix_pauli_encoding(self.generator_matrix())
 
     def qode_problem(self, initial: StatePreparation | None = None) -> QODEProblem:
-        """组装 ``p' = G p`` 的 QODEProblem；dissipative 为调用方声明。
+        """Assemble the QODEProblem for ``p' = G p``; dissipative is a caller declaration.
 
         Args:
-            initial: 初态制备句柄；缺省为网格宽度上的均匀分布态，宽度须与网格匹配。
+            initial: Initial state preparation handle; defaults to the uniform distribution state over the grid width, and its width must match the grid.
 
         Returns:
-            QODEProblem: 生成元 G 驱动的量子 ODE 问题，带零通量有限体积证据标注。
+            QODEProblem: The quantum ODE problem driven by the generator G, tagged with zero-flux finite-volume evidence.
         """
         initial = initial if initial is not None else uniform_state(self.width)
         if not isinstance(initial, StatePreparation):
-            raise ValidationError("FokkerPlanckProblem.qode_problem 需要 StatePreparation 初态")
+            raise ValidationError("FokkerPlanckProblem.qode_problem requires a StatePreparation initial state")
         if initial.width != self.width:
-            raise ValidationError("初态宽度与 Fokker–Planck 网格宽度不匹配")
+            raise ValidationError("Initial state width does not match the Fokker–Planck grid width")
         return QODEProblem(
             self.generator_encoding(),
             initial,
@@ -169,13 +171,13 @@ class FokkerPlanckProblem:
         )
 
     def linear_ode(self, initial: StatePreparation | None = None) -> LinearODE:
-        """同一问题的 ``u' = -A u`` （A = -G）LinearODE 视图。
+        """A ``u' = -A u`` LinearODE view of the same problem (A = -G).
 
         Args:
-            initial: 初态制备句柄；缺省为网格宽度上的均匀分布态。
+            initial: Initial state preparation handle; defaults to the uniform distribution state over the grid width.
 
         Returns:
-            LinearODE: A 取 -G 的线性 ODE 视图，标签为 ``fokker_planck_minus_A``。
+            LinearODE: The linear ODE view with A = -G, labeled ``fokker_planck_minus_A``.
         """
         initial = initial if initial is not None else uniform_state(self.width)
         return LinearODE(
@@ -186,15 +188,15 @@ class FokkerPlanckProblem:
 
 
 def _probabilities(probabilities: Iterable[float], path: str) -> tuple[float, ...]:
-    """校验二的幂长度的非负概率序列并归一化。"""
+    """Validate a non-negative probability sequence of power-of-two length and normalize it."""
     values = tuple(probabilities)
     if len(values) < 2 or len(values) & (len(values) - 1):
-        raise ValidationError(path + " 需要二的幂长度且至少两个点")
+        raise ValidationError(path + " requires a power-of-two length with at least two points")
     for value in values:
         finite_real(value, path, minimum=0)
     total = math.fsum(values)
     if total <= 0:
-        raise ValidationError(path + " 总和必须为正")
+        raise ValidationError(path + " must have a positive sum")
     return tuple(float(v) / total for v in values)
 
 
@@ -205,16 +207,16 @@ def sde_state_preparation(
     angle_width: int = 8,
     work_width: int = 0,
 ) -> StatePreparation:
-    """把离散初态分布编码为幅度等于 ``sqrt(p_i)`` 的 StatePreparation。
+    """Encode a discrete initial distribution as a StatePreparation with amplitudes ``sqrt(p_i)``.
 
     Args:
-        probabilities: 非负离散概率，长度为二的幂。
-        implementation: ``"gate"`` 为普通复用旋转实现，``"qram"`` 为 QRAM 角表实现。
-        angle_width: QRAM 实现的角表字宽。
-        work_width: gate 实现附加的工作位宽。
+        probabilities: Non-negative discrete probabilities of power-of-two length.
+        implementation: ``"gate"`` for the ordinary reused-rotation implementation, ``"qram"`` for the QRAM angle-table implementation.
+        angle_width: Angle-table word width of the QRAM implementation.
+        work_width: Extra work bit width of the gate implementation.
 
     Returns:
-        StatePreparation: 幅度为 ``sqrt(p_i)`` 的离散分布制备句柄。
+        StatePreparation: Preparation handle of the discrete distribution with amplitudes ``sqrt(p_i)``.
     """
     values = _probabilities(probabilities, "sde_state_preparation.probabilities")
     amplitudes = [math.sqrt(v) for v in values]
@@ -223,18 +225,18 @@ def sde_state_preparation(
     if implementation == "qram":
         positive_integer(angle_width, "sde_state_preparation.angle_width")
         return qram_state_prep((len(values) - 1).bit_length(), angle_width)
-    raise ValidationError("未知态制备实现：" + repr(implementation))
+    raise ValidationError("Unknown state preparation implementation: " + repr(implementation))
 
 
 def sde_state_angles(probabilities: Iterable[float], *, angle_width: int = 8) -> dict[int, int]:
-    """QRAM 实现的角表绑定数据；键为旋转树节点地址。
+    """Angle-table binding data of the QRAM implementation; keys are rotation-tree node addresses.
 
     Args:
-        probabilities: 非负离散概率，长度为二的幂，内部归一化。
-        angle_width: 角表字的量化位宽，取正整数。
+        probabilities: Non-negative discrete probabilities of power-of-two length; normalized internally.
+        angle_width: Quantization bit width of the angle-table words; a positive integer.
 
     Returns:
-        dict[int, int]: 键为旋转树节点地址、值为量化后角度整数的绑定数据。
+        dict[int, int]: Binding data keyed by rotation-tree node address with quantized angle integers as values.
     """
     values = _probabilities(probabilities, "sde_state_angles.probabilities")
     positive_integer(angle_width, "sde_state_angles.angle_width")
@@ -242,11 +244,11 @@ def sde_state_angles(probabilities: Iterable[float], *, angle_width: int = 8) ->
 
 
 def _square_matrix(matrix: Iterable[Iterable[float]], path: str) -> tuple[tuple[float, ...], ...]:
-    """校验非空方阵且元素有限，并转成浮点元组表示。"""
+    """Validate a nonempty square matrix with finite entries and convert it to a float-tuple representation."""
     result = tuple(tuple(row) for row in matrix)
     size = len(result)
     if size < 1 or any(len(row) != size for row in result):
-        raise ValidationError(path + " 需要非空方阵")
+        raise ValidationError(path + " must be a nonempty square matrix")
     for row in result:
         for value in row:
             finite_real(value, path)
@@ -254,26 +256,26 @@ def _square_matrix(matrix: Iterable[Iterable[float]], path: str) -> tuple[tuple[
 
 
 def _matvec(matrix: Sequence[Sequence[float]], vector: Sequence[float]) -> list[float]:
-    """计算矩阵与向量的乘积，逐行用 ``math.fsum`` 累加。"""
+    """Compute the matrix-vector product, accumulating row by row with ``math.fsum``."""
     return [math.fsum(row[j] * vector[j] for j in range(len(vector))) for row in matrix]
 
 
 def _matmul(a: Sequence[Sequence[float]], b: Sequence[Sequence[float]]) -> list[list[float]]:
-    """计算两个同阶方阵的乘积，逐元素用 ``math.fsum`` 累加。"""
+    """Compute the product of two square matrices of equal order, accumulating entry by entry with ``math.fsum``."""
     size = len(a)
     columns = [[b[i][j] for i in range(size)] for j in range(size)]
     return [[math.fsum(x * y for x, y in zip(row, col, strict=True)) for col in columns] for row in a]
 
 
 def matrix_exponential(matrix: Iterable[Iterable[float]], time: float = 1.0) -> list[list[float]]:
-    """缩放平方加 Taylor 的纯 Python 矩阵指数，仅用于小规模经典见证。
+    """Pure-Python matrix exponential by scaling-and-squaring plus Taylor; only for small-scale classical witnesses.
 
     Args:
-        matrix: 非空方阵，元素为有限实数。
-        time: 作用时长缩放因子，取有限实数。
+        matrix: A nonempty square matrix with finite real entries.
+        time: Duration scaling factor; a finite real number.
 
     Returns:
-        list[list[float]]: exp(matrix·time) 的矩阵，按行嵌套的列表表示。
+        list[list[float]]: The matrix exp(matrix*time), as row-nested lists.
     """
     finite_real(time, "matrix_exponential.time")
     a = [list(row) for row in _square_matrix(matrix, "matrix_exponential.matrix")]
@@ -305,21 +307,21 @@ def evolve_distribution(
     *,
     steps: int | None = None,
 ) -> list[float]:
-    """经典参考演化；steps 为 None 时用矩阵指数，否则显式 Euler。
+    """Classical reference evolution; uses the matrix exponential when steps is None, explicit Euler otherwise.
 
     Args:
-        matrix: 生成元方阵，约定 ``p' = matrix · p``。
-        initial: 与矩阵同维的初值向量。
-        time: 演化时长，取非负有限实数。
-        steps: 显式 Euler 步数；缺省时一步调用矩阵指数求解。
+        matrix: Generator square matrix under the convention ``p' = matrix * p``.
+        initial: Initial vector of the same dimension as the matrix.
+        time: Evolution duration; a non-negative finite real number.
+        steps: Explicit Euler step count; when omitted, the solve is a single matrix-exponential call.
 
     Returns:
-        list[float]: 演化到给定时刻的分布向量。
+        list[float]: The distribution vector evolved to the given time.
     """
     g = _square_matrix(matrix, "evolve_distribution.matrix")
     initial = tuple(initial)
     if len(initial) != len(g):
-        raise ValidationError("evolve_distribution.initial 长度与矩阵不符")
+        raise ValidationError("evolve_distribution.initial length does not match the matrix")
     for value in initial:
         finite_real(value, "evolve_distribution.initial")
     finite_real(time, "evolve_distribution.time", minimum=0)
@@ -339,36 +341,36 @@ def distribution_moments(
     probabilities: Iterable[float],
     orders: tuple[int, ...] = (1, 2),
 ) -> tuple[float, ...]:
-    """由网格坐标与概率向量计算各阶矩 ``<x^k>``，默认返回 ``(<x>, <x^2>)``。
+    """Compute the moments ``<x^k>`` from grid coordinates and a probability vector; defaults to ``(<x>, <x^2>)``.
 
     Args:
-        points: 网格坐标序列，与概率向量等长。
-        probabilities: 各点概率权重，总和须为正，内部归一化。
-        orders: 需要计算的矩阶数，取正整数元组。
+        points: Grid coordinate sequence, of the same length as the probability vector.
+        probabilities: Per-point probability weights; the sum must be positive; normalized internally.
+        orders: Moment orders to compute; a tuple of positive integers.
 
     Returns:
-        tuple[float, ...]: 与阶数一一对应的归一化矩 ``<x^k>``。
+        tuple[float, ...]: Normalized moments ``<x^k>`` corresponding one-to-one with the orders.
     """
     points = tuple(points)
     values = tuple(probabilities)
     if len(points) != len(values) or not points:
-        raise ValidationError("distribution_moments 需要等长非空的坐标与概率")
+        raise ValidationError("distribution_moments requires nonempty coordinates and probabilities of equal length")
     for value in (*points, *values):
         finite_real(value, "distribution_moments")
     if any(type(k) is not int or k < 1 for k in orders):
-        raise ValidationError("distribution_moments.orders 需要正整数阶数")
+        raise ValidationError("distribution_moments.orders requires positive integer orders")
     total = math.fsum(values)
     if total <= 0:
-        raise ValidationError("distribution_moments 概率总和必须为正")
+        raise ValidationError("The distribution_moments probability sum must be positive")
     return tuple(
         math.fsum(p * x**k for x, p in zip(points, values, strict=True)) / total for k in orders
     )
 
 
 def _interface_ratio(problem: FokkerPlanckProblem, face: int) -> float:
-    """零通量面的有效网格 Péclet 数 u = a h / (2 D)。"""
+    """Effective grid Péclet number at a zero-flux face, u = a h / (2 D)."""
     if not isinstance(problem, FokkerPlanckProblem):
-        raise ValidationError("需要 FokkerPlanckProblem")
+        raise ValidationError("A FokkerPlanckProblem is required")
     a_face = 0.5 * (
         cast("tuple[float, ...]", problem.drift)[face]
         + cast("tuple[float, ...]", problem.drift)[face + 1]
@@ -378,37 +380,37 @@ def _interface_ratio(problem: FokkerPlanckProblem, face: int) -> float:
         + cast("tuple[float, ...]", problem.diffusion)[face + 1]
     )
     if d_face <= 0:
-        raise ValidationError("稳态参考要求面上扩散系数严格为正")
+        raise ValidationError("The stationary reference requires strictly positive diffusion coefficients at the interfaces")
     return a_face * problem.spacing / (2 * d_face)  # type: ignore[attr-defined]
 
 
 def stationary_distribution(problem: FokkerPlanckProblem) -> tuple[float, ...]:
-    """零通量离散的精确稳态；相邻点比值为 ``(1+u)/(1-u)``。
+    """Exact stationary state of the zero-flux discretization; adjacent-point ratios are ``(1+u)/(1-u)``.
 
     Args:
-        problem: 已规范化的 Fokker–Planck 离散问题，各面扩散系数须为正。
+        problem: A normalized Fokker–Planck discrete problem; the diffusion coefficients at all faces must be positive.
 
     Returns:
-        tuple[float, ...]: 与网格点一一对应、总和为一的离散稳态概率。
+        tuple[float, ...]: Discrete stationary probabilities, one per grid point, summing to one.
     """
     weights = [1.0]
     for face in range(problem.size - 1):
         u = _interface_ratio(problem, face)
         if abs(u) >= 1:
-            raise ValidationError("网格 Péclet 数过大，中心差分稳态不再为正")
+            raise ValidationError("The grid Péclet number is too large; the central-difference stationary state is no longer positive")
         weights.append(weights[-1] * (1 + u) / (1 - u))
     total = math.fsum(weights)
     return tuple(w / total for w in weights)
 
 
 def boltzmann_distribution(problem: FokkerPlanckProblem) -> tuple[float, ...]:
-    """连续稳态参考 ``p ∝ exp(∫ a/D dx)``，与离散稳态相差 O(h^2)。
+    """Continuous stationary reference ``p ∝ exp(∫ a/D dx)``, differing from the discrete stationary state by O(h^2).
 
     Args:
-        problem: 已规范化的 Fokker–Planck 离散问题，各面扩散系数须为正。
+        problem: A normalized Fokker–Planck discrete problem; the diffusion coefficients at all faces must be positive.
 
     Returns:
-        tuple[float, ...]: 与网格点一一对应、总和为一的连续稳态参考概率。
+        tuple[float, ...]: Continuous stationary reference probabilities, one per grid point, summing to one.
     """
     weights = [1.0]
     for face in range(problem.size - 1):

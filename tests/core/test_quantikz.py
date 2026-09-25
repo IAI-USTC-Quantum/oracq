@@ -1,4 +1,4 @@
-"""quantikz 导出的结构与文本断言：结构保持 RIR，不展开调用。"""
+"""Structural and textual assertions for quantikz export: the structure preserves the RIR without expanding calls."""
 
 import math
 import unittest

@@ -1,4 +1,4 @@
-"直接生成模块化 OriginIR-ext，控制以 inline controlled_by 表达。"
+"Directly emit modular OriginIR-ext, with controls expressed via inline controlled_by."
 
 from __future__ import annotations
 
@@ -26,13 +26,13 @@ from oracq.infrastructure.validation import validate
 
 @dataclass(frozen=True)
 class OriginIRArtifact:
-    """模块化 OriginIR-ext 导出的文本结果及配套映射信息。
+    """Text result of a modular OriginIR-ext export, with companion mapping information.
 
     Attributes:
-        text: 完整的 OriginIR-ext 源文本，含 QRAMDECL、全部 DEF 定义和入口调用。
-        registers: 入口寄存器名到其占用全局量子位下标元组的映射。
-        resources: RIR 资源名到导出文本中 QRAM 名称的映射。
-        workspace_qubits: 入口私有工作区占用的全局量子位下标元组，默认为空。
+        text: The complete OriginIR-ext source text, including QRAMDECL, all DEF definitions and the entry call.
+        registers: Mapping from entry register names to their tuples of occupied global qubit indices.
+        resources: Mapping from RIR resource names to QRAM names in the exported text.
+        workspace_qubits: Tuple of global qubit indices occupied by the entry's private workspace, empty by default.
     """
 
     text: str
@@ -42,20 +42,21 @@ class OriginIRArtifact:
 
 
 def export_originir(program: Program) -> OriginIRArtifact:
-    """把闭合程序导出为模块化 OriginIR-ext 文本。
+    """Export a closed program as modular OriginIR-ext text.
 
-    纯文本导出，不需要安装任何量子后端。模块调用与 Repeat 保留为可复用的
-    DEF 定义及调用，不在导出阶段展开；控制以逐门 ``controlled_by`` 和附加
-    控制形式参数表达。
+    Pure text export, requiring no quantum backend installation. Module
+    calls and Repeats are kept as reusable DEF definitions and calls, not
+    expanded at export time; controls are expressed via per-gate
+    ``controlled_by`` and additional control formal parameters.
 
     Args:
-        program: 待导出的闭合程序。
+        program: The closed program to export.
 
     Returns:
-        OriginIRArtifact: 导出文本及寄存器、资源与工作区的映射信息。
+        OriginIRArtifact: The exported text plus register, resource and workspace mapping information.
 
     Raises:
-        ValidationError: 程序结构非法或存在未绑定的 oracle。
+        ValidationError: The program structure is illegal, or an unbound oracle exists.
     """
     return _Exporter(validate(program, require_closed=True)).run()
 
@@ -64,14 +65,14 @@ _DefinitionKey: TypeAlias = (
     tuple[str, str, tuple[tuple[str, str], ...], int]
     | tuple[str, str, tuple[tuple[str, str], ...], tuple[Instruction, ...], int, int]
 )
-"""定义缓存的键：``("module", …)`` 模块键或 ``("repeat", …)`` 重复体键。"""
+"""Key of the definition cache: a ``("module", ...)`` module key or a ``("repeat", ...)`` repeat-body key."""
 
 
 class _Exporter:
-    """按模块记忆化地把闭合程序翻译为 OriginIR-ext 定义表。"""
+    """Translate a closed program into an OriginIR-ext definition table with per-module memoization."""
 
     def __init__(self, program: Program) -> None:
-        """绑定程序、模块表与定义缓存，并预计算工作区配额。"""
+        """Bind the program, module table and definition cache, and precompute workspace quotas."""
         self.program: Program = program
         self.modules: dict[str, Module] = program.module_map
         self.definitions: list[list[str]] = []
@@ -81,12 +82,12 @@ class _Exporter:
         self.workspace: dict[str, int] = workspace_table(program)
 
     def _symbol(self, key: _DefinitionKey) -> str:
-        """由缓存键生成确定性的 ``DEF`` 符号名。"""
+        """Generate a deterministic ``DEF`` symbol name from the cache key."""
         digest = hashlib.sha256(repr(key).encode()).hexdigest()[:24]
         return f"m_{key[1]}_{digest}"
 
     def _mapping(self, module: Module) -> dict[str, tuple[str, ...]]:
-        """构造模块全部寄存器名到位线名元组的映射。"""
+        """Build the mapping of all module register names to tuples of wire names."""
         result = {
             reg.name: tuple(f"v_{reg.name}[{i}]" for i in range(reg.type.width))
             for reg in module.registers
@@ -100,11 +101,11 @@ class _Exporter:
         return result
 
     def _workspace_args(self, module: Module) -> list[str]:
-        """生成模块调用处传入的工作区位线实参列表。"""
+        """Generate the list of workspace wire actual arguments passed at module call sites."""
         return [f"pw_work[{i}]" for i in range(self.workspace[module.name])]
 
     def _bits(self, ref: Ref, mapping: Mapping[str, tuple[str, ...]]) -> list[str]:
-        """把视图展开为 OriginIR 位线名列表。"""
+        """Expand a view into a list of OriginIR wire names."""
         return [
             bit
             for span in ref.parts
@@ -112,15 +113,15 @@ class _Exporter:
         ]
 
     def _args(self, module: Module, mapping: Mapping[str, tuple[str, ...]]) -> list[str]:
-        """按公开寄存器声明顺序拼接模块的实参位线。"""
+        """Concatenate the module's actual argument wires in public register declaration order."""
         return [bit for reg in module.registers for bit in mapping[reg.name]]
 
     def _control_formals(self, count: int) -> tuple[tuple[str, int], ...]:
-        """生成取值恒为 1 的 ``pc_control`` 控制形式参数元组。"""
+        """Generate the tuple of ``pc_control`` control formal parameters whose value is always 1."""
         return tuple((f"pc_control[{i}]", 1) for i in range(count))
 
     def _header(self, symbol: str, module: Module, control_count: int) -> str:
-        """生成 ``DEF`` 行，按需追加工作区与控制形式参数。"""
+        """Generate the ``DEF`` line, appending workspace and control formal parameters as needed."""
         args = [f"v_{r.name}[{r.type.width}]" for r in module.registers if r.type.width]
         if self.workspace[module.name]:
             args.append(f"pw_work[{self.workspace[module.name]}]")
@@ -129,7 +130,7 @@ class _Exporter:
         return f"DEF {symbol}({', '.join(args)})"
 
     def _wrap(self, lines: list[str], controls: tuple[tuple[str, int], ...]) -> list[str]:
-        """仅包装普通门或 QRAM 调用；合并已有的内层逐门控制。"""
+        """Wrap only plain gates or QRAM calls; merge any existing inner per-gate controls."""
         if not lines or not controls:
             return lines
         zeros = [bit for bit, value in controls if value == 0]
@@ -145,7 +146,7 @@ class _Exporter:
     def _call(
         self, symbol: str, args: list[str], controls: tuple[tuple[str, int], ...]
     ) -> list[str]:
-        """模块控制通过附加形式参数传递，定义和调用都不展开。"""
+        """Module controls are passed through additional formal parameters; neither definitions nor calls expand them."""
         zeros = [bit for bit, value in controls if value == 0]
         full_args = args + [bit for bit, _ in controls]
         return (
@@ -157,15 +158,15 @@ class _Exporter:
     def module(
         self, module: Module, resources: Mapping[str, str], control_count: int = 0
     ) -> str:
-        """生成（或复用）模块在给定控制数下的 ``DEF`` 定义，返回符号名。
+        """Generate or reuse the module's ``DEF`` definition for the given control count, returning the symbol name.
 
         Args:
-            module: 待翻译的模块定义。
-            resources: 模块资源名到导出 QRAM 名的映射。
-            control_count: 定义需容纳的附加控制位个数；省略为无控制。
+            module: The module definition to translate.
+            resources: Mapping from module resource names to exported QRAM names.
+            control_count: Number of extra control bits the definition must accommodate; no controls when omitted.
 
         Returns:
-            str: ``DEF`` 定义的符号名；同键模块只生成一次，重复调用直接复用。
+            str: The ``DEF`` definition's symbol name; a same-key module is generated once and reused directly on repeated calls.
         """
         key = ("module", module.name, tuple(sorted(resources.items())), control_count)
         if key in self.cache:
@@ -173,7 +174,7 @@ class _Exporter:
         symbol = self._symbol(key)
         self.cache[key] = symbol
         mapping = self._mapping(module)
-        # 导出入口要求闭合程序，module.body 经 require_closed 验证非空。
+        # Exporting the entry requires a closed program; module.body is verified non-None by require_closed.
         body = self.body(
             cast("tuple[Instruction, ...]", module.body),
             module,
@@ -192,17 +193,17 @@ class _Exporter:
         resources: Mapping[str, str],
         control_count: int,
     ) -> str:
-        """用二进制平方法为重复体生成（或复用）``DEF`` 定义，返回符号名。
+        """Generate or reuse a ``DEF`` definition for a repeat body by the binary method, returning the symbol name.
 
         Args:
-            nodes: 重复体的指令序列。
-            count: 重复次数，取正整数。
-            module: 重复体所属的模块定义。
-            resources: 模块资源名到导出 QRAM 名的映射。
-            control_count: 定义需容纳的附加控制位个数。
+            nodes: The repeat body's instruction sequence.
+            count: The repetition count, a positive integer.
+            module: The module definition the repeat body belongs to.
+            resources: Mapping from module resource names to exported QRAM names.
+            control_count: Number of extra control bits the definition must accommodate.
 
         Returns:
-            str: 重复体 ``DEF`` 定义的符号名；同体同次只生成一次。
+            str: The repeat body ``DEF`` definition's symbol name; generated once per body and count.
         """
         key = ("repeat", module.name, tuple(sorted(resources.items())), nodes, count, control_count)
         if key in self.cache:
@@ -231,17 +232,17 @@ class _Exporter:
         resources: Mapping[str, str],
         controls: tuple[tuple[str, int], ...] = (),
     ) -> list[str]:
-        """把指令体逐节点翻译为 OriginIR-ext 文本行。
+        """Translate an instruction body node by node into OriginIR-ext text lines.
 
         Args:
-            nodes: 待翻译的指令序列。
-            module: 指令体所属的模块，提供局部寄存器与调用上下文。
-            mapping: 寄存器名到位线名元组的映射。
-            resources: 模块资源名到导出 QRAM 名的映射。
-            controls: 从外层 ``Control`` 继承的 (位线, 生效值) 控制元组。
+            nodes: The instruction sequence to translate.
+            module: The module the instruction body belongs to, providing local registers and the call context.
+            mapping: Mapping from register names to tuples of wire names.
+            resources: Mapping from module resource names to exported QRAM names.
+            controls: (wire, active value) control tuples inherited from outer ``Control`` nodes.
 
         Returns:
-            list[str]: 翻译得到的 OriginIR-ext 文本行序列。
+            list[str]: The sequence of translated OriginIR-ext text lines.
         """
         lines: list[str] = []
         for node in nodes:
@@ -295,20 +296,20 @@ class _Exporter:
         mapping: Mapping[str, tuple[str, ...]],
         controls: tuple[tuple[str, int], ...],
     ) -> list[str]:
-        """把单条基元指令降低为 OriginIR-ext 门文本行。
+        """Lower a single primitive instruction into OriginIR-ext gate text lines.
 
         Args:
-            node: 待降低的基元指令。
-            module: 指令所属的模块；gphase 无控制时锚定其首个实参位线。
-            mapping: 寄存器名到位线名元组的映射。
-            controls: 从外层 ``Control`` 继承的 (位线, 生效值) 控制元组。
+            node: The primitive instruction to lower.
+            module: The module the instruction belongs to; an uncontrolled gphase anchors on its first actual argument wire.
+            mapping: Mapping from register names to tuples of wire names.
+            controls: (wire, active value) control tuples inherited from outer ``Control`` nodes.
 
         Returns:
-            list[str]: 该基元对应的门文本行，控制合并进 ``controlled_by``。
+            list[str]: The gate text lines of the primitive, with controls merged into ``controlled_by``.
         """
         operands = [self._bits(ref, mapping) for ref in node.operands]
         if node.op == "gphase":
-            # 校验保证 gphase 的角度为有限实数。
+            # Validation guarantees the gphase angle is a finite real number.
             angle = repr(float(cast(float, node.angle)))
             if controls:
                 zeros = [bit for bit, value in controls if not value]
@@ -332,7 +333,7 @@ class _Exporter:
         elif node.op == "add_const":
             bits, raw = operands[0], []
             for offset in range(len(bits)):
-                # 校验保证 add_const 的整数值存在。
+                # Validation guarantees the integer value of add_const exists.
                 if (cast(int, node.value) >> offset) & 1:
                     for i in reversed(range(offset + 1, len(bits))):
                         raw.extend(
@@ -346,11 +347,11 @@ class _Exporter:
         return self._wrap(raw, controls)
 
     def run(self) -> OriginIRArtifact:
-        """导出入口模块并拼装完整 OriginIR-ext 文本及映射信息。
+        """Export the entry module and assemble the full OriginIR-ext text and mapping information.
 
         Returns:
-            OriginIRArtifact: 完整导出文本，以及寄存器、资源名与工作区到
-            全局量子位的映射信息。
+            OriginIRArtifact: The full exported text, plus the mapping of registers,
+            resource names and the workspace to global qubits.
         """
         entry = self.program.main
         resources = {res.name: "ram_" + res.name for res in entry.resources}
@@ -379,53 +380,53 @@ def run_originir(
     max_qubits: int = 24,
     max_steps: int = 1_000_000,
 ) -> list[complex]:
-    """通过实际 UnifiedQuantum 后端执行小规模实例；依赖为可选安装。
+    """Execute a small instance through a real UnifiedQuantum backend; the dependency is an optional install.
 
     Args:
-        program: 待执行的闭合 RIR 程序；不得含运行期 QRAM 写（Store）。
-        memory: 资源名到 QRAM 内容的绑定；序列按下标、映射按地址给数据字。
-        max_qubits: 状态向量模拟的量子位预算上限，含工作区。
-        max_steps: 展开后的指令步数预算上限。
+        program: The closed RIR program to execute; it must not contain runtime QRAM writes via Store.
+        memory: Binding from resource names to QRAM contents; sequences give data words by index, mappings by address.
+        max_qubits: The qubit budget cap for state-vector simulation, workspace included.
+        max_steps: The instruction-step budget cap after expansion.
 
     Returns:
-        list[complex]: 入口公开寄存器空间上的末态振幅，按低位到高位排列。
+        list[complex]: The final-state amplitudes over the entry's public register space, ordered from least to most significant bit.
     """
     from oracq.infrastructure.execution import check_memory, expanded_steps
     from oracq.infrastructure.linking import uses_store
 
     program = validate(program, require_closed=True)
     if uses_store(program):
-        raise ValidationError("UnifiedQuantum 执行暂不支持运行期 QRAM 写（Store）；文本导出不受影响")
+        raise ValidationError("UnifiedQuantum execution does not yet support runtime QRAM writes via Store; text export is unaffected")
     width = sum(r.type.width for r in program.main.registers)
     from oracq.infrastructure.layout import workspace_table
 
     if width + workspace_table(program)[program.entry] > max_qubits:
-        raise ValidationError("超过 OriginIR 状态向量的本次量子位预算")
+        raise ValidationError("the qubit budget for this OriginIR state-vector run was exceeded")
     if expanded_steps(program, max_steps) > max_steps:
-        raise ValidationError("超过 UnifiedQuantum 解析展开预算")
+        raise ValidationError("the UnifiedQuantum parse expansion budget was exceeded")
     memories = check_memory(program, memory)
     for resource in program.main.resources:
         if resource.type.address_width + resource.type.data_width > 30:
-            raise ValidationError("当前 UnifiedQuantum QRAM 容器要求地址位和数据位总数不超过 30")
+            raise ValidationError("the current UnifiedQuantum QRAM container requires at most 30 total address and data bits")
         if resource.type.address_width > 20:
-            raise ValidationError("当前适配器拒绝物化超过 2^20 项的 QRAM")
+            raise ValidationError("the current adapter refuses to materialize QRAMs with more than 2^20 entries")
     try:
         from uniqc.simulator import Simulator
     except ImportError as exc:
         raise ValidationError(
-            "OriginIR 执行需要已安装 UnifiedQuantum 的环境；文本导出不需要该依赖"
+            "OriginIR execution requires an environment with UnifiedQuantum installed; text export does not need that dependency"
         ) from exc
     artifact = export_originir(program)
     sim = Simulator(least_qubit_remapping=False)
     sim.simulate_preprocess(artifact.text)
     for resource, cells in memories.items():  # type: ignore[assignment]
-        # resource 在上方循环绑定为 Resource 对象，此处承载资源名字符串。
+        # resource is bound as a Resource object in the loop above; here it carries the resource name string.
         ram = sim.qram_objects[artifact.resources[cast(str, resource)]]
         for address, value in cells.items():
             ram.write(address, value)
     vector = sim.simulate_statevector(artifact.text)
     if artifact.workspace_qubits:
         if any(abs(value) > 1e-12 for value in vector[1 << width :]):
-            raise ValidationError("OriginIR 局部工作区未复净")
+            raise ValidationError("the OriginIR local workspace was not restored to zero")
         return vector[: 1 << width]
     return vector

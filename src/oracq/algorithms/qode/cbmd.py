@@ -1,4 +1,4 @@
-"""基于轮廓分解的矩阵函数与演化组装，显式记录有限级数与遗漏项。"""
+"""Contour-decomposition-based assembly of matrix functions and evolution, explicitly recording the finite series and omitted terms."""
 
 from __future__ import annotations
 
@@ -24,14 +24,14 @@ from oracq.infrastructure.ir import ValidationError
 
 @dataclass(frozen=True)
 class ContourPlan:
-    """QST Eq.12 主级数；辅助极点与有限截断余项在报告中明确保留。"""
+    """QST Eq.12 main series; auxiliary poles and the finite truncation remainder are explicitly retained in the report."""
 
     a: float = 1.0
     cutoff: int = 2
     poles: tuple[complex, ...] = (2j, -1 + 1j, 1j, 1 + 1j)
 
     def __post_init__(self) -> None:
-        """校验 a、截断与辅助极点的有限性、互异性及非实性。"""
+        """Validate a, the cutoff, and the finiteness, distinctness, and non-reality of the auxiliary poles."""
         finite_real(self.a, "ContourPlan.a", minimum=0, strict=True)
         positive_integer(self.cutoff, "ContourPlan.cutoff", minimum=0)
         object.__setattr__(self, "poles", tuple(self.poles))
@@ -40,24 +40,25 @@ class ContourPlan:
             or not (math.isfinite(p.real) and math.isfinite(p.imag))
             for p in self.poles
         ):
-            raise ValidationError("CBMD 极点必须有限")
+            raise ValidationError("CBMD poles must be finite")
         if not math.isfinite(self.a) or self.a <= 0 or self.cutoff < 0:
-            raise ValidationError("CBMD a 必须为正且截断非负")
+            raise ValidationError("CBMD a must be positive and the cutoff non-negative")
         if len(set(self.poles)) != len(self.poles) or any(
             p == -1j or p.imag == 0 for p in self.poles
         ):
-            raise ValidationError("CBMD 当前要求非实互异简单辅助极点，且避开 -i")
+            raise ValidationError("CBMD currently requires distinct non-real simple auxiliary poles avoiding -i")
 
     @property
     def nodes(self) -> tuple[float, ...]:
-        """主级数实节点，第 k 项为 k/a，k 取 -cutoff..cutoff，共 2*cutoff+1 个。"""
+        """Real nodes of the main series; entry k is k/a with k in -cutoff..cutoff, 2*cutoff+1 in total."""
         return tuple(k / self.a for k in range(-self.cutoff, self.cutoff + 1))
 
     @property
     def weights(self) -> tuple[complex, ...]:
-        """主级数各节点的复权重，与 ``nodes`` 一一对应。
+        """Complex weights of the main series nodes, in one-to-one correspondence with ``nodes``.
 
-        按 QST Eq.12 的留数闭式计算，分母包含 (q+i) 因子与全部辅助极点。"""
+        Computed by the residue closed form of QST Eq.12; the denominator contains the (q+i)
+        factor and all auxiliary poles."""
         numerator = math.expm1(-2 * math.pi * self.a)
         return tuple(
             numerator
@@ -74,9 +75,10 @@ class ContourPlan:
 
     @property
     def auxiliary_coefficients(self) -> tuple[complex, ...]:
-        """各辅助极点的复系数，与 ``poles`` 一一对应。
+        """Complex coefficients of the auxiliary poles, in one-to-one correspondence with ``poles``.
 
-        对应的非 Hermitian 演化分支当前不生成，仅在 ``metadata`` 的 omitted 列表中声明。"""
+        The corresponding non-Hermitian evolution branches are not generated currently and
+        are only declared in the omitted list of ``metadata``."""
         numerator = math.expm1(-2 * math.pi * self.a)
         return tuple(
             numerator
@@ -88,12 +90,12 @@ class ContourPlan:
         )
 
     def metadata(self) -> str:
-        """导出计划参数与遗漏项声明的 JSON 文本。
+        """Export the plan parameters and the omitted-terms declaration as JSON text.
 
         Returns:
-            str: 含 a、cutoff、节点、极点、权重、辅助系数、omitted 遗漏项、assumption 前提与 source 文献来源。"""
+            str: Contains a, cutoff, nodes, poles, weights, auxiliary coefficients, the omitted terms, the assumption preconditions, and the source reference."""
         def pair(z: complex) -> list[float]:
-            """把复数展开为实部与虚部构成的二元列表。"""
+            """Expand a complex number into a two-element list of real and imaginary parts."""
             return [complex(z).real, complex(z).imag]
 
         return json.dumps(
@@ -119,21 +121,22 @@ def cbmd_qode(
     plan: ContourPlan | None = None,
     hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
 ) -> StateOracle:
-    """基于轮廓分解组装 u'=-Au 的量子模拟程序。
+    """Assemble the quantum simulation program for u'=-Au via contour decomposition.
 
     Args:
-        model: LinearODE 输入模型，parts.hermitian 为 L、parts.h 为 H，initial 为初态制备。
-        time: 非负演化时间。
-        plan: ContourPlan 轮廓计划；省略时使用默认计划。
-        hamiltonian_function: 接受 (K, time) 并返回 BlockEncoding 的可替换协议。
+        model: LinearODE input model; parts.hermitian is L, parts.h is H, and initial is the initial state preparation.
+        time: Non-negative evolution time.
+        plan: ContourPlan contour plan; the default plan is used when omitted.
+        hamiltonian_function: Replaceable protocol taking (K, time) and returning a BlockEncoding.
 
     Returns:
-        StateOracle: 逐节点 K_k=H+q_k*L 分支经 LCU 组合后作用到初态，成功子空间为 signal 全零。
+        StateOracle: Per-node K_k=H+q_k*L branches combined via LCU and applied to the initial state; the success subspace is all-zero signal.
 
     Raises:
-        ValidationError: model 或 plan 类型不符、time 非法或输入能力契约不满足。
+        ValidationError: model or plan has the wrong type, time is invalid, or the input capability contract is not satisfied.
 
-    辅助极点分支与无穷级数尾不生成，只在 contour_plan 元数据中显式声明。"""
+    Auxiliary-pole branches and the infinite series tail are not generated and are only
+    declared explicitly in the contour_plan metadata."""
     plan = plan or ContourPlan()
     require_instance(plan, ContourPlan, "cbmd.plan")
     return _lcu_dynamics(
@@ -154,17 +157,17 @@ def cbmd_function(
     residue_weights: Sequence[complex],
     hermitian_function: Callable[[BlockEncoding], BlockEncoding],
 ) -> BlockEncoding:
-    """通用 f(A) 组装点：Hermitian function protocol 保持开放，不偷换为矩阵求逆。
+    """Generic f(A) assembly point: the Hermitian function protocol stays open and is not silently swapped for matrix inversion.
 
     Args:
-        a: 目标算符 A 的块编码。
-        nodes: 留数极点位置序列，逐点进入 H + q·L 的组合。
-        residue_weights: 与极点一一对应的复留数权重，符号约定由调用方保证。
-        hermitian_function: Hermitian function protocol 实现；输入为极点组合后的
-            块编码，须返回 BlockEncoding。
+        a: Block encoding of the target operator A.
+        nodes: Residue pole locations, entering the H + q*L combination point by point.
+        residue_weights: Complex residue weights in one-to-one correspondence with the poles; the sign convention is the caller's responsibility.
+        hermitian_function: Hermitian function protocol implementation; the input is the
+            block encoding after the pole combination, and it must return a BlockEncoding.
 
     Returns:
-        BlockEncoding: 留数加权的 f(A) 块编码，correctness 标记为 pending。
+        BlockEncoding: The residue-weighted f(A) block encoding, with correctness marked pending.
     """
     parts = HermitianParts.from_operator(a)
     terms = [

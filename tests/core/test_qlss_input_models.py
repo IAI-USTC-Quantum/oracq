@@ -1,4 +1,4 @@
-"""输入模型、缩放、稀疏适配与数据结构的针对性见证。"""
+"""Targeted witnesses for input models, scaling, sparse adaptation, and data structures."""
 
 import math
 import unittest
@@ -123,7 +123,7 @@ class QLSSInputTests(unittest.TestCase):
         problem, _ = small_problem()
         block, _ = problem.block_input()
         only = LinearSystem(block=BlockSystem(block.encoding, block.rhs, block.spectrum))
-        with self.assertRaisesRegex(ValidationError, "不能从一般 BE"):
+        with self.assertRaisesRegex(ValidationError, "sparse oracle from a general BE"):
             make_cks_qlss()(only)
 
     def test_norm_recovery_uses_conditional_matrix_probe(self):
@@ -154,7 +154,7 @@ class QLSSInputTests(unittest.TestCase):
         problem, _ = small_problem()
         from dataclasses import replace
 
-        with self.assertRaisesRegex(ValidationError, "零右端"):
+        with self.assertRaisesRegex(ValidationError, "zero right-hand side"):
             make_cks_qlss()(replace(problem, rhs_norm=0))
 
     def test_qfvm_preserves_sparse_input_for_both_solvers(self):
@@ -210,7 +210,7 @@ class QLSSInputTests(unittest.TestCase):
 
         class LocalOnly(list):
             def __iter__(self):
-                raise AssertionError("局部更新不应复制或扫描全部流场")
+                raise AssertionError("a local update must not copy or scan the entire flow field")
 
         flow.states = LocalOnly(flow.states)
         patch = flow.update({5: (1.25, 0.25, 2.5)})

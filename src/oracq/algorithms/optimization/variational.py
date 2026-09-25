@@ -1,4 +1,4 @@
-"""参数化量子电路、MaxCut QAOA 和 VQE 的 Pauli 测量电路。"""
+"""Parameterized quantum circuits, MaxCut QAOA, and Pauli measurement circuits for VQE."""
 
 from __future__ import annotations
 
@@ -19,20 +19,22 @@ from oracq.infrastructure.ir import Bits, ValidationError
 def hardware_efficient_ansatz(
     width: int, layers: Sequence[Sequence[Sequence[float]]]
 ) -> Operation:
-    """生成 Ry/Rz 层与相邻 CNOT 组成的参数化电路。
+    """Generate a parameterized circuit of Ry/Rz layers with nearest-neighbor CNOTs.
 
     Args:
-        width: target 位宽。
-        layers: 参数形状为 [layer][qubit][Ry,Rz]，所有角度以弧度给出。
+        width: Width of target.
+        layers: Parameters shaped [layer][qubit][Ry,Rz]; all angles are given
+            in radians.
 
     Returns:
-        Operation: 只有 target。参数优化与重复执行由调用方组织。"""
+        Operation: target only. Parameter optimization and repeated execution
+        are organized by the caller."""
     positive_integer(width, "ansatz.width", maximum=64)
     layers = tuple(tuple(tuple(pair) for pair in layer) for layer in layers)
     if not layers or any(
         len(layer) != width or any(len(pair) != 2 for pair in layer) for layer in layers
     ):
-        raise ValidationError("ansatz 参数需要非空 [layer][qubit][Ry,Rz] 布局")
+        raise ValidationError("ansatz parameters require a non-empty layout indexed by layer, qubit, and the Ry Rz pair")
     for layer in layers:
         for pair in layer:
             for angle in pair:
@@ -57,34 +59,38 @@ def qaoa_maxcut(
     gammas: Sequence[float],
     betas: Sequence[float],
 ) -> Operation:
-    """生成 MaxCut 的 QAOA cost/mixer 电路。
+    """Generate the QAOA cost/mixer circuit for MaxCut.
 
     Args:
-        width: 图的顶点数，也是 target 位宽。
-        edges: (u,v,weight) 三元组，权重非负，不接受自环。
-        gammas: 各层 cost 演化角。
-        betas: 各层 mixer 演化角，长度与 gammas 相同。
+        width: Number of graph vertices, also the width of target.
+        edges: (u,v,weight) triples with nonnegative weights; self-loops are
+            not accepted.
+        gammas: Cost evolution angles per layer.
+        betas: Mixer evolution angles per layer, of the same length as
+            gammas.
 
     Returns:
-        Operation: 从均匀态开始的 QAOA 电路。读取 target 得到一个割的候选位串。
+        Operation: The QAOA circuit starting from the uniform state. Reading
+        target yields a candidate bit string of a cut.
 
-    Cost 为 Σw(1-ZuZv)/2。该函数不运行经典优化器。"""
+    The cost is Σw(1-ZuZv)/2. This function does not run a classical
+    optimizer."""
     positive_integer(width, "qaoa.width", maximum=64)
     edges = tuple(cast("tuple[int, int, float]", tuple(edge)) for edge in edges)
     gammas, betas = tuple(gammas), tuple(betas)
     if not gammas or len(gammas) != len(betas):
-        raise ValidationError("QAOA 需要同长且非空的 gamma/beta 列表")
+        raise ValidationError("QAOA requires non-empty gamma and beta lists of equal length")
     for angle in gammas + betas:
         finite_real(angle, "qaoa.angle")
     for edge in edges:
         if len(edge) != 3:
-            raise ValidationError("MaxCut 每条边为 (u,v,weight)")
+            raise ValidationError("each MaxCut edge must be a u v weight triple")
         u, v, weight = edge
         positive_integer(u, "qaoa.u", minimum=0, maximum=width - 1)
         positive_integer(v, "qaoa.v", minimum=0, maximum=width - 1)
         finite_real(weight, "qaoa.weight", minimum=0)
         if u == v:
-            raise ValidationError("MaxCut 不接受自环")
+            raise ValidationError("MaxCut does not accept self-loops")
     b = Builder(
         _name("qaoa_maxcut", width, edges, gammas, betas),
         {"target": Bits(width)},
@@ -103,17 +109,20 @@ def qaoa_maxcut(
 
 
 def pauli_measurement(preparation: StatePreparationProtocol, word: str) -> Operation:
-    """将制备态旋转到指定 Pauli 测量基。
+    """Rotate the prepared state into the specified Pauli measurement basis.
 
     Args:
-        preparation: 零输入、干净工作区的态制备。
-        word: 同宽 I/X/Y/Z 字符串，第一个字符对应最低位。
+        preparation: A state preparation with zero input and a clean work
+            space.
+        word: An I/X/Y/Z string of the same width; the first character
+            corresponds to the least significant bit.
 
     Returns:
-        Operation: target/work 接口。读取非 I 位的 Z 奇偶性可以估计该 Pauli 字的期望。"""
+        Operation: target/work interface. Reading the Z parity of the non-I
+        positions estimates the expectation of that Pauli word."""
     prep = checked_state_preparation(preparation)
     if len(word) != prep.width or any(letter not in "IXYZ" for letter in word):
-        raise ValidationError("Pauli 测量字必须与态同宽")
+        raise ValidationError("the Pauli measurement word must have the same width as the state")
     b = Builder(
         _name("pauli_measurement", prep.operation, word),
         {"target": Bits(prep.width), "work": Bits(prep.work_width)},
@@ -136,18 +145,21 @@ def pauli_measurement(preparation: StatePreparationProtocol, word: str) -> Opera
 def vqe_measurements(
     preparation: StatePreparationProtocol, terms: Sequence[tuple[float, str]]
 ) -> tuple[tuple[float, Operation], ...]:
-    """为 VQE 的 Hamiltonian 各项生成测量电路。
+    """Generate measurement circuits for each term of the VQE Hamiltonian.
 
     Args:
-        preparation: 参数已实例化的 ansatz 或其他态制备。
-        terms: (实系数, Pauli 字) 列表。
+        preparation: An ansatz with instantiated parameters or another state
+            preparation.
+        terms: List of (real coefficient, Pauli word) pairs.
 
     Returns:
-        tuple: (系数, 测量 Operation) 列表。能量汇总与参数优化在经典侧进行。"""
+        tuple: List of (coefficient, measurement Operation) pairs. Energy
+        aggregation and parameter optimization happen on the classical
+        side."""
     circuits: list[tuple[float, Operation]] = []
     for coefficient, word in terms:
         finite_real(coefficient, "vqe.coefficient")
         circuits.append((coefficient, pauli_measurement(preparation, word)))
     if not circuits:
-        raise ValidationError("VQE 需要非空 Hamiltonian 项")
+        raise ValidationError("VQE requires a non-empty list of Hamiltonian terms")
     return tuple(circuits)

@@ -1,4 +1,4 @@
-"""算法研究流程的边界回归：提供方、部分绑定与组合式成本。"""
+"""Boundary regressions for the algorithm research workflow: providers, partial binding, and compositional costs."""
 
 import json
 import unittest
@@ -68,7 +68,7 @@ class ProviderBoundaryTests(unittest.TestCase):
     def test_signature_and_noncallable_are_structured(self):
         class WrongSignature:
             def block_encoding(self, required):
-                raise AssertionError("签名不兼容时不应进入方法体")
+                raise AssertionError("the method body must not be entered when the signature is incompatible")
 
         class NotCallable:
             block_encoding = 42
@@ -82,7 +82,7 @@ class ProviderBoundaryTests(unittest.TestCase):
             self.assertEqual(report.issues[0].path, "solver.generator.block_encoding")
 
     def test_provider_internal_typeerror_is_preserved(self):
-        failure = TypeError("提供方实现内部错误")
+        failure = TypeError("internal error in the provider implementation")
 
         class BrokenProvider:
             def block_encoding(self):
@@ -102,7 +102,7 @@ class ProviderBoundaryTests(unittest.TestCase):
 
 
 def two_bank_program():
-    """同一内部资源形参映射到两个不同入口 bank。"""
+    """The same internal resource formal maps to two different entry banks."""
     first = abstract_database("FirstDB", 1, 1)
     second = abstract_database("SecondDB", 1, 1)
     builder = Builder("TwoBanks", {"a": Bits(1), "d": Bits(1)})
@@ -167,7 +167,7 @@ class BindingWorkflowTests(unittest.TestCase):
         closed = bind(program, bindings)
         broken = replace(closed.main, attributes=(("binding_captures", '{"bank_a": "absent"}'),))
         bad_program = replace(closed, modules=tuple(broken if m.name == closed.entry else m for m in closed.modules))
-        with self.assertRaisesRegex(ValueError, "不存在的资源"):
+        with self.assertRaisesRegex(ValueError, "nonexistent resource"):
             dumps(bad_program)
 
 

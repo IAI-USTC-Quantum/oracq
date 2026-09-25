@@ -1,4 +1,4 @@
-"""多项式 ODE 的有限阶张量提升、初态与物理通道选择。"""
+"""Finite-order tensor lifting of polynomial ODEs, initial states, and physical channel selection."""
 
 from __future__ import annotations
 
@@ -31,18 +31,20 @@ from oracq.infrastructure.ir import Bits, ValidationError
 
 @dataclass(frozen=True)
 class PolynomialODE:
-    """多项式 ODE 输入模型与 Carleman 组装所需的输入声明。
+    """Polynomial ODE input model and the input declarations needed for Carleman assembly.
 
     Attributes:
-        width: 单层状态向量宽度 d（寄存器位数）。
-        coefficients: (次数 p, 块编码 F_p) 二元组序列，次数不重复且非空；
-            F_p 作用在 d^p 维张量幂上，宽度为 ``max(1, p) * width``。
-        initial: 初态 u(0) 的制备。
-        initial_norm: 初态范数，用于各张量层的加权，默认 1.0。
+        width: Width d of a single-level state vector (register bits).
+        coefficients: Sequence of (degree p, block encoding F_p) pairs; degrees are distinct
+            and the sequence is nonempty; F_p acts on the d^p-dimensional tensor power, with
+            width ``max(1, p) * width``.
+        initial: Preparation of the initial state u(0).
+        initial_norm: Initial state norm used to weight each tensor level; defaults to 1.0.
 
     Raises:
-        ValidationError: 宽度/次数/范数取值非法、系数表为空或次数重复、
-            F_p 宽度不匹配或初态布局不符时在构造时抛出。
+        ValidationError: Raised at construction when width/degree/norm values are invalid,
+            the coefficient table is empty or has duplicate degrees, an F_p width mismatches,
+            or the initial-state layout does not match.
     """
 
     width: int
@@ -51,7 +53,7 @@ class PolynomialODE:
     initial_norm: float = 1.0
 
     def __post_init__(self) -> None:
-        """校验宽度、系数表与初态布局的构造期约束。"""
+        """Validate construction-time constraints on width, the coefficient table, and the initial-state layout."""
         positive_integer(self.width, "PolynomialODE.width", maximum=64)
         object.__setattr__(self, "initial", as_state_preparation(self.initial))
         finite_real(self.initial_norm, "PolynomialODE.initial_norm", minimum=0)
@@ -59,14 +61,14 @@ class PolynomialODE:
         if not self.coefficients or len({p for p, _ in self.coefficients}) != len(
             self.coefficients
         ):
-            raise ValidationError("PolynomialODE 系数需要非空且次数不重复")
+            raise ValidationError("PolynomialODE coefficients must be nonempty with distinct degrees")
         if self.initial.width != self.width or self.initial_norm < 0:
-            raise ValidationError("Carleman 初始数据布局无效")
+            raise ValidationError("Invalid Carleman initial data layout")
         for order, coefficient in self.coefficients:
             positive_integer(order, "PolynomialODE.order", minimum=0)
             require_instance(coefficient, BlockEncoding, "PolynomialODE.coefficient")
             if order < 0 or coefficient.width != max(1, order) * self.width:
-                raise ValidationError("F_p 必须为 d×d^p、补齐到 max(d,d^p) 的 BE")
+                raise ValidationError("F_p must be a d by d^p block encoding padded to max(d,d^p)")
 
 
 def _carleman_term(
@@ -77,7 +79,7 @@ def _carleman_term(
     order: int,
     position: int,
 ) -> BlockEncoding:
-    """组装单个 Carleman 放置项：在选定张量位置施加 F_p 并维护层级计数。"""
+    """Assemble a single Carleman placement term: apply F_p at the selected tensor position and maintain the level count."""
     level_bits = cutoff.bit_length()
     data_width, source_level = cutoff * n, output_level + order - 1
     b = Builder(
@@ -114,7 +116,7 @@ def _carleman_term(
         b, coefficient.operation, "f", target=group, signal=b["signal"][: coefficient.signal_qubits]
     )
     if order > 1:
-        # F_p 输出保存在组内最低 n 位；其余零行移至数据区高端。
+        # The F_p output lives in the lowest n bits of the group; the remaining zero rows move to the high end of the data region.
         for j in range(position + 1, output_level):
             b.swap(data[j * n : (j + 1) * n], data[(j + order - 1) * n : (j + order) * n])
     delta = source_level ^ output_level
@@ -125,26 +127,28 @@ def _carleman_term(
 
 
 def carleman_lift(problem: PolynomialODE, *, cutoff: int = 2) -> BlockEncoding:
-    """组装截断 Carleman 线性嵌入的块编码。
+    """Assemble the block encoding of the truncated Carleman linear embedding.
 
-    对每个目标张量层与多项式次数枚举放置项，以等权 LCU 组合；输出属性
-    记录 ``cutoff`` 与填充行零假设（首 d 行之外的补齐行、d^p 之外的列均为零）。
+    Placement terms are enumerated for each target tensor level and polynomial degree and
+    combined by an equal-weight LCU; the output attributes record ``cutoff`` and the
+    padded-row zero assumption (padding rows outside the first d rows and columns outside
+    d^p are zero).
 
     Args:
-        problem: ``PolynomialODE`` 输入模型。
-        cutoff: Carleman 截断阶，必须为正。
+        problem: A ``PolynomialODE`` input model.
+        cutoff: Carleman truncation order; must be positive.
 
     Returns:
-        BlockEncoding: 作用在 ``cutoff * width`` 位数据加层级寄存器上的
-        嵌入算子。
+        BlockEncoding: The embedding operator acting on ``cutoff * width`` data bits
+        plus the level register.
 
     Raises:
-        ValidationError: problem 不是 ``PolynomialODE`` 或 cutoff 无效。
+        ValidationError: problem is not a ``PolynomialODE``, or cutoff is invalid.
     """
     require_instance(problem, PolynomialODE, "carleman.problem")
     positive_integer(cutoff, "carleman.cutoff")
     if cutoff < 1:
-        raise ValidationError("Carleman 截断阶必须为正")
+        raise ValidationError("The Carleman truncation order must be positive")
     terms: list[tuple[complex, BlockEncoding]] = []
     for k in range(1, cutoff + 1):
         for order, coefficient in problem.coefficients:
@@ -169,21 +173,22 @@ def carleman_lift(problem: PolynomialODE, *, cutoff: int = 2) -> BlockEncoding:
 
 
 def carleman_initial(problem: PolynomialODE, *, cutoff: int = 2) -> StatePreparation:
-    """构造张量初态的零输入制备。
+    """Construct the zero-input preparation of the tensor initial state.
 
-    层级寄存器按 ``initial_norm`` 的幂加权制备，再受控地把初态复制到
-    前 k 层，形成 u(0) 的张量幂向量。
+    The level register is prepared weighted by powers of ``initial_norm``, then the initial
+    state is copied into the first k levels under control, forming the tensor power vector
+    of u(0).
 
     Args:
-        problem: ``PolynomialODE`` 输入模型。
-        cutoff: Carleman 截断阶，必须为正。
+        problem: A ``PolynomialODE`` input model.
+        cutoff: Carleman truncation order; must be positive.
 
     Returns:
-        StatePreparation: 目标为 ``cutoff * width`` 位数据加层级寄存器，
-        工作区按 ``initial`` 的宽度逐层复用。
+        StatePreparation: Target is ``cutoff * width`` data bits plus the level register;
+        the work space is reused per level at the width of ``initial``.
 
     Raises:
-        ValidationError: problem 不是 ``PolynomialODE`` 或 cutoff 无效。
+        ValidationError: problem is not a ``PolynomialODE``, or cutoff is invalid.
     """
     require_instance(problem, PolynomialODE, "carleman.problem")
     positive_integer(cutoff, "carleman.cutoff")
@@ -228,30 +233,31 @@ def carleman_qode(
     *,
     cutoff: int = 2,
 ) -> StateOracle:
-    """把 Carleman 嵌入交给线性求解器并投影回第一层。
+    """Hand the Carleman embedding to a linear solver and project back to the first level.
 
-    先组装 ``carleman_lift`` 与 ``carleman_initial``，再由 ``linear_solver``
-    演化到时刻 ``time``，最后选取第一张量层作为解态；截断尾项的影响
-    以 ``truncation_assumption`` 记录为待验证。
+    It first assembles ``carleman_lift`` and ``carleman_initial``, then evolves to time
+    ``time`` via ``linear_solver``, and finally selects the first tensor level as the
+    solution state; the effect of the truncated tail terms is recorded as pending under
+    ``truncation_assumption``.
 
     Args:
-        problem: ``PolynomialODE`` 输入模型。
-        time: 目标演化时刻，非负。
-        linear_solver: 形如 ``(generator, initial, time) -> StateOracle``
-            的可调用线性求解器。
-        cutoff: Carleman 截断阶，必须为正。
+        problem: A ``PolynomialODE`` input model.
+        time: Target evolution time; non-negative.
+        linear_solver: A callable linear solver of the form
+            ``(generator, initial, time) -> StateOracle``.
+        cutoff: Carleman truncation order; must be positive.
 
     Returns:
-        StateOracle: 宽度为 ``problem.width`` 的第一层解态。
+        StateOracle: The first-level solution state of width ``problem.width``.
 
     Raises:
-        ValidationError: 输入类型或取值非法、``linear_solver`` 不可调用
-            或其输出不是 ``StateOracle``。
+        ValidationError: Input types or values are invalid, ``linear_solver`` is not
+            callable, or its output is not a ``StateOracle``.
     """
     require_instance(problem, PolynomialODE, "carleman.problem")
     finite_real(time, "carleman.time", minimum=0)
     if not callable(linear_solver):
-        raise ValidationError("Carleman 需要可调用的线性求解器")
+        raise ValidationError("Carleman requires a callable linear solver")
     generator, initial = (
         carleman_lift(problem, cutoff=cutoff),
         carleman_initial(problem, cutoff=cutoff),

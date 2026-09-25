@@ -1,4 +1,4 @@
-"""Heinrich 量子求和/积分的数值见证：比较器构造、QAE 读出、三层绑定一致性与收敛率。"""
+"""Numerical witnesses for Heinrich quantum summation/integration: comparator construction, QAE readout, three-layer binding consistency, and convergence rates."""
 
 import unittest
 
@@ -20,7 +20,7 @@ def mode(distribution):
 
 
 def phase_distribution(state):
-    """phase 是最后一个公开寄存器。"""
+    """phase is the last public register."""
     result = {}
     for key, amplitude in state.amplitudes.items():
         result[key[-1]] = result.get(key[-1], 0.0) + abs(amplitude) ** 2
@@ -29,7 +29,7 @@ def phase_distribution(state):
 
 class SumPreparationTests(unittest.TestCase):
     def test_flag_probability_matches_mean(self):
-        # 好状态概率恰为 E[v]/2**w（线性构造的核心恒等式）。
+        # The good-state probability is exactly E[v]/2**w (the core identity of the linear construction).
         values = (0, 1, 2, 3, 4, 5, 6, 7)
         loader = table_loader(values)
         prep = sum_preparation(loader.database)
@@ -89,7 +89,7 @@ class SumPreparationTests(unittest.TestCase):
 
 class QuantumSumTests(unittest.TestCase):
     def test_mean_on_qae_grid_is_exact(self):
-        # E[v]/2**w = 1/2 落在 QAE 栅格上，读出确定。
+        # E[v]/2**w = 1/2 lands on the QAE grid; the readout is deterministic.
         loader = table_loader([2] * 8, data_width=2)
         operation = quantum_sum(loader.database, precision=4)
         attrs = dict(operation.module.attributes)
@@ -111,7 +111,7 @@ class QuantumSumTests(unittest.TestCase):
         self.assertAlmostEqual(estimate, 3.5, delta=0.5)
 
     def test_quantum_integral_trapezoid_scale(self):
-        # f(x) = x 在 [0,1] 上 8 个中点网格：积分真值 0.5。
+        # f(x) = x on an 8-cell midpoint grid over [0,1]: the exact integral is 0.5.
         grid = 8
         data_width = 4
         values = tuple(round((i + 0.5) / grid * ((1 << data_width) - 1)) for i in range(grid))

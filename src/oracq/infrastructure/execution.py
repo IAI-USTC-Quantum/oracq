@@ -1,4 +1,4 @@
-"按需遍历模块图，并提供基于寄存器整数元组的小规模参考执行器。"
+"On-demand traversal of the module graph, plus a small-scale reference executor based on tuples of register integers."
 
 from __future__ import annotations
 
@@ -34,37 +34,37 @@ def check_memory(
     program: Program,
     memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None,
 ) -> dict[str, dict[int, int]]:
-    """校验并规整入口的 QRAM 绑定数据。
+    """Validate and normalize the QRAM binding data of the entry.
 
     Args:
-        program: 封闭 RIR 程序。
-        memory: 按资源名提供的数据；每项为字序列或 ``地址 -> 字`` 的稀疏字典，``None`` 视为全零。
+        program: closed RIR program.
+        memory: data provided by resource name; each item is a word sequence or a sparse ``address -> word`` dict, and ``None`` is treated as all zeros.
 
     Returns:
-        dict: 资源名到稀疏单元映射的字典；值为零的单元被丢弃，缺省单元按零解释。
+        dict: dictionary from resource names to sparse cell maps; cells with value zero are dropped, and missing cells are interpreted as zero.
 
     Raises:
-        ValidationError: 数据不是按资源名的映射、资源集合与入口声明不符、地址越界或字不是位宽内的无符号整数。
+        ValidationError: the data is not a mapping by resource name, the resource set does not match the entry declaration, an address is out of range, or a word is not an unsigned integer within the bit width.
     """
     memory = {} if memory is None else memory
     if not isinstance(memory, Mapping):
-        raise ValidationError("QRAM 数据必须按资源名提供映射")
+        raise ValidationError("QRAM data must be provided as a mapping keyed by resource name")
     specs = {r.name: r.type for r in program.main.resources}
     if set(memory) != set(specs):
-        raise ValidationError("必须为入口的每个 QRAM 提供数据，且不能有多余资源")
+        raise ValidationError("data must be provided for every QRAM of the entry with no extra resources")
     result = {}
     for name, spec in specs.items():
         raw = memory[name]
         try:
             items = raw.items() if isinstance(raw, Mapping) else enumerate(raw)
         except TypeError as exc:
-            raise ValidationError("每个 QRAM 必须提供字序列或稀疏字典") from exc
+            raise ValidationError("each QRAM must provide a word sequence or a sparse dict") from exc
         cells = {}
         for address, value in items:
             if type(address) is not int or not 0 <= address < 1 << spec.address_width:
-                raise ValidationError("QRAM 地址越界")
+                raise ValidationError("QRAM address out of range")
             if type(value) is not int or not 0 <= value < 1 << spec.data_width:
-                raise ValidationError("QRAM 字必须是位宽内的无符号整数")
+                raise ValidationError("QRAM words must be unsigned integers within the bit width")
             if value:
                 cells[address] = value
         result[name] = cells
@@ -74,11 +74,11 @@ def check_memory(
 def _counter(
     program: Program, limit: int, native_modules: Collection[str] = frozenset()
 ) -> Callable[[tuple[Instruction, ...]], int]:
-    """构造按模块记忆化的递归计步函数，供 ``events`` 与预算检查复用。"""
+    """Build a recursive step-counting function memoized by module, reused by ``events`` and budget checks."""
     modules, cached = program.module_map, {}
 
     def count(nodes: tuple[Instruction, ...]) -> int:
-        """逐节点按加权规则累计步数，总数达到 ``limit + 1`` 后钳制。"""
+        """Accumulate steps node by node under the weighting rules, clamping once the total reaches ``limit + 1``."""
         total = 0
         for node in nodes:
             if isinstance(node, Primitive):
@@ -112,18 +112,18 @@ def expanded_steps(
     limit: int = 1_000_000,
     native_modules: Collection[str] = frozenset(),
 ) -> int:
-    """估计程序完全展开后的执行步数，用于执行前的预算检查。
+    """Estimate the execution step count of the fully expanded program, for budget checks before execution.
 
-    原语按操作数总位宽加权，Load/Store 计 1 步；模块调用递归计入被调体，Repeat 按次数相乘。
-    计数一旦达到上限即被钳制在 ``limit + 1``，不再继续增长。
+    Primitives are weighted by total operand bit width and Load/Store count as 1 step; module calls recursively include the callee body, and Repeat multiplies by the count.
+    Once the count reaches the limit it is clamped at ``limit + 1`` and stops growing.
 
     Args:
-        program: RIR 程序。
-        limit: 计数钳制上限。
-        native_modules: 按单步计的原生模块名集合；入口本身为原生模块时直接返回 1。
+        program: RIR program.
+        limit: clamping limit of the count.
+        native_modules: set of native module names counted as a single step; returns 1 directly when the entry itself is a native module.
 
     Returns:
-        int: 展开步数的饱和估计值。
+        int: saturated estimate of the expanded step count.
     """
     if program.entry in native_modules:
         return 1
@@ -134,11 +134,11 @@ def expanded_steps(
 
 @dataclass(frozen=True)
 class LocalEnter:
-    """局部寄存器进入作用域的事件，寄存器以零值加入执行状态。
+    """Event of a local register entering scope; the register joins the execution state at value zero.
 
     Attributes:
-        name: 分配给局部寄存器的唯一合成名。
-        type: 局部寄存器的类型。
+        name: unique synthesized name assigned to the local register.
+        type: type of the local register.
     """
 
     name: str
@@ -147,11 +147,11 @@ class LocalEnter:
 
 @dataclass(frozen=True)
 class LocalExit:
-    """局部寄存器离开作用域的事件，退出时要求全部分支复净为零。
+    """Event of a local register leaving scope; at exit all branches are required to be restored to zero.
 
     Attributes:
-        name: 被释放的局部寄存器名。
-        width: 局部寄存器位宽。
+        name: name of the released local register.
+        width: bit width of the local register.
     """
 
     name: str
@@ -159,14 +159,14 @@ class LocalExit:
 
 
 def remap(ref: Ref, mapping: Mapping[str, Ref]) -> Ref:
-    """按寄存器名替换表重写引用，用于模块调用时把形参绑定到实参视图。
+    """Rewrite a reference by a register-name substitution table, used at module calls to bind formal parameters to argument views.
 
     Args:
-        ref: 待重写的 ``Ref``。
-        mapping: 寄存器名到 ``Ref`` 的映射；原引用的每段截取替换结果的对应区间后顺序拼接。
+        ref: ``Ref`` to rewrite.
+        mapping: mapping from register names to ``Ref``; each span of the original reference is sliced from the corresponding range of the replacement and concatenated in order.
 
     Returns:
-        Ref: 重写后的新引用，类型与原引用一致。
+        Ref: rewritten new reference, with the same type as the original.
     """
     parts: list[Span] = []
     for span in ref.parts:
@@ -186,24 +186,25 @@ def events(
         bool,
     ]
 ]:
-    """调用逐层展开为迭代器，原始 RIR 保持不变。
+    """Expand calls layer by layer into an iterator while leaving the original RIR unchanged.
 
     Args:
-        program: 待展开执行的 RIR 程序；无原生模块时须闭合。
-        max_steps: 展开后的指令步数预算上限。
-        native_modules: 视为原生执行、不再内联展开的模块名集合。
+        program: RIR program to expand for execution; must be closed when there are no native modules.
+        max_steps: budget limit on the expanded instruction step count.
+        native_modules: set of module names treated as natively executed and no longer inlined.
 
     Returns:
-        Iterator: 惰性产出 ``(事件, 控制链, 逆序标志)`` 三元组；事件为
-        基元、QRAM 读写、局部寄存器进出或原生调用点，控制链为
-        ``(Ref, int)`` 元组，逆序标志表示处于 ``Adjoint`` 语境。
+        Iterator: lazily yields ``(event, control chain, inverse flag)`` triples; the event is a
+        primitive, a QRAM read/write, a local register entering or leaving, or a native call
+        site, the control chain is a tuple of ``(Ref, int)`` pairs, and the inverse flag
+        indicates an ``Adjoint`` context.
     """
     from oracq.infrastructure.ir import Span
 
     program = validate(program, require_closed=not bool(native_modules))
     counter = _counter(program, max_steps, native_modules)
     if expanded_steps(program, max_steps, native_modules) > max_steps:
-        raise ValidationError("执行超过展开预算")
+        raise ValidationError("execution exceeds the expansion budget")
     modules = program.module_map
 
     def walk(
@@ -219,7 +220,7 @@ def events(
             bool,
         ]
     ]:
-        """按序重写指令节点并惰性产出事件三元组，控制链与逆序标志沿递归传递。"""
+        """Rewrite instruction nodes in order and lazily yield event triples, with the control chain and inverse flag passed along the recursion."""
         for node in reversed(nodes) if inverse else nodes:
             if isinstance(node, Call):
                 target = modules[node.module]
@@ -293,7 +294,7 @@ def events(
             bool,
         ]
     ]:
-        """进入单个模块：绑定形参映射、按需合成局部寄存器名并转发体事件流。"""
+        """Enter a single module: bind the formal parameter mapping, synthesize local register names on demand and forward the body event stream."""
         nonlocal local_counter
         if module.name in native_modules:
             from oracq.infrastructure.native import NativeSite
@@ -309,7 +310,7 @@ def events(
             )
             return
         if module.body is None:
-            raise ValidationError(f"未实现模块：{module.name}")
+            raise ValidationError(f"unimplemented module: {module.name}")
         mapping = dict(mapping)
         allocated = []
         for register in module.locals:
@@ -331,18 +332,18 @@ def events(
 def gate_matrix(
     op: str, angle: float | None = None, inverse: bool = False
 ) -> tuple[tuple[complex, complex], tuple[complex, complex]]:
-    """返回单比特门的标准 2x2 西矩阵。
+    """Return the standard 2x2 unitary matrix of a single-qubit gate.
 
     Args:
-        op: 门名，取 ``h``、``x``、``y``、``z``、``s``、``t``、``phase``、``rx``、``ry``、``rz`` 之一。
-        angle: 旋转与相位门的角度（弧度）；``s`` 与 ``t`` 使用固定角度，忽略该参数。
-        inverse: 为真时返回共轭转置，即门的逆矩阵。
+        op: gate name; one of ``h``, ``x``, ``y``, ``z``, ``s``, ``t``, ``phase``, ``rx``, ``ry``, ``rz``.
+        angle: angle in radians for rotation and phase gates; ``s`` and ``t`` use fixed angles and ignore this argument.
+        inverse: when true, return the conjugate transpose, i.e. the inverse matrix of the gate.
 
     Returns:
-        tuple: 2x2 复数矩阵，以行元组的形式给出。
+        tuple: 2x2 complex matrix given as a tuple of rows.
 
     Raises:
-        ValidationError: 门名不在支持列表中。
+        ValidationError: the gate name is not in the supported list.
     """
     if op == "h":
         a = 1 / math.sqrt(2)
@@ -365,7 +366,7 @@ def gate_matrix(
         c, s = math.cos(cast(float, angle) / 2), math.sin(cast(float, angle) / 2)
         matrix = ((c, -1j * s), (-1j * s, c)) if op == "rx" else ((c, -s), (s, c))
     else:
-        raise ValidationError(f"未知单比特矩阵：{op}")
+        raise ValidationError(f"unknown single-qubit matrix: {op}")
     if inverse:
         return cast(
             "tuple[tuple[complex, complex], tuple[complex, complex]]",
@@ -376,31 +377,31 @@ def gate_matrix(
 
 @dataclass(frozen=True)
 class RegisterState:
-    """参考执行的终态：入口寄存器布局与稀疏振幅。
+    """Final state of a reference execution: entry register layout and sparse amplitudes.
 
     Attributes:
-        registers: 入口模块的寄存器元组，规定取值元组的顺序。
-        amplitudes: 寄存器取值元组到复振幅的映射。
+        registers: register tuple of the entry module, fixing the order of value tuples.
+        amplitudes: mapping from register value tuples to complex amplitudes.
     """
 
     registers: tuple
     amplitudes: dict[tuple[int, ...], complex]
 
     def statevector(self, max_qubits: int = 20) -> list[complex]:
-        """把稀疏态打包为密集态向量，各寄存器按声明顺序 LSB-first 占据下标位段。
+        """Pack the sparse state into a dense state vector, with each register occupying an index bit segment LSB-first in declaration order.
 
         Args:
-            max_qubits: 允许的最大总位数。
+            max_qubits: maximum total bit count allowed.
 
         Returns:
-            list: 长度为 ``2**总位数`` 的复振幅列表。
+            list: list of complex amplitudes of length ``2**total bits``.
 
         Raises:
-            ValidationError: 寄存器总位数超过 ``max_qubits``。
+            ValidationError: the total register bit count exceeds ``max_qubits``.
         """
         width = sum(r.type.width for r in self.registers)
         if width > max_qubits:
-            raise ValidationError("密集状态转换超过位数预算")
+            raise ValidationError("dense state conversion exceeds the bit budget")
         vector = [0j] * (1 << width)
         for values, amplitude in self.amplitudes.items():
             index, offset = 0, 0
@@ -419,28 +420,31 @@ def simulate(
     max_steps: int = 1_000_000,
     max_states: int = 65536,
 ) -> RegisterState:
-    """在稀疏寄存器态上参考执行封闭程序，只依赖标准库。
+    """Reference-execute a closed program on sparse register states, depending only on the standard library.
 
-    初态是各寄存器取给定整数值的单基矢（缺省全零），态保存为寄存器整数值元组到复振幅的稀疏
-    字典。指令流由 ``events`` 惰性展开：单比特门对首个操作数逐位作用，``xor``、``swap``、
-    ``add_const`` 与 ``gphase`` 按 RIR 语义更新寄存器取值或幅值；``Control`` 条件按逻辑合取
-    限定作用分支，``Adjoint`` 逆序取逆，``Repeat`` 按次数重复。QRAM 的 ``Load`` 是 XOR 读，
-    叠加地址天然支持；``Store`` 是随机写，要求地址与数据处于确定基矢。局部寄存器进入时置零，
-    退出时检查全部分支复净。
+    The initial state is a single basis vector with each register at its given integer value (all zero by
+    default), and the state is kept as a sparse dictionary from tuples of register integer values to complex
+    amplitudes. The instruction stream is lazily expanded by ``events``: single-qubit gates act bit by bit on
+    the first operand, while ``xor``, ``swap``, ``add_const`` and ``gphase`` update register values or
+    amplitudes per RIR semantics; ``Control`` conditions restrict the affected branches by logical
+    conjunction, ``Adjoint`` inverts in reverse order, and ``Repeat`` repeats by the count. A QRAM ``Load``
+    is an XOR read, naturally supporting superposed addresses; ``Store`` is a random write requiring the
+    address and data to be in a definite basis state. Local registers are zeroed on entry, and all branches
+    are checked to be restored on exit.
 
     Args:
-        program: 待执行的封闭 RIR 程序。
-        memory: 按资源名提供的 QRAM 数据，格式同 ``check_memory``。
-        initial: 寄存器名到初始整数值的映射，缺省为全零。
-        max_steps: 展开步数预算，超限报错。
-        max_states: 稀疏基矢数预算，超限报错。
+        program: closed RIR program to execute.
+        memory: QRAM data provided by resource name, in the same format as ``check_memory``.
+        initial: mapping from register names to initial integer values, all zero by default.
+        max_steps: expansion step budget; exceeding it raises an error.
+        max_states: sparse basis vector budget; exceeding it raises an error.
 
     Returns:
-        RegisterState: 入口寄存器布局与终态稀疏振幅；幅值不超过 1e-15 的分量被截去。
+        RegisterState: entry register layout and final sparse amplitudes; components with magnitude at most 1e-15 are truncated.
 
     Raises:
-        ValidationError: 程序或 QRAM 数据校验失败、初态寄存器未知或越界、Store 不在确定基矢、
-            局部寄存器未复净，或超出步数与稀疏态数量预算。
+        ValidationError: program or QRAM data validation failed, an initial register is unknown or out of range, a Store is not in a definite basis state,
+            a local register is not restored to zero, or the step or sparse state count budget is exceeded.
     """
     program = validate(program, require_closed=True)
     memories = check_memory(program, memory)
@@ -448,17 +452,17 @@ def simulate(
     index = {r.name: i for i, r in enumerate(registers)}
     initial = initial or {}
     if set(initial) - set(index):
-        raise ValidationError("初态包含未知寄存器")
+        raise ValidationError("initial state contains an unknown register")
     values: list[int] | tuple[int, ...] = []
     for reg in registers:
         value = initial.get(reg.name, 0)
         if type(value) is not int or not 0 <= value < (1 << reg.type.width):
-            raise ValidationError("初态寄存器值越界")
+            raise ValidationError("initial register value out of range")
         cast("list[int]", values).append(value)
     state = {tuple(values): 1 + 0j}
 
     def read(ref: Ref, values: tuple[int, ...]) -> int:
-        """按视图分段低位到高位拼接，从取值元组读出无符号整数。"""
+        """Read an unsigned integer out of the value tuple by concatenating view segments from low to high bits."""
         result, offset = 0, 0
         for span in ref.parts:
             result |= (
@@ -468,7 +472,7 @@ def simulate(
         return result
 
     def write(ref: Ref, values: tuple[int, ...], value: int) -> tuple[int, ...]:
-        """把整数值按分段掩码写入取值元组，返回新的取值元组。"""
+        """Write an integer value into the value tuple through per-segment masks and return the new value tuple."""
         result, offset = list(values), 0
         for span in ref.parts:
             pos = index[span.register]
@@ -490,7 +494,7 @@ def simulate(
         if isinstance(node, LocalExit):
             position = index.pop(node.name)
             if any(values[position] != 0 for values in state):
-                raise ValidationError(f"局部寄存器未复净：{node.name}")
+                raise ValidationError(f"local register not restored to zero: {node.name}")
             state = {
                 values[:position] + values[position + 1 :]: amplitude
                 for values, amplitude in state.items()
@@ -500,7 +504,7 @@ def simulate(
         def active(
             values: tuple[int, ...], controls: tuple[tuple[Ref, int], ...] = controls
         ) -> bool:
-            """判断基矢是否满足全部控制条件的比较值。"""
+            """Decide whether a basis vector satisfies the comparison values of all control conditions."""
             return all(read(ref, values) == expected for ref, expected in controls)
 
         if isinstance(node, Store):
@@ -508,7 +512,7 @@ def simulate(
                 (read(node.address, values), read(node.data, values)) for values in state
             }
             if len(observed) != 1:
-                raise ValidationError("Store 要求地址与数据寄存器在执行时处于确定基矢")
+                raise ValidationError("Store requires the address and data registers to be in a definite basis state at execution time")
             address, value = observed.pop()
             if value:
                 memories[node.resource][address] = value
@@ -537,7 +541,7 @@ def simulate(
                         )
                 state = {k: v for k, v in result.items() if abs(v) > 1e-15}
                 if len(state) > max_states:
-                    raise ValidationError("参考模拟超过稀疏态数量预算")
+                    raise ValidationError("reference simulation exceeds the sparse state count budget")
             continue
         result = {}
         for values, amplitude in state.items():

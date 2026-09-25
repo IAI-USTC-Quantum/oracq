@@ -1,11 +1,15 @@
-"""Jordan 量子梯度估计：相位 oracle 输入模型与单查询梯度读出。
+"""Jordan quantum gradient estimation: a phase oracle input model and single-query gradient readout.
 
-实现 Jordan 2005（PRL 95, 050501）的梯度估计。网格约定：第 i 个坐标寄存器占
-位段 [i*grid_bits, (i+1)*grid_bits)，整数值 k 对应定点网格点 x = k/N，N = 2**grid_bits。
-缩放约定与 Gilyén–Arunachalam–Wiebe 2019 的推广一致：相位 oracle 实现
-``O|x> = exp(2πi·N·f(x))|x>`` ，即 phase_scale 必须等于 N。f 在网格上近似线性时，
-单次 oracle 调用加各坐标逆 QFT 即把 N·∂f/∂x_i 写入第 i 个坐标寄存器；
-一次查询得到全部 d 个分量，经典确定性评估同一梯度需要 O(d) 次函数查询。
+Implements the gradient estimation of Jordan 2005 (PRL 95, 050501). Grid
+convention: the i-th coordinate register occupies the bit segment
+[i*grid_bits, (i+1)*grid_bits), and the integer value k corresponds to the
+fixed-point grid point x = k/N with N = 2**grid_bits. The scaling convention
+matches the generalization of Gilyén–Arunachalam–Wiebe 2019: the phase
+oracle implements ``O|x> = exp(2πi·N·f(x))|x>``, i.e. phase_scale must equal
+N. When f is approximately linear on the grid, a single oracle call plus an
+inverse QFT per coordinate writes N·∂f/∂x_i into the i-th coordinate
+register; one query yields all d components, while classical deterministic
+evaluation of the same gradient takes O(d) function queries.
 """
 
 from __future__ import annotations
@@ -33,51 +37,55 @@ from oracq.infrastructure.mathfunc import MathConfig
 
 @dataclass(frozen=True)
 class PhaseOracle(OracleView):
-    """网格相位 oracle 视图：``O|x> = exp(2πi·phase_scale·f(x))|x>`` 的对角相位作用。
+    """Grid phase oracle view: the diagonal phase action of ``O|x> = exp(2πi·phase_scale·f(x))|x>``.
 
-    target 的整数值编码 d 维定点网格点；缩放因子记入 phase_scale 属性，
-    供算法侧在生成阶段核对缩放约定。"""
+    Integer values of target encode d-dimensional fixed-point grid points;
+    the scaling factor is recorded in the phase_scale attribute so the
+    algorithm side can verify the scaling convention at generation time."""
 
     oracle_kind = "phase_oracle"
     operation: Operation
 
     def phase_oracle(self) -> PhaseOracle:
-        """返回相位 oracle 视图；本类自身即包装相位 oracle，直接返回自身。
+        """Return the phase oracle view; this class itself wraps a phase oracle, so it returns itself.
 
         Returns:
-            PhaseOracle: 自身引用，保持角色访问器接口一致。
+            PhaseOracle: A reference to itself, keeping the role accessor
+            interface uniform.
         """
         return self
 
     def __post_init__(self) -> None:
-        """校验 target 签名与 phase_scale 属性声明。"""
+        """Validate the target signature and the phase_scale attribute declaration."""
         validate_signature(self.operation, ("target",), "PhaseOracle")
         scale = dict(self.operation.module.attributes).get("phase_scale")
         if scale is None:
-            raise ValidationError("相位 oracle 必须声明 phase_scale 属性")
+            raise ValidationError("a phase oracle must declare the phase_scale attribute")
         finite_real(scale, "PhaseOracle.phase_scale", minimum=0, strict=True)
 
     @property
     def width(self) -> int:
-        """target 寄存器的位宽，即相位 oracle 作用的网格寄存器总宽度。"""
+        """Bit width of the target register, i.e. the total width of the grid register the phase oracle acts on."""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
     def phase_scale(self) -> float:
-        """oracle 声明的相位缩放因子，即 ``O|x> = exp(2πi·phase_scale·f(x))|x>`` 中的缩放。"""
+        """The phase scaling factor declared by the oracle, i.e. the scale in ``O|x> = exp(2πi·phase_scale·f(x))|x>``."""
         return cast("float", dict(self.operation.module.attributes)["phase_scale"])
 
 
 def abstract_phase_oracle(name: str, width: int, *, phase_scale: float) -> PhaseOracle:
-    """开放声明一个相位 oracle；相位缩放写入 phase_scale 属性，实现留待 bind。
+    """Open-declare a phase oracle; the phase scale is written into the phase_scale attribute and the implementation is left for bind.
 
     Args:
-        name: 相位 oracle 槽位的声明模块名。
-        width: target 寄存器位宽，取 1..64。
-        phase_scale: 相位缩放因子，取正实数，随属性声明登记。
+        name: Declared module name of the phase oracle slot.
+        width: Bit width of the target register, in 1..64.
+        phase_scale: Phase scaling factor, a positive real, registered along
+            with the attribute declaration.
 
     Returns:
-        PhaseOracle: 体为空、由 bind 延迟绑定实现的相位 oracle 槽位句柄。
+        PhaseOracle: Handle of the phase oracle slot with an empty body,
+        whose implementation is bound later by bind.
     """
     positive_integer(width, "abstract_phase_oracle.width", maximum=64)
     finite_real(phase_scale, "abstract_phase_oracle.phase_scale", minimum=0, strict=True)
@@ -98,25 +106,30 @@ def gate_phase_oracle(
     phase_scale: float,
     name: str | None = None,
 ) -> PhaseOracle:
-    """由显式相位表构造对角相位 oracle，angles[x] 是基态 ``|x>`` 获得的相位弧度。
+    """Build a diagonal phase oracle from an explicit phase table; angles[x] is the phase in radians gained by basis state ``|x>``.
 
-    小尺度见证可直接枚举全部 2**width 个相位；大网格应改用
-    function_phase_oracle 或绑定其他实现。
+    Small-scale witnesses can enumerate all 2**width phases directly; larger
+    grids should use function_phase_oracle instead or bind another
+    implementation.
 
     Args:
-        width: target 寄存器位宽，取 1..64。
-        angles: 各基态的相位弧度表，长度须等于 2**width。
-        phase_scale: 相位缩放因子，取正实数，登记入属性。
-        name: 生成的模块名；缺省按参数自动生成。
+        width: Bit width of the target register, in 1..64.
+        angles: Table of phases in radians per basis state, of length exactly
+            2**width.
+        phase_scale: Phase scaling factor, a positive real, registered into
+            the attributes.
+        name: Name of the generated module; generated from the parameters by
+            default.
 
     Returns:
-        PhaseOracle: 按相位表逐基态施加对角相位的 oracle 句柄。
+        PhaseOracle: Oracle handle that applies the diagonal phase per basis
+        state according to the phase table.
     """
     positive_integer(width, "gate_phase_oracle.width", maximum=64)
     finite_real(phase_scale, "gate_phase_oracle.phase_scale", minimum=0, strict=True)
     angles = tuple(angles)
     if len(angles) != 1 << width:
-        raise ValidationError("相位表长度必须等于 2**width")
+        raise ValidationError("the phase table length must equal 2 to the power of width")
     for angle in angles:
         finite_real(angle, "gate_phase_oracle.angles")
     b = Builder(
@@ -151,35 +164,42 @@ def function_phase_oracle(
     max_unroll: int = 128,
     entry: str | None = None,
 ) -> PhaseOracle:
-    """由 mathfunc 算术构造相位 oracle：计算定点 f(x) 后对输出做相位踢回并复原。
+    """Build a phase oracle from mathfunc arithmetic: compute fixed-point f(x), kick the phase back from the output, then restore.
 
     Args:
-        source: 纯 Python 函数源码，签名 f(x0, ..., x{d-1})，返回单个实数。
-        dimension: 网格维数 d，范围为 1..16。
-        grid_bits: 每个坐标的位数 m，网格点 x = k/2**m 必须可被 fmt 精确表示。
-        fmt: 定点格式，默认 FixedFormat(grid_bits+12, grid_bits+8)；必须带符号且 fraction >= grid_bits。
-        scale: 相位缩放，默认 2**grid_bits，即 Jordan 缩放约定。
-        name: 覆盖自动生成的模块名。
-        constants: 传给 mathfunc 前端的常量绑定。
-        helpers: 传给 mathfunc 前端的辅助函数。
-        config: 传给 mathfunc 前端的 MathConfig。
-        max_unroll: 传给 mathfunc 前端的展开上限。
-        entry: 传给 mathfunc 前端的入口函数名。
+        source: Source of a pure Python function with signature
+            f(x0, ..., x{d-1}) returning a single real.
+        dimension: Grid dimension d, in 1..16.
+        grid_bits: Bits m per coordinate; the grid points x = k/2**m must be
+            exactly representable by fmt.
+        fmt: Fixed-point format, default FixedFormat(grid_bits+12,
+            grid_bits+8); must be signed with fraction >= grid_bits.
+        scale: Phase scale, default 2**grid_bits, i.e. the Jordan scaling
+            convention.
+        name: Overrides the automatically generated module name.
+        constants: Constant bindings passed to the mathfunc frontend.
+        helpers: Helper functions passed to the mathfunc frontend.
+        config: MathConfig passed to the mathfunc frontend.
+        max_unroll: Unrolling cap passed to the mathfunc frontend.
+        entry: Entry function name passed to the mathfunc frontend.
 
     Returns:
-        PhaseOracle: 相位为 ``exp(2πi·scale·f(x))`` ；f 超出 fmt 值域时由 status 标记，数值不保证。
+        PhaseOracle: Phase ``exp(2πi·scale·f(x))``; when f leaves the value
+        range of fmt this is flagged by status and the value is not
+        guaranteed.
 
-    坐标寄存器经零态工作位写入函数输入，相位踢回按二进制补码解码输出，
-    随后逆调用复原全部工作位。"""
+    The coordinate registers write the function inputs through zero-state
+    work bits, the phase kickback decodes the output in two's complement,
+    and a subsequent inverse invocation restores all work bits."""
     positive_integer(dimension, "function_phase_oracle.dimension", maximum=16)
     positive_integer(grid_bits, "function_phase_oracle.grid_bits", maximum=32)
     if dimension * grid_bits > 64:
-        raise ValidationError("网格总宽度不能超过 64 位")
+        raise ValidationError("the total grid width must not exceed 64 bits")
     fmt = fmt or FixedFormat(grid_bits + 12, grid_bits + 8)
     if not isinstance(fmt, FixedFormat):
-        raise ValidationError("fmt 必须是 FixedFormat")
+        raise ValidationError("fmt must be a FixedFormat")
     if not fmt.signed or fmt.fraction < grid_bits:
-        raise ValidationError("定点格式需要符号位，且 fraction >= grid_bits 以精确表示网格坐标")
+        raise ValidationError("the fixed-point format needs a sign bit and a fraction of at least grid_bits to represent grid coordinates exactly")
     scale = (1 << grid_bits) if scale is None else scale
     finite_real(scale, "function_phase_oracle.scale", minimum=0, strict=True)
     from oracq.infrastructure.mathfunc import compile_function
@@ -197,7 +217,7 @@ def function_phase_oracle(
     operation = cast("Operation", compiled.operation)
     expected = {f"x{i}" for i in range(dimension)} | {"out", "status"}
     if {r.name for r in operation.module.registers} != expected:
-        raise ValidationError("函数必须有 dimension 个实数参数并返回单个实数")
+        raise ValidationError("the function must take dimension real arguments and return a single real")
     b = Builder(
         name or _name("function_phase", operation, grid_bits, scale),
         {"target": Bits(dimension * grid_bits)},
@@ -239,31 +259,37 @@ def function_phase_oracle(
 def gradient_estimation(
     oracle: PhaseOracle | Operation, *, dimension: int, grid_bits: int
 ) -> Operation:
-    """生成 Jordan 梯度估计电路。
+    """Generate the Jordan gradient estimation circuit.
 
     Args:
-        oracle: PhaseOracle 或具 target 签名的相位 oracle 操作，实现 ``O|x> = exp(2πi·N·f(x))|x>`` 。
-        dimension: 网格维数 d，范围为 1..16。
-        grid_bits: 每个坐标寄存器的位数 m，N = 2**m，范围为 1..32。
+        oracle: A PhaseOracle or a phase oracle operation with the target
+            signature implementing ``O|x> = exp(2πi·N·f(x))|x>``.
+        dimension: Grid dimension d, in 1..16.
+        grid_bits: Bits m per coordinate register, N = 2**m, in 1..32.
 
     Returns:
-        Operation: 寄存器 target，宽 d*m。读出后用 gradient_from_readout 解码各梯度分量。
+        Operation: Register target of width d*m. Decode the gradient
+        components with gradient_from_readout after readout.
 
     Raises:
-        ValidationError: 网格参数无效、oracle 宽度不符或 phase_scale 不等于 2**grid_bits。
+        ValidationError: Invalid grid parameters, a mismatched oracle width,
+        or a phase_scale not equal to 2**grid_bits.
 
-    各坐标寄存器制备均匀叠加，单次调用相位 oracle，再逐坐标施加逆 QFT。
-    f 近似线性时相位把 N·∂f/∂x_i 写入坐标寄存器 i 的 Fourier 基，
-    逆 QFT 后读出即各分量的定点近似。一次查询得到全部 d 个分量，
-    经典确定性梯度评估需要 O(d) 次函数查询（Jordan 2005, PRL 95, 050501）。"""
+    Each coordinate register is prepared in uniform superposition, the phase
+    oracle is invoked once, then an inverse QFT is applied per coordinate.
+    When f is approximately linear the phase writes N·∂f/∂x_i into the
+    Fourier basis of coordinate register i, and after the inverse QFT the
+    readout is the fixed-point approximation of each component. One query
+    yields all d components, while classical deterministic gradient
+    evaluation takes O(d) function queries (Jordan 2005, PRL 95, 050501)."""
     positive_integer(dimension, "gradient.dimension", maximum=16)
     positive_integer(grid_bits, "gradient.grid_bits", maximum=32)
     width = dimension * grid_bits
     if width > 64:
-        raise ValidationError("网格总宽度不能超过 64 位")
+        raise ValidationError("the total grid width must not exceed 64 bits")
     view = oracle if isinstance(oracle, PhaseOracle) else PhaseOracle(oracle)
     if view.width != width:
-        raise ValidationError("相位 oracle 宽度必须等于 dimension*grid_bits")
+        raise ValidationError("the phase oracle width must equal dimension times grid_bits")
     grid_points = 1 << grid_bits
     if view.phase_scale != grid_points:
         fail(
@@ -271,7 +297,7 @@ def gradient_estimation(
             "gradient.oracle.phase_scale",
             grid_points,
             view.phase_scale,
-            "缩放约定要求 phase_scale == 2**grid_bits",
+            "the scaling convention requires phase_scale to equal 2 to the power of grid_bits",
         )
     b = Builder(
         _name("jordan_gradient", view.operation, dimension, grid_bits),
@@ -301,15 +327,16 @@ def gradient_estimation(
 
 
 def gradient_from_readout(value: int, *, dimension: int, grid_bits: int) -> tuple[float, ...]:
-    """把 target 的整数读出解码为梯度各分量估计。
+    """Decode the integer readout of target into per-component gradient estimates.
 
     Args:
-        value: target 寄存器的整数读出。
-        dimension: 网格维数。
-        grid_bits: 每个坐标寄存器的位数 m。
+        value: Integer readout of the target register.
+        dimension: Grid dimension.
+        grid_bits: Bits m per coordinate register.
 
     Returns:
-        tuple: 第 i 个分量把位段 [i*m, (i+1)*m) 按二进制补码解释后除以 2**m。"""
+        tuple: The i-th component interprets the bit segment [i*m, (i+1)*m)
+        in two's complement and divides by 2**m."""
     positive_integer(dimension, "gradient.dimension", maximum=16)
     positive_integer(grid_bits, "gradient.grid_bits", maximum=32)
     positive_integer(

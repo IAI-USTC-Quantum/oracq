@@ -1,4 +1,4 @@
-"""离散时间 coined quantum walk。"""
+"""Discrete-time coined quantum walk."""
 
 from __future__ import annotations
 
@@ -9,16 +9,18 @@ from oracq.infrastructure.ir import Bits
 
 
 def cycle_walk(width: int, *, steps: int = 1) -> Operation:
-    """生成周期格点上的 Hadamard coined walk。
+    """Generate a Hadamard coined walk on a periodic lattice.
 
     Args:
-        width: position 位宽，周期长度为 2**width。
-        steps: 非负步数。
+        width: Position bit width; the period length is 2**width.
+        steps: Nonnegative number of steps.
 
     Returns:
-        Operation: 公开 position 和一位 coin。每步先更新 coin，再按 0/1 条件分别移动 +1/-1。
+        Operation: Exposes position and a one-bit coin. Each step updates the coin
+        first, then moves by +1 or -1 according to the 0/1 value.
 
-    输入态由调用方准备；零输入对应从位置零、coin 零开始。"""
+    The input state is prepared by the caller; the zero input corresponds to starting
+    at position zero with coin zero."""
     positive_integer(width, "cycle_walk.width", maximum=64)
     positive_integer(steps, "cycle_walk.steps", minimum=0)
     b = Builder(

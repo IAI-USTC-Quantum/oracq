@@ -1,11 +1,15 @@
-"""典型算法的 Toffoli+Clifford+T+QRAM 资源缩放实验。
+"""Toffoli+Clifford+T+QRAM resource scaling experiments for representative algorithms.
 
-对每组算法在多个规模 n 上做组合式资源估计（Repeat 符号相乘，不做指数
-展开），log-log 拟合各资源指标的缩放指数并与理论预期对照；产物写入
-out/resource-estimates/。QRAM 查询数作为独立于门级成本的第一类指标
-单列（gate 合成的 QROM 对照组展示同一数据源的两种实现成本）。
+For each algorithm family, performs compositional resource estimation at
+several sizes n (Repeat symbols are multiplied symbolically without
+exponential expansion), fits the scaling exponent of each resource metric
+log-log and compares it against the theoretical expectation; artifacts are
+written to out/resource-estimates/. QRAM query counts are listed separately
+as a first-class metric independent of gate-level cost (the gate-synthesized
+QROM control group shows the two implementation costs of the same data
+source).
 
-运行：PYTHONPATH=src python tools/build_resource_estimates.py
+Run: PYTHONPATH=src python tools/build_resource_estimates.py
 """
 
 import json
@@ -36,14 +40,14 @@ from oracq.infrastructure.mathfunc import Index, MathConfig, compile_function
 
 
 def _prog(obj):
-    "Operation 直接用 .program()；OracleView 用 .operation.program()。"
+    "Operations use .program() directly; OracleView uses .operation.program()."
     return obj.program() if hasattr(obj, "program") else obj.operation.program()
 
 OUT = Path("out/resource-estimates")
 
 
 def _slope(xs, ys):
-    "log2-log2 最小二乘斜率与决定系数 R²；跳过非正样本。"
+    "log2-log2 least-squares slope and coefficient of determination R²; non-positive samples are skipped."
     pairs = [(x, y) for x, y in zip(xs, ys, strict=True) if x > 0 and y > 0]
     if len(pairs) < 2:
         return None
@@ -100,7 +104,7 @@ def row_add_const():
         "add_const",
         [4, 8, 16, 32, 64],
         build,
-        "常量加法的阶梯发射：Toffoli ~ Σ(2d−3) = O(n^3)（本编译器现状；文献最优 O(n)，见 gidney2018halving）",
+        "ladder emission for constant addition: Toffoli ~ Σ(2d−3) = O(n^3) (current state of this compiler; literature optimum O(n), see gidney2018halving)",
     )
 
 
@@ -109,7 +113,7 @@ def row_fixed_mul():
         "fixed_mul",
         [4, 6, 8, 12, 16, 24, 32],
         lambda n: _prog(fixed_arithmetic("mul", FixedFormat(n, n // 2))),
-        "移位累加乘法器的 AND 网络：Toffoli ≈ #AND = O(n^2)",
+        "AND network of the shift-and-add multiplier: Toffoli ≈ #AND = O(n^2)",
     )
 
 
@@ -118,7 +122,7 @@ def row_qft():
         "qft",
         [3, 4, 6, 8, 10, 12],
         lambda n: _prog(qft(n)),
-        "受控旋转 n(n−1)/2 个：旋转原子 O(n^2)，T 估计 = 旋转 × ceil(3 log2(1/eps))",
+        "n(n−1)/2 controlled rotations: rotation primitives O(n^2), T estimate = rotations × ceil(3 log2(1/eps))",
     )
 
 
@@ -132,8 +136,8 @@ def row_qpe_add_const():
         "qpe_add_const",
         [3, 4, 6, 8, 10, 12],
         build,
-        "受控 U^{2^k} 经符号 Repeat：总门数 ~ 2^p × cost(add_const)",
-        note="展示估计器不展开 2^k 重复即可计数",
+        "controlled U^{2^k} via symbolic Repeat: total gate count ~ 2^p × cost(add_const)",
+        note="shows the estimator counting without expanding the 2^k repetitions",
     )
 
 
@@ -150,7 +154,7 @@ def row_grover():
         "grover",
         [4, 6, 8, 10, 12, 14],
         build,
-        "⌊π/4·2^{n/2}⌋ 次迭代 × 每次（标记 + 扩散）成本：总门数 ~ 2^{n/2}·poly(n)",
+        "⌊π/4·2^{n/2}⌋ iterations × per-iteration (marking + diffusion) cost: total gate count ~ 2^{n/2}·poly(n)",
     )
 
 
@@ -169,7 +173,7 @@ def row_state_prep():
         "state_prep_dense",
         [2, 3, 4, 5, 6, 7, 8, 9, 10],
         build,
-        "稠密态制备的旋转级联：旋转原子 O(2^n)",
+        "rotation cascade for dense state preparation: rotation primitives O(2^n)",
     )
 
 
@@ -183,7 +187,7 @@ def row_qram_vs_qrom():
         "qram_lookup",
         [4, 8, 12, 16],
         qram_build,
-        "QRAM 作为第一类资源：每次 Load = 1 次查询，门级成本 0（查询数与规模无关）",
+        "QRAM as a first-class resource: each Load = 1 query, gate-level cost 0 (query count is size-independent)",
     )
 
     def qrom_build(n):
@@ -194,7 +198,7 @@ def row_qram_vs_qrom():
         "qrom_lookup_gate",
         [4, 6, 8, 10, 12],
         qrom_build,
-        "同一数据源的门级 QROM 合成：Toffoli O(2^n)——与 qram_lookup 的 1 次查询对照",
+        "gate-level QROM synthesis of the same data source: Toffoli O(2^n), contrasted with the single query of qram_lookup",
     )
     return payload_qram, payload_qrom
 
@@ -208,7 +212,7 @@ def row_diagonal_be():
         "diagonal_be_gate",
         [2, 3, 4, 5, 6, 7, 8],
         gate_build,
-        "对角块编码（gate 复用旋转）：旋转原子 O(2^n)",
+        "diagonal block encoding (gate reuses rotations): rotation primitives O(2^n)",
     )
 
     def qram_build(n):
@@ -218,7 +222,7 @@ def row_diagonal_be():
         "diagonal_be_qram",
         [2, 4, 6, 8, 10, 12],
         qram_build,
-        "对角块编码（QRAM 角度数据库）：QRAM 查询 O(1)，门级成本与规模弱相关",
+        "diagonal block encoding (QRAM angle database): QRAM queries O(1), gate-level cost weakly size-dependent",
     )
     return payload_gate, payload_qram
 
@@ -242,7 +246,7 @@ def row_roe_face():
         "roe_face",
         [6, 8, 10, 12, 16],
         build,
-        "Roe 通量面的定点算术网络：门数随字长 w 多项式增长（应用级算术缩放）",
+        "fixed-point arithmetic network for the Roe flux face: gate count grows polynomially with word length w (application-level arithmetic scaling)",
     )
 
 
@@ -259,7 +263,7 @@ def row_math_polynomial():
         "math_polynomial",
         [4, 6, 8, 10, 12, 16],
         build,
-        "compile_function 三次多项式：门数随字长 w 多项式增长",
+        "cubic polynomial via compile_function: gate count grows polynomially with word length w",
     )
 
 

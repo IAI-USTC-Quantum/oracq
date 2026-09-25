@@ -1,4 +1,4 @@
-"""图 oracle input model 与 Szegedy/MNRS 行走搜索的数值见证。"""
+"""Numerical witnesses for the graph-oracle input model and Szegedy/MNRS walk search."""
 
 import math
 import unittest
@@ -25,7 +25,7 @@ from oracq.algorithms.input_model.oracles import (
 
 
 def cycle_table(n):
-    """偶环的交替边染色邻居表，保证 N(N(v,j),j)=v 的对合性。"""
+    """Alternating edge-coloring neighbor table of an even cycle, guaranteeing the involution N(N(v,j),j)=v."""
     return [
         [(v + 1) % n if v % 2 == 0 else (v - 1) % n, (v - 1) % n if v % 2 == 0 else (v + 1) % n]
         for v in range(n)
@@ -79,11 +79,11 @@ class AdjacencyOracleTests(unittest.TestCase):
 
     def test_bad_tables_fail_at_generation(self):
         with self.assertRaises(ValidationError):
-            gate_adjacency([[1, 0], [1]])  # 非矩形
+            gate_adjacency([[1, 0], [1]])  # not rectangular
         with self.assertRaises(ValidationError):
-            gate_adjacency([[1], [3]])  # 顶点越界
+            gate_adjacency([[1], [3]])  # vertex out of range
         with self.assertRaises(ValidationError):
-            hitting_times(transition_matrix([[1], [0], [2]]), {0})  # 顶点 2 不可达 marked
+            hitting_times(transition_matrix([[1], [0], [2]]), {0})  # vertex 2 cannot reach the marked set
 
     def test_as_adjacency_accepts_bare_operation(self):
         adjacency = gate_adjacency(HYPERCUBE_Q3)

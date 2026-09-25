@@ -1,9 +1,12 @@
-"""表达力基准 T4：LCHS 装配 u'=Gu 的 oracq 路径。
+"""Expressiveness benchmark T4: the oracq path assembling LCHS for u'=Gu.
 
-任务：G=[[-1,0.5],[-0.5,-1]]（耗散+反对称），t=0.05，u0=[1,0]；
+Task: G=[[-1,0.5],[-0.5,-1]] (dissipative + anti-symmetric), t=0.05, u0=[1,0];
 linear_qode("lchs", QuadraturePlan.cauchy(cutoff=1, spacing=1.0),
-每支路 degree-1 Taylor)（An–Childs–Lin–Ying 伪代码的有限求积装配）。
-见证：后选择块对独立 numpy 仿真（实现误差）与 scipy expm 精确解（方法误差）。
+degree-1 Taylor per branch) (finite-quadrature assembly of the
+An-Childs-Lin-Ying pseudocode).
+Witness: the post-selected block against the independent numpy emulation
+(implementation error) and against the scipy expm exact solution (method
+error).
 """
 
 import math
@@ -41,7 +44,7 @@ def package_version():
 
 
 def lchs_reference(alpha_v):
-    """独立 numpy 仿真：V = Σ_k w_k Σ_{p≤degree} (-it)^p/p! (H+kL)^p，A=-G，L=sym(A)，H=skew(A)/i。"""
+    """Independent numpy emulation: V = Σ_k w_k Σ_{p≤degree} (-it)^p/p! (H+kL)^p, A=-G, L=sym(A), H=skew(A)/i."""
     a_mat = -np.array(G)
     l_mat = (a_mat + a_mat.conj().T) / 2
     h_mat = (a_mat - a_mat.conj().T) / 2j
@@ -94,7 +97,7 @@ def main():
     print(f"expm_exact={exact.tolist()}")
     print(f"impl_error={impl:.3e}")
     print(f"direction_error_vs_expm={direction:.3e}")
-    print(f"method_amplitude_error={method_amplitude:.3e} (有限求积+Taylor 余项)")
+    print(f"method_amplitude_error={method_amplitude:.3e} (finite quadrature + Taylor remainder)")
     ok = impl < 1e-9 and direction < 1e-2
     print(f"T4 oracq LCHS: {'PASS' if ok else 'FAIL'} (threshold: impl<1e-9, direction<1e-2)")
     return 0 if ok else 1

@@ -1,4 +1,4 @@
-"""Jordan 梯度估计的数值见证：线性精确读出、扰动收敛与绑定一致性。"""
+"""Numerical witnesses for Jordan gradient estimation: exact linear readout, perturbation convergence, and binding consistency."""
 
 import math
 import unittest
@@ -14,7 +14,7 @@ from oracq.algorithms.optimization.gradient import (
 
 
 def linear_oracle(coefficients, grid_bits, *, name=None):
-    """线性函数 f(x) = Σ_i c_i x_i 的显式相位表 oracle（Jordan 缩放）。"""
+    """Explicit phase-table oracle for the linear function f(x) = Σ_i c_i x_i (Jordan scaling)."""
     dimension = len(coefficients)
     grid_points = 1 << grid_bits
     angles = []
@@ -30,7 +30,7 @@ def linear_oracle(coefficients, grid_bits, *, name=None):
 
 
 def readout_distribution(state):
-    """target 为唯一根寄存器时的读出分布。"""
+    """Readout distribution when target is the only root register."""
     return {key[0]: abs(amplitude) ** 2 for key, amplitude in state.amplitudes.items()}
 
 
@@ -40,7 +40,7 @@ def mode(distribution):
 
 class GradientTests(unittest.TestCase):
     def test_linear_function_exact_two_dimensions(self):
-        # 梯度分量取网格可精确表示的值，读出寄存器应确定性地落在编码值上。
+        # Gradient components take exactly representable grid values; the readout register lands deterministically on the encoded value.
         grid_bits = 4
         oracle = linear_oracle((3 / 16, -2 / 16), grid_bits)
         operation = gradient_estimation(oracle, dimension=2, grid_bits=grid_bits)
@@ -56,7 +56,7 @@ class GradientTests(unittest.TestCase):
         )
 
     def test_perturbed_linear_concentrates_with_grid_bits(self):
-        # f(x) = a·x + x²/N²（N = 2**m）：相位扰动为 o(1/N)，正确读出的概率单调上升。
+        # f(x) = a·x + x²/N² (N = 2**m): the phase perturbation is o(1/N) and the probability of a correct readout rises monotonically.
         a_numerator, a_denominator = 3, 8
         probabilities = []
         for grid_bits in (3, 4, 5):
@@ -79,9 +79,9 @@ class GradientTests(unittest.TestCase):
             probabilities.append(measured[exact])
         self.assertLess(probabilities[0], probabilities[1])
         self.assertLess(probabilities[1], probabilities[2])
-        # 失败概率衰减率：相位扰动 o(1/N) 下峰外泄漏随网格细化近似二次收敛
-        # （q 约按 1/4 衰减）。实测比率 q1/q0 ≈ 0.292、q2/q1 ≈ 0.268，
-        # 取留有余地的上界 0.34。
+        # Failure decay rate: under an o(1/N) phase perturbation the leakage outside the peak
+        # converges roughly quadratically as the grid refines (q decays by about 1/4).
+        # Measured ratios q1/q0 ≈ 0.292 and q2/q1 ≈ 0.268; use the headroom upper bound 0.34.
         failures = [1 - p for p in probabilities]
         self.assertLess(failures[1], 0.34 * failures[0])
         self.assertLess(failures[2], 0.34 * failures[1])
@@ -104,9 +104,9 @@ class GradientTests(unittest.TestCase):
         )
 
     def test_function_phase_oracle_from_mathfunc(self):
-        # mathfunc 路径：f(x) = 0.25·x 在定点格式下精确，读出应恢复 1/4。
-        # 梯度分量只在 mod 1 意义下可分辨（相位 e^{2πi·N·a·j} 对 a 与 a±1 相同），
-        # 见证因此取 |a| < 1/2 的分量。
+        # mathfunc route: f(x) = 0.25·x is exact in the fixed-point format; the readout recovers 1/4.
+        # Gradient components are only resolvable mod 1 (the phase e^{2πi·N·a·j} is identical for
+        # a and a±1), so the witness takes components with |a| < 1/2.
         grid_bits = 2
         oracle = function_phase_oracle(
             "def f(x0):\n    return 0.25 * x0\n",

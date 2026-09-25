@@ -1,4 +1,4 @@
-"""验收工具必须保留虚拟环境路径，不能解引用到基础解释器。"""
+"""The acceptance tool must keep virtual-environment paths instead of dereferencing to the base interpreter."""
 
 import importlib.util
 import subprocess

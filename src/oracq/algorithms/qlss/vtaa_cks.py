@@ -1,17 +1,20 @@
-"""CKS 第 5 节 VTAA 线性系统求解器：GPE 时钟、分频带逆 LCU 与变时幅度放大。
+"""CKS section 5 VTAA linear-system solver: GPE clock, banded inverse LCU, and variable-time amplitude amplification.
 
-依据 Childs–Kothari–Somma（arXiv:1511.02306 §5，SIAM J. Comput. 2017）。变时层结构：
-时钟位 C_j 由带隙相位估计（Lemma 22）写入，受控触发分频带 Chebyshev 逆 LCU
-（Lemma 23，含式 (98) 的 alpha_max 均匀化旋转），外层按 Ambainis（arXiv:1010.4458）
-的时钟感知嵌套放大（操作符形式取 Low–Su arXiv:2410.18178 式 (47)–(53)），最后以
-A' 的逆抹除 GPE 垃圾（式 (99)–(112)）。
+Based on Childs–Kothari–Somma (arXiv:1511.02306 §5, SIAM J. Comput. 2017). Variable-time layer structure:
+the clock bits C_j are written by gapped phase estimation (Lemma 22), which controlled-triggers the banded
+Chebyshev inverse LCU (Lemma 23, including the alpha_max uniformization rotation of eq. (98)); the outer layer
+applies the clock-aware nested amplification of Ambainis (arXiv:1010.4458) (operator form taken from
+Low–Su arXiv:2410.18178 eq. (47)–(53)); finally the GPE garbage is erased with the inverse of A'
+(eq. (99)–(112)).
 
-GPE 判决采用 Low–Su Prop 23 的确定性路线：对 qubitization walk 施加 Yoder–Low–Chuang
-定点判决多项式（复用 qsvt.fixed_point_search_phases 的已验证合成），在 signal==0
-分支翻转判决位：λ 模长 ≥ θ_j 时判 1（fire，硬界 epsilon）振幅接近 1，
-x=0 处判决为 0；过渡带响应确定、可精确计算。查询次数 O((alpha/theta_j) log(1/eps))
-与 CKS Lemma 22 的 PEA + 多数投票同阶；P_j 垃圾按论文保留，由 A' 的逆抹除。
-全网此前没有 VTAA 或 CKS §5 的公开实现。
+The GPE decision follows the deterministic route of Low–Su Prop 23: a Yoder–Low–Chuang fixed-point decision
+polynomial (reusing the verified synthesis of qsvt.fixed_point_search_phases) is applied to the qubitization
+walk, and the decision bit is flipped on the signal==0 branch: when the magnitude of lambda is at least
+theta_j the decision is 1 (fire, hard bound epsilon) with amplitude near 1, while at x=0 the decision is 0;
+the transition band response is deterministic and exactly computable. The query count
+O((alpha/theta_j) log(1/eps)) is of the same order as the PEA plus majority vote of CKS Lemma 22; the P_j
+garbage is kept as in the paper and erased by the inverse of A'. No public implementation of VTAA or
+CKS §5 was available before this one.
 """
 
 from __future__ import annotations
@@ -51,25 +54,26 @@ from oracq.infrastructure.ir import Bits, ValidationError, fuse
 def gpe_fire_phases(
     threshold: float, x_edge: float, epsilon: float, degree_cap: int = 40
 ) -> tuple[tuple[float, ...], int]:
-    """GPE fire 判决相位：YLC 定点多项式，x 模长 >= threshold 时 P 的模 >= 1-epsilon。
+    """GPE fire decision phases: YLC fixed-point polynomial with ``|P| >= 1-epsilon`` when ``|x| >= threshold``.
 
-    阈值随 degree 单调下降，从 3 起按奇数搜索至 [threshold, x_edge] 网格验证通过；
-    x=0 处 P=0，过渡带（0, threshold) 的响应确定、可精确计算（CKS 未承诺带）。
+    The threshold decreases monotonically with degree; odd degrees from 3 upward are searched until
+    the [threshold, x_edge] grid validation passes; at x=0, P=0, and the response over the transition
+    band (0, threshold) is deterministic and exactly computable (a band CKS makes no promise about).
 
     Args:
-        threshold: fire 判决阈值（编码谱单位），取 (0, x_edge]。
-        x_edge: 验证网格右端，取 [threshold, 1]。
-        epsilon: 判决响应硬界，取 (0,1)。
-        degree_cap: 判决多项式度数搜索上限，从 3 起按奇数递增搜索。
+        threshold: Fire decision threshold (encoded spectral units), in (0, x_edge].
+        x_edge: Right end of the validation grid, in [threshold, 1].
+        epsilon: Hard bound on the decision response, in (0,1).
+        degree_cap: Search cap for the decision polynomial degree; odd degrees from 3 upward are searched.
 
     Returns:
-        tuple[tuple[float, ...], int]: 通过网格验证的 QSP 相位序列与实际度数。
+        tuple[tuple[float, ...], int]: The grid-validated QSP phase sequence and the actual degree.
     """
     finite_real(threshold, "gpe_fire.threshold", minimum=0, strict=True)
     finite_real(x_edge, "gpe_fire.x_edge", minimum=0, strict=True)
     finite_real(epsilon, "gpe_fire.epsilon", minimum=0, strict=True)
     if not 0 < threshold <= x_edge <= 1 or not 0 < epsilon < 1:
-        raise ValidationError("GPE 判决几何或精度无效")
+        raise ValidationError("Invalid GPE decision geometry or precision")
     fire_grid = [threshold + (x_edge - threshold) * i / 16.0 for i in range(17)]
     for degree in range(3, degree_cap + 1, 2):
         try:
@@ -78,18 +82,18 @@ def gpe_fire_phases(
             continue
         if min(abs(qsp_response(x, phases)) for x in fire_grid) >= 1 - epsilon:
             return phases, degree
-    raise ValidationError("GPE 判决多项式度数超出上限；请增大 phi 或降低 kappa 声明")
+    raise ValidationError("The GPE decision polynomial degree exceeded the cap; increase phi or lower the kappa declaration")
 
 
 @lru_cache(maxsize=64)
 def clock_or_operation(width: int) -> Operation:
-    """时钟前缀 OR 谓词：stopped<=j 的相干判据，供 VTAA 反射使用。
+    """Clock-prefix OR predicate: the coherent criterion for stopped<=j, used by the VTAA reflections.
 
     Args:
-        width: 时钟前缀的位数，取正整数。
+        width: Number of bits in the clock prefix; a positive integer.
 
     Returns:
-        Operation: 把前缀各位之 OR 写入 1 位 stopped 的布尔电路操作。
+        Operation: A Boolean-circuit operation writing the OR of the prefix bits into the 1-bit stopped register.
     """
     net = BooleanNetwork()
     bits = net.input("prefix", width)
@@ -105,22 +109,24 @@ def gapped_phase_estimation(
     epsilon: float = 0.02,
     degree_cap: int = 40,
 ) -> Operation:
-    """CKS Lemma 22 的 GPE（确定性 QSP 路线，Low–Su arXiv:2410.18178 Prop 23）。
+    """GPE of CKS Lemma 22 (deterministic QSP route, Low–Su arXiv:2410.18178 Prop 23).
 
-    对 BE 的 qubitization walk 施加 YLC 定点判决多项式 P(lambda/alpha)，在
-    signal==0 分支翻转判决位：λ/α 模长 >= threshold 时（fire 硬界 epsilon）
-    判 1 振幅接近 1（在本频带停下求逆），谱低端判决趋向 0（延后到更细频带）。
-    signal 寄存器保留 γ 垃圾（论文 §5.2 的 P_j），由 A' 的逆在收尾时抹除。
+    Applies the YLC fixed-point decision polynomial P(lambda/alpha) to the qubitization walk of
+    the BE and flips the decision bit on the signal==0 branch: when ``|lambda/alpha| >= threshold``
+    (fire hard bound epsilon) the decision is 1 with amplitude near 1 (stop in this band and
+    invert), while at the low end of the spectrum the decision tends to 0 (deferred to a finer
+    band). The signal register keeps gamma garbage (P_j of the paper §5.2), erased at the end by
+    the inverse of A'.
 
     Args:
-        a: 自伴酉扩张的 Hermitian BE。
-        threshold: fire 判决阈值（编码谱单位，即相对 alpha）。
-        x_edge: 谱上界/alpha，验证网格右端。
-        epsilon: fire 侧判决响应硬界。
-        degree_cap: 判决多项式度数上限。
+        a: Hermitian BE of the self-adjoint unitary dilation.
+        threshold: Fire decision threshold (encoded spectral units, i.e. relative to alpha).
+        x_edge: Spectral upper bound divided by alpha; right end of the validation grid.
+        epsilon: Hard bound on the fire-side decision response.
+        degree_cap: Cap on the decision polynomial degree.
 
     Returns:
-        Operation: 寄存器 target/signal/decision；decision=1 表示在本频带停下。
+        Operation: Registers target/signal/decision; decision=1 means stopping in this band.
     """
     a = as_block_encoding(a)
     phases, degree = gpe_fire_phases(threshold, x_edge, epsilon, degree_cap)
@@ -152,16 +158,16 @@ def gapped_phase_estimation(
 def band_inverse_step(
     a: BlockEncoding, coefficients: Sequence[float], alpha_max: float
 ) -> Operation:
-    """CKS Lemma 23 的 W(lambda, delta)：分频带 Chebyshev 逆 LCU 加均匀化旋转。
+    """W(lambda, delta) of CKS Lemma 23: banded Chebyshev inverse LCU plus uniformization rotation.
 
     Args:
-        a: 自伴酉扩张 BE；chebyshev_block 提供奇次 Chebyshev 幂。
-        coefficients: 本频带的截断逆多项式系数 c_k（T_{2k+1} 基）。
-        alpha_max: 全部频带的最大 LCU 1-范数；式 (98) 把成功振幅均匀压到 1/alpha_max。
+        a: BE of the self-adjoint unitary dilation; chebyshev_block provides the odd Chebyshev powers.
+        coefficients: Truncated inverse polynomial coefficients c_k of this band (T_{2k+1} basis).
+        alpha_max: Maximum LCU 1-norm over all bands; eq. (98) uniformly scales the success amplitude down to 1/alpha_max.
 
     Returns:
-        Operation: 寄存器 target/signal/flag；signal==0 且 flag==1 的分支携带
-        h(A)ψ/alpha_max（ψ 为输入态），h 为本频带多项式。
+        Operation: Registers target/signal/flag; the branch with signal==0 and flag==1 carries
+        h(A)psi/alpha_max (psi being the input state), where h is this band's polynomial.
     """
     a = as_block_encoding(a)
     terms = tuple(
@@ -170,10 +176,10 @@ def band_inverse_step(
         if c != 0
     )
     if not terms:
-        raise ValidationError("频带逆多项式系数全为零")
+        raise ValidationError("All band inverse polynomial coefficients are zero")
     beta = sum(abs(c) for c, _ in terms)
     if alpha_max <= 0 or beta > alpha_max * (1 + 1e-9):
-        raise ValidationError("频带 LCU 归一化与 alpha_max 声明冲突")
+        raise ValidationError("The band LCU normalization conflicts with the alpha_max declaration")
     selector_width = (len(terms) - 1).bit_length()
     b = Builder(
         _name("vtaa_band_inverse", a.operation, tuple(coefficients), alpha_max),
@@ -208,7 +214,7 @@ def band_inverse_step(
         coefficient, term = terms[0]
         b.global_phase(cmath.phase(coefficient))
         invoke(b, term.operation, "term0", target=b["target"], signal=work)
-    # 式 (98)：LCU 成功分支上把旗标转到 beta/alpha_max 振幅，均匀化各频带成功幅值。
+    # Eq. (98): on the LCU success branch, rotate the flag to amplitude beta/alpha_max, uniformizing the success amplitudes across bands.
     with b.control(b["signal"], 0):
         b.ry(b["flag"], 2 * math.asin(beta / alpha_max))
     return b.finish()
@@ -216,11 +222,12 @@ def band_inverse_step(
 
 @dataclass(frozen=True)
 class VTAAConfig:
-    """order 为第 1 频带的基础 Chebyshev 阶数，第 j 频带按 2^(j-1) 几何放大。
+    """order is the base Chebyshev degree of band 1; band j scales it geometrically by 2^(j-1).
 
-    rounds 是各阶段的 VTAA 放大轮数 r_j（None 表示全零，即纯变时层加后选）；
-    正确性不依赖日程，日程只影响成功率。生产部署应按 Ambainis 算法 2 的振幅
-    估计或 Low–Su 的确定性日程选择 r_j（见 tunable_rounds）。
+    rounds holds the VTAA amplification rounds r_j per stage (None means all zero, i.e. the pure
+    variable-time layer plus postselection); correctness does not depend on the schedule, which
+    only affects the success rate. Production deployments should choose r_j via the amplitude
+    estimation of Ambainis Algorithm 2 or the deterministic schedule of Low–Su (see tunable_rounds).
     """
 
     order: int = 2
@@ -231,7 +238,7 @@ class VTAAConfig:
     rounds: tuple[int, ...] | None = None
 
     def __post_init__(self) -> None:
-        """校验阶数、截断、时钟步数、判决硬界与放大轮数的取值。"""
+        """Validate the degree, truncation, clock steps, decision hard bound, and amplification rounds."""
         positive_integer(self.order, "VTAAConfig.order", maximum=128)
         if self.terms is not None:
             positive_integer(self.terms, "VTAAConfig.terms", maximum=self.order)
@@ -239,39 +246,39 @@ class VTAAConfig:
             positive_integer(self.clock_steps, "VTAAConfig.clock_steps", maximum=16)
         finite_real(self.marker_epsilon, "VTAAConfig.marker_epsilon", minimum=0, strict=True)
         if self.marker_epsilon >= 0.2:
-            raise ValidationError("GPE 判决硬界需要小于 0.2")
+            raise ValidationError("The GPE decision hard bound must be below 0.2")
         positive_integer(self.degree_cap, "VTAAConfig.degree_cap", minimum=8, maximum=40)
         if self.rounds is not None:
             rounds = tuple(int(r) for r in self.rounds)
             if not rounds or any(not 0 <= r <= 64 for r in rounds):
-                raise ValidationError("VTAA rounds 需要非负且不超过 64")
+                raise ValidationError("VTAA rounds must be non-negative and not exceed 64")
             object.__setattr__(self, "rounds", rounds)
 
     def band_order(self, step: int) -> int:
-        """返回第 step 频带的 Chebyshev 逆多项式阶数。
+        """Return the Chebyshev inverse polynomial degree of band ``step``.
 
-        第 1 频带取 ``order``，其后每个频带翻倍（2 的几何增长），上限 128；
-        ``step`` 小于 1 时按第 1 频带处理。
+        Band 1 takes ``order`` and each subsequent band doubles it (geometric growth in
+        powers of 2), capped at 128; ``step`` below 1 is treated as band 1.
 
         Args:
-            step: 频带序号，从 1 起计。
+            step: Band index, counting from 1.
 
         Returns:
-            int: 该频带的 Chebyshev 阶数，不超过 128。
+            int: The Chebyshev degree of that band, at most 128.
         """
         return min(128, self.order * (1 << max(0, step - 1)))
 
     def band_coefficients(self, step: int) -> tuple[float, ...]:
-        """返回第 step 频带的截断逆多项式系数（T_{2k+1} 基）。
+        """Return the truncated inverse polynomial coefficients of band ``step`` (T_{2k+1} basis).
 
-        以 ``band_order(step)`` 为阶数、``terms`` 为截断项数（None 表示取满阶），
-        经 ``CKSConfig.coefficients`` 计算得到。
+        Computed via ``CKSConfig.coefficients`` with degree ``band_order(step)`` and truncation
+        term count ``terms`` (None means the full degree).
 
         Args:
-            step: 频带序号，从 1 起计。
+            step: Band index, counting from 1.
 
         Returns:
-            tuple[float, ...]: 奇次 Chebyshev 基上的截断逆多项式系数序列。
+            tuple[float, ...]: The truncated inverse polynomial coefficient sequence on the odd Chebyshev basis.
         """
         return CKSConfig(self.band_order(step), self.terms).coefficients()
 
@@ -279,19 +286,19 @@ class VTAAConfig:
 def tunable_rounds(
     stage_amplitudes: Iterable[float], thresholds: Iterable[float] | None = None
 ) -> tuple[int, ...]:
-    """Low–Su 可调 VTAA 日程（arXiv:2410.18178 式 (52)–(53)）。
+    """Low–Su tunable VTAA schedule (arXiv:2410.18178 eq. (52)–(53)).
 
     Args:
-        stage_amplitudes: 各阶段“尚未失败”振幅范数 x_j 的估计（可由振幅估计通道获得）。
-        thresholds: 阈值 alpha_j，缺省均分；总和为常数以保证常数损失。
+        stage_amplitudes: Estimates of the "not yet failed" amplitude norms x_j per stage (obtainable via the amplitude estimation channel).
+        thresholds: Thresholds alpha_j, uniformly split by default; their sum is constant to guarantee constant loss.
 
     Returns:
-        每阶段轮数元组 r_j = max(ceil(sqrt(alpha_j)/(6 x_j) - 1/2), 0)，
-        满足不过冲条件 (2 r_j + 1) x_j <= sqrt(alpha_j)。
+        A tuple of per-stage rounds r_j = max(ceil(sqrt(alpha_j)/(6 x_j) - 1/2), 0),
+        satisfying the no-overshoot condition (2 r_j + 1) x_j <= sqrt(alpha_j).
     """
     values = tuple(float(v) for v in stage_amplitudes)
     if not values or any(not math.isfinite(v) or not 0 < v <= 1 for v in values):
-        raise ValidationError("阶段范数必须是 (0,1] 内的有限数")
+        raise ValidationError("Stage norms must be finite values between 0 exclusive and 1 inclusive")
     thresholds = (
         tuple(1.0 / len(values) for _ in values)
         if thresholds is None
@@ -300,7 +307,7 @@ def tunable_rounds(
     if len(thresholds) != len(values) or any(
         not math.isfinite(t) or t <= 0 for t in thresholds
     ):
-        raise ValidationError("VTAA 阈值数量或数值无效")
+        raise ValidationError("Invalid VTAA threshold count or values")
     return tuple(
         max(0, math.ceil(math.sqrt(alpha) / (6 * x) - 0.5))
         for x, alpha in zip(values, thresholds, strict=True)
@@ -308,19 +315,19 @@ def tunable_rounds(
 
 
 def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOracle:
-    """CKS §5 的 VTAA 求解内核；输入 SparseSystem，输出解态 StateOracle。
+    """CKS §5 VTAA solve kernel; takes a SparseSystem and returns the solution StateOracle.
 
     Args:
-        system: 稀疏 Hermitian 线性系统，须携带 Hermitian 与谱界声明。
-        config: VTAA 配置；缺省为默认配置。
+        system: Sparse Hermitian linear system; must carry Hermitian and spectral bound declarations.
+        config: VTAA configuration; defaults to the default configuration.
 
     Returns:
-        StateOracle: 变时放大链输出的解态 oracle，correctness 标记为 pending。
+        StateOracle: The solution state oracle output by the variable-time amplification cascade, with correctness marked pending.
     """
     config = config or VTAAConfig()
     require_instance(config, VTAAConfig, "vtaa_cks.config")
     if not system.hermitian:
-        raise ValidationError("VTAA 稀疏输入需要 Hermitian 声明或显式 Hermitian dilation")
+        raise ValidationError("VTAA sparse input requires a Hermitian declaration or an explicit Hermitian dilation")
     a = real_symmetric_sparse_encoding(
         system.access,
         system.value_format,
@@ -329,15 +336,15 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
     )
     x_edge = system.spectrum.norm_upper / a.alpha
     physical_kappa = system.spectrum.norm_upper / system.spectrum.sigma_min_lower
-    # 覆盖条件：最细频带的 fire 阈值 2^(1-steps)*x_edge 需不超过 sigma_min/alpha。
+    # Coverage condition: the fire threshold of the finest band, 2^(1-steps)*x_edge, must not exceed sigma_min/alpha.
     if config.clock_steps is not None:
         steps = config.clock_steps
     else:
         steps = math.ceil(math.log2(physical_kappa)) + 1 if physical_kappa > 1 else 1
     if physical_kappa > 2 ** (steps - 1):
-        raise ValidationError("clock_steps 不足以覆盖声明的最小奇异值频带")
+        raise ValidationError("clock_steps cannot cover the declared minimum singular value band")
     if config.rounds is not None and len(config.rounds) != steps:
-        raise ValidationError("VTAA rounds 长度必须等于 clock_steps")
+        raise ValidationError("VTAA rounds length must equal clock_steps")
 
     bands: list[tuple[float, tuple[float, ...], float]] = []
     for step in range(1, steps + 1):
@@ -363,7 +370,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
         (len([c for c in coefficients if c != 0]) - 1).bit_length()
         for _, coefficients, _ in bands
     )
-    # signal 布局：[共享逆 LCU 区 selw+s][每步独立 GPE 垃圾 m*s]；P_j 垃圾保留待抹除。
+    # Signal layout: [shared inverse-LCU region selw+s][per-step independent GPE garbage m*s]; P_j garbage is kept for later erasure.
     signal_width = selector_width + a.signal_qubits * (steps + 1)
     registers = {
         "target": Bits(a.width),
@@ -374,7 +381,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
     gpe_base = selector_width + a.signal_qubits
 
     def build_step(step: int, *, uncompute: bool) -> Operation:
-        """A_j：受控 GPE 写 C_j；C_j=1（fire）时施加 W_j（A'_j 仅翻旗标，式 (99)）。"""
+        """A_j: controlled GPE writes C_j; when C_j=1 (fire) W_j is applied (A'_j only flips the flag, eq. (99))."""
         threshold, coefficients, beta = bands[step - 1]
         kind = "vtaa_uncompute_step" if uncompute else "vtaa_variable_step"
         resources = resources_for(("gpe", gpes[step - 1]))
@@ -401,7 +408,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
         )
 
         def run_gpe() -> None:
-            """在本步独立信号槽上调用 GPE，把判决写入时钟位。"""
+            """Invoke the GPE on this step's dedicated signal slot, writing the decision into the clock bit."""
             invoke(
                 b,
                 gpes[step - 1],
@@ -411,7 +418,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
                 decision=b["clock"][step - 1],
             )
 
-        # 前缀全 0 = 尚未停下；C_j=1 表示在本频带 fire。
+        # All-zero prefix = not yet stopped; C_j=1 means fire in this band.
         if prefix.width:
             with b.control(prefix, 0):
                 run_gpe()
@@ -441,7 +448,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
     initial_op = initial.finish()
 
     def run_chain(b: Builder, items: Sequence[tuple[str, Operation]]) -> None:
-        """按各自前缀把 ``items`` 中的操作依次接入 ``b``。"""
+        """Wire the operations in ``items`` into ``b`` one by one under their own prefixes."""
         for prefix, op in items:
             invoke(
                 b,
@@ -454,7 +461,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
             )
 
     def prefix_module(step: int, items: Sequence[tuple[str, Operation]]) -> Operation:
-        """把到第 ``step`` 步为止的操作链封装为单一模块。"""
+        """Wrap the operation chain up to step ``step`` into a single module."""
         b = Builder(
             _name("vtaa_prefix", a.operation, system.rhs.operation, config, step),
             registers,
@@ -469,7 +476,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
         return b.finish()
 
     def amplification(prefix_op: Operation, step: int, count: int) -> Operation:
-        """M_j = (R_s R_f)^{r_j} P_j；R_f 翻转 stopped<=j 且旗标为 0 的相位。"""
+        """M_j = (R_s R_f)^{r_j} P_j; R_f flips the phase of stopped<=j with flag 0."""
         b = Builder(
             _name("vtaa_amplified", prefix_op, step, count),
             registers,
@@ -485,7 +492,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
         run_chain(b, (("prefix", prefix_op),))
 
         def run_prefix() -> None:
-            """重放一遍被放大的前缀链。"""
+            """Replay the amplified prefix chain once."""
             run_chain(b, (("prefix", prefix_op),))
 
         if count:
@@ -493,12 +500,12 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
             stopped = b.local("stopped", Bits(1))
 
             def mark_stopped() -> None:
-                """把时钟前缀的 OR 判决写入 ``stopped`` 辅助位。"""
+                """Write the OR decision of the clock prefix into the ``stopped`` ancilla bit."""
                 b.call(orop, prefix=b["clock"][:step], stopped=stopped)
 
             with b.repeat(count):
                 mark_stopped()
-                # stopped=1（已 fire）且 flag=0（失败）的分支获得 pi 相位。
+                # Branches with stopped=1 (already fired) and flag=0 (failed) acquire a pi phase.
                 with b.control(fuse(stopped, b["flag"]), 1):
                     b.global_phase(math.pi)
                 mark_stopped()
@@ -558,11 +565,11 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
     )
 
     def call_top(op: Operation, prefix: str) -> None:
-        """以给定前缀把 ``op`` 接入顶层电路的时钟、旗标与信号布局。"""
+        """Wire ``op`` into the top-level circuit's clock, flag, and signal layout under the given prefix."""
         invoke(top, op, prefix, target=top["target"], clock=clock, flag=flag, signal=rest)
 
     call_top(amplified, "run")
-    # (A')^dagger：逆序抹除 GPE 时钟与旗标（式 (110)–(112)），解态留在 target。
+    # (A')^dagger: erase the GPE clock and flag in reverse order (eq. (110)–(112)); the solution state stays in target.
     with top.adjoint():
         for step in range(1, steps + 1):
             call_top(erase_ops[step - 1], f"erase{step}")
@@ -578,13 +585,13 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
 
 
 def make_vtaa_cks_qlss(config: VTAAConfig | None = None) -> QLSSProtocol:
-    """CKS §5 VTAA 求解协议；输入模型与 cks_chebyshev 相同的稀疏访问。
+    """CKS §5 VTAA solve protocol; the input model is the same sparse access as cks_chebyshev.
 
     Args:
-        config: VTAA 配置；缺省为默认配置。
+        config: VTAA configuration; defaults to the default configuration.
 
     Returns:
-        QLSSProtocol: 稀疏输入模型下的 VTAA 求解协议。
+        QLSSProtocol: The VTAA solve protocol under the sparse input model.
     """
     config = VTAAConfig() if config is None else config
     require_instance(config, VTAAConfig, "make_vtaa_cks_qlss.config")

@@ -1,4 +1,4 @@
-"""QVector/QMatrix 量子数据结构的语义测试：角树真值、局部更新与制备振幅。"""
+"""Semantic tests for the QVector/QMatrix quantum data structures: angle-tree ground truth, local updates, and preparation amplitudes."""
 
 import math
 import unittest
@@ -10,7 +10,7 @@ from oracq.algorithms.input_model.qdata import QMatrix, QVector
 
 FMT = FixedFormat(8, 4)
 AW = 10
-TOL = 4e-3  # angle_width=10 的旋转角量化误差量级
+TOL = 4e-3  # the scale of rotation-angle quantization error at angle_width=10
 
 
 class QVectorTests(unittest.TestCase):
@@ -142,7 +142,7 @@ class QMatrixTests(unittest.TestCase):
 
 
 class TwoDimensionalBankLayoutTests(unittest.TestCase):
-    """(row, node) 二维寻址与手工 flat 地址逐点一致。"""
+    """(row, node) two-dimensional addressing matches the hand-computed flat address pointwise."""
 
     def test_row_angle_bank_flat_layout(self):
         matrix = QMatrix(

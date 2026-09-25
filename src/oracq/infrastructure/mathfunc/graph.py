@@ -1,4 +1,4 @@
-"MIR 0.1：纯数学函数的有类型 SSA 图；不含 Python 可调用对象。"
+"MIR 0.1: a typed SSA graph of pure math functions; it holds no Python callables."
 
 from __future__ import annotations
 
@@ -11,31 +11,33 @@ from oracq.infrastructure.validation import name
 
 @dataclass(frozen=True)
 class Index:
-    """无符号整数索引参数的位宽说明，用于 ``inputs`` 映射。
+    """Bit width declaration of an unsigned integer index parameter, for the ``inputs`` mapping.
 
-    为行列索引等无符号整数提供较短的公开寄存器；进入数学计算时
-    转换为当前定点表示，格式必须容纳其完整范围。
+    Provides a shorter public register for unsigned integers such as row
+    and column indices; it is converted to the current fixed-point
+    representation when entering math computation, and the format must
+    hold its full range.
 
     Attributes:
-        width: 无符号位宽，范围为 1..64。
+        width: Unsigned bit width, in the range 1..64.
     """
 
     width: int
 
     def __post_init__(self) -> None:
-        """校验位宽范围为 1..64。"""
+        """Validate that the bit width is in 1..64."""
         if type(self.width) is not int or not 1 <= self.width <= 64:
-            raise ValidationError("Index 位宽必须为 1..64")
+            raise ValidationError("Index bit width must be between 1 and 64")
 
 
 @dataclass(frozen=True)
 class Parameter:
-    """MIR 函数形参的名字与数学类型。
+    """Name and math kind of an MIR function formal parameter.
 
     Attributes:
-        name: 参数名，在所在函数内唯一。
-        kind: 参数类型，为 real、complex、bool 或 index。
-        width: 仅 index 参数使用的无符号位宽；其他类型必须为 0。
+        name: Parameter name, unique within its function.
+        kind: Parameter kind: real, complex, bool or index.
+        width: Unsigned bit width used only by index parameters; must be 0 for other kinds.
     """
 
     name: str
@@ -45,16 +47,16 @@ class Parameter:
 
 @dataclass(frozen=True)
 class MathNode:
-    """MIR 顺序 SSA 图中的一个值节点。
+    """One value node of the MIR sequential SSA graph.
 
-    节点编号为其在函数 ``nodes`` 序列中的位置；``args`` 只能引用
-    编号更小的节点。
+    The node index is its position in the function's ``nodes`` sequence;
+    ``args`` may only reference nodes with smaller indices.
 
     Attributes:
-        op: 操作名，如 ``input``、``const``、四则运算或 ``call``。
-        kind: 结果值类型，为 real、complex 或 bool。
-        args: 操作数节点编号组成的 tuple。
-        data: 附加数据：input 存参数名，const 存常量编码，intrinsic 存数学函数名，call 存目标函数符号与返回索引。
+        op: Operation name, such as ``input``, ``const``, an arithmetic operation or ``call``.
+        kind: Result value kind: real, complex or bool.
+        args: Tuple of operand node indices.
+        data: Attached data: input stores the parameter name, const stores the constant encoding, intrinsic stores the math function name, call stores the callee symbol and return index.
     """
 
     op: str
@@ -65,14 +67,14 @@ class MathNode:
 
 @dataclass(frozen=True)
 class MathFunction:
-    """MIR 中的一个纯数学函数：形参表与顺序 SSA 节点序列。
+    """One pure math function in MIR: a formal parameter table and a sequential SSA node sequence.
 
     Attributes:
-        name: 函数符号名，在程序内唯一。
-        label: 源码中的函数名，用于展示与模块属性。
-        parameters: 按形参顺序排列的参数表。
-        nodes: 顺序 SSA 节点序列。
-        returns: 非空的返回节点编号 tuple；多个编号表示多个独立结果。
+        name: Function symbol name, unique within the program.
+        label: The function name in the source, used for display and module attributes.
+        parameters: The parameter table in formal parameter order.
+        nodes: The sequential SSA node sequence.
+        returns: Non-empty tuple of return node indices; multiple indices mean multiple independent results.
     """
 
     name: str
@@ -84,12 +86,12 @@ class MathFunction:
 
 @dataclass(frozen=True)
 class MathProgram:
-    """MIR 0.1 顶层对象：入口函数符号与全部函数表。
+    """MIR 0.1 top-level object: the entry function symbol and the full function table.
 
     Attributes:
-        entry: 入口函数的符号名，必须出现在 ``functions`` 中。
-        functions: 全部 ``MathFunction`` 组成的不可变 tuple。
-        version: MIR 版本号，当前为 0.1。
+        entry: The entry function's symbol name, which must appear in ``functions``.
+        functions: Immutable tuple of all ``MathFunction`` objects.
+        version: The MIR version number, currently 0.1.
     """
 
     entry: str
@@ -98,57 +100,58 @@ class MathProgram:
 
     @property
     def function_map(self) -> dict[str, MathFunction]:
-        """函数符号名到 ``MathFunction`` 的映射。"""
+        """Mapping from function symbol names to ``MathFunction``."""
         return {f.name: f for f in self.functions}
 
     def validate(self) -> MathProgram:
-        """核对程序的结构与类型约束并返回自身。
+        """Check the program's structural and type constraints and return self.
 
-        覆盖版本号、函数表不可变性与入口有效性、参数唯一性与类型、
-        顺序 SSA 引用、操作元数与类型提升、常量有限性、调用接口
-        一致性，以及函数图无递归。
+        Covers the version number, function table immutability and entry
+        validity, parameter uniqueness and kinds, sequential SSA references,
+        operation arities and type promotion, constant finiteness, call
+        interface consistency, and acyclicity of the function graph.
 
         Returns:
-            MathProgram: 校验通过的自身。
+            MathProgram: Self, once validation has passed.
 
         Raises:
-            ValidationError: 任一结构或类型约束不满足。
+            ValidationError: Any structural or type constraint is violated.
         """
         if self.version != "0.1":
-            raise ValidationError("未知 MIR 版本")
+            raise ValidationError("unknown MIR version")
         if type(self.functions) is not tuple:
-            raise ValidationError("MIR 函数表必须不可变")
+            raise ValidationError("the MIR function table must be immutable")
         functions = self.function_map
         if len(functions) != len(self.functions) or self.entry not in functions:
-            raise ValidationError("MIR 入口或函数表无效")
+            raise ValidationError("invalid MIR entry or function table")
         for f in self.functions:
             name(f.name)
             if not isinstance(f.label, str) or any(
                 type(v) is not tuple for v in (f.parameters, f.nodes, f.returns)
             ):
-                raise ValidationError("MIR 函数记录必须具有字符串标签和不可变数组")
+                raise ValidationError("MIR function records must have a string label and immutable arrays")
             params = {p.name: p for p in f.parameters}
             if len(params) != len(f.parameters):
-                raise ValidationError("MIR 参数重名")
+                raise ValidationError("duplicate MIR parameter names")
             for p in f.parameters:
                 name(p.name)
                 if type(p.width) is not int or (p.kind != "index" and p.width != 0):
-                    raise ValidationError("MIR 非 index 参数 width 必须为 0")
+                    raise ValidationError("width must be 0 for non-index MIR parameters")
                 if p.kind not in {"real", "complex", "bool", "index"} or (
                     p.kind == "index" and not 1 <= p.width <= 64
                 ):
-                    raise ValidationError("MIR 参数类型无效")
+                    raise ValidationError("invalid MIR parameter kind")
             if not f.returns or any(
                 type(i) is not int or not 0 <= i < len(f.nodes) for i in f.returns
             ):
-                raise ValidationError("MIR 返回值无效")
+                raise ValidationError("invalid MIR return values")
             for i, node in enumerate(f.nodes):
                 if type(node.args) is not tuple or type(node.data) is not tuple:
-                    raise ValidationError("MIR 节点必须不可变")
+                    raise ValidationError("MIR nodes must be immutable")
                 if node.kind not in {"real", "complex", "bool"}:
-                    raise ValidationError("MIR 值类型无效")
+                    raise ValidationError("invalid MIR value kind")
                 if any(type(a) is not int or not 0 <= a < i for a in node.args):
-                    raise ValidationError("MIR 不是顺序 SSA 图")
+                    raise ValidationError("MIR is not a sequential SSA graph")
                 arities = {
                     "input": 0,
                     "const": 0,
@@ -171,30 +174,30 @@ class MathProgram:
                     "select": 3,
                 }
                 if node.op in arities and len(node.args) != arities[node.op]:
-                    raise ValidationError("MIR 操作元数无效")
+                    raise ValidationError("invalid MIR operation arity")
                 if node.op not in {*arities, "intrinsic", "call"}:
-                    raise ValidationError("未知 MIR 操作")
+                    raise ValidationError("unknown MIR operation")
                 if node.op == "input" and (len(node.data) != 1 or node.data[0] not in params):
-                    raise ValidationError("MIR 输入引用无效")
+                    raise ValidationError("invalid MIR input reference")
                 if node.op == "const":
                     if len(node.data) != (2 if node.kind == "complex" else 1):
-                        raise ValidationError("MIR 常量编码无效")
+                        raise ValidationError("invalid MIR constant encoding")
                     import math
 
                     if any(
                         type(x) not in (bool, int, float) or not math.isfinite(x) for x in node.data
                     ):
-                        raise ValidationError("MIR 只接收有限数值常量")
+                        raise ValidationError("MIR only accepts finite numeric constants")
                 if node.op == "call":
                     if len(node.data) != 2 or node.data[0] not in functions:
-                        raise ValidationError("MIR 调用目标无效")
+                        raise ValidationError("invalid MIR call target")
                     child = functions[node.data[0]]
                     if len(node.args) != len(child.parameters) or not 0 <= node.data[1] < len(
                         child.returns
                     ):
-                        raise ValidationError("MIR 调用布局无效")
+                        raise ValidationError("invalid MIR call layout")
                     if node.kind != child.nodes[child.returns[node.data[1]]].kind:
-                        raise ValidationError("MIR 调用返回类型无效")
+                        raise ValidationError("invalid MIR call return kind")
         intrinsic_names = {
             "sqrt",
             "exp",
@@ -255,7 +258,7 @@ class MathProgram:
                     valid = type(node.data[0]) is bool
                 elif node.op == "intrinsic":
                     if len(node.data) != 1 or node.data[0] not in intrinsic_names:
-                        raise ValidationError("未知 MIR 数学 intrinsic")
+                        raise ValidationError("unknown MIR math intrinsic")
                     function = node.data[0]
                     counts = (
                         {1, 2}
@@ -283,14 +286,14 @@ class MathProgram:
                 if node.op not in {"input", "const", "call", "intrinsic"} and node.data:
                     valid = False
                 if not valid:
-                    raise ValidationError("MIR 操作类型/数据约束不满足：" + node.op)
+                    raise ValidationError("MIR operation type or data constraint violated: " + node.op)
         active: set[str] = set()
         visited: set[str] = set()
 
         def visit(key: str) -> None:
-            """深度优先遍历调用图，发现回边即判定存在递归。"""
+            """Traverse the call graph depth-first; a back edge means recursion."""
             if key in active:
-                raise ValidationError("MIR 不支持递归")
+                raise ValidationError("recursion is not supported in MIR")
             if key in visited:
                 return
             active.add(key)
@@ -305,13 +308,13 @@ class MathProgram:
         return self
 
     def dumps(self) -> str:
-        """先校验再把程序序列化为规范化 JSON 文本。
+        """Validate first, then serialize the program into canonical JSON text.
 
         Returns:
-            str: 按键排序、两格缩进、以换行结尾的 JSON 文本；非 ASCII 字符原样保留。
+            str: JSON text with sorted keys, two-space indentation and a trailing newline; non-ASCII characters are kept verbatim.
 
         Raises:
-            ValidationError: 程序未通过校验。
+            ValidationError: The program failed validation.
         """
         self.validate()
         return (
@@ -321,27 +324,27 @@ class MathProgram:
 
     @classmethod
     def loads(cls, text: str) -> MathProgram:
-        """从 JSON 文本反序列化并校验 MIR 程序。
+        """Deserialize and validate an MIR program from JSON text.
 
         Args:
-            text: ``MathProgram.dumps`` 生成的 JSON 文本。
+            text: JSON text produced by ``MathProgram.dumps``.
 
         Returns:
-            MathProgram: 校验通过的程序对象。
+            MathProgram: The validated program object.
 
         Raises:
-            ValidationError: 文本不是合法的 MIR JSON，或未通过校验。
+            ValidationError: The text is not valid MIR JSON, or failed validation.
         """
         try:
             raw = json.loads(text)
             if set(raw) != {"entry", "functions", "version"}:
-                raise ValidationError("MIR 顶层字段无效")
+                raise ValidationError("invalid MIR top-level fields")
             functions: list[MathFunction] = []
             for f in raw["functions"]:
                 if set(f) != {"name", "label", "parameters", "nodes", "returns"} or any(
                     set(n) != {"op", "kind", "args", "data"} for n in f["nodes"]
                 ):
-                    raise ValidationError("MIR 函数或节点包含未知字段")
+                    raise ValidationError("MIR function or node contains unknown fields")
                 functions.append(
                     MathFunction(
                         f["name"],
@@ -356,4 +359,4 @@ class MathProgram:
                 )
             return cls(raw["entry"], tuple(functions), raw["version"]).validate()
         except (KeyError, TypeError, ValueError, IndexError, OverflowError, RecursionError) as exc:
-            raise ValidationError(f"非法 MIR JSON：{exc}") from exc
+            raise ValidationError(f"invalid MIR JSON: {exc}") from exc

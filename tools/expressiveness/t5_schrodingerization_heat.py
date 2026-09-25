@@ -1,11 +1,12 @@
-"""表达力基准 T5：Schrödingerization 求解 1D 热方程（oracq 侧）。
+"""Expressiveness benchmark T5: Schrödingerization solving the 1D heat equation (oracq side).
 
-规格（benchmarks/t5/SPEC.md）：u_t = u_xx，4 点周期网格，二阶差分生成元
-G = S + S^T - 2I（谱半径 4），t = 0.05，u0 = [1, 0.5, 0, -0.5]/‖·‖；
-参考解为 scipy.linalg.expm(G t) u0。度量：后选择物理通道 × 恢复因子后的
-L2 相对误差。
+Specification (benchmarks/t5/SPEC.md): u_t = u_xx, a 4-point periodic grid,
+second-difference generator G = S + S^T - 2I (spectral radius 4), t = 0.05,
+u0 = [1, 0.5, 0, -0.5]/‖·‖; the reference solution is scipy.linalg.expm(G t) u0.
+Metric: L2 relative error of the post-selected physical channel after the
+recovery factor is applied.
 
-运行：cd ~/projects/qcfd-dev/oracq && PYTHONPATH=src <python> \
+Run: cd ~/projects/qcfd-dev/oracq && PYTHONPATH=src <python> \
 tools/expressiveness/t5_schrodingerization_heat.py
 """
 
@@ -50,7 +51,7 @@ def main():
     )
     state = solver(generator, gate_state_prep(list(u0)), TIME)
 
-    # 恢复因子 alpha_E：按公开组合子重建 K'=-P⊗H1-I⊗H2 的 Taylor BE 读取 alpha
+    # Recovery factor alpha_E: rebuild the Taylor block encoding of K'=-P⊗H1-I⊗H2 from public combinators and read off alpha
     parts = HermitianParts.from_operator(generator)
     momentum = fourier_momentum(plan.auxiliary_width, plan.period)
     k_be = lcu(

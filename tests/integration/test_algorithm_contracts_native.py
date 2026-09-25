@@ -1,4 +1,4 @@
-"""实际后端执行算法协议生成的门，比较完整复幅度。"""
+"""Real backends execute the gates generated from algorithm contracts, comparing full complex amplitudes."""
 
 import unittest
 

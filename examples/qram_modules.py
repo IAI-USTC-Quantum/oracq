@@ -1,4 +1,4 @@
-"""生成具有嵌套模块、QRAM 参数和寄存器视图的演示程序。"""
+"""Generate a demo program with nested modules, QRAM parameters, and register views."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from oracq import QRAM, Builder, Operation, Program, UInt, dumps, export_origini
 
 
 def make_lookup(address_width: int = 2, data_width: int = 3) -> Operation:
-    """构造单次 QRAM 查表模块：``address`` 进、``data`` 出。"""
+    """Build a single QRAM table-lookup module: ``address`` in, ``data`` out."""
     b = Builder(
         f"lookup_{address_width}_{data_width}",
         {"address": UInt(address_width), "data": UInt(data_width)},
@@ -17,7 +17,7 @@ def make_lookup(address_width: int = 2, data_width: int = 3) -> Operation:
 
 
 def make_program() -> Program:
-    """构造两层模块调用包装的查表演示程序。"""
+    """Build a lookup demo program wrapped in two levels of module calls."""
     lookup = make_lookup()
     wrapper = Builder("wrapped_lookup", {"a": UInt(2), "d": UInt(3)}, {"memory": QRAM(2, 3)})
     wrapper.call(lookup, address=wrapper["a"], data=wrapper["d"], resources={"table": "memory"})

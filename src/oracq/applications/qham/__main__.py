@@ -1,4 +1,4 @@
-"python -m oracq.qham：PDE JSON 到一般 QCL 推导。"
+"python -m oracq.qham: PDE JSON to general QCL derivation."
 
 import argparse
 import json
@@ -11,9 +11,9 @@ from oracq.applications.qham.report import export_derivation
 
 
 def main() -> None:
-    """解析命令行，把输入 PDE 推导为 QHAM 线性化并导出报告。"""
-    parser = argparse.ArgumentParser(description="从有限多项式 PDE 自动推导 QHAM 量子适配线性化")
-    parser.add_argument("input", nargs="?", type=Path, help="PDE 0.1 JSON；省略则选择内置案例")
+    """Parse the command line, derive the QHAM linearization from the input PDE, and export the report."""
+    parser = argparse.ArgumentParser(description="Automatically derive a QHAM quantum-adapted linearization from a finite polynomial PDE")
+    parser.add_argument("input", nargs="?", type=Path, help="PDE 0.1 JSON; a built-in example is selected when omitted")
     parser.add_argument(
         "--example",
         choices=["burgers", "kdv", "reaction", "coupled", "vector_burgers_2d"],
@@ -23,12 +23,12 @@ def main() -> None:
     parser.add_argument("--eta", type=float, default=-0.4)
     parser.add_argument("--state-width", type=int, default=2)
     parser.add_argument("--max-blocks", type=int, default=256)
-    parser.add_argument("--row", help="单独查询行，如 physical、one、0,1")
+    parser.add_argument("--row", help="Query a single row, e.g. physical, one, 0,1")
     parser.add_argument("-o", "--output", type=Path, default=Path("out/qham-general/derivation"))
     args = parser.parse_args()
     try:
         if not 1 <= args.state_width <= 64 or args.max_blocks < 0:
-            raise ValueError("state-width 必须为 1..64，max-blocks 非负")
+            raise ValueError("state-width must be in the range 1 to 64 and max-blocks must be non-negative")
         pde = (
             PolynomialPDE.loads(args.input.read_text()) if args.input else example_pde(args.example)
         )

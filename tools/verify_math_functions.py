@@ -1,4 +1,4 @@
-"""纯函数编译产物的真实后端消费记录。"""
+"""Record of real-backend consumption of the pure-function compilation artifacts."""
 
 import json
 from pathlib import Path

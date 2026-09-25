@@ -1,4 +1,4 @@
-"读取 Python AST 的纯函数编译前端；不执行待编译函数。"
+"Pure-function compilation frontend that reads the Python AST; it never executes the function being compiled."
 
 from __future__ import annotations
 
@@ -43,26 +43,26 @@ ELEMENTARY = {
     "polar",
     "rect",
 }
-"""可编译为 intrinsic 节点的初等数学函数名集合；phase、polar、rect 仅限 cmath。"""
+"""Set of elementary math function names compilable into intrinsic nodes; phase, polar and rect are cmath only."""
 REAL_EXTRA = {"atan2", "hypot"}
-"""仅实数域支持的补充二元数学函数名集合。"""
+"""Set of additional binary math function names supported on the real domain only."""
 BUILTINS = {"abs", "complex", "min", "max"}
-"""允许按名字直接调用的 Python 内建函数名集合。"""
+"""Set of Python builtin function names allowed to be called directly by name."""
 KINDS = {"float": "real", "complex": "complex", "bool": "bool", "int": "real"}
-"""Python 注解/类型名到 MIR 值类型的映射；未注解参数按 float 处理。"""
+"""Mapping from Python annotation or type names to MIR value kinds; unannotated parameters are treated as float."""
 
 
 class FunctionCompileError(ValidationError):
-    """数学函数前端在解析或编译受限 Python 源码失败时抛出的异常。"""
+    """Exception raised when the math function frontend fails to parse or compile restricted Python source."""
 
 
 @dataclass(frozen=True)
 class Value:
-    """编译期 SSA 值：节点编号与其值类型的配对。
+    """Compile-time SSA value: a pair of node index and value kind.
 
     Attributes:
-        id: 该值对应节点在当前函数节点序列中的位置。
-        kind: 值类型，为 real、complex 或 bool。
+        id: Position of the node backing this value within the current function's node sequence.
+        kind: Value kind: real, complex or bool.
     """
 
     id: int
@@ -71,11 +71,11 @@ class Value:
 
 @dataclass
 class Source:
-    """待编译函数的定位记录：AST 定义及其求值命名空间。
+    """Location record of a function to compile: its AST definition and evaluation namespace.
 
     Attributes:
-        tree: 函数的 ``ast.FunctionDef`` 定义节点。
-        namespace: 解析名字引用时使用的全局与闭包变量映射。
+        tree: The function's ``ast.FunctionDef`` definition node.
+        namespace: Mapping of global and closure variables used to resolve name references.
     """
 
     tree: ast.FunctionDef
@@ -83,22 +83,23 @@ class Source:
 
 
 class Frontend:
-    """把受限 Python 纯函数源码编译为 MIR 数学函数图。
+    """Compiles restricted pure Python function source into an MIR math function graph.
 
-    读取并解释普通 Python 函数的 AST，不执行待编译函数。源码字符串中除
-    入口外的其余 def 作为纯 helper 保留为独立 MIR 函数，调用以 call 节点
-    表示，不在编译期展开。
+    Reads and interprets the AST of an ordinary Python function without
+    executing the function being compiled. In source-string form, every def
+    other than the entry is kept as a pure helper in its own MIR function;
+    calls are represented as call nodes and are not expanded at compile time.
 
     Args:
-        source: 普通 Python 函数对象，或含若干 def 与 math/cmath 导入的源码字符串；模块 docstring 与 ``__future__`` 导入被忽略。
-        inputs: 参数名到 real/complex/bool 或 ``Index(width)`` 的映射；省略时按注解推导。
-        constants: 参数名到有限数值的映射，作为生成期常量绑定。
-        helpers: 追加到入口命名空间的辅助函数。
-        max_unroll: 静态 range 循环允许展开的最大迭代数。
-        entry: 源码字符串形式下的入口函数名；省略时使用最后一个 def。
+        source: An ordinary Python function object, or a source string containing several defs and math/cmath imports; the module docstring and ``__future__`` imports are ignored.
+        inputs: Mapping from parameter names to real/complex/bool or ``Index(width)``; inferred from annotations when omitted.
+        constants: Mapping from parameter names to finite numeric values, bound as generation-time constants.
+        helpers: Helper functions appended to the entry namespace.
+        max_unroll: Maximum number of iterations a static range loop may unroll.
+        entry: Entry function name for the source-string form; the last def is used when omitted.
 
     Raises:
-        FunctionCompileError: 源码有语法错误、包含不支持的语句或没有可用函数定义。
+        FunctionCompileError: The source has a syntax error, contains unsupported statements, or has no usable function definition.
     """
 
     def __init__(
@@ -111,7 +112,7 @@ class Frontend:
         max_unroll: int = 128,
         entry: str | None = None,
     ) -> None:
-        """解析入口源并初始化函数表、编译缓存与活动栈。"""
+        """Parse the entry source and initialize the function table, compile cache and active stack."""
         self.functions: dict[str, MathFunction]
         self.cache: dict[tuple, str]
         self.active: set[tuple]
@@ -123,7 +124,7 @@ class Frontend:
                 tree = ast.parse(textwrap.dedent(source))
             except SyntaxError as exc:
                 raise FunctionCompileError(
-                    f"Python 语法错误，第 {exc.lineno} 行：{exc.msg}"
+                    f"Python syntax error at line {exc.lineno}: {exc.msg}"
                 ) from exc
             ns: dict[str, object] = {"math": math, "cmath": cmath}
             for stmt in tree.body:
@@ -134,20 +135,20 @@ class Frontend:
                 ):
                     continue
                 if isinstance(stmt, ast.ImportFrom) and stmt.module == "__future__":
-                    # __future__ 只影响真实 Python 编译，前端解释 AST 时无语义。
+                    # __future__ only affects real Python compilation and has no semantics while the frontend interprets the AST.
                     continue
                 if isinstance(stmt, (ast.Import, ast.ImportFrom)):
                     self.imports(stmt, ns)
                 elif isinstance(stmt, ast.FunctionDef):
                     self.sources[stmt.name] = Source(stmt, ns)
                 else:
-                    raise FunctionCompileError("源码只允许 math/cmath 导入和纯函数定义")
+                    raise FunctionCompileError("the source may only contain math/cmath imports and pure function definitions")
             if not self.sources:
-                raise FunctionCompileError("源码中没有函数")
+                raise FunctionCompileError("the source contains no functions")
             for key, value in self.sources.items():
                 ns[key] = value
             if entry is not None and entry not in self.sources:
-                raise FunctionCompileError("源码中没有入口函数：" + entry)
+                raise FunctionCompileError("the source contains no entry function: " + entry)
             entry = self.sources[entry] if entry is not None else list(self.sources.values())[-1]  # type: ignore[assignment]
         else:
             entry = self.source(source)  # type: ignore[assignment]
@@ -156,77 +157,78 @@ class Frontend:
         self.entry: str = self.compile(cast(Source, entry), inputs, constants or {})
 
     def source(self, function: object) -> Source:
-        """把函数对象或 Source 归一化为定位记录。
+        """Normalize a function object or Source into a location record.
 
-        读取 ``function`` 的源码并唯一定位同名 def，结合其全局变量与
-        闭包变量构成求值命名空间。
+        Reads the source of ``function``, locates the def of the same name
+        uniquely, and builds the evaluation namespace from its globals and
+        closure variables.
 
         Args:
-            function: 普通 Python 函数对象，或已构造的 Source。
+            function: An ordinary Python function object, or an already constructed Source.
 
         Returns:
-            Source: 可交给 compile 的定位记录。
+            Source: The location record, ready to be handed to compile.
 
         Raises:
-            FunctionCompileError: 输入不是可读源码的普通函数、源码不可用或定义无法唯一定位。
+            FunctionCompileError: The input is not an ordinary function with readable source, the source is unavailable, or the definition cannot be located uniquely.
         """
         if isinstance(function, Source):
             return function
         if not inspect.isfunction(function):
             raise FunctionCompileError(
-                "只支持可读取源码的普通 Python 函数；也可传入 def 源码字符串"
+                "only plain Python functions with readable source are supported; a def source string may also be passed"
             )
         try:
             tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
         except (OSError, TypeError, IndentationError) as exc:
-            raise FunctionCompileError("无法读取函数源码；请传入 def 源码字符串") from exc
+            raise FunctionCompileError("cannot read the function source; pass a def source string instead") from exc
         definitions = [
             n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == function.__name__
         ]
         if len(definitions) != 1:
-            raise FunctionCompileError("无法唯一定位函数定义；不支持 lambda")
+            raise FunctionCompileError("cannot uniquely locate the function definition; lambda is not supported")
         closure = inspect.getclosurevars(function)
         return Source(definitions[0], {**function.__globals__, **closure.nonlocals})
 
     @staticmethod
     def imports(stmt: ast.Import | ast.ImportFrom, namespace: dict[str, object]) -> None:
-        """处理一条 math/cmath 导入语句并写入命名空间。
+        """Handle one math/cmath import statement and write it into the namespace.
 
         Args:
-            stmt: ``ast.Import`` 或 ``ast.ImportFrom`` 节点。
-            namespace: 接收导入名字的映射。
+            stmt: An ``ast.Import`` or ``ast.ImportFrom`` node.
+            namespace: The mapping that receives the imported names.
 
         Raises:
-            FunctionCompileError: 导入目标不是 math/cmath，或导入了不支持的数学名字。
+            FunctionCompileError: The import target is not math/cmath, or an unsupported math name was imported.
         """
         if isinstance(stmt, ast.Import):
             for alias in stmt.names:
                 if alias.name not in {"math", "cmath"}:
-                    raise FunctionCompileError("只允许导入 math/cmath")
+                    raise FunctionCompileError("only math/cmath may be imported")
                 namespace[alias.asname or alias.name] = {"math": math, "cmath": cmath}[alias.name]
         else:
             if stmt.module not in {"math", "cmath"} or stmt.level:
-                raise FunctionCompileError("只允许从 math/cmath 导入")
+                raise FunctionCompileError("only imports from math/cmath are allowed")
             module = {"math": math, "cmath": cmath}[stmt.module]
             for alias in stmt.names:
                 if alias.name not in ELEMENTARY | REAL_EXTRA | {"pi", "e", "tau"}:
-                    raise FunctionCompileError("未支持的数学导入：" + alias.name)
+                    raise FunctionCompileError("unsupported math import: " + alias.name)
                 namespace[alias.asname or alias.name] = getattr(module, alias.name)
 
     def fail(self, node: ast.AST, message: str) -> NoReturn:
-        """抛出带源码位置的错误。
+        """Raise an error carrying the source location.
 
         Args:
-            node: 出错位置对应的 AST 节点；无位置信息时以问号代替行号。
-            message: 错误说明。
+            node: The AST node marking the error location; a question mark replaces the line number when no location info exists.
+            message: Description of the error.
 
         Returns:
-            NoReturn: 不返回；总是以抛出 ``FunctionCompileError`` 结束。
+            NoReturn: Never returns; always ends by raising ``FunctionCompileError``.
 
         Raises:
-            FunctionCompileError: 总是抛出，消息带当前函数标签与行号前缀。
+            FunctionCompileError: Always raised, with the message prefixed by the current function label and line number.
         """
-        raise FunctionCompileError(f"{self.label}:{getattr(node, 'lineno', '?')}：{message}")
+        raise FunctionCompileError(f"{self.label}:{getattr(node, 'lineno', '?')}: {message}")
 
     def compile(
         self,
@@ -234,27 +236,29 @@ class Frontend:
         inputs: Mapping[str, Index | type | str] | None = None,
         constants: Mapping[str, bool | int | float | complex] | None = None,
     ) -> str:
-        """编译一个函数定义为 MIR 并返回其符号名。
+        """Compile one function definition to MIR and return its symbol name.
 
-        推导动态输入类型，把函数体解释为 SSA 节点序列，并按 AST、输入、
-        常量与捕获数值缓存重复编译；符号名由函数图内容的哈希得到。
+        Infers dynamic input kinds, interprets the function body as an SSA
+        node sequence, and caches repeated compilations by AST, inputs,
+        constants and captured values; the symbol name is derived from a
+        hash of the function graph content.
 
         Args:
-            source: Python 函数对象、Source 或源码字符串。
-            inputs: 参数名到类型的映射；为 None 时按注解推导，未注解默认 real。
-            constants: 参数名到有限数值的映射，绑定为生成期常量。
+            source: A Python function object, Source or source string.
+            inputs: Mapping from parameter names to kinds; when None, inferred from annotations and defaulting to real when unannotated.
+            constants: Mapping from parameter names to finite numeric values, bound as generation-time constants.
 
         Returns:
-            str: 已登记到 ``self.functions`` 的函数符号名。
+            str: The function symbol name registered in ``self.functions``.
 
         Raises:
-            FunctionCompileError: 参数声明、语句或表达式超出受限子集，或检测到递归 helper。
+            FunctionCompileError: A parameter declaration, statement or expression leaves the restricted subset, or a recursive helper is detected.
         """
         source = self.source(source)
         constants = constants or {}
         tree = source.tree
         if tree.args.vararg or tree.args.kwarg or tree.args.kwonlyargs or tree.args.posonlyargs:
-            raise FunctionCompileError("函数需要普通具名参数；不支持 *args/**kwargs/keyword-only")
+            raise FunctionCompileError("functions require plain named parameters; varargs, kwargs and keyword-only parameters are not supported")
         parameters = tree.args.args
         defaults = (
             dict(
@@ -274,9 +278,9 @@ class Frontend:
                 if p.arg not in constants and p.arg not in defaults
             }
         if set(inputs) & set(constants) & {p.arg for p in parameters}:
-            raise FunctionCompileError("参数不能同时为动态输入和生成期常量")
+            raise FunctionCompileError("a parameter cannot be both a dynamic input and a generation-time constant")
         if set(inputs) - {p.arg for p in parameters}:
-            raise FunctionCompileError("inputs 包含未知参数")
+            raise FunctionCompileError("inputs contains unknown parameters")
         dynamic: list[Parameter] = []
         for p in parameters:
             if p.arg in inputs:
@@ -286,7 +290,7 @@ class Frontend:
                 else:
                     kind = KINDS.get(getattr(spec, "__name__", spec), spec)  # type: ignore[arg-type]
                     if kind not in {"real", "complex", "bool"}:
-                        raise FunctionCompileError("输入类型应为 real/complex/bool 或 Index(width)")
+                        raise FunctionCompileError("input types must be real/complex/bool or an Index instance")
                     dynamic.append(Parameter(p.arg, kind))
         captured = tuple(
             sorted(
@@ -305,7 +309,7 @@ class Frontend:
             return self.cache[key]
         marker = (tree.name, ast.dump(tree, include_attributes=False))
         if marker in self.active:
-            raise FunctionCompileError("不支持递归 helper：" + tree.name)
+            raise FunctionCompileError("recursive helpers are not supported: " + tree.name)
         self.active.add(marker)
         saved = {k: getattr(self, k, None) for k in ("nodes", "intern", "namespace", "label")}
         self.nodes: list[MathNode]
@@ -328,13 +332,13 @@ class Frontend:
                 elif p.arg in defaults:
                     env[p.arg] = self.expr(defaults[p.arg], env)
                 else:
-                    self.fail(p, "参数未声明为动态输入或生成期常量：" + p.arg)
+                    self.fail(p, "parameter is not declared as a dynamic input or generation-time constant: " + p.arg)
             _, result = self.statements(tree.body, env)
             if result is None:
-                self.fail(tree, "所有控制路径必须返回数值")
+                self.fail(tree, "all control paths must return a value")
             values = result if isinstance(result, tuple) else (result,)
             if any(not isinstance(v, Value) for v in values):
-                self.fail(tree, "返回值必须是标量或一层 tuple")
+                self.fail(tree, "return values must be scalars or a flat tuple")
             digest = hashlib.sha256(repr((key, self.nodes, values)).encode()).hexdigest()[:20]
             symbol = "math_" + tree.name + "_" + digest
             function = MathFunction(
@@ -355,18 +359,19 @@ class Frontend:
         args: Sequence[Value] = (),
         data: Sequence[bool | int | float | str] = (),
     ) -> Value:
-        """构造（或复用）一个 SSA 节点并返回其值。
+        """Construct or reuse one SSA node and return its value.
 
-        操作、类型、输入与 data 都相同的节点在当前函数内只保留一份。
+        Only one node with identical op, kind, inputs and data is kept per
+        current function.
 
         Args:
-            op: 节点操作名，如 add、select 或 intrinsic。
-            kind: 结果值类型 real/complex/bool。
-            args: 操作数 Value 列表。
-            data: 附着于节点的额外数据，如常量数值或 intrinsic 名。
+            op: Node operation name, such as add, select or intrinsic.
+            kind: Result value kind: real/complex/bool.
+            args: List of operand Values.
+            data: Extra data attached to the node, such as a constant value or an intrinsic name.
 
         Returns:
-            Value: 指向该节点的编译期值。
+            Value: The compile-time value pointing to the node.
         """
         values = tuple(v.id for v in args)
         key = MathNode(op, kind, values, tuple(data))
@@ -376,22 +381,22 @@ class Frontend:
         return Value(self.intern[key], kind)
 
     def constant(self, value: bool | int | float | complex, node: ast.AST) -> Value:
-        """把一个有限数值固化为 const 节点。
+        """Freeze one finite numeric value into a const node.
 
         Args:
-            value: bool、int、float 或 complex 常量。
-            node: 报错时定位用的 AST 节点。
+            value: A bool, int, float or complex constant.
+            node: The AST node used for error location.
 
         Returns:
-            Value: 与常量类型一致的常量值。
+            Value: The constant value with a kind matching the constant.
 
         Raises:
-            FunctionCompileError: 数值类型不受支持，或为 NaN/Inf 等非有限值。
+            FunctionCompileError: The numeric type is unsupported, or the value is non-finite such as NaN/Inf.
         """
         if type(value) not in (bool, int, float, complex):
-            self.fail(node, "只允许有限数值常量")
+            self.fail(node, "only finite numeric constants are allowed")
         if not (math.isfinite(value.real) and math.isfinite(value.imag)):
-            self.fail(node, "固定点不表示 NaN/Inf")
+            self.fail(node, "fixed-point cannot represent NaN/Inf")
         kind = "bool" if type(value) is bool else "complex" if type(value) is complex else "real"
         return self.node(
             "const",
@@ -402,56 +407,58 @@ class Frontend:
         )
 
     def literal(self, value: Value | tuple[Value, ...], node: ast.AST) -> bool | int | float | complex:
-        """取出编译期常量节点承载的 Python 数值。
+        """Extract the Python numeric value carried by a compile-time constant node.
 
         Args:
-            value: 应为 const 节点的 Value。
-            node: 报错时定位用的 AST 节点。
+            value: A Value expected to be a const node.
+            node: The AST node used for error location.
 
         Returns:
-            该常量的原始 Python 数值；复数以 complex 表示。
+            The raw Python numeric value of the constant; complex values are represented as complex.
 
         Raises:
-            FunctionCompileError: 该值不是常量节点。
+            FunctionCompileError: The value is not a constant node.
         """
         if isinstance(value, Value) and self.nodes[value.id].op == "const":
             data = self.nodes[value.id].data
             return complex(*data) if value.kind == "complex" else data[0]
-        self.fail(node, "这里需要生成期数值常量")
+        self.fail(node, "a generation-time numeric constant is required here")
 
     def binary(
         self, op: str, a: Value | tuple[Value, ...], b: Value | tuple[Value, ...], node: ast.AST
     ) -> Value:
-        """构造二元运算节点并推导结果类型。
+        """Construct a binary operation node and infer the result kind.
 
-        算术在 real/complex 间按提升规则定型，比较与布尔运算产出 bool；
-        两侧均为常量时在生成期直接求值并折叠为一个常量节点。
+        Arithmetic between real/complex is typed by the promotion rules,
+        comparisons and boolean operations produce bool; when both sides are
+        constants the operation is evaluated at generation time and folded
+        into a single constant node.
 
         Args:
-            op: 运算名，如 add、sub、mul、div、pow、lt、eq、and、or。
-            a: 左操作数 Value。
-            b: 右操作数 Value。
-            node: 报错时定位用的 AST 节点。
+            op: Operation name, such as add, sub, mul, div, pow, lt, eq, and, or.
+            a: Left operand Value.
+            b: Right operand Value.
+            node: The AST node used for error location.
 
         Returns:
-            Value: 运算结果值。
+            Value: The operation result value.
 
         Raises:
-            FunctionCompileError: 操作数不是标量、类型组合非法或常量折叠遇到无定义运算。
+            FunctionCompileError: An operand is not a scalar, the type combination is illegal, or constant folding hits an undefined operation.
         """
         if not isinstance(a, Value) or not isinstance(b, Value):
-            self.fail(node, "算术只接收标量")
+            self.fail(node, "arithmetic only accepts scalars")
         if op in {"and", "or"}:
             if a.kind != "bool" or b.kind != "bool":
-                self.fail(node, "布尔操作数类型无效")
+                self.fail(node, "invalid boolean operand types")
             kind = "bool"
         elif op in {"lt", "eq"}:
             if op == "lt" and "complex" in (a.kind, b.kind):
-                self.fail(node, "复数不支持顺序比较")
+                self.fail(node, "ordering comparison is not supported for complex values")
             kind = "bool"
         else:
             if "bool" in (a.kind, b.kind):
-                self.fail(node, "布尔值需要显式选择为数值")
+                self.fail(node, "boolean values require an explicit select to become numeric")
             kind = "complex" if "complex" in (a.kind, b.kind) else "real"
         if self.nodes[a.id].op == "const" and self.nodes[b.id].op == "const":
             av, bv = self.literal(a, node), self.literal(b, node)
@@ -469,7 +476,7 @@ class Frontend:
             try:
                 return self.constant(functions[op](), node)
             except (ArithmeticError, ValueError) as exc:
-                self.fail(node, "常量表达式无定义：" + str(exc))
+                self.fail(node, "constant expression is undefined: " + str(exc))
         return self.node(op, kind, (a, b))
 
     def choose(
@@ -479,53 +486,55 @@ class Frontend:
         no: Value | tuple[Value, ...],
         node: ast.AST,
     ) -> Value | tuple[Value, ...]:
-        """构造按布尔条件选择分支值的 select 节点。
+        """Construct a select node choosing branch values by a boolean condition.
 
-        分支为 tuple 时逐元素选择；real 与 complex 分支按提升规则统一类型。
+        Tuple branches are selected element-wise; real and complex branches
+        are unified by the promotion rules.
 
         Args:
-            test: bool 类型的条件值。
-            yes: 条件为真时的值或值的 tuple。
-            no: 条件为假时的值或值的 tuple。
-            node: 报错时定位用的 AST 节点。
+            test: The condition value of bool kind.
+            yes: The value, or tuple of values, chosen when the condition is true.
+            no: The value, or tuple of values, chosen when the condition is false.
+            node: The AST node used for error location.
 
         Returns:
-            Value 或 tuple: 选择结果，形状与分支一致。
+            Value or tuple: The selection result, shaped like the branches.
 
         Raises:
-            FunctionCompileError: 条件不是布尔，或两分支结构与类型不一致。
+            FunctionCompileError: The condition is not boolean, or the two branches disagree in structure or type.
         """
         if not isinstance(test, Value) or test.kind != "bool":
-            self.fail(node, "量子条件必须是布尔表达式")
+            self.fail(node, "the quantum condition must be a boolean expression")
         if isinstance(yes, tuple) and isinstance(no, tuple) and len(yes) == len(no):
             return tuple(cast(Value, self.choose(test, a, b, node)) for a, b in zip(yes, no, strict=True))
         if not isinstance(yes, Value) or not isinstance(no, Value):
-            self.fail(node, "分支返回/赋值结构不一致")
+            self.fail(node, "branch return or assignment structure is inconsistent")
         if {yes.kind, no.kind} <= {"real", "complex"}:
             kind = "complex" if "complex" in (yes.kind, no.kind) else "real"
         elif yes.kind == no.kind:
             kind = yes.kind
         else:
-            self.fail(node, "分支类型不一致")
+            self.fail(node, "branch types are inconsistent")
         return self.node("select", kind, (test, yes, no))
 
     def expr(
         self, node: ast.expr, env: dict[str, Value | tuple[Value, ...]]
     ) -> Value | tuple[Value, ...]:
-        """把一个表达式 AST 解释为编译期值。
+        """Interpret one expression AST as a compile-time value.
 
-        支持常量、名字、tuple/list、生成期 tuple 下标、math/cmath 常数
-        属性、算术、比较、布尔短路、条件表达式与函数调用。
+        Supports constants, names, tuple/list, generation-time tuple
+        subscripts, math/cmath constant attributes, arithmetic, comparisons,
+        boolean short-circuiting, conditional expressions and function calls.
 
         Args:
-            node: 表达式 AST 节点。
-            env: 局部名字到 Value 或其 tuple 的映射。
+            node: The expression AST node.
+            env: Mapping from local names to Values or tuples of them.
 
         Returns:
-            Value 或 tuple: 表达式的值；tuple/list 表达式产出 Value 的 tuple。
+            Value or tuple: The value of the expression; tuple/list expressions produce a tuple of Values.
 
         Raises:
-            FunctionCompileError: 表达式超出受限子集。
+            FunctionCompileError: The expression leaves the restricted subset.
         """
         if isinstance(node, ast.Constant):
             return self.constant(node.value, node)  # type: ignore[arg-type]
@@ -540,11 +549,11 @@ class Frontend:
             value = self.expr(node.value, env)
             index = self.literal(self.expr(node.slice, env), node)
             if not isinstance(value, tuple) or type(index) is not int:
-                self.fail(node, "只支持生成期 tuple 下标")
+                self.fail(node, "only generation-time tuple subscripts are supported")
             try:
                 return value[index]
             except IndexError:
-                self.fail(node, "tuple 下标越界")
+                self.fail(node, "tuple index out of range")
         if isinstance(node, ast.Attribute):
             if (
                 isinstance(node.value, ast.Name)
@@ -557,7 +566,7 @@ class Frontend:
                 return self.constant(getattr(math, node.attr), node)
             value = self.expr(node.value, env)
             if not isinstance(value, Value) or node.attr not in {"real", "imag"}:
-                self.fail(node, "只支持 .real/.imag 数值属性")
+                self.fail(node, "only the real and imag numeric attributes are supported")
             return self.node(node.attr, "real", (value,))
         if isinstance(node, ast.BinOp):
             operations = {
@@ -568,7 +577,7 @@ class Frontend:
                 ast.Pow: "pow",
             }
             if type(node.op) not in operations:
-                self.fail(node, "未支持的二元运算")
+                self.fail(node, "unsupported binary operation")
             return self.binary(
                 operations[type(node.op)],
                 self.expr(node.left, env),
@@ -585,7 +594,7 @@ class Frontend:
                 return self.node("neg", cast(Value, value).kind, (cast(Value, value),))
             if isinstance(node.op, ast.Not) and cast(Value, value).kind == "bool":
                 return self.node("not", "bool", (cast(Value, value),))
-            self.fail(node, "未支持的单目运算")
+            self.fail(node, "unsupported unary operation")
         if isinstance(node, ast.Compare):
             pairs: list[Value] = []
             left = self.expr(node.left, env)
@@ -598,7 +607,7 @@ class Frontend:
                 elif isinstance(operator, (ast.Gt, ast.LtE)):
                     test = self.binary("lt", right, left, node)
                 else:
-                    self.fail(node, "未支持的比较")
+                    self.fail(node, "unsupported comparison")
                 if isinstance(operator, (ast.NotEq, ast.GtE, ast.LtE)):
                     test = self.node("not", "bool", (test,))
                 pairs.append(test)
@@ -611,7 +620,7 @@ class Frontend:
             values = [self.expr(v, env) for v in node.values]
             result = values[0]
             for value in values[1:]:
-                # Python 短路语义也应用于状态路径。
+                # Python short-circuit semantics also apply to the status path.
                 result = (
                     self.choose(result, value, self.constant(False, node), node)
                     if isinstance(node.op, ast.And)
@@ -627,26 +636,27 @@ class Frontend:
             )
         if isinstance(node, ast.Call):
             return self.call(node, env)
-        self.fail(node, "未支持的表达式：" + type(node).__name__)
+        self.fail(node, "unsupported expression: " + type(node).__name__)
 
     def call(
         self, node: ast.Call, env: dict[str, Value | tuple[Value, ...]]
     ) -> Value | tuple[Value, ...]:
-        """解释函数调用表达式。
+        """Interpret a function call expression.
 
-        处理 ``conjugate`` 方法、具名纯 helper 调用、白名单内建
-        complex/abs/min/max，以及 math/cmath 数学 intrinsic；helper 调用
-        保留为 call 节点，不在编译期展开。
+        Handles the ``conjugate`` method, named pure helper calls, the
+        whitelisted builtins complex/abs/min/max, and math/cmath intrinsics;
+        helper calls are kept as call nodes and are not expanded at compile
+        time.
 
         Args:
-            node: ``ast.Call`` 节点。
-            env: 局部名字到值的映射。
+            node: The ``ast.Call`` node.
+            env: Mapping from local names to values.
 
         Returns:
-            Value 或 tuple: 调用结果；多返回 helper 为 Value 的 tuple。
+            Value or tuple: The call result; multi-return helpers give a tuple of Values.
 
         Raises:
-            FunctionCompileError: 调用目标、参数数目/类型或关键字用法不受支持。
+            FunctionCompileError: The call target, argument count/types or keyword usage is unsupported.
         """
         if (
             isinstance(node.func, ast.Attribute)
@@ -670,23 +680,23 @@ class Frontend:
             module = self.namespace.get(node.func.value.id)
             symbol = node.func.attr
             if module is not math and module is not cmath:
-                self.fail(node, "任意对象方法不属于纯数学函数")
+                self.fail(node, "arbitrary object methods are not pure math functions")
             target = None
         else:
-            self.fail(node, "只允许具名纯函数和 math/cmath 函数调用")
+            self.fail(node, "only named pure functions and math/cmath function calls are allowed")
         args = [self.expr(x, env) for x in node.args]
         if target is not None and module is None:
             source = self.source(target)
             names = [p.arg for p in source.tree.args.args]
             kwargs = {kw.arg: self.expr(kw.value, env) for kw in node.keywords}
             if None in kwargs or len(args) > len(names):
-                self.fail(node, "helper 参数无效")
+                self.fail(node, "invalid helper arguments")
             actual = dict(zip(names, args, strict=False))
             if set(actual) & set(kwargs) or set(kwargs) - set(names):
-                self.fail(node, "helper 参数重复或未知")
+                self.fail(node, "duplicate or unknown helper arguments")
             actual.update(kwargs)  # type: ignore[arg-type]
             if any(not isinstance(x, Value) for x in actual.values()):
-                self.fail(node, "helper 参数必须为标量")
+                self.fail(node, "helper arguments must be scalars")
             key = self.compile(source, {k: cast(Value, v).kind for k, v in actual.items()})
             child = self.functions[key]
             ordered = tuple(cast(Value, actual[p.name]) for p in child.parameters)
@@ -696,7 +706,7 @@ class Frontend:
             )
             return values[0] if len(values) == 1 else values
         if node.keywords:
-            self.fail(node, "当前数学 intrinsic 使用位置参数")
+            self.fail(node, "math intrinsics currently use positional arguments")
         if symbol == "complex" and module is None and len(args) in (1, 2):
             return self.node(
                 "complex",
@@ -719,25 +729,25 @@ class Frontend:
                 )
             return result
         if (module is not math and module is not cmath) or symbol not in ELEMENTARY | REAL_EXTRA:
-            self.fail(node, "未支持的纯数学调用：" + symbol)
+            self.fail(node, "unsupported pure math call: " + symbol)
         if symbol in {"phase", "polar", "rect"} and module is not cmath:
-            self.fail(node, "该函数属于 cmath")
+            self.fail(node, "this function belongs to cmath")
         allowed = (
             (1, 2) if symbol == "log" else (2,) if symbol in {"atan2", "hypot", "rect"} else (1,)
         )
         if len(args) not in allowed or any(
             not isinstance(x, Value) or x.kind == "bool" for x in args
         ):
-            self.fail(node, "数学函数参数数目/类型无效")
+            self.fail(node, "invalid number or type of math function arguments")
         if module is math and any(cast(Value, x).kind == "complex" for x in args):
-            self.fail(node, "math 接口不接收复数；请使用 cmath")
+            self.fail(node, "math functions do not accept complex values; use cmath instead")
         if symbol == "polar":
             return (
                 self.node("abs", "real", cast("list[Value]", args)),
                 self.node("intrinsic", "real", cast("list[Value]", args), ("phase",)),
             )
         if symbol in {"atan2", "hypot", "rect"} and any(cast(Value, x).kind != "real" for x in args):
-            self.fail(node, "此数学函数要求实数参数")
+            self.fail(node, "this math function requires real arguments")
         kind = "real" if symbol in {"phase", "atan2", "hypot"} or module is math else "complex"
         return self.node("intrinsic", kind, cast("list[Value]", args), (symbol,))
 
@@ -747,17 +757,18 @@ class Frontend:
         value: Value | tuple[Value, ...],
         env: dict[str, Value | tuple[Value, ...]],
     ) -> None:
-        """把一个值绑定到赋值目标。
+        """Bind a value to an assignment target.
 
-        支持单个局部名字与 tuple/list 解包，禁止属性等突变目标。
+        Supports a single local name and tuple/list unpacking; mutation
+        targets such as attributes are forbidden.
 
         Args:
-            target: 赋值目标 AST 节点。
-            value: 待绑定的 Value 或其 tuple。
-            env: 待更新的局部名字映射。
+            target: The assignment target AST node.
+            value: The Value, or tuple of Values, to bind.
+            env: The local name mapping to update.
 
         Raises:
-            FunctionCompileError: 目标不是局部名字，或解包结构不匹配。
+            FunctionCompileError: The target is not a local name, or the unpacking structure does not match.
         """
         if isinstance(target, ast.Name):
             env[target.id] = value
@@ -769,25 +780,27 @@ class Frontend:
             for dest, item in zip(target.elts, value, strict=True):
                 self.assign(dest, item, env)
         else:
-            self.fail(target, "只允许局部名字赋值或 tuple 解包，禁止对象突变")
+            self.fail(target, "only local name assignment or tuple unpacking is allowed; object mutation is forbidden")
 
     def statements(
         self, body: list[ast.stmt], env: dict[str, Value | tuple[Value, ...]]
     ) -> tuple[dict[str, Value | tuple[Value, ...]], Value | tuple[Value, ...] | None]:
-        """顺序解释一个语句块，返回执行后的环境与返回值。
+        """Interpret a statement block sequentially, returning the resulting environment and return value.
 
-        支持 return、赋值/解包、增量赋值、导入、结构化 if（两分支的环境
-        与返回值经 select 合并）以及静态有界 range 循环的完全展开。
+        Supports return, assignment/unpacking, augmented assignment, imports,
+        structured if (the environments and return values of both branches
+        are merged via select) and full unrolling of static bounded range
+        loops.
 
         Args:
-            body: 语句 AST 节点列表。
-            env: 进入该块时的局部名字映射。
+            body: List of statement AST nodes.
+            env: The local name mapping when entering the block.
 
         Returns:
-            tuple: ``(环境, 返回值)``；没有 return 时返回值为 None。
+            tuple: ``(environment, return value)``; the return value is None when there is no return.
 
         Raises:
-            FunctionCompileError: 语句超出受限子集、if 返回路径不完整或循环超出展开上限。
+            FunctionCompileError: A statement leaves the restricted subset, an if return path is incomplete, or a loop exceeds the unroll limit.
         """
         env = dict(env)
         for i, node in enumerate(body):
@@ -819,7 +832,7 @@ class Frontend:
                     if nret is None:
                         no, nret = self.statements(body[i + 1 :], no)
                     if yret is None or nret is None:
-                        self.fail(node, "if 返回路径不完整")
+                        self.fail(node, "incomplete return path in if statement")
                     return env, self.choose(test, yret, nret, node)
                 common = yes.keys() & no.keys()
                 env = {key: self.choose(test, yes[key], no[key], node) for key in sorted(common)}
@@ -831,30 +844,30 @@ class Frontend:
                     or node.iter.keywords
                     or node.orelse
                 ):
-                    self.fail(node, "只支持静态 range 循环")
+                    self.fail(node, "only static range loops are supported")
                 values = [self.literal(self.expr(arg, env), node) for arg in node.iter.args]
                 if any(type(v) is not int for v in values):
-                    self.fail(node, "range 边界必须为整数生成参数")
+                    self.fail(node, "range bounds must be generation-time integer arguments")
                 indices = range(*cast("list[int]", values))
                 if len(indices) > self.max_unroll:
-                    self.fail(node, "静态循环超过展开上限")
+                    self.fail(node, "static loop exceeds the unroll limit")
                 for j in indices:
                     self.assign(node.target, self.constant(j, node), env)
                     env, result = self.statements(node.body, env)
                     if result is not None:
-                        self.fail(node, "静态循环内部不支持 return")
+                        self.fail(node, "return is not supported inside a static loop")
             else:
-                self.fail(node, "禁止副作用或未支持的语句：" + type(node).__name__)
+                self.fail(node, "side effects and unsupported statements are forbidden: " + type(node).__name__)
         return env, None
 
     def program(self) -> MathProgram:
-        """汇总编译结果并返回经校验的 MIR 程序。
+        """Collect the compilation results and return the validated MIR program.
 
         Returns:
-            ``MathProgram``：入口指向编译得到的符号名，函数表按符号名排序。
+            ``MathProgram``: The entry points at the compiled symbol name, and the function table is sorted by symbol name.
 
         Raises:
-            ValidationError: 生成的函数图未通过 MIR 结构校验。
+            ValidationError: The produced function graph failed MIR structural validation.
         """
         return MathProgram(
             self.entry, tuple(self.functions[k] for k in sorted(self.functions))

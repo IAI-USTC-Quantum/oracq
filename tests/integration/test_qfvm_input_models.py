@@ -1,4 +1,4 @@
-"""QFVM 位置置换/填充元素及替换描述的真实后端见证。"""
+"""Real-backend witnesses of QFVM location permutation / filler elements and replacement descriptions."""
 
 import unittest
 

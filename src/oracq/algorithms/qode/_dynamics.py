@@ -1,4 +1,4 @@
-"""非酉演化算法共享的 LCU 分支组装工具。"""
+"""Shared LCU branch assembly utilities for non-unitary evolution algorithms."""
 
 from __future__ import annotations
 
@@ -21,15 +21,15 @@ from oracq.infrastructure.ir import ValidationError
 
 
 def tagged(operation: Operation, algorithm: str, **metadata: str | int | float) -> Operation:
-    """以 ``unitary`` 范式标注演化操作，登记算法名与正确性待验证的元数据。
+    """Annotate an evolution operation with the ``unitary`` paradigm, registering the algorithm name and metadata whose correctness is pending.
 
     Args:
-        operation: 待标注的演化操作。
-        algorithm: 登记到属性中的算法名。
-        **metadata: 追加登记的算法元数据，取值为字符串或数值。
+        operation: The evolution operation to annotate.
+        algorithm: Algorithm name registered into the attributes.
+        **metadata: Additional algorithm metadata to register; string or numeric values.
 
     Returns:
-        Operation: 带 ``unitary`` 范式与 correctness=pending 标注的操作。
+        Operation: The operation annotated with the ``unitary`` paradigm and correctness=pending.
     """
     return annotate(
         operation,
@@ -50,7 +50,7 @@ def _lcu_dynamics(
     algorithm: str,
     **metadata: str,
 ) -> StateOracle:
-    """逐节点构造 K=H+kL 的 Hamiltonian 分支，经 LCU 组合并作用到初态。"""
+    """Build the Hamiltonian branches K=H+kL node by node, combine them via an LCU, and apply the result to the initial state."""
     require_instance(model, LinearODE, algorithm + ".model")
     finite_real(time, algorithm + ".time", minimum=0)
     operator_state_contract(algorithm).check(
@@ -60,14 +60,14 @@ def _lcu_dynamics(
         generator=model.parts.h, initial=model.initial
     ).require()
     if not callable(hamiltonian_function):
-        raise ValidationError("hamiltonian_function 必须可调用")
+        raise ValidationError("hamiltonian_function must be callable")
     terms: list[tuple[complex, BlockEncoding]] = []
     for node, weight in zip(nodes, weights, strict=True):
         hk = lcu([(1, model.parts.h), (node, model.parts.hermitian)])
         encoded = hamiltonian_function(hk, time)
         if not isinstance(encoded, BlockEncoding):
             raise ValidationError(
-                "Hamiltonian-function protocol 必须返回 BlockEncoding，保留 alpha"
+                "The Hamiltonian-function protocol must return a BlockEncoding to preserve alpha"
             )
         terms.append((weight, encoded))
     evolution = lcu(terms)

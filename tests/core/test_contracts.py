@@ -1,4 +1,4 @@
-"""契约验收：错误必须在运行算法内核之前定位，开放实现仍可组合。"""
+"""Contract acceptance: errors must be located before running the algorithm kernel; open implementations stay composable."""
 
 import json
 import unittest

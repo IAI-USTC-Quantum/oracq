@@ -1,1 +1,1 @@
-"量子非线性系统求解：量子牛顿法与 Carleman 线性化提升。"
+"Quantum nonlinear-system solving: the quantum Newton method and Carleman linearization lifting."

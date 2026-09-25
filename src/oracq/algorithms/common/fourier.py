@@ -1,4 +1,5 @@
-"""正逆 Fourier 变换、接口适配与不使用进位寄存器的模加法。"""
+"""Forward and inverse Fourier transforms, interface adapters, and modular addition
+without a carry register."""
 
 from __future__ import annotations
 
@@ -10,15 +11,16 @@ from oracq.infrastructure.ir import Bits
 
 
 def qft(width: int) -> Operation:
-    """生成正号离散 Fourier 变换。
+    """Generate the positive-sign discrete Fourier transform.
 
     Args:
-        width: target 位宽，范围为 1..64。
+        width: Target bit width, in the range 1..64.
 
     Returns:
-        Operation: 只有 target 寄存器，包含末尾交换，位序为 little endian。
+        Operation: Has only a target register, includes the trailing swaps, and the bit
+        order is little endian.
 
-    矩阵元素为 exp(2πi*x*y/2**width)/sqrt(2**width)。"""
+    The matrix elements are exp(2πi*x*y/2**width)/sqrt(2**width)."""
     positive_integer(width, "qft.width", maximum=64)
     b = Builder(f"qft_{width}", {"target": Bits(width)})
     for high in reversed(range(width)):
@@ -32,13 +34,14 @@ def qft(width: int) -> Operation:
 
 
 def qft_with_work(width: int) -> Operation:
-    """保留早期零宽 work 接口的 QFT 适配。
+    """QFT adapter preserving the earlier zero-width work interface.
 
     Args:
-        width: target 位宽，范围为 1..64。
+        width: Target bit width, in the range 1..64.
 
     Returns:
-        Operation: 除 target 外另含零宽 work 寄存器的 QFT 操作。
+        Operation: QFT operation that additionally carries a zero-width work register
+        besides target.
     """
     b = Builder("qft_with_work_" + str(width), {"target": Bits(width), "work": Bits(0)})
     b.call(qft(width), target=b["target"])
@@ -46,13 +49,13 @@ def qft_with_work(width: int) -> Operation:
 
 
 def inverse_qft(width: int) -> Operation:
-    """生成 QFT 的伴随操作，保持模块调用。
+    """Generate the adjoint of the QFT, keeping the module call.
 
     Args:
-        width: target 位宽，范围为 1..64。
+        width: Target bit width, in the range 1..64.
 
     Returns:
-        Operation: 以伴随模块调用包装的逆 QFT 操作。
+        Operation: Inverse QFT operation wrapped in an adjoint module call.
     """
     b = Builder("inverse_qft_" + str(width), {"target": Bits(width)})
     with b.adjoint():
@@ -61,15 +64,16 @@ def inverse_qft(width: int) -> Operation:
 
 
 def fourier_add(width: int) -> Operation:
-    """用 QFT 实现无进位寄存器的模加法。
+    """Modular addition without a carry register, implemented with the QFT.
 
     Args:
-        width: a 和 b 的共同位宽。
+        width: Common bit width of a and b.
 
     Returns:
-        Operation: ``|a,b> -> |a,(a+b) mod 2**width>``。a 保留，无额外公开工作区。
+        Operation: ``|a,b> -> |a,(a+b) mod 2**width>``. a is preserved and there is no
+        additional public workspace.
 
-    Fourier 变换和逆变换保留为模块调用。"""
+    The Fourier transform and its inverse are kept as module calls."""
     positive_integer(width, "fourier_add.width", maximum=64)
     b = Builder("fourier_add_" + str(width), {"a": Bits(width), "b": Bits(width)})
     b.call(qft(width), target=b["b"])

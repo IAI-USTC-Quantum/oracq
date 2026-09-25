@@ -1,4 +1,4 @@
-"""开放 IR 和绑定验证。只验证范式、ABI、闭合与导出，不认证算法数值。"""
+"""Open IR and binding validation. Only paradigms, ABIs, closure, and export are checked; no numerical algorithm certification."""
 
 import unittest
 
@@ -61,7 +61,7 @@ class OpenIRTests(unittest.TestCase):
     def test_shape_mismatch_does_not_mutate_source(self):
         slot = abstract_state_prep("B", 1)
         original = dumps(slot.operation.program())
-        with self.assertRaisesRegex(ValidationError, "宽度"):
+        with self.assertRaisesRegex(ValidationError, "width mismatch"):
             bind(slot.operation, {"B": basis_state(2).operation})
         self.assertEqual(dumps(slot.operation.program()), original)
 

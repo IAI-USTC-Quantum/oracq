@@ -1,4 +1,4 @@
-"""旧 QHAM 命令行入口，转发到 applications.qham。"""
+"""Legacy QHAM command-line entry point, forwarding to applications.qham."""
 
 from oracq.applications.qham.__main__ import main
 

@@ -1,4 +1,4 @@
-"开放 oracle 的缺口分析、部分绑定和 QRAM 捕获资源提升。"
+"Gap analysis of open oracles, partial binding and QRAM captured resource promotion."
 
 from __future__ import annotations
 
@@ -30,14 +30,14 @@ from oracq.infrastructure.validation import capture_map, validate
 
 @dataclass(frozen=True)
 class OracleRequirement:
-    """描述一个未实现的开放 oracle 声明及其调用位置。
+    """Describe an unimplemented open oracle declaration and its call sites.
 
     Attributes:
-        name: 开放声明的模块名，即绑定时使用的槽名。
-        paradigm: 声明指定的 ``oracle_paradigm`` 范式。
-        path: 从入口模块到该声明的最短调用路径上的模块名序列。
-        registers: 声明的形式寄存器签名元组。
-        attributes: 声明的属性条目元组，每项为键值二元组。
+        name: module name of the open declaration, i.e. the slot name used at binding time.
+        paradigm: ``oracle_paradigm`` paradigm designated by the declaration.
+        path: sequence of module names along the shortest call path from the entry module to the declaration.
+        registers: formal register signature tuple of the declaration.
+        attributes: attribute entry tuple of the declaration, each a key-value pair.
     """
     name: str
     paradigm: str
@@ -48,12 +48,12 @@ class OracleRequirement:
 
 @dataclass(frozen=True)
 class Binding:
-    """把一个开放声明槽绑定到实现操作，并可携带 QRAM 资源映射。
+    """Bind an open declaration slot to an implementing operation, optionally carrying a QRAM resource mapping.
 
     Attributes:
-        operation: 提供实现的 ``Operation``；其模块名必须不同于声明槽名。
-        resources: 实现的资源形式参数到入口逻辑资源名的映射；未显式
-            覆盖的资源按 ``槽名__资源名`` 自动捕获并提升为入口资源。
+        operation: ``Operation`` providing the implementation; its module name must differ from the declaration slot name.
+        resources: mapping from the implementation's formal resource parameters to entry logical resource names; resources not
+            explicitly covered are auto-captured as ``slot name__resource name`` and promoted to entry resources.
     """
     operation: Operation
     resources: dict[str, str] | None = None
@@ -61,7 +61,7 @@ class Binding:
 
 @dataclass(frozen=True)
 class BindingIssue:
-    """绑定失败的结构化原因；不声称证明 oracle 的数学语义。"""
+    """Structured reason for a binding failure; makes no claim of proving the oracle's mathematical semantics."""
 
     code: str
     path: tuple[str, ...]
@@ -71,7 +71,7 @@ class BindingIssue:
 
 
 class BindingError(ValidationError):
-    """仍兼容 ValidationError 的绑定诊断。"""
+    """Binding diagnostic that remains compatible with ValidationError."""
 
     def __init__(self, issues: tuple[BindingIssue, ...]) -> None:
         self.issues = issues
@@ -80,7 +80,7 @@ class BindingError(ValidationError):
 
 @dataclass(frozen=True)
 class BindingReport:
-    """绑定清单、程序指纹与剩余依赖；只保存可交换的数据。"""
+    """Binding manifest, program fingerprints and remaining dependencies; stores only exchangeable data."""
 
     source_digest: str
     result_digest: str | None
@@ -92,37 +92,38 @@ class BindingReport:
 
     @property
     def ok(self) -> bool:
-        """本次绑定是否通过结构检查；不要求所有槽位均已闭合。"""
+        """Whether this binding passed the structural checks; does not require every slot to be closed."""
         return not self.issues
 
     def to_dict(self) -> dict[str, object]:
-        """输出 JSON 友好的报告，独立于可执行 RIR 保存。"""
+        """Emit a JSON-friendly report, saved independently of the executable RIR."""
         return {"ok": self.ok, **asdict(self)}
 
 
 @dataclass(frozen=True)
 class BindingResult:
-    """一次绑定的程序与报告，避免先检查后再次链接。"""
+    """Program and report of one binding, avoiding a second linking pass after checking."""
 
     program: Program | None
     report: BindingReport
 
     def require(self) -> Program:
-        """绑定成功时取得程序，否则抛出结构化问题。"""
+        """Obtain the program when binding succeeded, otherwise raise the structured issues."""
         if self.report.issues:
             raise BindingError(self.report.issues)
         if self.program is None:
-            raise ValidationError("绑定结果缺少程序")
+            raise ValidationError("binding result lacks a program")
         return self.program
 
 
 def bind_with_report(
     program: Program | Operation, bindings: dict[str, Binding | Operation]
 ) -> BindingResult:
-    """执行一次纯函数绑定，返回可直接使用的程序及可追溯报告。
+    """Perform one pure-functional binding, returning a directly usable program plus a traceable report.
 
-    无效输入程序仍由 validate 拒绝；候选实现的绑定错误记录在报告中。
-    数据内容不属于 RIR 指纹，运行记录须另行标识 QRAM 数据快照。
+    Invalid input programs are still rejected by validate; binding errors of candidate
+    implementations are recorded in the report. Data contents are not part of the RIR
+    fingerprint, and run records must identify the QRAM data snapshot separately.
     """
     from oracq.infrastructure.serialization import dumps
 
@@ -163,13 +164,13 @@ def bind_with_report(
 
 
 def calls(nodes: tuple[Instruction, ...] | None) -> Iterator[Call]:
-    """按出现顺序产出指令体（含嵌套结构块）中的全部模块调用节点。
+    """Yield all module call nodes in an instruction body, including nested structure blocks, in order of appearance.
 
     Args:
-        nodes: 待扫描的指令体；``None`` 或空元组视为无内容。
+        nodes: instruction body to scan; ``None`` or an empty tuple is treated as no content.
 
     Returns:
-        Iterator[Call]: 按出现顺序惰性产出的 ``Call`` 节点，含嵌套块内。
+        Iterator[Call]: ``Call`` nodes lazily yielded in order of appearance, including inside nested blocks.
     """
     for node in nodes or ():
         if isinstance(node, Call):
@@ -179,13 +180,13 @@ def calls(nodes: tuple[Instruction, ...] | None) -> Iterator[Call]:
 
 
 def stores(nodes: tuple[Instruction, ...] | None) -> Iterator[Store]:
-    """列出指令体（含嵌套结构块）中的全部 Store 副作用。
+    """List all Store side effects in an instruction body, including nested structure blocks.
 
     Args:
-        nodes: 待扫描的指令体；``None`` 或空元组视为无内容。
+        nodes: instruction body to scan; ``None`` or an empty tuple is treated as no content.
 
     Returns:
-        Iterator[Store]: 按出现顺序惰性产出的 ``Store`` 节点，含嵌套块内。
+        Iterator[Store]: ``Store`` nodes lazily yielded in order of appearance, including inside nested blocks.
     """
     for node in nodes or ():
         if isinstance(node, Store):
@@ -195,13 +196,13 @@ def stores(nodes: tuple[Instruction, ...] | None) -> Iterator[Store]:
 
 
 def uses_store(program: Program) -> bool:
-    """入口可达的模块中是否存在 QRAM 随机写。
+    """Whether a QRAM random write exists in any entry-reachable module.
 
     Args:
-        program: 待检查的 RIR 程序，从入口沿调用图遍历。
+        program: RIR program to check, traversed from the entry along the call graph.
 
     Returns:
-        bool: 任一入口可达模块体内存在 ``Store`` 节点时为 True。
+        bool: True when any entry-reachable module body contains a ``Store`` node.
     """
     modules = program.module_map
     pending, seen = [program.entry], set()
@@ -218,14 +219,15 @@ def uses_store(program: Program) -> bool:
 
 
 def unresolved(program: Program) -> tuple[OracleRequirement, ...]:
-    """列出入口结构可达的未实现声明，并给出首条最短调用路径。
+    """List structurally reachable unimplemented declarations from the entry, with the first shortest call path for each.
 
     Args:
-        program: 待分析的 RIR 程序；内部先做结构校验。
+        program: RIR program to analyze; structural validation runs first.
 
     Returns:
-        tuple[OracleRequirement, ...]: 按声明名排序的开放声明需求列表，每项
-        记录从入口出发的首条最短调用路径。
+        tuple[OracleRequirement, ...]: list of open declaration requirements sorted
+        by declaration name, each recording the first shortest call path from the
+        entry.
     """
     validate(program)
     modules = program.module_map
@@ -241,7 +243,7 @@ def unresolved(program: Program) -> tuple[OracleRequirement, ...]:
             result.append(
                 OracleRequirement(
                     key,
-                    # 校验保证开放声明的 oracle_paradigm 属性为 str。
+                    # Validation guarantees the oracle_paradigm attribute of an open declaration is a str.
                     cast(str, dict(module.attributes)["oracle_paradigm"]),
                     path,
                     module.registers,
@@ -255,25 +257,26 @@ def unresolved(program: Program) -> tuple[OracleRequirement, ...]:
 
 
 def capability_table(program: Program) -> dict[str, dict[str, bool]]:
-    """一次遍历推导全部模块的变换能力。
+    """Derive the transformation capabilities of all modules in one traversal.
 
     Args:
-        program: 待分析的 RIR 程序，遍历其全部模块。
+        program: RIR program to analyze, traversing all its modules.
 
     Returns:
-        dict[str, dict[str, bool]]: 模块名到能力字典的映射；含 ``Store``
-        副作用的模块各项能力均为 False。
+        dict[str, dict[str, bool]]: mapping from module names to capability
+        dicts; modules containing ``Store`` side effects have all capabilities
+        False.
     """
     cache: dict[str, dict[str, bool]]
     modules, cache = program.module_map, {}
 
     def infer(name: str) -> dict[str, bool]:
-        """按声明与被调模块能力保守合取，推导单个模块的能力字典。"""
+        """Derive one module's capability dict by conservatively conjoining its declaration with callee capabilities."""
         if name in cache:
             return cache[name]
         module = modules[name]
         attrs = dict(module.attributes)
-        # 校验保证 supports_adjoint/supports_controlled 属性存在时必为布尔值。
+        # Validation guarantees supports_adjoint/supports_controlled attributes are booleans whenever present.
         result: dict[str, bool] = {
             cap: cast(bool, attrs.get(cap, True)) for cap in ("supports_adjoint", "supports_controlled")
         }
@@ -291,30 +294,31 @@ def capability_table(program: Program) -> dict[str, dict[str, bool]]:
 
 
 def capabilities(program: Program, key: str | None = None) -> dict[str, bool]:
-    """返回指定模块（默认入口）的变换能力字典。
+    """Return the transformation capability dict of a given module, the entry by default.
 
-    能力取值由模块声明与被调用模块的能力保守合取推导，见
-    ``capability_table``。
+    Capability values are derived by conservatively conjoining the module
+    declaration with the capabilities of called modules; see
+    ``capability_table``.
 
     Args:
-        program: 待分析的 ``Program``。
-        key: 目标模块名；省略时使用入口模块。
+        program: ``Program`` to analyze.
+        key: target module name; the entry module is used when omitted.
 
     Returns:
-        dict: 以 ``supports_adjoint`` 和 ``supports_controlled`` 为键的布尔字典。
+        dict: boolean dict keyed by ``supports_adjoint`` and ``supports_controlled``.
     """
     return capability_table(program)[key or program.entry]
 
 
 def bind(program: Program | Operation, bindings: dict[str, Binding | Operation]) -> Program:
-    """绑定已声明的槽；新增的 QRAM 资源沿模块图显式提升，其他槽可以继续开放。
+    """Bind declared slots; newly added QRAM resources are promoted explicitly along the module graph, and other slots may stay open.
 
     Args:
-        program: 含开放声明槽的 ``Program`` 或 ``Operation``。
-        bindings: 声明槽名到 ``Binding``（或裸 ``Operation``）的映射。
+        program: ``Program`` or ``Operation`` containing open declaration slots.
+        bindings: mapping from declaration slot names to ``Binding`` or a bare ``Operation``.
 
     Returns:
-        Program: 绑定并提升捕获资源后重新校验的程序；未涉及的槽保持开放。
+        Program: revalidated program after binding and promoting captured resources; untouched slots stay open.
     """
     if isinstance(program, Operation):
         program = program.program()
@@ -324,61 +328,61 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
     captures = {}
 
     def reject(code: str, slot: str, expected: object, actual: object, message: str) -> NoReturn:
-        """诊断记录从入口到槽位的调用路径。"""
+        """The diagnostic records the call path from the entry to the slot."""
         paths = {item.name: item.path for item in unresolved(program)}
         raise BindingError((BindingIssue(code, paths.get(slot, (program.entry, slot)), expected, actual, message),))
 
     def add(module: Module) -> None:
-        """把实现模块并入模块表，同名且不同定义时抛错。"""
+        """Merge an implementation module into the module table; raises on equal names with differing definitions."""
         existing = modules.get(module.name)
         if existing is not None and existing != module:
-            raise ValidationError(f"绑定实现的模块名冲突：{module.name}")
+            raise ValidationError(f"module name conflict among bound implementations: {module.name}")
         modules[module.name] = module
 
     for slot, item in bindings.items():
         if slot not in modules or modules[slot].body is not None:
-            reject("BIND_TARGET", slot, "open declaration", slot, f"绑定目标不是开放声明：{slot}")
+            reject("BIND_TARGET", slot, "open declaration", slot, f"binding target is not an open declaration: {slot}")
         declaration = modules[slot]
         binding = item if isinstance(item, Binding) else Binding(item)
         implementation = binding.operation
         implementation.program()
         target = implementation.module
         if target.name == slot:
-            reject("BIND_NAME", slot, "distinct implementation name", target.name, "实现必须使用不同于声明槽的模块名")
+            reject("BIND_NAME", slot, "distinct implementation name", target.name, "the implementation must use a module name different from the declaration slot")
         if tuple(r.type for r in target.registers) != tuple(r.type for r in declaration.registers):
-            reject("BIND_SIGNATURE", slot, [asdict(r) for r in declaration.registers], [asdict(r) for r in target.registers], f"{slot} 的寄存器类型/宽度不匹配；形状变化请重新生成算法")
+            reject("BIND_SIGNATURE", slot, [asdict(r) for r in declaration.registers], [asdict(r) for r in target.registers], f"register type or width mismatch for {slot}; regenerate the algorithm for shape changes")
         expected, offered = dict(declaration.attributes), dict(target.attributes)
         for key in ("be_alpha", "fixed_width", "fixed_fraction", "fixed_signed", "rounding"):
             if key in expected and offered.get(key) != expected[key]:
-                reject("BIND_ATTRIBUTE", slot, {key: expected[key]}, {key: offered.get(key)}, f"{slot} 的 {key} 不匹配；请按新的常量重新生成算法")
+                reject("BIND_ATTRIBUTE", slot, {key: expected[key]}, {key: offered.get(key)}, f"{key} mismatch for {slot}; regenerate the algorithm with the new constants")
         for key in ("zero_input", "clean_work"):
-            # 缺省的历史注解仍可绑定；明确矛盾的声明不能由包装模块覆盖。
+            # Historic annotations left at their default are still bindable; explicitly contradictory declarations cannot be overridden by a wrapper module.
             if expected.get(key) is True and offered.get(key) is False:
-                reject("BIND_PROMISE", slot, {key: True}, {key: False}, f"{slot} 的 {key} 声明冲突")
+                reject("BIND_PROMISE", slot, {key: True}, {key: False}, f"conflicting {key} declarations for {slot}")
         role = offered.get("oracle_paradigm")
         if (
             role
             and role != expected["oracle_paradigm"]
             and expected["oracle_paradigm"] != "unitary"
         ):
-            reject("BIND_ROLE", slot, expected["oracle_paradigm"], role, f"{slot} 的 oracle paradigm 不匹配")
+            reject("BIND_ROLE", slot, expected["oracle_paradigm"], role, f"oracle paradigm mismatch for {slot}")
         provided_caps = capabilities(implementation.program())
         for capability in ("supports_adjoint", "supports_controlled"):
             if expected.get(capability, True) and not provided_caps[capability]:
-                reject("BIND_CAPABILITY", slot, capability, False, f"{slot} 缺少要求的能力 {capability}")
+                reject("BIND_CAPABILITY", slot, capability, False, f"{slot} lacks the required capability {capability}")
         for module in (*implementation.dependencies, target):
             add(module)
         explicit = binding.resources or {}
         if set(explicit) - {r.name for r in target.resources}:
-            raise ValidationError("绑定包含未知资源形式参数")
+            raise ValidationError("binding contains an unknown resource formal parameter")
         formal_resources = {r.name: r.type for r in declaration.resources}
         resource_arguments = []
-        # resource 先后承载 Resource 形参对象与捕获资源名字符串，按联合类型注解。
+        # resource first carries Resource formal objects then captured resource name strings; annotated as a union type.
         resource: Resource | str
         for resource in target.resources:
             if resource.name not in explicit and resource.name in formal_resources:
                 if formal_resources[resource.name] != resource.type:
-                    raise ValidationError("声明和实现的资源类型不符")
+                    raise ValidationError("resource type mismatch between declaration and implementation")
                 resource_arguments.append(resource.name)
             else:
                 actual = explicit.get(resource.name, f"{slot}__{resource.name}")
@@ -387,7 +391,7 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
                 name(actual)
                 previous = global_types.get(actual)
                 if previous is not None and previous != resource.type:
-                    raise ValidationError(f"捕获资源类型冲突：{actual}")
+                    raise ValidationError(f"captured resource type conflict: {actual}")
                 global_types[actual] = resource.type
                 captures[actual] = resource.type
                 resource_arguments.append("@" + actual)
@@ -408,9 +412,9 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
     requirements, active = {}, set()
 
     def need(key: str) -> tuple[str, ...]:
-        """收集模块及其被调链所需的全部捕获资源名，并检测循环调用。"""
+        """Collect all captured resource names needed by a module and its callee chain, and detect cyclic calls."""
         if key in active:
-            raise ValidationError("绑定引入了循环调用")
+            raise ValidationError("binding introduces a cyclic call")
         if key in requirements:
             return requirements[key]
         active.add(key)
@@ -418,7 +422,7 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
         for call in calls(modules[key].body):
             result.update(r[1:] for r in call.resources if r.startswith("@"))
             if call.module not in modules:
-                raise ValidationError(f"绑定后存在未知模块：{call.module}")
+                raise ValidationError(f"unknown module after binding: {call.module}")
             result.update(need(call.module))
         active.remove(key)
         requirements[key] = tuple(sorted(result))
@@ -438,18 +442,18 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
             if resource in previous_captures:
                 local = previous_captures[resource]
                 if existing[local] != captures[resource]:
-                    raise ValidationError("已捕获资源类型冲突")
+                    raise ValidationError("captured resource type conflict")
                 names[resource] = local
                 continue
             if key == program.entry:
                 local = resource
                 if local in existing:
                     if existing[local] != captures[resource]:
-                        raise ValidationError("入口资源类型冲突")
+                        raise ValidationError("entry resource type conflict")
                     names[resource] = local
                     continue
                 if local in occupied:
-                    raise ValidationError("入口捕获资源与寄存器名字冲突")
+                    raise ValidationError("entry captured resource conflicts with a register name")
             else:
                 prefix = "capture_" + hashlib.sha256(resource.encode()).hexdigest()[:16]
                 local = prefix
@@ -478,7 +482,7 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
     def rewrite(
         nodes: tuple[Instruction, ...] | None, owner: str
     ) -> tuple[Instruction, ...] | None:
-        """改写体内调用的捕获资源绑定，并把提升资源追加到被调实参。"""
+        """Rewrite captured resource bindings of calls in the body and append promoted resources to callee arguments."""
         if nodes is None:
             return None
         result: list[Instruction] = []
@@ -491,7 +495,7 @@ def bind(program: Program | Operation, bindings: dict[str, Binding | Operation])
                 values = tuple(values[i] for i in permutations[node.module])
                 result.append(replace(node, resources=values))
             elif isinstance(node, (Repeat, Control, Adjoint)):
-                # 传入的 node.body 为具体元组时 rewrite 必返回元组（None 仅来自 None 入参）。
+                # When the incoming node.body is a concrete tuple, rewrite must return a tuple (None only comes from a None input).
                 result.append(
                     replace(node, body=cast("tuple[Instruction, ...]", rewrite(node.body, owner)))
                 )

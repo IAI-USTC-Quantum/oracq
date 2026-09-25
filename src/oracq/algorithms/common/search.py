@@ -1,4 +1,5 @@
-"""Grover 搜索、迭代算子与成功子空间的相干振幅放大。"""
+"""Grover search, iteration operators and coherent amplitude amplification of the
+success subspace."""
 
 from __future__ import annotations
 
@@ -30,18 +31,22 @@ def grover(
     iterations: int = 1,
     preparation: StatePreparationProtocol | None = None,
 ) -> StateOracle:
-    """生成带可替换初态的 Grover 搜索电路。
+    """Generate a Grover search circuit with a replaceable initial state.
 
     Args:
-        phase_oracle: 标记目标基态的相位 Operation，接口为 target，可另有 work。
-        width: 搜索空间的目标位宽。
-        iterations: 非负的 Grover 迭代次数。
-        preparation: 初态制备；省略时使用均匀态。提供的 work 必须复净。
+        phase_oracle: Phase Operation marking the target basis states; its interface is
+            target, possibly with an additional work.
+        width: Target bit width of the search space.
+        iterations: Nonnegative number of Grover iterations.
+        preparation: Initial state preparation; when omitted the uniform state is used.
+            Any provided work must be cleaned.
 
     Returns:
-        StateOracle: target 为搜索结果，signal 保留相位查询和制备的工作空间。
+        StateOracle: target holds the search result, and signal keeps the phase query
+        and the preparation workspace.
 
-    初态反射同时包括 target 与制备工作区。"""
+    The reflection about the initial state covers both target and the preparation
+    workspace."""
     positive_integer(iterations, "grover.iterations", minimum=0)
     prep = (
         checked_state_preparation(preparation, adjoint=True)
@@ -49,7 +54,8 @@ def grover(
         else uniform_state(width)
     )
     if prep.width != width:
-        raise ValidationError("Grover 初态宽度与搜索空间不一致")
+        raise ValidationError("The Grover initial state width does not match the search"
+                              " space")
     phase_work = next((r.type.width for r in phase_oracle.module.registers if r.name == "work"), 0)
     b = Builder(
         _name("grover", phase_oracle, prep.operation, iterations),
@@ -76,20 +82,22 @@ def grover(
 
 
 def phase_from_database(database: XorDatabase) -> Operation:
-    """把一位输出的 XOR database 转换为相位 oracle。
+    """Convert a one-bit-output XOR database into a phase oracle.
 
     Args:
-        database: 只有一个结果位的谓词数据库。
+        database: A predicate database with a single result bit.
 
     Returns:
-        Operation: 接口为 target 和一位 work；对 f(x)=1 的基态附加相位 -1，work 复净。
+        Operation: Interface is target and a one-bit work; basis states with f(x)=1
+        acquire a phase of -1, and work is cleaned.
 
     Raises:
-        ValidationError: 数据库结果位宽不为一。
+        ValidationError: The database result bit width is not one.
 
-    输入的 work 必须为零；database 调用与其逆对消，只留下相位翻转。"""
+    The input work must be zero; the database call and its inverse cancel, leaving only
+    the phase flip."""
     if database.data_width != 1:
-        raise ValidationError("谓词数据库必须有一个输出位")
+        raise ValidationError("The predicate database must have exactly one output bit")
     b = Builder(
         _name("phase_from_database", database.operation),
         {"target": Bits(database.address_width), "work": Bits(1)},
@@ -103,14 +111,16 @@ def phase_from_database(database: XorDatabase) -> Operation:
 
 
 def grover_iterate(preparation: StatePreparationProtocol, marked: Iterable[int]) -> Operation:
-    """返回 Q=A(2|0><0|-I)A†S_good；marked 是目标基态编号集合。
+    """Return Q=A(2|0><0|-I)A†S_good; marked is the set of target basis state indices.
 
     Args:
-        preparation: 搜索空间的态制备句柄，须支持伴随调用。
-        marked: 目标基态编号集合，取 0..2^宽度−1 内的整数。
+        preparation: State preparation handle of the search space; must support adjoint
+            invocation.
+        marked: Set of target basis state indices, integers within 0..2^width−1.
 
     Returns:
-        Operation: 一轮 Grover 放大迭代操作，含 target 与 work 寄存器。
+        Operation: One round of the Grover amplification iterate, containing the target
+        and work registers.
     """
     from oracq.algorithms.input_model.oracles import phase_marks
 
@@ -130,16 +140,18 @@ def grover_iterate(preparation: StatePreparationProtocol, marked: Iterable[int])
 
 
 def amplify_success(state: StateOracle, *, iterations: int = 1) -> StateOracle:
-    """相干放大态 oracle 的零信号成功子空间。
+    """Coherently amplify the zero-signal success subspace of a state oracle.
 
     Args:
-        state: 支持伴随调用的 StateOracle。
-        iterations: 非负放大次数。
+        state: A StateOracle supporting adjoint invocation.
+        iterations: Nonnegative number of amplification rounds.
 
     Returns:
-        StateOracle: 公开接口与输入相同，成功条件仍为 signal==0。
+        StateOracle: Public interface identical to the input; the success condition
+        remains signal==0.
 
-    次数需要结合输入成功概率选择；过多迭代可能降低成功概率。"""
+    The round count must be chosen to match the input success probability; too many
+    iterations can lower the success probability."""
     require_instance(state, StateOracle, "amplify_success.state")
     positive_integer(iterations, "amplify_success.iterations", minimum=0)
     b = Builder(

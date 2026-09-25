@@ -1,24 +1,36 @@
-"""数论 / Heinrich 求和积分 / SDE / QLSS / 应用目录的论文级数值验证。
+"""Publication-grade numerical validation of number theory / Heinrich summation and integration / SDE / QLSS / the applications gallery.
 
-覆盖模块：algorithms/{number_theory,integration,sde,qlss,contracts,interfaces,legacy}.py
-与 applications/{catalog,gallery,legacy}.py。
+Modules covered: algorithms/{number_theory,integration,sde,qlss,contracts,interfaces,legacy}.py
+and applications/{catalog,gallery,legacy}.py.
 
-- 模乘置换：叠加态一次穷举全部基态输入，对照经典数论置换；另有 OriginIR-ext
-  全幺正块与泄漏检查。
-- 量子求阶：phase 边缘分布对照独立 Dirichlet 核理论（|1> 在 r 个本征态均布）；
-  factors_from_phase 对小半素数全相位穷举，统计 Shor 后处理成功率。
-- Heinrich 求和/积分：比较器恒等式 P(flag)=E[v]/2**w 的精确性；QAE 读出分布
-  对照独立双峰 Dirichlet 理论；积分解码与区间缩放；gate/qram 加载器一致性。
-- SDE/Fokker–Planck：生成元守恒性对照 scipy.linalg.expm；显式 Euler 收敛阶；
-  OU 矩对照闭式解与独立 Euler–Maruyama Monte Carlo；稳态对照零空间向量与
-  Boltzmann 参考；初态制备与生成元块编码在真实后端上的振幅级验证。
-- QLSS（CKS）：条件解态与成功概率对照独立 Chebyshev 矩阵多项式（numpy 递推），
-  方法误差对照 numpy.linalg.solve 并展示阶数收敛；协议级 recover_norm 对照
-  ‖A^{-1}b‖；Costa 的 Dolph–Chebyshev 权重对照闭式窗函数，装配程序跨后端对拍
-  （其 kernel_status 为库内声明的 prototype，数值精度不作判据）。
-- applications catalog/gallery：全部条目在真实后端跑通并与参考执行器逐振幅对拍。
+- Modular-multiplication permutation: a single superposition run exhausts all
+  basis inputs, compared against the classical number-theoretic permutation;
+  additionally the OriginIR-ext full unitary block with a leakage check.
+- Quantum order finding: the phase marginal distribution against independent
+  Dirichlet-kernel theory (|1> uniform over the r eigenstates);
+  factors_from_phase exhausts all phases for small semiprimes and tallies the
+  Shor post-processing success rate.
+- Heinrich summation/integration: exactness of the comparator identity
+  P(flag) = E[v]/2**w; QAE readout distributions against independent bimodal
+  Dirichlet theory; integral decoding and interval scaling; gate/qram loader
+  consistency.
+- SDE/Fokker-Planck: generator conservation against scipy.linalg.expm;
+  explicit-Euler convergence order; OU moments against closed forms and an
+  independent Euler-Maruyama Monte Carlo; the stationary distribution against
+  the null-space vector and a Boltzmann reference; amplitude-level validation
+  of the initial-state preparation and the generator block encoding on real
+  backends.
+- QLSS (CKS): conditional solution state and success probability against an
+  independent Chebyshev matrix polynomial (numpy recursion); method error
+  against numpy.linalg.solve with the convergence in order displayed; the
+  protocol-level recover_norm against ||A^{-1}b||; Costa's Dolph-Chebyshev
+  weights against the closed-form window, with the assembled program
+  cross-checked across backends (its kernel_status is a prototype declared in
+  the library; numerical accuracy is not a criterion there).
+- applications catalog/gallery: every entry runs on real backends and is
+  cross-checked amplitude by amplitude against the reference executor.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_nt_qlss_sde.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_nt_qlss_sde.py
 """
 
 from __future__ import annotations
@@ -74,12 +86,12 @@ QUBIT_BUDGET = 24
 
 
 # ---------------------------------------------------------------------------
-# 独立经典 oracle（不依赖被测实现的辅助函数）
+# Independent classical oracles (no helpers of the implementation under test)
 # ---------------------------------------------------------------------------
 
 
 def _classical_order(a, m):
-    """乘法阶：直接迭代幂。"""
+    """Multiplicative order: direct iterated powers."""
     r, x = 1, a % m
     while x != 1:
         x = x * a % m
@@ -88,7 +100,7 @@ def _classical_order(a, m):
 
 
 def _dirichlet_peak(y, center, size):
-    """|D(y-center)|² 的 Dirichlet 核（峰值归一），center 可为非整数。"""
+    """Dirichlet kernel of |D(y-center)|^2 (peak-normalized); center may be non-integer."""
     import numpy as np
 
     delta = (y - center + size / 2) % size - size / 2
@@ -99,7 +111,7 @@ def _dirichlet_peak(y, center, size):
 
 
 def _qpe_phase_theory(order, precision):
-    """|1> 在 r 个本征态上均布时 QPE 的 phase 边缘分布（独立理论）。"""
+    """QPE phase marginal distribution when |1> is uniform over the r eigenstates (independent theory)."""
     import numpy as np
 
     size = 1 << precision
@@ -108,7 +120,7 @@ def _qpe_phase_theory(order, precision):
 
 
 def _qae_theory(p_good, precision):
-    """标准振幅估计读出分布：±θ/π 两个 Dirichlet 峰，sin²θ = p_good。"""
+    """Standard amplitude-estimation readout distribution: two Dirichlet peaks at +/-theta/pi with sin^2 theta = p_good."""
     import numpy as np
 
     size = 1 << precision
@@ -121,7 +133,7 @@ def _qae_theory(p_good, precision):
 
 
 def _phase_marginal(amplitudes):
-    """最后一个公开寄存器（phase）的边缘概率。"""
+    """Marginal probability of the last public register (phase)."""
     out = {}
     for key, amplitude in amplitudes.items():
         out[key[-1]] = out.get(key[-1], 0.0) + abs(amplitude) ** 2
@@ -133,7 +145,7 @@ def _tvd_vec(distribution, theory):
 
 
 def _originir_qubits(program):
-    """预判 OriginIR 态向量预算；超预算返回 None。"""
+    """OriginIR state-vector budget precheck; returns None when over budget."""
     from oracq.infrastructure.layout import workspace_table
 
     width = sum(r.type.width for r in program.main.registers)
@@ -142,14 +154,14 @@ def _originir_qubits(program):
 
 
 # ---------------------------------------------------------------------------
-# 数论：模乘置换与量子求阶
+# Number theory: modular-multiplication permutation and quantum order finding
 # ---------------------------------------------------------------------------
 
 MODMUL_CASES = ((2, 5), (3, 5), (2, 7), (2, 9), (7, 100))
 
 
 def verify_modular_multiply(report):
-    """叠加态一次穷举 2^w 个基态输入，对照经典置换；小实例加 OriginIR 全振幅。"""
+    """A single superposition run exhausts the 2^w basis inputs, compared against the classical permutation; small instances add the OriginIR full amplitude."""
     for multiplier, modulus in MODMUL_CASES:
         width = (modulus - 1).bit_length()
         size = 1 << width
@@ -178,19 +190,19 @@ def verify_modular_multiply(report):
             paths.append("originir-ext")
             parameters["originir_qubits"] = _originir_qubits(program)
         else:
-            parameters["originir"] = "excluded: 超过 24 量子位预算"
+            parameters["originir"] = "excluded: exceeds the 24-qubit budget"
         report.case(
             f"modmul-superposition-{multiplier}-{modulus}",
             paths=paths,
             parameters=parameters,
             metrics={"max_error": deviation},
-            criterion="叠加穷举输出与经典模乘置换逐振幅一致（max_error < 1e-9）",
+            criterion="superposition-exhaustive output matches the classical modular-multiplication permutation amplitude by amplitude (max_error < 1e-9)",
             passed=deviation < 1e-9,
         )
 
 
 def verify_modular_multiply_unitary(report):
-    """幺正层面：OriginIR-ext to_matrix 的有效块等于经典置换矩阵且无泄漏。"""
+    """Unitary level: the OriginIR-ext to_matrix effective block equals the classical permutation matrix with no leakage."""
     import numpy as np
 
     multiplier, modulus = 2, 5
@@ -207,7 +219,7 @@ def verify_modular_multiply_unitary(report):
         paths=["originir-ext+to_matrix"],
         parameters={"multiplier": 2, "modulus": 5, "width": width},
         metrics={"max_error": error, "leakage": leakage},
-        criterion="幺正有效块等于置换矩阵且工作区泄漏为零（max_error < 1e-12）",
+        criterion="unitary effective block equals the permutation matrix with zero workspace leakage (max_error < 1e-12)",
         passed=error < 1e-12 and leakage < 1e-12,
     )
 
@@ -216,7 +228,7 @@ ORDER_CASES = ((2, 3, 3), (2, 5, 4), (3, 5, 4), (2, 7, 4), (4, 7, 4), (2, 15, 5)
 
 
 def verify_order_finding(report):
-    """phase 边缘分布对照独立 Dirichlet 核理论；连分数阶还原成功率一并报告。"""
+    """Phase marginal distribution against independent Dirichlet-kernel theory; the continued-fraction order-recovery success rate is reported alongside."""
     for multiplier, modulus, precision in ORDER_CASES:
         order = _classical_order(multiplier, modulus)
         theory = _qpe_phase_theory(order, precision)
@@ -233,7 +245,7 @@ def verify_order_finding(report):
             "classical_order": order,
         }
         if (multiplier, modulus) == (2, 3):
-            # 最小实例追加 adapter 与 OriginIR 全振幅路径
+            # Smallest instance additionally exercises the adapter and OriginIR full-amplitude paths
             adapter = _phase_marginal(adapter_pysparq(program))
             deviation = max(deviation, _tvd_vec(adapter, theory))
             paths.append("adapter-pysparq")
@@ -253,7 +265,7 @@ def verify_order_finding(report):
                 deviation = max(deviation, _tvd_vec(origin, theory))
                 paths.append("originir-ext")
                 parameters["originir_qubits"] = _originir_qubits(program)
-        # 连分数还原出完整阶的经验概率（模拟分布加权）
+        # Empirical probability (weighted by the simulated distribution) that continued fractions recover the full order
         recovery = sum(
             probability
             for y, probability in ref.items()
@@ -271,7 +283,7 @@ def verify_order_finding(report):
                 "order_recovery_probability": recovery,
                 "classical_order": order,
             },
-            criterion="phase 分布与独立 Dirichlet 理论 TVD < 1e-9 且跨后端一致",
+            criterion="phase distribution vs independent Dirichlet theory TVD < 1e-9 and cross-backend agreement",
             passed=deviation < 1e-9 and cross < 1e-9,
         )
 
@@ -285,14 +297,17 @@ def _offsets(widths):
 
 
 def verify_factors_from_phase(report):
-    """经典后处理：小半素数 × 全部乘数 × 全部 8 位相位的穷举。
+    """Classical post-processing: small semiprimes x all multipliers x all 8-bit phases, exhaustive.
 
-    两项独立 oracle：
-    (a) 任何返回的因子对必须是真因子（硬正确性）；
-    (b) 各模数的 QPE 加权成功率对照教科书预言——s 在 [1, r) 上均匀、
-        候选阶 d = r/gcd(s, r)、要求 d 偶且 a^d ≡ 1 且 gcd(a^{d/2} ± 1, m)
-        非平凡；实测低于预言的部分来自 p=8 相位分辨率对较大的阶的连分数
-        还原损失（真实物理，非实现缺陷），判据为比值 ≥ 0.75。
+    Two independent oracles:
+    (a) any returned factor pair must be a genuine factorization (hard
+    correctness);
+    (b) the QPE-weighted success rate per modulus against the textbook
+    prediction -- s uniform on [1, r), candidate order d = r/gcd(s, r),
+    requiring d even and a^d == 1 and gcd(a^{d/2} +/- 1, m) nontrivial; the
+    shortfall below the prediction comes from continued-fraction recovery
+    losses at p=8 phase resolution for larger orders (real physics, not an
+    implementation defect); the criterion is a ratio >= 0.75.
     """
     precision = 8
     invalid = 0
@@ -306,7 +321,7 @@ def verify_factors_from_phase(report):
         predicted_mean = []
         for multiplier in range(2, modulus - 1):
             if math.gcd(multiplier, modulus) != 1:
-                # 平凡公因子路径：必须直接给出有效因子对
+                # Trivial common-factor path: must directly return a valid factor pair
                 for value in range(1 << precision):
                     result = factors_from_phase(value, precision, multiplier, modulus)
                     evaluated += 1
@@ -321,7 +336,7 @@ def verify_factors_from_phase(report):
             half_order = pow(multiplier, order // 2, modulus) if order % 2 == 0 else None
             if order % 2 == 1 or half_order == modulus - 1:
                 hopeless_units += 1
-            # 独立教科书预言：s 均匀时可用阶的出现概率
+            # Independent textbook prediction: probability that a usable order appears when s is uniform
             predicted = 0.0
             for s in range(1, order):
                 d = order // math.gcd(s, order)
@@ -373,15 +388,15 @@ def verify_factors_from_phase(report):
             "total_units": total_units,
         },
         criterion=(
-            "返回的因子对全部有效；各模数实测成功率 / 教科书预言 ≥ 0.75"
-            "（差额为 p=8 的连分数还原分辨率损失）"
+            "all returned factor pairs are valid; measured success rate / textbook prediction >= 0.75 per modulus"
+            " (the gap is the continued-fraction recovery resolution loss at p=8)"
         ),
         passed=invalid == 0 and min(ratios) >= 0.75,
     )
 
 
 # ---------------------------------------------------------------------------
-# Heinrich 量子求和与积分
+# Heinrich quantum summation and integration
 # ---------------------------------------------------------------------------
 
 SUM_TABLES = {
@@ -402,7 +417,7 @@ def _flag_probability_vector(vector, n, w):
 
 
 def verify_sum_preparation(report):
-    """比较器构造核心恒等式：P(flag=1) 恰为 E[v]/2**w（对 v 严格线性）。"""
+    """Core comparator-construction identity: P(flag=1) is exactly E[v]/2**w (strictly linear in v)."""
     for tag, (values, w) in SUM_TABLES.items():
         n = max(1, (len(values) - 1).bit_length())
         loader = table_loader(values, data_width=w)
@@ -421,19 +436,19 @@ def verify_sum_preparation(report):
             paths.append("originir-ext")
             parameters["originir_qubits"] = _originir_qubits(program)
         else:
-            parameters["originir"] = "excluded: 超过 24 量子位预算"
+            parameters["originir"] = "excluded: exceeds the 24-qubit budget"
         report.case(
             f"sum-preparation-flag-{tag}",
             paths=paths,
             parameters=parameters,
             metrics={"max_error_vs_exact_mean": deviation},
-            criterion="P(flag=1) 与 E[v]/2**w 的偏差 < 1e-9（线性恒等式）",
+            criterion="deviation of P(flag=1) from E[v]/2**w < 1e-9 (linearity identity)",
             passed=deviation < 1e-9,
         )
 
 
 def verify_quantum_sum_on_grid(report):
-    """均值恰落 QAE 栅格：全部非零概率读出精确等于真值。"""
+    """The mean lands exactly on the QAE grid: every non-zero-probability readout decodes exactly to the truth."""
     loader = table_loader([2] * 8, data_width=2)
     precision = 4
     program = quantum_sum(loader.database, precision=precision).program()
@@ -451,7 +466,7 @@ def verify_quantum_sum_on_grid(report):
         paths=["reference", "rir-pysparq", "adapter-pysparq"],
         parameters={"table": "constant-2x8", "value_bits": 2, "precision": precision},
         metrics={"max_decode_error": decode_error, "tvd_cross_backend": cross},
-        criterion="所有非零概率读出与均值 2 的偏差 < 1e-12 且后端两两 TVD < 1e-9",
+        criterion="all non-zero-probability readouts deviate from the mean 2 by < 1e-12 and pairwise backend TVD < 1e-9",
         passed=decode_error < 1e-12 and cross < 1e-9,
     )
 
@@ -460,7 +475,7 @@ QAE_SWEEP_PRECISIONS = (3, 4, 5)
 
 
 def verify_quantum_sum_qae(report):
-    """QAE 读出对照独立双峰 Dirichlet 理论；期望误差随精度递减。"""
+    """QAE readout against independent bimodal Dirichlet theory; expected error decreasing with precision."""
     values = [0, 1, 2, 3]
     loader = table_loader(values, data_width=2)
     exact = sum(values) / len(values)
@@ -496,7 +511,7 @@ def verify_quantum_sum_qae(report):
                 "mode_error": abs(estimate - exact),
                 "resolution_bound": resolution,
             },
-            criterion="读出分布与 QAE 理论 TVD < 1e-9 且众数估计在一阶分辨率界内",
+            criterion="readout distribution vs QAE theory TVD < 1e-9 and the mode estimate within the first-order resolution bound",
             passed=deviation < 1e-9 and abs(estimate - exact) <= resolution + 1e-12,
         )
     decreasing = all(
@@ -508,14 +523,14 @@ def verify_quantum_sum_qae(report):
         paths=["reference"],
         parameters={"precisions": list(QAE_SWEEP_PRECISIONS)},
         metrics={"expected_abs_errors": expected_errors},
-        criterion="QAE 期望绝对误差随精度严格递减",
+        criterion="QAE expected absolute error strictly decreasing with precision",
         passed=decreasing,
     )
 
 
 def verify_quantum_integral(report):
-    """f(x)=x 中点网格积分：QAE 理论对拍、闭式量化均值与区间缩放恒等式。"""
-    # 4 点实例：三后端 + 理论分布；同一分布按 interval=2 重解码验证缩放
+    """Midpoint-grid integration of f(x)=x: QAE theory cross-check, closed-form quantized mean, and the interval-scaling identity."""
+    # 4-point instance: three backends + the theoretical distribution; the same distribution re-decoded with interval=2 validates scaling
     grid, w, precision = 4, 3, 4
     values4 = [round((i + 0.5) / grid * ((1 << w) - 1)) for i in range(grid)]
     loader = table_loader(values4, data_width=w)
@@ -550,13 +565,13 @@ def verify_quantum_integral(report):
             "resolution_bound": bound,
             "interval_scaling_deviation": abs(scaled - 2 * estimate),
         },
-        criterion="QAE 理论 TVD < 1e-9；积分估计在一阶分辨率界内；interval 缩放精确",
+        criterion="QAE theory TVD < 1e-9; integral estimate within the first-order resolution bound; interval scaling exact",
         passed=deviation < 1e-9
         and cross < 1e-9
         and abs(estimate - exact_q) <= bound + 1e-12
         and abs(scaled - 2 * estimate) < 1e-12,
     )
-    # 8 点规范实例（核心测试同款）：rir-pysparq + QAE 理论；reference 交叉由 4 点例覆盖
+    # 8-point canonical instance (same as the core test): rir-pysparq + QAE theory; the reference cross-check is covered by the 4-point case
     grid8, w8, precision8 = 8, 4, 4
     values8 = [round((i + 0.5) / grid8 * ((1 << w8) - 1)) for i in range(grid8)]
     loader8 = table_loader(values8, data_width=w8)
@@ -575,7 +590,7 @@ def verify_quantum_integral(report):
             "value_bits": w8,
             "precision": precision8,
             "exact_quantized": exact8,
-            "reference_cross": "由同结构 4 点例的三后端对拍覆盖（本例 14 位寄存器，reference 代价高）",
+            "reference_cross": "covered by the three-backend cross-check of the structurally identical 4-point case (this case has 14-bit registers; reference is costly)",
         },
         metrics={
             "tvd_vs_qae_theory": deviation8,
@@ -583,13 +598,13 @@ def verify_quantum_integral(report):
             "error_vs_quantized": abs(estimate8 - exact8),
             "error_vs_true_integral": abs(estimate8 - 0.5),
         },
-        criterion="QAE 理论 TVD < 1e-9；|估计-0.5| ≤ 0.09（核心测试同判据）",
+        criterion="QAE theory TVD < 1e-9; |estimate - 0.5| <= 0.09 (same criterion as the core test)",
         passed=deviation8 < 1e-9 and abs(estimate8 - 0.5) <= 0.09,
     )
 
 
 def verify_table_loader_qram(report):
-    """gate 与 qram 两种加载器绑定在制备与求和读出上逐点一致。"""
+    """gate and qram loaders bound pointwise-identically in both the preparation and the sum readout."""
     values = list(range(8))
     gate = table_loader(values, data_width=3)
     qram = table_loader(values, data_width=3, backend="qram")
@@ -604,8 +619,8 @@ def verify_table_loader_qram(report):
             abs(_flag_probability_dict(gate_state, 3, 3) - _flag_probability_dict(qram_state, 3, 3)),
         )
     phase_tvd = 0.0
-    # quantum_sum 的资源带嵌套前缀（prep__db__table 与 qpe__u__prep__db__table），
-    # 同一逻辑数据表按入口资源名逐一绑定。
+    # quantum_sum's resources carry nested prefixes (prep__db__table and qpe__u__prep__db__table);
+    # the same logical data table is bound per entry-resource name.
     table = next(iter(qram.memory.values()))
     gate_qsum = quantum_sum(gate.database, precision=3).program()
     qram_qsum = quantum_sum(qram.database, precision=3).program()
@@ -623,13 +638,13 @@ def verify_table_loader_qram(report):
             "flag_probability_deviation": flag_dev,
             "sum_phase_tvd": phase_tvd,
         },
-        criterion="gate/qram 加载器振幅逐点一致（< 1e-9），求和读出分布一致",
+        criterion="gate/qram loaders agree pointwise in amplitudes (< 1e-9) and the sum readout distributions agree",
         passed=deviation < 1e-9 and flag_dev < 1e-9 and phase_tvd < 1e-9,
     )
 
 
 def verify_heinrich_rate(report):
-    """函数类最优收敛率闭式值与量子优势的二次间隔。"""
+    """Closed-form optimal convergence rates of function classes and the quadratic quantum-advantage gap."""
     worst = 0.0
     gap_error = 0.0
     for smoothness, dimension in ((1, 1), (2, 1), (1, 4), (3, 7)):
@@ -652,13 +667,13 @@ def verify_heinrich_rate(report):
         paths=["classical-oracle"],
         parameters={"instances": [[1, 1], [2, 1], [1, 4], [3, 7]]},
         metrics={"max_error": worst, "quadratic_gap_error": gap_error},
-        criterion="收敛率与闭式 s/d、+1/2、+1 完全一致（< 1e-15）",
+        criterion="convergence rates fully match the closed forms s/d, +1/2, +1 (< 1e-15)",
         passed=worst < 1e-15 and gap_error < 1e-15,
     )
 
 
 # ---------------------------------------------------------------------------
-# SDE / Fokker–Planck
+# SDE / Fokker-Planck
 # ---------------------------------------------------------------------------
 
 
@@ -675,7 +690,7 @@ def _gaussian(points, mean, variance):
 
 
 def verify_sde_generator(report):
-    """离散生成元的守恒性与库矩阵指数对照 scipy.linalg.expm（独立 oracle）。"""
+    """Conservation of the discrete generator and the library matrix exponential vs scipy.linalg.expm (independent oracle)."""
     import numpy as np
     import scipy.linalg
 
@@ -699,7 +714,7 @@ def verify_sde_generator(report):
             "matrix_exponential_vs_scipy": expm_dev,
             "spectral_abscissa": spectral_abscissa,
         },
-        criterion="列和为零、演化守恒概率、库矩阵指数与 scipy 一致（< 1e-9）、谱横坐标 ≤ 0",
+        criterion="column sums zero, evolution conserves probability, library matrix exponential matches scipy (< 1e-9), spectral abscissa <= 0",
         passed=column_sums < 1e-12
         and conservation < 1e-9
         and expm_dev < 1e-9
@@ -708,7 +723,7 @@ def verify_sde_generator(report):
 
 
 def verify_sde_euler_order(report):
-    """显式 Euler 的时间收敛阶：步长减半误差减半（一阶）。"""
+    """Time-convergence order of explicit Euler: halving the step halves the error (first order)."""
     import numpy as np
     import scipy.linalg
 
@@ -730,13 +745,13 @@ def verify_sde_euler_order(report):
         paths=["classical-oracle(scipy)"],
         parameters={"steps": [2000, 4000, 8000], "time": time},
         metrics={"errors": errors, "measured_orders": orders},
-        criterion="实测收敛阶在 [0.9, 1.2]（显式 Euler 一阶）",
+        criterion="measured convergence order within [0.9, 1.2] (first-order explicit Euler)",
         passed=all(0.9 <= o <= 1.2 for o in orders),
     )
 
 
 def verify_sde_moments_monte_carlo(report):
-    """OU 过程矩：Fokker–Planck 网格矩 vs 闭式解 vs 独立 Euler–Maruyama Monte Carlo。"""
+    """OU process moments: Fokker-Planck grid moments vs closed forms vs an independent Euler-Maruyama Monte Carlo."""
     import numpy as np
 
     theta, diffusion, time = 1.0, 0.5, 0.4
@@ -777,8 +792,8 @@ def verify_sde_moments_monte_carlo(report):
         parameters={"particles": count, "dt": dt, "time": time, "grid": problem.size},
         metrics=metrics,
         criterion=(
-            "FPE 矩与 OU 闭式矩一致（均值 < 1e-3，方差 < 3e-2 网格截断）；"
-            "MC 与闭式一致（均值 < 5e-3，方差 < 1e-2 统计涨落）"
+            "FPE moments match the OU closed-form moments (mean < 1e-3, variance < 3e-2 grid truncation); "
+            "MC matches the closed form (mean < 5e-3, variance < 1e-2 statistical fluctuation)"
         ),
         passed=metrics["mean_fpe_vs_exact"] < 1e-3
         and metrics["mean_mc_vs_exact"] < 5e-3
@@ -790,7 +805,7 @@ def verify_sde_moments_monte_carlo(report):
 
 
 def verify_sde_stationary(report):
-    """离散稳态对照 G 的零空间向量；长时间松弛收敛；与 Boltzmann 参考的 O(h²) 差距。"""
+    """Discrete stationary distribution vs the null-space vector of G; long-time relaxation convergence; the O(h^2) gap to the Boltzmann reference."""
     import numpy as np
     import scipy.linalg
 
@@ -817,13 +832,13 @@ def verify_sde_stationary(report):
             "tvd_relaxed_vs_stationary": tvd_relaxed,
             "tvd_stationary_vs_boltzmann": tvd_boltzmann,
         },
-        criterion="稳态即零空间向量（TVD < 1e-9）；松弛收敛（< 5e-6）；Boltzmann 差距为 O(h²)",
+        criterion="stationary distribution is the null-space vector (TVD < 1e-9); relaxation converges (< 5e-6); the Boltzmann gap is O(h^2)",
         passed=tvd_null < 1e-9 and tvd_relaxed < 5e-6 and tvd_boltzmann < 0.05,
     )
 
 
 def verify_sde_state_preparation(report):
-    """初态制备：gate 实现振幅恰为 sqrt(p)（四路径）；qram 角表实现的量化精度。"""
+    """Initial-state preparation: the gate implementation's amplitudes are exactly sqrt(p) (four paths); the quantization accuracy of the qram angle-table implementation."""
     probabilities = [0.1, 0.2, 0.3, 0.4]
     preparation = sde_state_preparation(probabilities)
     program = preparation.operation.program()
@@ -842,18 +857,19 @@ def verify_sde_state_preparation(report):
         paths=paths,
         parameters={"probabilities": probabilities},
         metrics={"max_error": deviation},
-        criterion="制备振幅与 sqrt(p) 逐点一致（< 1e-9）",
+        criterion="prepared amplitudes match sqrt(p) pointwise (< 1e-9)",
         passed=deviation < 1e-9,
     )
-    # QRAM 角表实现：先对照独立推导的量化角振幅（实现误差），再对照 p（量化误差）；
-    # rir 路径按目标边缘分布对拍并报告工作位残留（复净回归指标，修复后应为 0）。
+    # QRAM angle-table implementation: first against the independently derived quantized-angle amplitudes (implementation error),
+    # then against p (quantization error); the rir path is compared via the target marginal distribution and reports work-bit
+    # residue (a cleanliness regression metric; expected 0 after the fix).
     angle_width = 8
     qram_prep = sde_state_preparation(probabilities, implementation="qram", angle_width=angle_width)
     angles = sde_state_angles(probabilities, angle_width=angle_width)
     memory = {"angles": angles}
 
     def quantized_expected():
-        # 独立旋转树：root 地址 0，depth1 地址 1（左）与 2（右）；2 位目标的振幅路径
+        # Independent rotation tree: root address 0, depth-1 addresses 1 (left) and 2 (right); amplitude paths for the 2-bit target
         words = [angles[0], angles[1], angles[2]]
         halved = [math.pi * word / (1 << angle_width) for word in words]
         cosines = [math.cos(a) for a in halved]
@@ -896,16 +912,16 @@ def verify_sde_state_preparation(report):
             "rir_work_register_residue": residue,
         },
         criterion=(
-            "reference 与独立量化角振幅一致（< 1e-9，实现误差）；"
-            "量化误差与 rir 边缘偏差 < 0.02（角字方法误差）"
+            "reference matches the independent quantized-angle amplitudes (< 1e-9, implementation error); "
+            "quantization error and rir marginal deviation < 0.02 (angle-word method error)"
         ),
         passed=impl_dev < 1e-9 and quantization < 0.02 and marginal_dev < 0.02,
     )
 
 
 def verify_sde_generator_encoding(report):
-    """生成元的 Pauli 块编码：基态驱动下 (signal=0) 块振幅乘 alpha 恰为 G。"""
-    # OU：a(x) = -x，D = 1，网格点 ±0.5、±1.5（h = 1）
+    """Pauli block encoding of the generator: under the basis-state driver, (signal=0) block amplitudes times alpha are exactly G."""
+    # OU: a(x) = -x, D = 1, grid points +/-0.5, +/-1.5 (h = 1)
     points = (-1.5, -0.5, 0.5, 1.5)
     problem = FokkerPlanckProblem(
         tuple(-x for x in points),
@@ -945,18 +961,18 @@ def verify_sde_generator_encoding(report):
             "signal_qubits": encoding.signal_qubits,
         },
         metrics={"max_error": worst},
-        criterion="块编码 (signal=0) 块振幅 × alpha 与生成元矩阵逐点一致（< 1e-9）",
+        criterion="block-encoding (signal=0) block amplitudes x alpha match the generator matrix pointwise (< 1e-9)",
         passed=worst < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# QLSS：CKS Chebyshev 求解器与 Costa 行走
+# QLSS: the CKS Chebyshev solver and the Costa walk
 # ---------------------------------------------------------------------------
 
 
 def _sparse_problem():
-    """κ=3 的 2×2 有符号稀疏系统（特征值 0.5 与 1.0，alpha = 1.5）。"""
+    """A kappa=3 2x2 signed sparse system (eigenvalues 0.5 and 1.0, alpha = 1.5)."""
     from oracq.algorithms.input_model.oracles import (
         SparseAccess,
         basis_state,
@@ -988,7 +1004,7 @@ def _sparse_problem():
 
 
 def _cks_coefficients(order):
-    """CKS 系数的独立闭式重算（math.comb）。"""
+    """Independent closed-form recomputation of the CKS coefficients (math.comb)."""
     return [
         4.0
         * (-1) ** j
@@ -999,7 +1015,7 @@ def _cks_coefficients(order):
 
 
 def _chebyshev_polynomial_apply(matrix, alpha, coefficients, vector):
-    """P(M) v，P = Σ c_j T_{2j+1}，M = matrix/alpha；奇次递推用 T2 步进。"""
+    """P(M) v with P = sum c_j T_{2j+1}, M = matrix/alpha; the odd recurrence steps via T2."""
     import numpy as np
 
     m = np.array(matrix, dtype=float) / alpha
@@ -1020,7 +1036,7 @@ CKS_ORDERS = (2, 4, 8, 16)
 
 
 def verify_cks_kernel(report):
-    """条件解态与成功概率对照独立 Chebyshev 矩阵多项式；方法误差随阶数收敛。"""
+    """Conditional solution state and success probability against an independent Chebyshev matrix polynomial; method error converging with order."""
     import numpy as np
 
     from oracq.algorithms.qlss.qlss import CKSConfig, cks_chebyshev
@@ -1077,8 +1093,8 @@ def verify_cks_kernel(report):
                 "cross_backend_max_error": cross,
             },
             criterion=(
-                "条件解态与独立 Chebyshev 多项式一致（< 1e-8），"
-                "成功概率与多项式预测一致（< 1e-8）"
+                "conditional solution state matches the independent Chebyshev polynomial (< 1e-8), "
+                "success probability matches the polynomial prediction (< 1e-8)"
             ),
             passed=impl_error < 1e-8 and p_error < 1e-8 and cross < 1e-6,
         )
@@ -1091,13 +1107,13 @@ def verify_cks_kernel(report):
         paths=["classical-oracle(numpy)"],
         parameters={"orders": list(CKS_ORDERS)},
         metrics={"method_errors": method_errors},
-        criterion="Chebyshev 截断的方法误差随阶数严格递减（κ=3 的几何收敛）",
+        criterion="Chebyshev-truncation method error strictly decreasing with order (geometric convergence at kappa=3)",
         passed=decreasing,
     )
 
 
 def verify_cks_protocol(report):
-    """协议级：recover_norm(p_solver, p_joint) 恢复 ‖A^{-1}b‖；探针概率与多项式一致。"""
+    """Protocol level: recover_norm(p_solver, p_joint) recovers ||A^{-1}b||; probe probabilities match the polynomial."""
     import numpy as np
 
     from oracq.algorithms.qlss.qlss import CKSConfig, make_cks_qlss
@@ -1150,8 +1166,8 @@ def verify_cks_protocol(report):
             "cross_backend_max_error": cross,
         },
         criterion=(
-            "探针概率与多项式一致（< 1e-9）；recover_norm 相对误差 ≤ 0.2 且保真度 ≥ 0.94"
-            "（order=8 截断的方法误差 0.213 所致，收敛趋势见 kernel 案例）"
+            "probe probabilities match the polynomial (< 1e-9); recover_norm relative error <= 0.2 with fidelity >= 0.94"
+            " (caused by the method error 0.213 of the order=8 truncation; the convergence trend appears in the kernel cases)"
         ),
         passed=probability_error < 1e-9
         and relative_error <= 0.2
@@ -1161,10 +1177,12 @@ def verify_cks_protocol(report):
 
 
 def verify_costa(report):
-    """Costa 构件：Dolph–Chebyshev 权重对照闭式窗、schedule 闭式、unary 制备。
+    """Costa building blocks: Dolph-Chebyshev weights against the closed-form window, the closed-form schedule, and unary preparation.
 
-    costa_qlss 的 kernel_status 是库内声明的 prototype（行走初态与读出通道
-    未认证），因此数值判据只覆盖可独立推导的构件与装配确定性。
+    The kernel_status of costa_qlss is a prototype declared in the library (the
+    walk's initial state and readout channel are unverified), so the numerical
+    criteria cover only independently derivable components and assembly
+    determinism.
     """
     import numpy as np
     from numpy.polynomial.chebyshev import chebval
@@ -1218,7 +1236,7 @@ def verify_costa(report):
     for runner in (reference, rir_pysparq):
         state = runner(unary.program())
         for prefix, weight in enumerate(weights):
-            # unary_prefix 编码：前 prefix 个位置为 1 的基态振幅平方 = w/W
+            # unary_prefix encoding: the squared amplitude of the basis state with the first prefix positions set to 1 equals w/W
             basis = (1 << prefix) - 1
             unary_error = max(
                 unary_error, abs(abs(state.get((basis,), 0j)) ** 2 - weight / total)
@@ -1233,7 +1251,7 @@ def verify_costa(report):
             "schedule_monotone": monotone_ok,
             "unary_preparation_max_error": unary_error,
         },
-        criterion="DC 权重与闭式窗 < 1e-9；schedule 与闭式一致且单调；unary 制备 ∝ 权重",
+        criterion="DC weights vs the closed-form window < 1e-9; schedule matches the closed form and is monotone; unary preparation proportional to the weights",
         passed=worst < 1e-9 and schedule_error < 1e-12 and monotone_ok and unary_error < 1e-9,
     )
     operation = costa_qlss(
@@ -1250,21 +1268,21 @@ def verify_costa(report):
         parameters={
             "matrix": [[2, -1], [-1, 2]],
             "steps": 1,
-            "kernel_status": "prototype（库内声明；求解精度不作判据，仅验证装配确定性）",
+            "kernel_status": "prototype (declared in the library; solution accuracy is not a criterion, only assembly determinism is verified)",
         },
         metrics={"cross_backend_max_error": deviation},
-        criterion="装配程序跨后端逐振幅一致（< 1e-9）",
+        criterion="assembled program agrees amplitude by amplitude across backends (< 1e-9)",
         passed=deviation < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# applications：catalog 与 gallery 全条目跨后端对拍
+# applications: full-entry cross-backend checks of the catalog and gallery
 # ---------------------------------------------------------------------------
 
 
 def verify_gallery(report):
-    """gallery 全部条目在 rir/adapter 真实后端跑通并与参考执行器逐振幅对拍。"""
+    """Every gallery entry runs on the rir/adapter real backends and is cross-checked amplitude by amplitude against the reference executor."""
     from oracq.applications.gallery import algorithm_gallery
 
     for case in algorithm_gallery():
@@ -1279,13 +1297,13 @@ def verify_gallery(report):
             paths=["reference", "rir-pysparq", "adapter-pysparq"],
             parameters={"family": case.family, "readout": case.readout},
             metrics={"cross_backend_max_error": deviation},
-            criterion="三后端逐振幅一致（< 1e-9）",
+            criterion="three backends agree amplitude by amplitude (< 1e-9)",
             passed=deviation < 1e-9,
         )
 
 
 def _catalog_qham_worker(name, path, queue):
-    """qham 重例的子进程入口：独立构建并执行，回传振幅。"""
+    """Subprocess entry for the heavy qham cases: build and execute independently, return amplitudes."""
     import time as _time
 
     from oracq import run_pysparq, simulate
@@ -1306,7 +1324,7 @@ def _catalog_qham_worker(name, path, queue):
 
 
 def _verify_catalog_qham(report):
-    """qham_qode/qham_qpde：展开步数超 1e6 的重例，四进程并发跑 reference 与 adapter。"""
+    """qham_qode/qham_qpde: heavy cases with over 1e6 expansion steps; reference and adapter run in four concurrent processes."""
     ctx = mp.get_context("spawn")
     queue = ctx.Queue()
     jobs = [
@@ -1333,27 +1351,28 @@ def _verify_catalog_qham(report):
             paths=["reference", "adapter-pysparq"],
             parameters={
                 "states": len(ref),
-                "note": "展开步数 > 1e6，max_steps 提升至 1e8；并发执行控制墙钟",
+                "note": "expansion steps > 1e6, max_steps raised to 1e8; concurrent execution controls the wall clock",
             },
             metrics={"cross_backend_max_error": deviation},
-            criterion="长线路浮点累积下两后端一致（< 1e-8）",
+            criterion="both backends agree under long-circuit float accumulation (< 1e-8)",
             passed=deviation < 1e-8,
         )
 
 
 def verify_catalog(report):
-    """catalog 全部条目跑通并对拍参考执行器；stateprep_qram 记录工作位残留。"""
+    """Every catalog entry runs and is cross-checked against the reference executor; stateprep_qram records the work-bit residue."""
     from oracq.applications.catalog import CASES, build_case
 
     for name in CASES:
         if name in ("qham_qode", "qham_qpde"):
-            continue  # 重例走并发子进程
+            continue  # heavy cases go through concurrent subprocesses
         case = build_case(name)
         program = case.closed()
         ref = reference(program, case.memory, max_states=300_000, max_steps=50_000_000)
         if name == "stateprep_qram":
-            # 回归哨兵：pysparq.rir 早期版本在此例的 QRAM 工作位未复净（work=4 残留，
-            # 全振幅偏差 0.65）；该 bug 修复后此例同时钉死工作位复净与全态一致。
+            # Regression sentinel: early pysparq.rir versions left this case's QRAM work bits unclean (work=4 residue,
+            # full-amplitude deviation 0.65); after that bug was fixed this case pins both work-bit cleanliness and
+            # full-state agreement.
             ada = adapter_pysparq(program, case.memory)
             rir = rir_pysparq(program, case.memory)
             full_dev = amplitude_error(ref, ada)
@@ -1372,14 +1391,14 @@ def verify_catalog(report):
                 paths=["reference", "adapter-pysparq", "rir-pysparq"],
                 parameters={
                     "register_widths": widths,
-                    "note": "工作位复净回归哨兵（pysparq.rir 修复前的残留案例）",
+                    "note": "work-bit-cleanliness regression sentinel (the residue case of pre-fix pysparq.rir)",
                 },
                 metrics={
                     "reference_vs_adapter_max_error": full_dev,
                     "target_marginal_tvd_ref_rir": marginal_dev,
                     "rir_work_register_residue": residue,
                 },
-                criterion="reference/adapter 全态一致且 rir 目标边缘分布一致（< 1e-9）",
+                criterion="reference/adapter agree on the full state and the rir target marginal distribution agrees (< 1e-9)",
                 passed=full_dev < 1e-9 and marginal_dev < 1e-9,
             )
             continue
@@ -1390,19 +1409,19 @@ def verify_catalog(report):
             paths=["reference", "rir-pysparq"],
             parameters={"states": len(ref)},
             metrics={"cross_backend_max_error": deviation},
-            criterion="两后端逐振幅一致（< 1e-9）",
+            criterion="two backends agree amplitude by amplitude (< 1e-9)",
             passed=deviation < 1e-9,
         )
     _verify_catalog_qham(report)
 
 
 # ---------------------------------------------------------------------------
-# 驱动
+# Driver
 # ---------------------------------------------------------------------------
 
 
 def _warm_up_originir():
-    """UniQC 首次调用有一次性初始化开销；用最小线路预热，避免计入案例。"""
+    """UniQC's first call has a one-time initialization cost; warm up with a minimal circuit so it is not charged to a case."""
     b = Builder("originir_warmup", {"q": Bits(1)})
     b.h(b["q"])
     originir_ext(b.finish().program())
@@ -1411,22 +1430,22 @@ def _warm_up_originir():
 def run():
     report = Report(
         GROUP,
-        "数论/Heinrich 求和积分/SDE/QLSS 的论文级数值验证与 applications 全条目跨后端对拍。",
+        "Publication-grade numerical validation of number theory / Heinrich summation and integration / SDE / QLSS, plus full-entry cross-backend checks of applications.",
     )
     _warm_up_originir()
-    # 数论
+    # Number theory
     verify_modular_multiply(report)
     verify_modular_multiply_unitary(report)
     verify_order_finding(report)
     verify_factors_from_phase(report)
-    # Heinrich 求和与积分
+    # Heinrich summation and integration
     verify_sum_preparation(report)
     verify_quantum_sum_on_grid(report)
     verify_quantum_sum_qae(report)
     verify_quantum_integral(report)
     verify_table_loader_qram(report)
     verify_heinrich_rate(report)
-    # SDE / Fokker–Planck
+    # SDE / Fokker-Planck
     verify_sde_generator(report)
     verify_sde_euler_order(report)
     verify_sde_moments_monte_carlo(report)

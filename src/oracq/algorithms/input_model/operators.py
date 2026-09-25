@@ -1,4 +1,4 @@
-"块编码组合库；alpha 作为 RIR 模块属性保存，精度不属于语言核心。"
+"Block-encoding composition library; alpha is stored as an RIR module attribute and precision is not part of the language core."
 
 from __future__ import annotations
 
@@ -15,96 +15,102 @@ from oracq.infrastructure.serialization import dumps
 
 
 class Generator(Protocol):
-    """量子操作生成器的结构协议。
+    """Structural protocol for quantum-operation generators.
 
-    任何以任意位置与关键字参数调用并返回 ``Operation`` 的可调用对象都在结构上
-    满足本协议；算法侧据此接受操作工厂而不绑定具体的生成签名。
+    Any callable that is invoked with arbitrary positional and keyword arguments
+    and returns an ``Operation`` structurally satisfies this protocol; the
+    algorithm side thereby accepts operation factories without binding a
+    concrete generation signature.
     """
 
     def __call__(self, *args: object, **kwargs: object) -> Operation:
-        """调用生成器并返回其产出的操作。"""
+        """Invoke the generator and return the operation it produces."""
         ...
 
 
 def _name(kind: str, *values: object) -> str:
-    """按各值的序列化内容生成 ``kind_`` 前缀的确定性模块名。"""
+    """Generate a deterministic module name with the ``kind_`` prefix from the serialized content of the values."""
     serialized = [dumps(v.program()) if isinstance(v, Operation) else repr(v) for v in values]
     return kind + "_" + hashlib.sha256("\n".join(serialized).encode()).hexdigest()[:20]
 
 
 @dataclass(frozen=True)
 class BlockEncoding(OracleView):
-    """以零信号投影角块表示线性算子的视图。
+    """View representing a linear operator by its zero-signal projected corner block.
 
-    包装的 ``Operation`` 恰含 ``target`` 与 ``signal`` 两个 bits 寄存器，并以
-    模块属性 ``be_alpha`` 声明有限正的归一化常数：若酉 ``U`` 的零信号角块满足
-    ``<0|U|0> = A/alpha``，则本视图把 ``U`` 当作算子 ``A`` 的块编码。alpha 只在
-    生成期参与组合代数，执行器不会据此缩放量子态。
+    The wrapped ``Operation`` contains exactly the two bits registers ``target``
+    and ``signal``, and declares a finite positive normalization constant
+    through the module attribute ``be_alpha``: if the zero-signal corner block
+    of the unitary ``U`` satisfies ``<0|U|0> = A/alpha``, this view treats ``U``
+    as a block encoding of the operator ``A``. alpha participates in the
+    composition algebra at generation time only; the executor does not scale
+    quantum states by it.
 
     Attributes:
-        operation: 被包装的 ``Operation``。
+        operation: The wrapped ``Operation``.
     """
 
     oracle_kind = "block_encoding"
     operation: Operation
 
     def block_encoding(self) -> BlockEncoding:
-        """返回自身；实现 ``BlockEncodingProtocol`` 的视图适配方法。
+        """Return self; the view-adaptation method implementing ``BlockEncodingProtocol``.
 
         Returns:
-            BlockEncoding: 该视图自身。
+            BlockEncoding: This view itself.
         """
         return self
 
     def __post_init__(self) -> None:
-        """校验 target/signal 签名与有限正 ``be_alpha`` 属性约束。"""
+        """Validate the target/signal signature and the finite-positive ``be_alpha`` attribute constraint."""
         validate_signature(self.operation, ("target", "signal"), "BlockEncoding")
         registers = {r.name: r.type for r in self.operation.module.registers}
         if set(registers) != {"target", "signal"} or any(
             t.kind != "bits" for t in registers.values()
         ):
-            raise ValidationError("BE 必须具有 target 和 signal 两个 bits 接口")
+            raise ValidationError("a BE must have exactly the two bits interfaces target and signal")
         if not registers["target"].width:
-            raise ValidationError("BE 目标不能为空")
+            raise ValidationError("a BE target cannot be empty")
         alpha = dict(self.operation.module.attributes).get("be_alpha")
         if (
             type(alpha) not in (int, float)
             or not math.isfinite(cast("int | float", alpha))
             or cast("int | float", alpha) <= 0
         ):
-            raise ValidationError("BE 必须声明有限正数 be_alpha")
+            raise ValidationError("a BE must declare a finite positive be_alpha")
 
     @property
     def alpha(self) -> float:
-        """模块属性 ``be_alpha`` 中声明的归一化常数。"""
+        """The normalization constant declared in the ``be_alpha`` module attribute."""
         return cast("float", dict(self.operation.module.attributes)["be_alpha"])
 
     @property
     def width(self) -> int:
-        """``target`` 寄存器的位宽。"""
+        """Bit width of the ``target`` register."""
         return next(r.type.width for r in self.operation.module.registers if r.name == "target")
 
     @property
     def signal_qubits(self) -> int:
-        """``signal`` 寄存器的位宽。"""
+        """Bit width of the ``signal`` register."""
         return next(r.type.width for r in self.operation.module.registers if r.name == "signal")
 
 
 def block_encoding(operation: Operation, alpha: float = 1.0) -> BlockEncoding:
-    """把 ``target``/``signal`` 签名的操作包装为块编码。
+    """Wrap an operation with the ``target``/``signal`` signature as a block encoding.
 
-    在模块属性中写入 ``be_alpha`` 与 ``oracle_paradigm``，并按内容确定性重命名
-    模块；签名与 alpha 约束由 ``BlockEncoding`` 的构造检查完成。
+    Writes ``be_alpha`` and ``oracle_paradigm`` into the module attributes and
+    deterministically renames the module by content; the signature and alpha
+    constraints are checked by the ``BlockEncoding`` constructor.
 
     Args:
-        operation: 恰含 ``target`` 与 ``signal`` bits 寄存器的 ``Operation``。
-        alpha: 有限正的归一化常数，缺省为一。
+        operation: An ``Operation`` containing exactly the ``target`` and ``signal`` bits registers.
+        alpha: Finite positive normalization constant, defaulting to one.
 
     Returns:
-        BlockEncoding: 补全属性后的块编码视图。
+        BlockEncoding: Block-encoding view with the attributes filled in.
 
     Raises:
-        ValidationError: 操作不符合块编码的签名或 alpha 约束。
+        ValidationError: The operation violates the block-encoding signature or alpha constraint.
     """
     attributes = dict(operation.module.attributes)
     attributes["be_alpha"] = alpha
@@ -118,26 +124,26 @@ def block_encoding(operation: Operation, alpha: float = 1.0) -> BlockEncoding:
 
 
 def identity(width: int) -> BlockEncoding:
-    """构造单位算子的块编码；alpha 为一且不需要信号位。
+    """Build the block encoding of the identity operator; alpha is one and no signal bit is needed.
 
     Args:
-        width: target 寄存器位宽。
+        width: Target register bit width.
 
     Returns:
-        BlockEncoding: 单位算子的块编码。
+        BlockEncoding: Block encoding of the identity operator.
     """
     b = Builder(f"identity_{width}", {"target": Bits(width), "signal": Bits(0)})
     return block_encoding(b.finish())
 
 
 def pauli_x(width: int) -> BlockEncoding:
-    """构造 ``width`` 个 X 门张量幂的块编码；alpha 为一且无信号位。
+    """Build the block encoding of the tensor power of ``width`` X gates; alpha is one with no signal bit.
 
     Args:
-        width: target 寄存器位宽。
+        width: Target register bit width.
 
     Returns:
-        BlockEncoding: ``X^⊗width`` 的块编码。
+        BlockEncoding: Block encoding of ``X^⊗width``.
     """
     b = Builder(f"pauli_x_{width}", {"target": Bits(width), "signal": Bits(0)})
     b.x(b["target"])
@@ -145,13 +151,13 @@ def pauli_x(width: int) -> BlockEncoding:
 
 
 def zero(width: int) -> BlockEncoding:
-    """构造零算子的块编码；用一个被翻转的信号位使零信号角块恒为零，alpha 为一。
+    """Build the block encoding of the zero operator; a flipped signal bit makes the zero-signal corner block identically zero, with alpha one.
 
     Args:
-        width: target 寄存器位宽。
+        width: Target register bit width.
 
     Returns:
-        BlockEncoding: 零算子的块编码。
+        BlockEncoding: Block encoding of the zero operator.
     """
     b = Builder(f"zero_{width}", {"target": Bits(width), "signal": Bits(1)})
     b.x(b["signal"])
@@ -159,7 +165,7 @@ def zero(width: int) -> BlockEncoding:
 
 
 def _resources(a: BlockEncoding, b: BlockEncoding | None = None) -> dict[str, QRAM]:
-    """汇总各操作声明的资源并按 ``a__``/``b__`` 前缀重命名。"""
+    """Collect the resources declared by each operation and rename them with the ``a__``/``b__`` prefixes."""
     result: dict[str, QRAM] = {}
     for prefix, operand in (("a", a), ("b", b)):
         if operand is not None:
@@ -171,29 +177,31 @@ def _resources(a: BlockEncoding, b: BlockEncoding | None = None) -> dict[str, QR
 def _call(
     builder: Builder, operand: BlockEncoding, target: Ref, signal: Ref, prefix: str
 ) -> None:
-    """按前缀映射资源后在 ``builder`` 中调用块编码操作。"""
+    """Invoke the block-encoding operation in ``builder`` after mapping resources by prefix."""
     resources = {r.name: prefix + "__" + r.name for r in operand.operation.module.resources}
     builder.call(operand.operation, target=target, signal=signal, resources=resources)
 
 
 def product(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
-    """组合两个块编码的矩阵乘积 ``A·B``。
+    """Compose the matrix product ``A·B`` of two block encodings.
 
-    两个操作依次作用于共享的 ``target``（先 ``b`` 后 ``a``），信号位按 ``a`` 在
-    高位拼接；返回块编码的 alpha 为 ``a.alpha * b.alpha``，信号位数为两者之和。
+    The two operations act in turn on the shared ``target`` (``b`` first, then
+    ``a``), with the signal bits concatenated at the high end for ``a``; the
+    returned block encoding has alpha ``a.alpha * b.alpha`` and a signal width
+    equal to the sum of both.
 
     Args:
-        a: 左因子块编码。
-        b: 右因子块编码。
+        a: Left-factor block encoding.
+        b: Right-factor block encoding.
 
     Returns:
-        BlockEncoding: 编码 ``A·B`` 的块编码，两个操作以模块调用保留。
+        BlockEncoding: Block encoding of ``A·B``, with both operations kept as module calls.
 
     Raises:
-        ValidationError: 两个目标宽度不同。
+        ValidationError: The two target widths differ.
     """
     if a.width != b.width:
-        raise ValidationError("BE 乘积的目标宽度不同")
+        raise ValidationError("BE product has mismatched target widths")
     builder = Builder(
         _name("product", a.operation, b.operation),
         {"target": Bits(a.width), "signal": Bits(a.signal_qubits + b.signal_qubits)},
@@ -206,23 +214,24 @@ def product(a: BlockEncoding, b: BlockEncoding) -> BlockEncoding:
 
 
 def scale(coefficient: complex, a: BlockEncoding) -> BlockEncoding:
-    """用复系数缩放块编码所表示的算子。
+    """Scale the operator represented by a block encoding by a complex coefficient.
 
-    系数相位以 ``global_phase`` 记账，返回块编码的 alpha 为
-    ``abs(coefficient) * a.alpha``；系数为零时直接返回 ``zero(a.width)``。
+    The coefficient phase is booked with ``global_phase``, and the returned
+    block encoding has alpha ``abs(coefficient) * a.alpha``; when the
+    coefficient is zero, ``zero(a.width)`` is returned directly.
 
     Args:
-        coefficient: 有限复系数。
-        a: 被缩放的块编码。
+        coefficient: Finite complex coefficient.
+        a: The block encoding being scaled.
 
     Returns:
-        BlockEncoding: 编码 ``coefficient * A`` 的块编码。
+        BlockEncoding: Block encoding of ``coefficient * A``.
 
     Raises:
-        ValidationError: 系数的实部或虚部不有限。
+        ValidationError: The real or imaginary part of the coefficient is not finite.
     """
     if not (math.isfinite(coefficient.real) and math.isfinite(coefficient.imag)):
-        raise ValidationError("BE 系数必须有限")
+        raise ValidationError("BE coefficient must be finite")
     if coefficient == 0:
         return zero(a.width)
     builder = Builder(
@@ -238,29 +247,31 @@ def scale(coefficient: complex, a: BlockEncoding) -> BlockEncoding:
 def linear_combination(
     ca: complex, a: BlockEncoding, cb: complex, b: BlockEncoding
 ) -> BlockEncoding:
-    """组合两个块编码的线性组合 ``ca*A + cb*B``。
+    """Compose the linear combination ``ca*A + cb*B`` of two block encodings.
 
-    单个选择位按 ``abs(ca)*a.alpha`` 与 ``abs(cb)*b.alpha`` 的权重比例分支，
-    两路各经 ``global_phase`` 补偿系数相位后作用于共享的 ``target``；返回块编码
-    的 alpha 为两个权重之和，信号位在两操作信号之外多出一个选择位。某项系数
-    为零时退化为 ``scale``。
+    A single select bit branches in the weight ratio of ``abs(ca)*a.alpha`` and
+    ``abs(cb)*b.alpha``; each branch compensates its coefficient phase via
+    ``global_phase`` before acting on the shared ``target``. The returned block
+    encoding has alpha equal to the sum of the two weights, and its signal bits
+    carry one extra select bit beyond the two operations' signals. When one
+    coefficient is zero it degenerates to ``scale``.
 
     Args:
-        ca: ``a`` 的有限复系数。
-        a: 第一个块编码。
-        cb: ``b`` 的有限复系数。
-        b: 第二个块编码。
+        ca: Finite complex coefficient of ``a``.
+        a: First block encoding.
+        cb: Finite complex coefficient of ``b``.
+        b: Second block encoding.
 
     Returns:
-        BlockEncoding: 编码 ``ca*A + cb*B`` 的块编码。
+        BlockEncoding: Block encoding of ``ca*A + cb*B``.
 
     Raises:
-        ValidationError: 目标宽度不同，或任一系数含非有限分量。
+        ValidationError: The target widths differ, or any coefficient contains a non-finite component.
     """
     if a.width != b.width:
-        raise ValidationError("BE 求和的目标宽度不同")
+        raise ValidationError("BE sum has mismatched target widths")
     if not all(math.isfinite(x) for c in (ca, cb) for x in (c.real, c.imag)):
-        raise ValidationError("BE 系数必须有限")
+        raise ValidationError("BE coefficients must be finite")
     if ca == 0:
         return scale(cb, b)
     if cb == 0:

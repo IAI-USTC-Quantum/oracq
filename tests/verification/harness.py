@@ -1,7 +1,8 @@
-"""论文级数值验证的共享设施。
+"""Shared facilities for publication-grade numerical validation.
 
-verify_*.py 脚本使用这里封装的后端路径与比较器，产出 out/verification/<group>.json。
-运行解释器必须同时安装 pysparq 与 uniqc（真实后端，不使用替身）：
+The verify_*.py scripts use the backend paths and comparators packaged here to
+produce out/verification/<group>.json. The interpreter that runs them must have
+both pysparq and uniqc installed (real backends, no mock substitutes):
 
     PYTHONPATH=src /path/to/python tests/verification/verify_<group>.py
 """
@@ -21,43 +22,43 @@ ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / "out" / "verification"
 
 # ---------------------------------------------------------------------------
-# 后端路径
+# Backend paths
 # ---------------------------------------------------------------------------
 
 
 def reference(program, memory=None, **kwargs):
-    """oracq 内置参考执行器（字典稀疏态）。"""
+    """oracq built-in reference executor (dictionary sparse state)."""
     from oracq import simulate
 
     return dict(simulate(program, memory, **kwargs).amplitudes)
 
 
 def rir_pysparq(program, memory=None, **kwargs):
-    """PySparQ 原生 RIR 解释器（QRAM-Simulator 仓 pysparq.rir）。"""
+    """PySparQ native RIR interpreter (QRAM-Simulator repo, pysparq.rir)."""
     from oracq import run_pysparq_rir
 
     return dict(run_pysparq_rir(program, memory, **kwargs).amplitudes)
 
 
 def adapter_pysparq(program, memory=None, **kwargs):
-    """oracq 的 PySparQ 事件适配器。"""
+    """oracq PySparQ event adapter."""
     from oracq import run_pysparq
 
     return dict(run_pysparq(program, memory, **kwargs).amplitudes)
 
 
 def originir_ext(program, memory=None, **kwargs):
-    """OriginIR-ext + UnifiedQuantum 全振幅态向量（返回 list[complex]）。"""
+    """OriginIR-ext + UnifiedQuantum full-amplitude state vector (returns list[complex])."""
     from oracq import run_originir
 
     return [complex(value) for value in run_originir(program, memory, **kwargs)]
 
 
 def originir_unitary(program):
-    """OriginIR-ext 线路经 UniQC ``Circuit.to_matrix`` 的全幺正矩阵。
+    """Full unitary matrix of the OriginIR-ext circuit via UniQC ``Circuit.to_matrix``.
 
-    只适用于不含 QRAM 资源的程序；矩阵覆盖全部量子位（含工作区），
-    量子位 0 为最低位。
+    Only applicable to programs without QRAM resources; the matrix covers all
+    qubits (workspace included), with qubit 0 as the least significant bit.
     """
     import numpy as np
     from uniqc.circuit_builder import Circuit
@@ -82,12 +83,12 @@ def amplitudes_to_statevector(amplitudes, widths):
 
 
 # ---------------------------------------------------------------------------
-# 比较器
+# Comparators
 # ---------------------------------------------------------------------------
 
 
 def amplitude_error(actual, expected):
-    """两个字典稀疏态（寄存器元组→振幅）的最大绝对偏差。"""
+    """Maximum absolute deviation between two dictionary sparse states (register tuple -> amplitude)."""
     keys = set(actual) | set(expected)
     if not keys:
         return 0.0
@@ -103,13 +104,13 @@ def statevector_error(actual, expected):
 
 
 def fidelity(actual, expected):
-    """两态向量的保真度 |<a|b>|^2。"""
+    """Fidelity |<a|b>|^2 of two state vectors."""
     overlap = sum(a.conjugate() * b for a, b in zip(actual, expected, strict=True))
     return abs(overlap) ** 2
 
 
 def tvd(actual_probs, expected_probs):
-    """两个概率字典的全变差距离。"""
+    """Total variation distance between two probability dictionaries."""
     keys = set(actual_probs) | set(expected_probs)
     return 0.5 * sum(
         abs(actual_probs.get(k, 0.0) - expected_probs.get(k, 0.0)) for k in keys
@@ -121,10 +122,11 @@ def probabilities(amplitudes):
 
 
 def effective_block(unitary, data_qubits):
-    """提取 data 低位、工作区为 0 的有效算子块与泄漏上界。
+    """Extract the effective operator block (low data bits, workspace 0) and a leakage bound.
 
-    OriginIR 导出中入口寄存器占据低位量子位、工作区紧随其后；幺正矩阵
-    的低 2^data_qubits 维块即工作区复净时的有效算子。
+    In the OriginIR export the entry registers occupy the low qubits with the
+    workspace immediately after; the low 2^data_qubits-dimensional block of the
+    unitary matrix is the effective operator when the workspace is returned clean.
     """
     import numpy as np
 
@@ -135,7 +137,7 @@ def effective_block(unitary, data_qubits):
 
 
 # ---------------------------------------------------------------------------
-# 驱动程序构造
+# Driver construction
 # ---------------------------------------------------------------------------
 
 
@@ -147,7 +149,7 @@ def _driver(operation, name):
 
 
 def basis_program(operation, initial, *, name="verify_basis"):
-    """把 entry 寄存器置为 classical 初态后调用 operation。"""
+    """Set the entry registers to a classical initial state, then call operation."""
     b = _driver(operation, name)
     for key, value in initial.items():
         for bit in range(b[key].width):
@@ -158,7 +160,7 @@ def basis_program(operation, initial, *, name="verify_basis"):
 
 
 def superposition_program(operation, registers, *, name="verify_superposition"):
-    """对指定寄存器加 H 后调用 operation（其余寄存器保持 |0>）。"""
+    """Apply H to the specified registers, then call operation (other registers stay |0>)."""
     b = _driver(operation, name)
     for key in registers:
         b.h(b[key])
@@ -167,7 +169,7 @@ def superposition_program(operation, registers, *, name="verify_superposition"):
 
 
 # ---------------------------------------------------------------------------
-# 报告与产物
+# Reporting and artifacts
 # ---------------------------------------------------------------------------
 
 
@@ -202,7 +204,7 @@ class Report:
         status = "PASS" if passed else "FAIL"
         print(f"[{status}] {self.group}/{name} {metrics}", flush=True)
         if not passed:
-            raise AssertionError(f"验证失败：{self.group}/{name}（判据：{criterion}）")
+            raise AssertionError(f"validation failed: {self.group}/{name} (criterion: {criterion})")
 
     def write(self):
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
@@ -243,7 +245,7 @@ class Report:
 
 
 def sampled_inputs(width, *, exhaustive_below=8, samples=17):
-    """比特数扫描：小宽度穷举，大宽度取边界值与确定性伪随机样本。"""
+    """Bit-width sweep: exhaust small widths; for large widths take boundary values and deterministic pseudo-random samples."""
     if width <= exhaustive_below:
         return list(range(1 << width)), True
     limit = 1 << width

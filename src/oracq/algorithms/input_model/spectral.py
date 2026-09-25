@@ -1,13 +1,17 @@
-"""谱输入/输出原语：傅里叶基对角块编码、稀疏谱块编码与谱态制备。
+"""Spectral input/output primitives: Fourier-basis diagonal block encoding, sparse spectral block encoding, and spectral state preparation.
 
-对应 arXiv:2509.08807 的 Lemma C.8（SS-BE）与层级谱编码的输入侧。
-傅里叶基函数 F_k(J)=exp(2*pi*1j*k*J/2**w) 的对角矩阵按 J 的二进制位分解
-为单比特相位门的张量积（论文 Eq. C58），受控乘积形式给出零 Toffoli 的
-谱块编码（Eq. C60）；谱态制备在同一个格点寄存器上稀疏制备频域幅度，
-再经 QFT 完成 S 维谱空间到 N 维格点空间的 Hilbert 空间放大。
+Corresponds to Lemma C.8 (SS-BE) of arXiv:2509.08807 and the input side of
+hierarchical spectral encoding. The diagonal matrix of Fourier basis functions
+F_k(J)=exp(2*pi*1j*k*J/2**w) factors over the binary digits of J into a tensor
+product of single-bit phase gates (paper Eq. C58); the controlled-product form
+yields a spectral block encoding with zero Toffolis (Eq. C60). Spectral state
+preparation sparsely prepares the frequency-domain amplitudes on the same
+lattice register, then a QFT performs the Hilbert-space amplification from the
+S-dimensional spectral space to the N-dimensional lattice space.
 
-约定：f(J) = sum_k c_k * exp(2*pi*1j*k*J/2**width)，频率 k 为整数
-（负频率按 mod 2**width 理解）；谱块编码的 alpha = sum_k abs(c_k)。
+Convention: f(J) = sum_k c_k * exp(2*pi*1j*k*J/2**width) with integer
+frequencies k (negative frequencies are understood mod 2**width); the alpha of
+the spectral block encoding is sum_k abs(c_k).
 """
 
 from __future__ import annotations
@@ -30,58 +34,61 @@ from oracq.infrastructure.ir import Bits, Ref, ValidationError
 
 
 def normalized_spectrum(spectrum: Mapping[int, complex]) -> tuple[int, tuple[complex, ...]]:
-    """校验谱系数并规范成连续频带。
+    """Validate spectral coefficients and normalize them into a contiguous frequency band.
 
-    输入 ``{k: c_k}`` 表示 f(J) = sum_k c_k exp(2*pi*1j*k*J/2**width)。
-    受控乘积分解要求频带连续；返回 ``(k_min, coefficients)``，coefficients
-    覆盖 ``[k_min, k_max]`` 每个整数频率（带内全零项允许，计零系数）。
+    The input ``{k: c_k}`` represents f(J) = sum_k c_k exp(2*pi*1j*k*J/2**width).
+    The controlled-product decomposition requires a contiguous band; returns
+    ``(k_min, coefficients)`` where coefficients covers every integer frequency
+    in ``[k_min, k_max]`` (all-zero entries inside the band are allowed and
+    counted as zero coefficients).
 
     Args:
-        spectrum: 频率到复系数的非空映射，须构成连续频带且系数不全为零。
+        spectrum: Non-empty mapping from frequencies to complex coefficients; it must form a contiguous band with not all coefficients zero.
 
     Returns:
-        tuple[int, tuple[complex, ...]]: ``(k_min, coefficients)``，即频带
-        下限与按升频排列、含带内零系数的元组。
+        tuple[int, tuple[complex, ...]]: ``(k_min, coefficients)``, i.e. the band
+        lower limit and the tuple arranged in ascending frequency order,
+        including zero coefficients inside the band.
     """
     if not isinstance(spectrum, dict) or not spectrum:
-        raise ValidationError("谱系数必须是非空字典 {频率: 复系数}")
+        raise ValidationError("spectral coefficients must be a non-empty dict mapping frequency to complex coefficient")
     ks = sorted(spectrum)
     if any(type(k) is not int for k in ks):
-        raise ValidationError("谱频率必须是整数")
+        raise ValidationError("spectral frequencies must be integers")
     if ks[-1] - ks[0] + 1 != len(spectrum):
-        raise ValidationError("谱频率必须构成连续频带；间断频带请拆分后用 LCU 组合")
+        raise ValidationError("spectral frequencies must form a contiguous band; split a discontinuous band and combine via LCU")
     k_min = ks[0]
     coefficients = tuple(spectrum[k] for k in range(ks[0], ks[-1] + 1))
     if all(c == 0 for c in coefficients):
-        raise ValidationError("谱系数不能全为零")
+        raise ValidationError("spectral coefficients cannot all be zero")
     for c in coefficients:
         if not (math.isfinite(c.real) and math.isfinite(c.imag)):
-            raise ValidationError("谱系数必须有限")
+            raise ValidationError("spectral coefficients must be finite")
     return k_min, coefficients
 
 
 def _spectrum_register_width(coefficients: Sequence[complex]) -> int:
-    """频带项数 ``S`` 所需的谱寄存器位宽 ``ceil(log2 S)``，至少一位。"""
+    """Spectral register width ``ceil(log2 S)`` required for ``S`` band entries, at least one bit."""
     return max(1, (len(coefficients) - 1).bit_length())
 
 
 def frequency_amplitudes(
     coefficients: Sequence[complex], k_min: int, width: int, *, normalize: bool = True
 ) -> list[complex]:
-    """谱系数到 2**width 维幅度向量（索引为 k mod 2**width）。
+    """Convert spectral coefficients into a 2**width-dimensional amplitude vector indexed by k mod 2**width.
 
     Args:
-        coefficients: 频带内按升频排列的复系数序列。
-        k_min: 频带下限频率。
-        width: 格点寄存器位宽，决定幅度向量的维数 2**width。
-        normalize: 为 True 时除以系数的欧几里得范数。
+        coefficients: Complex coefficients within the band, arranged in ascending frequency order.
+        k_min: Lower frequency limit of the band.
+        width: Lattice register bit width, determining the dimension 2**width of the amplitude vector.
+        normalize: When True, divide by the Euclidean norm of the coefficients.
 
     Returns:
-        list[complex]: 长度 2**width 的频域幅度向量。
+        list[complex]: Frequency-domain amplitude vector of length 2**width.
     """
     scale = math.sqrt(sum(abs(c) ** 2 for c in coefficients)) if normalize else 1.0
     if scale == 0:
-        raise ValidationError("谱系数范数为零")
+        raise ValidationError("spectral coefficient norm is zero")
     amplitudes = [0j] * (1 << width)
     for j, c in enumerate(coefficients):
         if c:
@@ -92,21 +99,22 @@ def frequency_amplitudes(
 def pruned_state_prep(
     amplitudes: Sequence[complex], *, name: str | None = None
 ) -> StatePreparation:
-    """零角剪枝的多路旋转态制备；与 gate_state_prep 酉等价但省去零旋转。
+    """Multiplexed-rotation state preparation with zero-angle pruning; unitarily equivalent to gate_state_prep but skipping zero rotations.
 
-    稀疏谱输入（2**width 维向量只有 S 个非零幅度）下，全零子树的所有
-    旋转角为零，剪枝后资源随 S 而不是 2**width 增长。
+    For sparse spectral input (a 2**width-dimensional vector with only S nonzero
+    amplitudes), every rotation angle in an all-zero subtree is zero, so after
+    pruning the resources grow with S instead of 2**width.
 
     Args:
-        amplitudes: 稀疏复幅度向量，长度须为二的幂。
-        name: 生成操作的名称；缺省由幅度内容派生。
+        amplitudes: Sparse complex amplitude vector; the length must be a power of two.
+        name: Name of the generated operation; defaults to one derived from the amplitude content.
 
     Returns:
-        StatePreparation: 剪枝多路旋转实现的制备视图。
+        StatePreparation: Preparation view implemented by pruned multiplexed rotations.
     """
     values, n, nodes = _state_angles(amplitudes)
     if n == 0:
-        raise ValidationError("态制备需要至少一个目标位")
+        raise ValidationError("state preparation requires at least one target bit")
     b = Builder(
         name or _name("pruned_state", values),
         {"target": Bits(n), "work": Bits(0)},
@@ -135,23 +143,24 @@ def pruned_state_prep(
 
 
 def fourier_phase(width: int, k: int) -> Operation:
-    """diag_J exp(2*pi*1j*k*J/2**width) 的精确电路（论文 Eq. C58）。
+    """Exact circuit of diag_J exp(2*pi*1j*k*J/2**width) (paper Eq. C58).
 
-    e^{2*pi*1j*k*J/2**width} 按 J 的二进制位分解为张量积，每位一个单比特
-    相位门；角度是 pi 的二进制幂倍数，落在精确角度网格上。只含 target
-    寄存器，作为子模块被调用。
+    e^{2*pi*1j*k*J/2**width} factors over the binary digits of J into a tensor
+    product with one single-bit phase gate per bit; the angles are binary-power
+    multiples of pi and land on the exact-angle grid. Contains only the target
+    register and is invoked as a submodule.
 
     Args:
-        width: 目标寄存器位宽，范围 1..64。
-        k: 整数频率，按 ``mod 2**width`` 理解。
+        width: Target register bit width, in the range 1..64.
+        k: Integer frequency, understood ``mod 2**width``.
 
     Returns:
-        Operation: 单比特相位门张量积组成的对角相位操作。
+        Operation: Diagonal phase operation built from a tensor product of single-bit phase gates.
     """
     if type(width) is not int or not 1 <= width <= 64:
-        raise ValidationError("fourier_phase.width 必须处于 1..64")
+        raise ValidationError("fourier_phase.width must be within 1..64")
     if type(k) is not int:
-        raise ValidationError("fourier_phase.k 必须是整数")
+        raise ValidationError("fourier_phase.k must be an integer")
     k %= 1 << width
     b = Builder(f"fourier_phase_{width}_{k}", {"target": Bits(width)})
     for q in range(width):
@@ -162,19 +171,19 @@ def fourier_phase(width: int, k: int) -> Operation:
 
 
 def fourier_phase_encoding(width: int, k: int) -> BlockEncoding:
-    """fourier_phase 的 (1, 0, 0) 块编码：零宽 signal 接口。
+    """(1, 0, 0) block encoding of fourier_phase: zero-width signal interface.
 
     Args:
-        width: 目标寄存器位宽，范围 1..64。
-        k: 整数频率，按 ``mod 2**width`` 理解。
+        width: Target register bit width, in the range 1..64.
+        k: Integer frequency, understood ``mod 2**width``.
 
     Returns:
-        BlockEncoding: 归一化常数为 1、signal 零宽的块编码。
+        BlockEncoding: Block encoding with normalization constant 1 and a zero-width signal.
     """
     if type(width) is not int or not 1 <= width <= 64:
-        raise ValidationError("fourier_phase_encoding.width 必须处于 1..64")
+        raise ValidationError("fourier_phase_encoding.width must be within 1..64")
     if type(k) is not int:
-        raise ValidationError("fourier_phase_encoding.k 必须是整数")
+        raise ValidationError("fourier_phase_encoding.k must be an integer")
     k %= 1 << width
     b = Builder(
         _name("fourier_phase_be", width, k),
@@ -196,11 +205,12 @@ def _phase_grid(
     width: int,
     spectrum_width: int,
 ) -> None:
-    """谱寄存器控制的相位网格（论文 Eq. C60 的受控乘积部分）。
+    """Spectral-register-controlled phase grid (the controlled-product part of paper Eq. C60).
 
-    对谱寄存器的每一位 bit 与目标寄存器的每一位 qubit 施加受控相位
-    2*pi*2**bit*2**q/2**width；频带下限 k_min 的贡献是无条件相位。
-    角度为 2*pi 整数倍的项被跳过（恒等）。
+    For every bit of the spectral register and every qubit of the target
+    register a controlled phase 2*pi*2**bit*2**q/2**width is applied; the
+    contribution of the band lower limit k_min is an unconditional phase. Terms
+    whose angle is an integer multiple of 2*pi are skipped (identity).
     """
     target, spectrum = builder["target"], control_builder
     for q in range(width):
@@ -220,24 +230,27 @@ def _phase_grid(
 def spectral_diagonal(
     spectrum: Mapping[int, complex], width: int, *, variant: str = "sequential"
 ) -> BlockEncoding:
-    """稀疏谱块编码：BE(diag f)，f 由连续频带傅里叶和给出。
+    """Sparse spectral block encoding: BE(diag f), with f given by a contiguous-band Fourier sum.
 
-    variant="sequential"（论文 Lemma C.8 / Eq. (7)）：P_L 在 s=log S 位谱
-    寄存器上制备幅度 sqrt(abs(c_j)/alpha)，谱寄存器各位控制目标寄存器的相位
-    网格，每模相位由受控 gphase 补回，P_R=P_L^dagger 复净。无 Toffoli。
-    variant="naive"：每个基函数作为独立酉算子交给通用 LCU，作为结构化
-    构造（顺序形式）收益的对照基线。
+    variant="sequential" (paper Lemma C.8 / Eq. (7)): P_L prepares amplitudes
+    sqrt(abs(c_j)/alpha) on an s=log S bit spectral register, each bit of the
+    spectral register controls the phase grid on the target register, the
+    per-mode phases are restored by controlled gphase, and P_R=P_L^dagger
+    uncomputes. Zero Toffolis. variant="naive": every basis function is handed
+    to the generic LCU as an independent unitary operator, serving as the
+    baseline against which the gain of the structured construction (sequential
+    form) is measured.
 
     Args:
-        spectrum: 频率到复系数的连续频带映射。
-        width: 格点寄存器位宽。
-        variant: ``sequential`` 或 ``naive``，分别走受控乘积分解或通用 LCU。
+        spectrum: Contiguous-band mapping from frequencies to complex coefficients.
+        width: Lattice register bit width.
+        variant: ``sequential`` or ``naive``, taking the controlled-product decomposition or the generic LCU respectively.
 
     Returns:
-        BlockEncoding: ``BE(diag f)``，alpha = sum_k abs(c_k)。
+        BlockEncoding: ``BE(diag f)`` with alpha = sum_k abs(c_k).
     """
     if variant not in {"sequential", "naive"}:
-        raise ValidationError("variant 必须是 sequential 或 naive")
+        raise ValidationError("variant must be sequential or naive")
     k_min, coefficients = normalized_spectrum(spectrum)
     if variant == "naive":
         return lcu(
@@ -275,22 +288,25 @@ def spectral_diagonal(
 
 
 def spectral_state_prep(spectrum: Mapping[int, complex], width: int) -> StatePreparation:
-    """谱输入（层级谱编码的输入侧）：制备归一化态 ``|f⟩``。
+    """Spectral input (the input side of hierarchical spectral encoding): prepare the normalized state ``|f⟩``.
 
-    在同一个 width 位格点寄存器上稀疏制备频域幅度 sum_k c_k / norm(c) 于基态 ``|k⟩``，
-    再做正号 QFT 放大到格点空间：QFT 把基态映射为逐位相位均匀态，线性组合
-    得到 sum_J f(J)*ket(J)/sqrt(N*sum(abs(c)^2))，即归一化态（Parseval）。
+    The frequency-domain amplitudes sum_k c_k / norm(c) are sparsely prepared on
+    basis states ``|k⟩`` of the same width-bit lattice register, then a
+    positive-sign QFT amplifies into the lattice space: the QFT maps basis
+    states to uniform states with per-bit phases, and the linear combination
+    yields sum_J f(J)*ket(J)/sqrt(N*sum(abs(c)^2)), the normalized state
+    (Parseval).
 
     Args:
-        spectrum: 频率到复系数的连续频带映射，频带项数不超过 2**width。
-        width: 格点寄存器位宽。
+        spectrum: Contiguous-band mapping from frequencies to complex coefficients; the band entry count must not exceed 2**width.
+        width: Lattice register bit width.
 
     Returns:
-        StatePreparation: 经频域稀疏制备加 QFT 放大实现的制备视图。
+        StatePreparation: Preparation view implemented by sparse frequency-domain preparation plus QFT amplification.
     """
     k_min, coefficients = normalized_spectrum(spectrum)
     if len(coefficients) > (1 << width):
-        raise ValidationError("谱频带宽度超过格点寄存器可表示的范围")
+        raise ValidationError("spectral band width exceeds the range representable by the lattice register")
     amplitudes = frequency_amplitudes(coefficients, k_min, width)
     prep = pruned_state_prep(amplitudes)
     b = Builder(

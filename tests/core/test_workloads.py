@@ -1,4 +1,4 @@
-"""范式验收：生成、开放序列化、绑定与后端描述，不检查求解精度。"""
+"""Paradigm acceptance: generation, open serialization, binding, and backend description; solving accuracy is not checked."""
 
 import unittest
 

@@ -1,4 +1,4 @@
-"小规模数学见证：有限差分端口与独立 HAM/链式法则求值，不是量子模拟。"
+"Small-scale mathematical witnesses: finite-difference ports and independent HAM/chain-rule evaluation, not quantum simulation."
 
 from __future__ import annotations
 
@@ -15,17 +15,20 @@ from oracq.infrastructure.ir import ValidationError
 
 @lru_cache(maxsize=32)
 def centered_weights(order: int) -> tuple[tuple[int, float], ...]:
-    """计算单位步长一维中心差分模板的权重。
+    """Compute the weights of a unit-step one-dimensional centered difference stencil.
 
-    在以原点为中心的整数格点上用精确有理数消元求解导数插值条件，
-    对次数小于格点数的多项式精确；零权重被剔除。
+    The derivative interpolation conditions are solved by exact rational
+    elimination on integer lattice points centered at the origin; the result is
+    exact for polynomials of degree below the point count. Zero weights are
+    dropped.
 
     Args:
-        order: 导数阶数，非负整数。
+        order: Derivative order, a non-negative integer.
 
     Returns:
-        tuple: ``(格点偏移, 权重)`` 对，权重为 float，对应单位步长；
-        使用时还需除以 ``spacing**order``。结果按阶数缓存。
+        tuple: ``(lattice offset, weight)`` pairs where the weight is a float
+        for unit step size; usage still requires division by
+        ``spacing**order``. The result is cached per order.
     """
     if order == 0:
         return ((0, 1.0),)
@@ -50,20 +53,23 @@ def centered_weights(order: int) -> tuple[tuple[int, float], ...]:
 
 @dataclass(frozen=True)
 class Grid:
-    """空间离散网格：轴、形状、间距与边界类型，并给出索引和差分模板。
+    """Spatial discretization grid: axes, shape, spacing, and boundary type, with indexing and difference stencils.
 
-    线性格点编号采用混合基布局，轴 0 为最低位；``coordinates`` 与
-    ``address`` 互为逆映射。
+    Linear grid indices use a mixed-radix layout with axis 0 in the least
+    significant position; ``coordinates`` and ``address`` are inverse mappings
+    of each other.
 
     Attributes:
-        axes: 空间轴名元组，须与 PDE 的轴一致。
-        shape: 各轴格点数，均为正整数。
-        spacing: 各轴格点间距，均为正有限值。
-        boundary: 边界类型：``periodic`` 把越界坐标按轴长回绕；
-            ``dirichlet_zero`` 按零延拓丢弃越界模板点。
+        axes: Tuple of spatial axis names, must match the PDE axes.
+        shape: Number of grid points per axis, all positive integers.
+        spacing: Grid point spacing per axis, all positive finite values.
+        boundary: Boundary type: ``periodic`` wraps out-of-range coordinates by
+            the axis length; ``dirichlet_zero`` drops out-of-range stencil
+            points by zero extension.
 
     Raises:
-        ValidationError: 轴数不一致、形状/间距非法或边界类型不受支持。
+        ValidationError: Axis counts disagree, the shape or spacing is invalid,
+            or the boundary type is unsupported.
     """
     axes: tuple[str, ...]
     shape: tuple[int, ...]
@@ -74,36 +80,38 @@ class Grid:
     )
 
     def __post_init__(self) -> None:
-        """校验网格形状、间距与边界类型，非法时抛出 ``ValidationError``。"""
+        """Validate the grid shape, spacing, and boundary type, raising ``ValidationError`` when invalid."""
         if (
             not len(self.axes) == len(self.shape) == len(self.spacing)
             or any(type(n) is not int or n < 1 for n in self.shape)
             or any(x <= 0 or not math.isfinite(x) for x in self.spacing)
         ):
-            raise ValidationError("空间网格形状/间距无效")
+            raise ValidationError("invalid spatial grid shape or spacing")
         if self.boundary not in {"periodic", "dirichlet_zero"}:
-            raise ValidationError("目前提供周期或零延拓 Dirichlet 差分")
+            raise ValidationError("only periodic or zero-extension Dirichlet differences are currently provided")
 
     @property
     def size(self) -> int:
-        """网格总格点数，即 ``shape`` 各分量之积。"""
+        """Total number of grid points, i.e. the product of all ``shape`` entries."""
         return math.prod(self.shape)
 
     @property
     def spatial_width(self) -> int:
-        """索引空间坐标所需的位宽，至少为 1。
+        """Bit width required to index a spatial coordinate, at least 1.
 
-        空间存储按 ``1 << spatial_width`` 对齐，可能大于 ``size``。"""
+        Spatial storage is aligned to ``1 << spatial_width``, which may exceed
+        ``size``."""
         return max(1, (self.size - 1).bit_length())
 
     def coordinates(self, index: int) -> list[int]:
-        """把线性格点编号分解为各轴坐标，为 ``address`` 的逆。
+        """Decompose a linear grid index into per-axis coordinates; inverse of ``address``.
 
         Args:
-            index: 线性格点编号。
+            index: Linear grid index.
 
         Returns:
-            list[int]: 各轴坐标，轴 0 为最低位，与 ``shape`` 同长。
+            list[int]: Per-axis coordinates, axis 0 in the least significant
+            position, with the same length as ``shape``.
         """
         result: list[int] = []
         for n in self.shape:
@@ -112,13 +120,14 @@ class Grid:
         return result
 
     def address(self, coords: Sequence[int]) -> int:
-        """把各轴坐标合成为线性格点编号。
+        """Combine per-axis coordinates into a linear grid index.
 
         Args:
-            coords: 各轴坐标序列，长度须与 ``shape`` 一致。
+            coords: Sequence of per-axis coordinates; its length must match
+                ``shape``.
 
         Returns:
-            int: 混合基布局下的线性格点编号。
+            int: Linear grid index under the mixed-radix layout.
         """
         stride, result = 1, 0
         for n, x in zip(self.shape, coords, strict=True):
@@ -129,21 +138,26 @@ class Grid:
     def derivative_row(
         self, derivative: tuple[tuple[str, int], ...], row: int
     ) -> tuple[tuple[int, float], ...]:
-        """计算混合空间导数在给定格点处的稀疏差分行。
+        """Compute the sparse difference row of a mixed spatial derivative at a given grid point.
 
-        逐轴组合一维中心差分模板，权重已除以相应 ``spacing`` 的幂次；
-        周期边界把越界格点回绕，``dirichlet_zero`` 丢弃越界格点。
+        One-dimensional centered difference stencils are composed axis by axis,
+        with weights already divided by the matching power of ``spacing``; the
+        periodic boundary wraps out-of-range points while ``dirichlet_zero``
+        drops them.
 
         Args:
-            derivative: ``(轴名, 阶数)`` 对组成的导数说明。
-            row: 线性格点编号。
+            derivative: Derivative specification built from ``(axis name,
+                order)`` pairs.
+            row: Linear grid index.
 
         Returns:
-            tuple: 按列地址排序的 ``(列地址, 权重)`` 对，零权重被剔除；
-            ``row`` 越界时为空元组。结果按 ``(derivative, row)`` 缓存。
+            tuple: ``(column address, weight)`` pairs sorted by column address,
+            zero weights dropped; an empty tuple when ``row`` is out of range.
+            The result is cached by ``(derivative, row)``.
 
         Raises:
-            ValueError: ``derivative`` 引用了不在 ``axes`` 中的轴。
+            ValueError: ``derivative`` references an axis not present in
+                ``axes``.
         """
         key = (derivative, row)
         if key in self._row_cache:
@@ -172,16 +186,18 @@ class Grid:
 
 
 def tensor_values(vectors: Iterable[Sequence[complex]]) -> list[complex]:
-    """计算多个向量的张量积并展平为一维复数列表。
+    """Compute the tensor product of several vectors flattened into a one-dimensional complex list.
 
-    因子 0 占据最低位：第 k 个因子的下标跨度为其前各因子长度之积；
-    无因子时返回单元素 ``[1+0j]``。
+    Factor 0 occupies the least significant position: the index stride of the
+    k-th factor is the product of the lengths of the preceding factors; with no
+    factors a single-element ``[1+0j]`` is returned.
 
     Args:
-        vectors: 因子向量序列。
+        vectors: Sequence of factor vectors.
 
     Returns:
-        list[complex]: 展平后的张量积，长度为各因子长度之积。
+        list[complex]: Flattened tensor product, with length equal to the
+        product of the factor lengths.
     """
     result = [1.0 + 0j]
     for vector in vectors:
@@ -190,17 +206,18 @@ def tensor_values(vectors: Iterable[Sequence[complex]]) -> list[complex]:
 
 
 def digits(value: int, dimension: int, count: int) -> tuple[int, ...]:
-    """把非负整数按固定进制分解为 ``count`` 个数位，最低位在前。
+    """Decompose a non-negative integer into ``count`` digits in a fixed radix, least significant digit first.
 
-    与 ``pack`` 互为逆运算；``value`` 高于 ``count`` 位的部分被丢弃。
+    Inverse of ``pack``; the part of ``value`` above ``count`` digits is
+    discarded.
 
     Args:
-        value: 待分解的非负整数。
-        dimension: 进制基数。
-        count: 输出数位个数。
+        value: Non-negative integer to decompose.
+        dimension: Radix base.
+        count: Number of output digits.
 
     Returns:
-        tuple[int, ...]: 长度为 ``count`` 的数位元组。
+        tuple[int, ...]: Tuple of digits with length ``count``.
     """
     result: list[int] = []
     for _ in range(count):
@@ -210,41 +227,48 @@ def digits(value: int, dimension: int, count: int) -> tuple[int, ...]:
 
 
 def pack(values: Iterable[int], dimension: int) -> int:
-    """把低位在前的数位序列按固定进制合成为整数，为 ``digits`` 的逆。
+    """Combine a least-significant-first digit sequence into an integer in a fixed radix; inverse of ``digits``.
 
     Args:
-        values: 数位序列，第 i 项的权重为 ``dimension**i``。
-        dimension: 进制基数。
+        values: Digit sequence; the i-th entry carries weight
+            ``dimension**i``.
+        dimension: Radix base.
 
     Returns:
-        int: 各数位的加权和。
+        int: Weighted sum of the digits.
     """
     return sum(value * dimension**i for i, value in enumerate(values))
 
 
 class Discretization:
-    """多项式 PDE 在网格上的经典空间离散参考。
+    """Classical spatial discretization reference for a polynomial PDE on a grid.
 
-    单分量状态按 ``width`` 位编址：低 ``grid.spatial_width`` 位是补齐的
-    空间坐标，高 ``component_width`` 位选择场分量；端口矩阵元与闭包生成
-    元的行规则均基于差分模板求值并缓存。
+    The single-component state is addressed with ``width`` bits: the low
+    ``grid.spatial_width`` bits are the padded spatial coordinates and the high
+    ``component_width`` bits select the field component; the row rules for port
+    matrix elements and closure generators are both evaluated from difference
+    stencils and cached.
 
     Args:
-        pde: 待离散的 ``PolynomialPDE``，构造时会再次验证。
-        grid: 与 PDE 空间轴一致的网格。
-        known: 已知系数/强迫数据，键为已知场名，值为长度等于网格格点数
-            的数值序列，须覆盖 PDE 引用的全部已知场。
+        pde: The ``PolynomialPDE`` to discretize; validated again at
+            construction.
+        grid: Grid whose spatial axes match the PDE.
+        known: Known coefficient and forcing data, keyed by known field name
+            with numeric sequences of length equal to the grid point count as
+            values; must cover every known field referenced by the PDE.
 
     Attributes:
-        component_width: 场分量索引位宽。
-        width: 单分量状态总位宽。
-        dimension: 单分量状态维数 ``2**width``。
-        spatial_storage: 每个场分量占用的存储长度 ``2**spatial_width``。
-        ports: 端口名到 ``OperatorPort`` 的映射。
+        component_width: Bit width of the field component index.
+        width: Total bit width of a single-component state.
+        dimension: Dimension of a single-component state, ``2**width``.
+        spatial_storage: Storage length occupied by each field component,
+            ``2**spatial_width``.
+        ports: Mapping from port name to ``OperatorPort``.
 
     Raises:
-        ValidationError: PDE 未通过验证、PDE 与网格空间轴不同、缺少已知
-            数据或已知数据长度不等于网格格点数。
+        ValidationError: The PDE fails validation, the PDE and grid spatial
+            axes differ, known data is missing, or a known data length differs
+            from the grid point count.
     """
     def __init__(
         self,
@@ -252,10 +276,10 @@ class Discretization:
         grid: Grid,
         known: Mapping[str, Sequence[complex]] | None = None,
     ) -> None:
-        """绑定 PDE、网格与已知数据，并初始化派生宽度与缓存。"""
+        """Bind the PDE, grid, and known data, and initialize the derived widths and caches."""
         pde.validate()
         if tuple(pde.axes) != tuple(grid.axes):
-            raise ValidationError("PDE 与网格空间轴不同")
+            raise ValidationError("the PDE and the grid have different spatial axes")
         self.pde: PolynomialPDE = pde
         self.grid: Grid = grid
         self.component_width: int = (len(pde.fields) - 1).bit_length()
@@ -268,28 +292,29 @@ class Discretization:
         required = {a.name for t in pde.terms for a in t.monomial.known}
         if not required <= self.known.keys():
             raise ValidationError(
-                "缺少已知系数/强迫数据：" + ", ".join(sorted(required - self.known.keys()))
+                "missing known coefficient or forcing data: " + ", ".join(sorted(required - self.known.keys()))
             )
         if any(len(v) != grid.size for v in self.known.values()):
-            raise ValidationError("已知场数据必须覆盖物理网格")
+            raise ValidationError("known field data must cover the physical grid")
         self.ports: dict[str, OperatorPort] = {port.name: port for port in pde.ports}
         self._known_cache: dict[tuple[Atom, int], complex] = {}
         self._entry_cache: dict[tuple[str, int, int], complex] = {}
         self._row_entries_cache: dict[tuple[str, int], tuple[tuple[int, complex], ...]] = {}
 
     def known_value(self, atom: Atom, row: int) -> complex:
-        """求已知场原子在物理格点处的取值。
+        """Evaluate a known-field atom at a physical grid point.
 
-        对 ``atom.name`` 对应的已知数据施加 ``atom.derivative`` 的差分
-        模板并加权求和。
+        The difference stencil of ``atom.derivative`` is applied to the known
+        data for ``atom.name`` and summed with weights.
 
         Args:
-            atom: 已知场原子，可带空间导数说明。
-            row: 物理格点编号。
+            atom: Known-field atom, possibly carrying a spatial derivative
+                specification.
+            row: Physical grid point index.
 
         Returns:
-            complex: 该已知场（导数）在格点处的值，按 ``(atom, row)``
-            缓存。
+            complex: Value of the known field or its derivative at the grid
+            point, cached by ``(atom, row)``.
         """
         key = (atom, row)
         if key in self._known_cache:
@@ -302,35 +327,38 @@ class Discretization:
         return value
 
     def known_product(self, monomial: Monomial, row: int) -> complex:
-        """求单项式已知部分在物理格点处的乘积。
+        """Evaluate the product of the known part of a monomial at a physical grid point.
 
         Args:
-            monomial: PDE 单项式。
-            row: 物理格点编号。
+            monomial: PDE monomial.
+            row: Physical grid point index.
 
         Returns:
-            complex: ``monomial.coefficient`` 与各已知场原子取值（各自
-            带差分）的连乘积。
+            complex: Running product of ``monomial.coefficient`` and the values
+            of the known-field atoms, each carrying its own difference.
         """
         return monomial.coefficient * math.prod(
             self.known_value(atom, row) for atom in monomial.known
         )
 
     def entry(self, key: str, row: int, column: int) -> complex:
-        """求多线性端口的单个矩阵元。
+        """Evaluate a single matrix element of a multilinear port.
 
-        行是单分量状态索引（分量与空间坐标），列是 ``arity`` 个输入状态
-        索引按低位在前的混合基打包；逐项匹配输出分量与输入分量后，用
-        差分模板计算外导数、已知系数与各场导数的贡献。
+        The row is a single-component state index (component and spatial
+        coordinates) and the column packs ``arity`` input state indices in a
+        least-significant-first mixed radix; after matching output and input
+        components term by term, the contributions of the outer derivative,
+        known coefficients, and each field derivative are computed with
+        difference stencils.
 
         Args:
-            key: 端口名，如 ``L``、``F`` 或 ``B_i``。
-            row: 输出行索引。
-            column: 打包后的输入列索引。
+            key: Port name, e.g. ``L``, ``F``, or ``B_i``.
+            row: Output row index.
+            column: Packed input column index.
 
         Returns:
-            complex: 矩阵元；行或列越界时为 0。结果按
-            ``(key, row, column)`` 缓存。
+            complex: The matrix element; 0 when the row or column is out of
+            range. The result is cached by ``(key, row, column)``.
         """
         cache_key = (key, row, column)
         if cache_key in self._entry_cache:
@@ -363,15 +391,16 @@ class Discretization:
         return result
 
     def row_entries(self, key: str, row: int) -> tuple[tuple[int, complex], ...]:
-        """利用基础差分模板枚举行，不扫描 N^arity 个输入坐标。
+        """Enumerate a row from the base difference stencils without scanning N^arity input coordinates.
 
         Args:
-            key: 端口名，如 ``L``、``F`` 或 ``B_i``。
-            row: 输出行索引。
+            key: Port name, e.g. ``L``, ``F``, or ``B_i``.
+            row: Output row index.
 
         Returns:
-            tuple: 按列排序的 ``(打包列索引, 权重)`` 对，零权重被剔除；
-            ``row`` 越界时为空元组。结果按 ``(key, row)`` 缓存。
+            tuple: ``(packed column index, weight)`` pairs sorted by column,
+            zero weights dropped; an empty tuple when ``row`` is out of range.
+            The result is cached by ``(key, row)``.
         """
         import itertools
 
@@ -407,20 +436,21 @@ class Discretization:
         return self._row_entries_cache[cache_key]
 
     def qcl_row(self, plan: QHAMPlan, eta: complex, row: int) -> tuple[tuple[int, complex], ...]:
-        """枚举 QCL 闭包生成元在全局提升索引下的一行。
+        """Enumerate one row of the QCL closure generator under global lifted indices.
 
-        先用 ``plan.locate`` 定位行所属块与块内局部索引，再逐条线性边把
-        端口 ``row_entries`` 嵌入到源块坐标，并乘上同伦权重在 ``eta``
-        处的取值。
+        ``plan.locate`` first locates the owning block of the row and its local
+        index, then each linear edge embeds the port ``row_entries`` into the
+        source block coordinates and multiplies the homotopy weight evaluated
+        at ``eta``.
 
         Args:
-            plan: ``QHAMPlan`` 闭包计划。
-            eta: 同伦参数。
-            row: 闭包系统内的全局行索引。
+            plan: ``QHAMPlan`` closure plan.
+            eta: Homotopy parameter.
+            row: Global row index within the closure system.
 
         Returns:
-            tuple: 按列排序的 ``(全局列索引, 权重)`` 对，零权重被剔除；
-            ``row`` 越界时为空元组。
+            tuple: ``(global column index, weight)`` pairs sorted by column,
+            zero weights dropped; an empty tuple when ``row`` is out of range.
         """
         if not 0 <= row < plan.raw_dimension(self.dimension):
             return ()
@@ -440,33 +470,35 @@ class Discretization:
         return tuple((column, value) for column, value in sorted(result.items()) if value)
 
     def qcl_entry(self, plan: QHAMPlan, eta: complex, row: int, column: int) -> complex:
-        """可用于审阅的经典 entry reference，不冒充可逆量子 oracle。
+        """Classical entry reference usable for review; does not masquerade as a reversible quantum oracle.
 
         Args:
-            plan: ``QHAMPlan`` 闭包计划。
-            eta: 同伦参数。
-            row: 闭包系统内的全局行索引。
-            column: 闭包系统内的全局列索引。
+            plan: ``QHAMPlan`` closure plan.
+            eta: Homotopy parameter.
+            row: Global row index within the closure system.
+            column: Global column index within the closure system.
 
         Returns:
-            complex: 闭包生成元在指定行列处的矩阵元；任一索引越界时为 0。
+            complex: Matrix element of the closure generator at the given row
+            and column; 0 when either index is out of range.
         """
         return dict(self.qcl_row(plan, eta, row)).get(column, 0j)
 
     def apply_port(self, key: str, vectors: Sequence[Sequence[complex]]) -> list[complex]:
-        """直接对场求导并相乘，用于独立验证矩阵端口/闭包规则。
+        """Differentiate and multiply the fields directly, for independent validation of the port and closure rules.
 
         Args:
-            key: 端口名，如 ``L``、``F`` 或 ``B_i``。
-            vectors: 输入状态向量序列，个数须等于端口元数，每个向量长度
-                须为 ``dimension``。
+            key: Port name, e.g. ``L``, ``F``, or ``B_i``.
+            vectors: Sequence of input state vectors; its length must equal the
+                port arity and each vector must have length ``dimension``.
 
         Returns:
-            list[complex]: 长度为 ``dimension`` 的端口多线性求值结果。
+            list[complex]: Multilinear evaluation of the port with length
+            ``dimension``.
         """
         port = self.ports[key]
         if len(vectors) != port.arity or any(len(v) != self.dimension for v in vectors):
-            raise ValidationError("多线性端口的输入数目/维度不符")
+            raise ValidationError("multilinear port input count or dimension mismatch")
         result = [0j] * self.dimension
         for term in port.terms:
             m = term.monomial
@@ -489,26 +521,28 @@ class Discretization:
         return result
 
     def ham_rhs(self, values: Sequence[Sequence[complex]], eta: complex) -> list[list[complex]]:
-        """按 HAM 递推计算各阶分量 ``Ui'`` 的经典右端。
+        """Compute the classical right-hand sides of the order components ``Ui'`` by the HAM recursion.
 
-        ``U0' = L U0 + f``；``Ui' = L Ui - eta*sum_l (1+eta)^(i-1-l) C_l``，
-        其中 ``C_l`` 是非线性端口在阶数拆分 ``l`` 上的多线性求值。
+        ``U0' = L U0 + f``; ``Ui' = L Ui - eta*sum_l (1+eta)^(i-1-l) C_l``,
+        where ``C_l`` is the multilinear evaluation of the nonlinear ports on
+        the order split ``l``.
 
         Args:
-            values: 各阶分量 ``[U0, ..., Um]``，每个均为长度
-                ``dimension`` 的向量。
-            eta: 同伦参数。
+            values: Order components ``[U0, ..., Um]``, each a vector of length
+                ``dimension``.
+            eta: Homotopy parameter.
 
         Returns:
-            list: 与 ``values`` 等长的向量列表，第 i 项为 ``Ui'``。
+            list: List of vectors with the same length as ``values``; the i-th
+            entry is ``Ui'``.
 
         Raises:
-            ValidationError: 某个向量长度不等于 ``dimension``。
+            ValidationError: Some vector length differs from ``dimension``.
         """
         size = self.dimension
 
         def linear(v: Sequence[complex]) -> list[complex]:
-            """线性端口 ``L`` 对单个分量的作用；无 ``L`` 端口时返回零向量。"""
+            """Action of the linear port ``L`` on a single component; returns the zero vector when no ``L`` port exists."""
             return self.apply_port("L", [v]) if "L" in self.ports else [0j] * size
 
         forcing = self.apply_port("F", []) if "F" in self.ports else [0j] * size
@@ -527,18 +561,19 @@ class Discretization:
         return result
 
     def lift(self, plan: QHAMPlan, values: Sequence[Sequence[complex]]) -> list[complex]:
-        """把各阶分量提升到闭包系统的块布局。
+        """Lift the order components into the block layout of the closure system.
 
-        物理块放各阶分量之和；张量块放各因子按 ``tensor_values`` 的
-        张量积；空字常量块恒为 1。
+        The physical block holds the sum of the order components; tensor blocks
+        hold the tensor products of their factors via ``tensor_values``; the
+        empty-word constant block is identically 1.
 
         Args:
-            plan: ``QHAMPlan`` 闭包计划。
-            values: 各阶分量 ``[U0, ..., Um]`` 向量。
+            plan: ``QHAMPlan`` closure plan.
+            values: Order-component vectors ``[U0, ..., Um]``.
 
         Returns:
-            list[complex]: 长度为 ``plan.raw_dimension(dimension)`` 的
-            提升向量。
+            list[complex]: Lifted vector with length
+            ``plan.raw_dimension(dimension)``.
         """
         result = [0j] * plan.raw_dimension(self.dimension)
         for block in plan.blocks():
@@ -553,23 +588,24 @@ class Discretization:
     def chain_rule(
         self, plan: QHAMPlan, values: Sequence[Sequence[complex]], eta: complex
     ) -> list[complex]:
-        """用乘积法则直接计算提升向量对时间的导数。
+        """Compute the time derivative of the lifted vector directly with the product rule.
 
-        对 ``lift`` 输出的每个张量因子位置求导并代入 ``ham_rhs`` 得到的
-        各阶 ``Ui'``；结果应与生成元矩阵作用于提升向量逐分量一致，构成
-        独立的数学见证。
+        Each tensor-factor position of the ``lift`` output is differentiated
+        and the order-wise ``Ui'`` from ``ham_rhs`` substituted; the result
+        should agree component by component with the generator matrix acting on
+        the lifted vector, forming an independent mathematical witness.
 
         Args:
-            plan: ``QHAMPlan`` 闭包计划。
-            values: 各阶分量 ``[U0, ..., Um]`` 向量。
-            eta: 同伦参数。
+            plan: ``QHAMPlan`` closure plan.
+            values: Order-component vectors ``[U0, ..., Um]``.
+            eta: Homotopy parameter.
 
         Returns:
-            list[complex]: 长度为 ``plan.raw_dimension(dimension)`` 的
-            导数向量。
+            list[complex]: Derivative vector with length
+            ``plan.raw_dimension(dimension)``.
 
         Raises:
-            ValidationError: 某个向量长度不等于 ``dimension``。
+            ValidationError: Some vector length differs from ``dimension``.
         """
         rhs = self.ham_rhs(values, eta)
         result = [0j] * plan.raw_dimension(self.dimension)
@@ -591,19 +627,20 @@ class Discretization:
     def linear_action(
         self, plan: QHAMPlan, eta: complex, values: Sequence[complex]
     ) -> list[complex]:
-        """逐个块行作用，避免存储 raw_dimension^2 个矩阵元。
+        """Act block row by block row, avoiding storage of raw_dimension^2 matrix elements.
 
         Args:
-            plan: ``QHAMPlan`` 闭包计划。
-            eta: 同伦参数。
-            values: 长度为 ``plan.raw_dimension(dimension)`` 的提升向量。
+            plan: ``QHAMPlan`` closure plan.
+            eta: Homotopy parameter.
+            values: Lifted vector of length ``plan.raw_dimension(dimension)``.
 
         Returns:
-            list[complex]: 闭包生成元作用后的向量，与输入向量同长度。
+            list[complex]: Vector after the closure generator acts, with the
+            same length as the input vector.
         """
         size = plan.raw_dimension(self.dimension)
         if len(values) != size:
-            raise ValidationError("提升向量维数错误")
+            raise ValidationError("wrong lifted vector dimension")
         result = [0j] * size
         for block in plan.blocks():
             offset = plan.offset(block, self.dimension)
@@ -630,23 +667,24 @@ class Discretization:
     def matrix(
         self, plan: QHAMPlan, eta: complex, *, max_dimension: int = 512
     ) -> list[list[complex]]:
-        """物化闭包生成元的完整方阵。
+        """Materialize the full square matrix of the closure generator.
 
         Args:
-            plan: ``QHAMPlan`` 闭包计划。
-            eta: 同伦参数。
-            max_dimension: 允许物化的最大总维数。
+            plan: ``QHAMPlan`` closure plan.
+            eta: Homotopy parameter.
+            max_dimension: Maximum total dimension allowed for
+                materialization.
 
         Returns:
-            list: ``plan.raw_dimension(dimension)`` 阶的复数方阵，按行
-            组织。
+            list: Square complex matrix of order
+            ``plan.raw_dimension(dimension)``, organized by row.
 
         Raises:
-            ValidationError: 总维数超过 ``max_dimension``。
+            ValidationError: The total dimension exceeds ``max_dimension``.
         """
         size = plan.raw_dimension(self.dimension)
         if size > max_dimension:
-            raise ValidationError("仅小规模数学见证允许物化 G；请使用惰性行规则")
+            raise ValidationError("materializing G is only allowed for small-scale mathematical witnesses; use the lazy row rules instead")
         result = [[0j] * size for _ in range(size)]
         for block in plan.blocks():
             offset = plan.offset(block, self.dimension)
@@ -673,25 +711,28 @@ class Discretization:
         return result
 
     def encode_fields(self, values: Mapping[str, Sequence[complex]]) -> tuple[complex, ...]:
-        """把按场分量给出的初始数据打包成单分量状态向量。
+        """Pack initial data given per field component into a single-component state vector.
 
         Args:
-            values: 键为场分量名、值为长度等于网格格点数的数据序列，
-                须覆盖全部分量。
+            values: Mapping keyed by field component name with data sequences
+                of length equal to the grid point count as values; must cover
+                all components.
 
         Returns:
-            tuple[complex]: 长度为 ``dimension`` 的向量，第 c 个分量占据
-            ``[c*spatial_storage, c*spatial_storage+size)`` 的坐标。
+            tuple[complex]: Vector of length ``dimension`` whose c-th component
+            occupies the coordinates ``[c*spatial_storage,
+            c*spatial_storage+size)``.
 
         Raises:
-            ValidationError: 分量集合不全或数据长度不匹配。
+            ValidationError: The component set is incomplete or a data length
+                mismatches.
         """
         if set(values) != set(self.pde.fields):
-            raise ValidationError("初始场必须覆盖全部分量")
+            raise ValidationError("initial fields must cover all components")
         output = [0j] * self.dimension
         for component, name in enumerate(self.pde.fields):
             if len(values[name]) != self.grid.size:
-                raise ValidationError("初始场长度不匹配")
+                raise ValidationError("initial field length mismatch")
             output[
                 component * self.spatial_storage : component * self.spatial_storage + self.grid.size
             ] = map(complex, values[name])

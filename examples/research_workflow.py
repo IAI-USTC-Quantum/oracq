@@ -1,4 +1,4 @@
-"""从开放程序比较三种 oracle 实现；--native 启用真实后端对拍。"""
+"""Compare three oracle implementations from one open program; --native enables cross-checking against the real backend."""
 
 from __future__ import annotations
 

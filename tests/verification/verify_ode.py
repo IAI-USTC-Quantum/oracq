@@ -1,27 +1,37 @@
-"""ODE 组（Carleman/LCHS/CBMD/Schrödingerization/ode/ode_models）论文级数值验证。
+"""Publication-grade numerical validation of the ODE group (Carleman/LCHS/CBMD/Schrodingerization/ode/ode_models).
 
-覆盖源文件：algorithms/ode.py、ode_models.py、carleman.py、lchs.py、
-schrodingerization.py、cbmd.py。
+Source files covered: algorithms/ode.py, ode_models.py, carleman.py, lchs.py,
+schrodingerization.py, cbmd.py.
 
-验证结构（全部真实执行，无 mock/skip）：
+Validation structure (all really executed, no mocks/skips):
 
-- 子结构：taylor_hamiltonian 编码块、fourier_momentum 动量块、Carleman 提升块
-  （OriginIR-ext → UniQC ``to_matrix`` 全幺正 + ``effective_block`` 提取，
-  并与 reference 基态扫描交叉）、carleman_initial 提升初态四路径对拍、
-  CBMD/LCHS 计划权重对独立闭式与轮廓恒等式残差。
-- 端到端（多输入模型）：LCHS 在五种输入范式下（整体 BE / 直接 Hermitian parts /
-  对角谱角数据库 gate 与 QRAM 绑定 / Fokker–Planck Pauli 展开 + QODEProblem /
-  结构化热方程移位 BE）与 numpy 仿真逐振幅一致（实现误差），并报告与
-  scipy ``expm`` 精确解的方法误差（求积/Taylor 余项，库中标注 pending）。
-- CBMD 与 LCHS 同一非对易问题对拍；Schrödingerization 两案例（网格平移精确的
-  标量衰减、解析可解的旋转）做恢复幅值验证；Carleman 以注入的最小 Taylor
-  协议求解器（真实 BE 组装）跑 Riccati 端到端，分解 Taylor 余项与截断误差，
-  并做截断阶 K=1,2 的量子收敛趋势（K=3 仅经典补点）。
+- Substructures: the taylor_hamiltonian encoding block, the fourier_momentum
+  block, the Carleman lifting block (OriginIR-ext -> UniQC ``to_matrix`` full
+  unitary + ``effective_block`` extraction, cross-checked against a reference
+  basis-state sweep), the carleman_initial lifted initial state on four paths,
+  and CBMD/LCHS plan weights against independent closed forms and the contour
+  identity residual.
+- End to end (multiple input models): LCHS under five input paradigms (a whole
+  BE / direct Hermitian parts / diagonal spectral-angle databases with gate
+  and QRAM bindings / Fokker-Planck Pauli expansion + QODEProblem / the
+  structured shifted BE of the heat equation) agrees amplitude by amplitude
+  with numpy simulation (implementation error), and the method error versus
+  the scipy ``expm`` exact solution (quadrature/Taylor remainders, marked
+  pending in the library) is reported.
+- CBMD and LCHS cross-checked on the same non-commuting problem; two
+  Schrodingerization cases (grid-translation-exact scalar decay and an
+  analytically solvable rotation) validate the recovered magnitudes; Carleman
+  runs Riccati end to end with an injected minimal Taylor-protocol solver (a
+  real BE assembly), decomposing the Taylor remainder from the truncation
+  error, and reports the quantum convergence trend for truncation orders
+  K=1,2 (K=3 only as a classical extra point).
 
-经典参考全部独立：numpy/scipy（``expm``、``solve_ivp``、解析旋转/衰减、
-Fourier 特征值）与按公式直接求值的计划恒等式；不复用被测组装逻辑生成期望值。
+All classical references are independent: numpy/scipy (``expm``,
+``solve_ivp``, analytic rotation/decay, Fourier eigenvalues) and plan
+identities evaluated directly from their formulas; expected values never
+reuse the assembly logic under test.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_ode.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_ode.py
 """
 
 from __future__ import annotations
@@ -76,12 +86,12 @@ RUN_KWARGS = {"max_steps": 1 << 30, "max_states": 1 << 22}
 
 
 # ---------------------------------------------------------------------------
-# 独立经典参考（numpy/scipy/解析公式）
+# Independent classical references (numpy/scipy/analytic formulas)
 # ---------------------------------------------------------------------------
 
 
 def taylor_matrix(k_mat, time, degree):
-    """sum_{l<=degree} (-i t)^l/l! K^l（独立矩阵幂递推）。"""
+    """sum_{l<=degree} (-i t)^l/l! K^l (independent matrix-power recursion)."""
     result = np.zeros_like(k_mat)
     term = np.eye(k_mat.shape[0], dtype=complex)
     for order in range(degree + 1):
@@ -91,7 +101,7 @@ def taylor_matrix(k_mat, time, degree):
 
 
 def ode_taylor_series(g_mat, time, degree):
-    """sum_{l<=degree} t^l/l! G^l：ODE 传播子 e^{Gt} 的截断级数（独立参考）。"""
+    """sum_{l<=degree} t^l/l! G^l: the truncated series of the ODE propagator e^{Gt} (independent reference)."""
     result = np.zeros_like(g_mat)
     term = np.eye(g_mat.shape[0], dtype=complex)
     for order in range(degree + 1):
@@ -101,26 +111,28 @@ def ode_taylor_series(g_mat, time, degree):
 
 
 def qft_matrix(width):
-    """正号 DFT 矩阵 exp(2πi x y/N)/√N（与 fourier.qft 的文档约定一致）。"""
+    """Positive-sign DFT matrix exp(2*pi*i*x*y/N)/sqrt(N) (matching the documented convention of fourier.qft)."""
     n = 1 << width
     index = np.arange(n).reshape(-1, 1)
-    return np.exp(2j * np.pi * (index @ index.T) / n) / math.sqrt(n)
+    return np.exp(2j * math.pi * (index @ index.T) / n) / math.sqrt(n)
 
 
 def momentum_matrix(width, period):
-    """fourier_momentum 的对角参考：二补码有符号频率 × 2π/period。"""
+    """Diagonal reference of fourier_momentum: two's-complement signed frequencies x 2*pi/period."""
     n = 1 << width
     signed = [k if k < (1 << (width - 1)) else k - (1 << width) for k in range(n)]
     return np.diag(np.array(signed) * 2 * math.pi / period)
 
 
 def assemble_carleman_lift(f_operators, cutoff):
-    """补齐布局下 Carleman 提升生成元的独立 numpy 组装。
+    """Independent numpy assembly of the Carleman-lifted generator under the padded layout.
 
-    布局：target = data（cutoff 组，每组 n 位，低位）+ level（高位）。
-    基态 |data, level> 仅当 level 以上组全零时有效；项 (k, p, position)
-    把 level=k+p-1 的数据经 F_p 收缩后写入 level=k：组 pos 放 F_p 输出，
-    剩余源组 pos+p.. 下移 p-1 个位置（与 _carleman_term 的 swap 一致）。
+    Layout: target = data (cutoff groups, n bits each, low positions) + level
+    (high position). The basis state |data, level> is valid only when the
+    groups above level are all zero; the term (k, p, position) writes data of
+    level=k+p-1 contracted through F_p into level=k: group pos receives the
+    F_p output while the remaining source groups pos+p.. shift down by p-1
+    positions (consistent with the swap in _carleman_term).
     """
     n = f_operators[1].shape[0].bit_length() - 1
     lb = cutoff.bit_length()
@@ -149,16 +161,16 @@ def assemble_carleman_lift(f_operators, cutoff):
                         amp = f_mat[vout, vin]
                         if not amp:
                             continue
-                        new_data = data & ((1 << (pos * n)) - 1)  # pos 之前的组不变
+                        new_data = data & ((1 << (pos * n)) - 1)  # groups before pos unchanged
                         new_data |= vout << (pos * n)
-                        for j in range(pos + 1, k):  # 剩余源组下移 p-1 位
+                        for j in range(pos + 1, k):  # remaining source groups shift down p-1 positions
                             new_data |= ((data >> ((j + p - 1) * n)) & group) << (j * n)
                         g_mat[index(new_data, k), col] += amp
     return g_mat
 
 
 def lifted_initial(u0, initial_norm, cutoff):
-    """carleman_initial 的独立参考：1/Z Σ_k r^k u0^⊗k（补齐布局）。"""
+    """Independent reference of carleman_initial: 1/Z sum_k r^k u0^{tensor k} (padded layout)."""
     n = len(u0).bit_length() - 1
     lb = cutoff.bit_length()
     norm = math.sqrt(sum(initial_norm ** (2 * k) for k in range(cutoff + 1)))
@@ -176,10 +188,12 @@ def lifted_initial(u0, initial_norm, cutoff):
 def schrodinger_emulate(
     g_mat, u0, time, plan, degree, alpha_e, *, exact_evolution=False, flip_momentum=False
 ):
-    """Schrödingerization 全堆叠独立仿真：warp→QFT→Taylor(或精确 exp)→逆 QFT→通道。
+    """Independent full-stack simulation of Schrodingerization: warp -> QFT -> Taylor (or exact exp) -> inverse QFT -> channel.
 
-    flip_momentum=True 对应 K' = -P⊗H1 - I⊗H2（库修复后的约定）；历史上库曾
-    装配 +P⊗H1 项，恢复时间反演流，验证发现与修复记录见组报告。
+    flip_momentum=True corresponds to K' = -P tensor H1 - I tensor H2 (the
+    post-fix library convention); historically the library assembled the
+    +P tensor H1 term, recovering a time-reversed flow -- the verification
+    finding and fix are recorded in the group report.
     """
     n = (g_mat.shape[0] - 1).bit_length()
     p = plan.auxiliary_width
@@ -198,7 +212,7 @@ def schrodinger_emulate(
     f_mat = qft_matrix(p)
     warp = np.exp(-np.abs(grid))
     warp = warp / np.linalg.norm(warp)
-    init = np.kron(warp, u0)  # aux 高位、物理低位
+    init = np.kron(warp, u0)  # aux high, physical low
     out = np.kron(f_mat.conj().T, np.eye(1 << n)) @ (
         evolution @ (np.kron(f_mat, np.eye(1 << n)) @ init)
     )
@@ -206,7 +220,7 @@ def schrodinger_emulate(
 
 
 def lchs_emulate(l_mat, h_mat, nodes, weights, time, degree, alpha_v, u0):
-    """LCHS/CBMD 有限求和 + 截断 Taylor 的独立仿真，返回后选择块 Ṽ|u0>/alpha_V。"""
+    """Independent simulation of the LCHS/CBMD finite sum + truncated Taylor; returns the post-selected block V~|u0>/alpha_V."""
     v_mat = np.zeros((len(u0), len(u0)), dtype=complex)
     for node, weight in zip(nodes, weights, strict=True):
         v_mat = v_mat + weight * taylor_matrix(h_mat + node * l_mat, time, degree)
@@ -214,12 +228,12 @@ def lchs_emulate(l_mat, h_mat, nodes, weights, time, degree, alpha_v, u0):
 
 
 # ---------------------------------------------------------------------------
-# 量子侧辅助
+# Quantum-side helpers
 # ---------------------------------------------------------------------------
 
 
 def postselect(amplitudes, signal_index=1, signal_value=0):
-    """从 (target, signal) 振幅字典提取 signal==value 的块与成功概率。"""
+    """Extract the signal==value block and success probability from a (target, signal) amplitude dictionary."""
     block = {}
     success = 0.0
     for key, amplitude in amplitudes.items():
@@ -230,7 +244,7 @@ def postselect(amplitudes, signal_index=1, signal_value=0):
 
 
 def run_amplitude_paths(program, paths, memory=None):
-    """按路径名执行并统一为振幅字典；originir-ext 用态向量换算。"""
+    """Execute per path name and unify into amplitude dictionaries; originir-ext converted from the state vector."""
     results = {}
     for path in paths:
         if path == "originir-ext":
@@ -255,14 +269,18 @@ def run_amplitude_paths(program, paths, memory=None):
 
 
 def compare_path_blocks(results):
-    """逐路径提取物理块并给出三级交叉指标。
+    """Extract the physical block per path and produce three-level cross metrics.
 
-    - block_dev：全路径物理块（signal==0）两两最大偏差——物理结果一致性的严格判据；
-    - exact_dev：reference 与 originir-ext 的全谱两两偏差（两路径均已验证到 1e-17 量级）；
-    - pysparq_floor：pysparq 系两路径与 reference 的全谱最大偏差（信息性）。
-      pysparq 在含数千旋转的深 LCU 程序上对 junk 分支有数值地板：剪除 <1e-7 的
-      小振幅并对 ~1e-5 分支出现 ~0.3% 相对抖动（reference 与 originir-ext 在此
-      类分支上完全一致，故定位为 pysparq 侧工件，见组报告）。
+    - block_dev: pairwise maximum deviation of the physical blocks (signal==0)
+      across all paths -- the strict criterion of physical-result agreement;
+    - exact_dev: full-spectrum pairwise deviation between reference and
+      originir-ext (both paths verified to the 1e-17 level);
+    - pysparq_floor: maximum full-spectrum deviation of the pysparq paths from
+      reference (informative). pysparq has a numerical floor on junk branches
+      for deep LCU programs containing thousands of rotations: amplitudes
+      below 1e-7 are pruned and ~1e-5 branches show ~0.3% relative jitter
+      (reference and originir-ext agree exactly on such branches, so this is
+      identified as a pysparq-side artifact; see the group report).
     """
     blocks = {name: postselect(amplitudes)[0] for name, amplitudes in results.items()}
     names = list(blocks)
@@ -291,7 +309,7 @@ def compare_path_blocks(results):
 
 
 def extract_block_reference(be, dim):
-    """reference 基态扫描提取 BE 的 <0|U|0>·alpha 块（独立于幺正导出路径）。"""
+    """Extract the <0|U|0>*alpha block of a BE via a reference basis-state sweep (independent of the unitary-export path)."""
     program = be.operation.program()
     block = np.zeros((dim, dim), dtype=complex)
     for x in range(dim):
@@ -303,16 +321,16 @@ def extract_block_reference(be, dim):
 
 
 def evolution_alpha(state_oracle, key="evolution_alpha"):
-    """从程序模块属性中读取注入求解器记录的演化 alpha（标量元数据）。"""
+    """Read the evolution alpha recorded by the injected solver from the program module attributes (scalar metadata)."""
     for module in state_oracle.operation.program().modules:
         attrs = dict(module.attributes)
         if key in attrs:
             return attrs[key]
-    raise AssertionError(f"未找到属性 {key}")
+    raise AssertionError(f"attribute {key} not found")
 
 
 def schrodinger_alpha(g_be, plan, time, degree):
-    """重建 Schrödingerization 的 K/E 块编码链以读取标量 alpha（元数据）。"""
+    """Rebuild the K/E block-encoding chain of Schrodingerization to read the scalar alpha (metadata)."""
     parts = HermitianParts.from_operator(g_be)
     momentum = fourier_momentum(plan.auxiliary_width, plan.period)
     k_be = lcu(
@@ -325,11 +343,13 @@ def schrodinger_alpha(g_be, plan, time, degree):
 
 
 def taylor_series_solver(generator, initial, time, *, degree):
-    """注入的最小三参数线性 QODE 协议求解器：e^{Gt} 的截断 Taylor 级数 BE。
+    """Injected minimal three-argument linear QODE protocol solver: the truncated Taylor-series BE of e^{Gt}.
 
-    与库内 taylor_hamiltonian 同为真实块编码组装（lcu/product/apply_be_to_state），
-    直接面向 u'=Gu（非 Hermitian 生成元亦可），用于 carleman_qode 的协议注入
-    端到端验证；它不是库内求解器的替身，而是协议允许的另一种真实实现。
+    Like the in-library taylor_hamiltonian, it is a real block-encoding
+    assembly (lcu/product/apply_be_to_state) targeting u' = Gu directly
+    (non-Hermitian generators allowed); it is used for the protocol-injection
+    end-to-end validation of carleman_qode; it is not a stand-in for an
+    in-library solver but another real implementation the protocol permits.
     """
     terms, current = [(1.0, identity(generator.width))], identity(generator.width)
     for order in range(1, degree + 1):
@@ -350,12 +370,15 @@ def taylor_series_solver(generator, initial, time, *, degree):
 
 
 def schrodinger_sign_flipped_qode(g_be, initial, time, plan, *, degree):
-    """K' = -P⊗H1 - I⊗H2 的 Schrödingerization 独立重组装（真实量子程序）。
+    """Independent re-assembly of Schrodingerization with K' = -P tensor H1 - I tensor H2 (a real quantum program).
 
-    库内 schrodingerization 曾装配 K = P⊗H1 - I⊗H2，在正 QFT 约定下恢复
-    e^{+t}·u0（时间反演流，验证发现见组报告）；修复后库约定即本函数装配的
-    K'。此处用公开组合子独立重组装同一构造，作为符号约定的回归钉：与库
-    程序逐振幅一致即符号未被回退。
+    The in-library schrodingerization used to assemble K = P tensor H1 -
+    I tensor H2, recovering e^{+t}*u0 under the positive-QFT convention (a
+    time-reversed flow; the verification finding is in the group report);
+    after the fix the library convention is the K' this function assembles.
+    The same construction is independently re-assembled here from public
+    combinators, serving as a regression pin for the sign convention: amplitude
+    agreement with the library program means the sign has not regressed.
     """
     from oracq.algorithms.common.fourier import qft_with_work as qft
     from oracq.algorithms.common.state_preparation import select_subspace
@@ -407,18 +430,18 @@ def schrodinger_sign_flipped_qode(g_be, initial, time, plan, *, degree):
             "unitary",
             algorithm="schrodingerization_sign_flipped",
             correctness="pending",
-            note="K'=-P⊗H1-I⊗H2 独立重组装（符号回归钉，与修复后库约定一致）",
+            note="K'=-P tensor H1-I tensor H2 independent re-assembly (sign regression pin, matching the post-fix library convention)",
         )
     )
 
 
 # ---------------------------------------------------------------------------
-# A. 子结构正确性
+# A. Substructure correctness
 # ---------------------------------------------------------------------------
 
 
 def verify_taylor_hamiltonian_block(report):
-    """taylor_hamiltonian 的编码块 = 截断 Taylor 矩阵（幺正提取 + reference 对拍）。"""
+    """The taylor_hamiltonian encoding block = the truncated Taylor matrix (unitary extraction + reference cross-check)."""
     k_mat = 0.7 * np.array([[0, 1], [1, 0]]) + 0.3 * np.diag([1.0, -1.0])
     k_be = matrix_pauli_encoding(k_mat.tolist())
     time, degree = 0.2, 3
@@ -429,7 +452,7 @@ def verify_taylor_hamiltonian_block(report):
     err_unitary = float(np.abs(block * e_be.alpha - expected).max())
     err_reference = float(np.abs(extract_block_reference(e_be, 2) - expected).max())
     worst = max(err_unitary, err_reference)
-    # BE 契约：块是收缩（算子范数 ≤ 1）；块外幅度是设计内的 junk，不是误差
+    # BE contract: the block is a contraction (operator norm <= 1); out-of-block amplitudes are by-design junk, not error
     block_norm = float(np.linalg.svd(block, compute_uv=False).max())
     report.case(
         "taylor-hamiltonian-block",
@@ -442,13 +465,13 @@ def verify_taylor_hamiltonian_block(report):
             "block_operator_norm": block_norm,
             "junk_amplitude": leakage,
         },
-        criterion="编码块逐元素等于截断 Taylor 矩阵（max_error < 1e-9），块算子范数 ≤ 1+1e-9",
+        criterion="encoding block equals the truncated Taylor matrix element-wise (max_error < 1e-9), block operator norm <= 1+1e-9",
         passed=worst < 1e-9 and block_norm <= 1 + 1e-9,
     )
 
 
 def verify_fourier_momentum_block(report):
-    """fourier_momentum 的编码块 = 二补码有符号频率对角矩阵。"""
+    """The fourier_momentum encoding block = the two's-complement signed-frequency diagonal matrix."""
     width, period = 2, 8.0
     p_be = fourier_momentum(width, period)
     unitary = originir_unitary(p_be.operation.program())
@@ -463,16 +486,16 @@ def verify_fourier_momentum_block(report):
         paths=["originir-ext+to_matrix", "reference"],
         parameters={"width": width, "period": period, "alpha_P": p_be.alpha},
         metrics={"max_error": worst, "block_operator_norm": block_norm, "junk_amplitude": leakage},
-        criterion="编码块逐元素等于有符号频率对角矩阵（max_error < 1e-9），块算子范数 ≤ 1+1e-9",
+        criterion="encoding block equals the signed-frequency diagonal matrix element-wise (max_error < 1e-9), block operator norm <= 1+1e-9",
         passed=worst < 1e-9 and block_norm <= 1 + 1e-9,
     )
 
 
 def _riccati_problem():
-    """u' = -u + u⊙u（分量 Riccati）：F1 = -I，F2 为收缩矩阵 C。"""
+    """u' = -u + u*u (componentwise Riccati): F1 = -I, F2 is the contraction matrix C."""
     f1 = scale(-1, identity(1))
     contraction = np.zeros((4, 4))
-    contraction[0, 0] = 1.0  # 输入 factor0 在低位：C e_{i0+2 i1} = δ(i0,i1) e_{i0}
+    contraction[0, 0] = 1.0  # input factor0 in the low position: C e_{i0+2 i1} = delta(i0,i1) e_{i0}
     contraction[1, 3] = 1.0
     f2 = matrix_pauli_encoding(contraction.tolist())
     u0 = np.array([0.6, 0.8])
@@ -482,13 +505,14 @@ def _riccati_problem():
 
 
 def verify_carleman_lift_block(report):
-    """carleman_lift 的编码块 = 独立组装的补齐布局提升生成元 G_K。"""
+    """The carleman_lift encoding block = the independently assembled padded-layout lifted generator G_K."""
     problem, matrices, _ = _riccati_problem()
     cutoff = 2
     lift = carleman_lift(problem, cutoff=cutoff)
     expected = assemble_carleman_lift(matrices, cutoff)
-    # 16 基态的 reference 扫描在该规模下过慢（约 50s），此处以全幺正提取为准；
-    # reference 基态扫描路径由 taylor-hamiltonian-block 等小案例承担。
+    # A reference sweep over 16 basis states is too slow at this scale (about 50 s), so the full-unitary
+    # extraction is authoritative here; the reference basis-sweep path is covered by smaller cases such as
+    # taylor-hamiltonian-block.
     unitary = originir_unitary(lift.operation.program())
     block, leakage = effective_block(unitary, lift.width)
     worst = float(np.abs(block * lift.alpha - expected).max())
@@ -501,17 +525,17 @@ def verify_carleman_lift_block(report):
             "width": lift.width,
             "signal": lift.signal_qubits,
             "alpha_G": lift.alpha,
-            "problem": "u'=-u+u⊙u, F1=-I, F2=收缩 C",
-            "reference_skipped": "16 基态扫描在该规模下超出时间预算（信息性）",
+            "problem": "u'=-u+u*u, F1=-I, F2=contraction C",
+            "reference_skipped": "16-basis-state sweep exceeds the time budget at this scale (informative)",
         },
         metrics={"max_error": worst, "block_operator_norm": block_norm, "junk_amplitude": leakage},
-        criterion="提升生成元块逐元素等于独立组装（max_error < 1e-9），块算子范数 ≤ 1+1e-9",
+        criterion="lifted-generator block equals the independent assembly element-wise (max_error < 1e-9), block operator norm <= 1+1e-9",
         passed=worst < 1e-9 and block_norm <= 1 + 1e-9,
     )
 
 
 def verify_carleman_initial(report):
-    """carleman_initial 的振幅 = 1/Z Σ r^k u0^⊗k（四路径全振幅对拍）。"""
+    """carleman_initial amplitudes = 1/Z sum r^k u0^{tensor k} (four-path full-amplitude cross-check)."""
     problem, matrices, u0 = _riccati_problem()
     cutoff = 2
     prep = carleman_initial(problem, cutoff=cutoff)
@@ -525,14 +549,14 @@ def verify_carleman_initial(report):
         paths=list(results),
         parameters={"cutoff": cutoff, "initial_norm": problem.initial_norm, "u0": list(u0)},
         metrics={"max_error": worst, "branches": len(expected)},
-        criterion="提升初态逐振幅等于独立张量幂参考（max_error < 1e-9）",
+        criterion="lifted initial state equals the independent tensor-power reference amplitude by amplitude (max_error < 1e-9)",
         passed=worst < 1e-9,
     )
 
 
 def verify_quadrature_plans(report):
-    """QuadraturePlan.cauchy 与 ContourPlan 的节点/权重对独立闭式；轮廓恒等式残差。"""
-    # LCHS Cauchy 计划：w = h/(π(1+k²))
+    """QuadraturePlan.cauchy and ContourPlan nodes/weights against independent closed forms; contour-identity residual."""
+    # LCHS Cauchy plan: w = h/(pi(1+k^2))
     plan = QuadraturePlan.cauchy(cutoff=4, spacing=0.75)
     dev_nodes = max(abs(a - b) for a, b in zip(plan.nodes, [k * 0.75 for k in range(-4, 5)], strict=True))
     dev_weights = max(
@@ -545,10 +569,10 @@ def verify_quadrature_plans(report):
         paths=["plan-objects"],
         parameters={"cutoff": 4, "spacing": 0.75},
         metrics={"max_error": worst_lchs},
-        criterion="节点/权重与独立闭式 h/(π(1+k²)) 一致（max_error < 1e-12）",
+        criterion="nodes/weights match the independent closed form h/(pi(1+k^2)) (max_error < 1e-12)",
         passed=worst_lchs < 1e-12,
     )
-    # CBMD 轮廓计划：权重/辅助系数对独立重算，t=0 恒等式 main+aux→1 的截断残差
+    # CBMD contour plan: weights/auxiliary coefficients against independent recomputation; the truncated residual of the t=0 identity main+aux -> 1
     trend = {}
     worst_formula = 0.0
     for cutoff in (2, 4, 8):
@@ -583,22 +607,22 @@ def verify_quadrature_plans(report):
             "identity_residual_cutoff8": trend[8],
         },
         criterion=(
-            "权重/辅助系数与独立闭式一致（max_error < 1e-12）；"
-            "t=0 轮廓恒等式残差随截断下降（信息性，对应 omitted 无穷级数尾）"
+            "weights/auxiliary coefficients match the independent closed forms (max_error < 1e-12); "
+            "the t=0 contour identity residual decreases with the truncation (informative, corresponding to the omitted infinite-series tail)"
         ),
         passed=worst_formula < 1e-12 and trend[8] < trend[4] < trend[2],
     )
 
 
 # ---------------------------------------------------------------------------
-# B. LCHS 端到端（多输入模型）
+# B. LCHS end to end (multiple input models)
 # ---------------------------------------------------------------------------
 
 LCHS_PLAN = QuadraturePlan.cauchy(cutoff=2, spacing=1.0)
 
 
 def _lchs_case(report, name, state, l_mat, h_mat, time, degree, u0, exact, paths, extra_params):
-    """LCHS/CBMD 型端到端对拍：实现误差（对独立仿真）+ 方法误差（对精确解）。"""
+    """LCHS/CBMD-style end-to-end cross-check: implementation error (vs independent simulation) + method error (vs the exact solution)."""
     alpha_v = evolution_alpha(state)
     program = state.operation.program()
     results = run_amplitude_paths(program, paths)
@@ -625,9 +649,9 @@ def _lchs_case(report, name, state, l_mat, h_mat, time, degree, u0, exact, paths
             "success_probability_error": abs(psuccess_measured - psuccess_expected),
         },
         criterion=(
-            "后选择块与独立 numpy 仿真逐振幅一致（impl_error < 1e-9），物理块路径间一致；"
-            "method_error 为有限求积+Taylor 余项（信息性，库中标注 pending）；"
-            "pysparq_spectrum_floor 为 junk 分支数值地板（信息性，见组报告）"
+            "post-selected block agrees with the independent numpy simulation amplitude by amplitude (impl_error < 1e-9), physical blocks agree across paths; "
+            "method_error is the finite-quadrature + Taylor remainder (informative, marked pending in the library); "
+            "pysparq_spectrum_floor is the junk-branch numerical floor (informative, see the group report)"
         ),
         passed=impl < 1e-9
         and block_dev < 1e-9
@@ -640,7 +664,7 @@ def _lchs_case(report, name, state, l_mat, h_mat, time, degree, u0, exact, paths
 
 
 def verify_lchs_given_be(report):
-    """输入模型 1：整体 G 的 BE（G=-I 标量衰减，解析解 e^{-t}）。"""
+    """Input model 1: a whole BE of G (G=-I scalar decay, analytic solution e^{-t})."""
     time, degree = 0.4, 3
     u0 = np.array([1.0, 1.0]) / SQRT2
     solver = linear_qode(
@@ -659,12 +683,12 @@ def verify_lchs_given_be(report):
         u0,
         exact,
         ["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
-        {"input_model": "整体生成元 BE（G=-I）", "exact": "e^{-t}·u0 解析"},
+        {"input_model": "whole-generator BE (G=-I)", "exact": "analytic e^{-t}*u0"},
     )
 
 
 def verify_lchs_parts_noncommuting(report):
-    """输入模型 2：直接给 Hermitian parts（[L,H]≠0，scipy expm 参考）。"""
+    """Input model 2: direct Hermitian parts ([L,H] != 0, scipy expm reference)."""
     time, degree = 0.2, 3
     l_mat = np.array([[1.0, 0.3], [0.3, 0.5]])
     h_mat = np.array([[0.2, 0.1], [0.1, -0.1]])
@@ -689,15 +713,15 @@ def verify_lchs_parts_noncommuting(report):
         exact,
         ["reference", "rir-pysparq", "originir-ext"],
         {
-            "input_model": "直接 HermitianParts（非对易）",
+            "input_model": "direct HermitianParts (non-commuting)",
             "exact": "scipy.linalg.expm",
-            "adapter_skipped": "分支约 1.6 万×深 LCU 事件树，adapter 路径预算原因略去（信息性）",
+            "adapter_skipped": "about 16 thousand branches x deep LCU event tree; the adapter path is omitted for budget reasons (informative)",
         },
     )
 
 
 def verify_lchs_diagonal_gate_vs_qram(report):
-    """输入模型 3：对角谱角数据库，同一开放程序分别绑定 gate 表与 QRAM。"""
+    """Input model 3: a diagonal spectral-angle database; the same open program bound to a gate table and to QRAM."""
     from oracq import Binding, bind, unresolved
 
     time, degree = 0.4, 3
@@ -711,7 +735,7 @@ def verify_lchs_diagonal_gate_vs_qram(report):
     state = solver(generator, initial, time)
     open_program = state.operation.program()
     alpha_v = evolution_alpha(state)
-    # A = diag(1, cos(π/4))：2 位角字、默认角度尺度 2π/4
+    # A = diag(1, cos(pi/4)): 2-bit angle words, default angle scale 2*pi/4
     a_mat = np.diag([1.0, math.cos(math.pi / 4)])
     expected = lchs_emulate(
         a_mat, np.zeros((2, 2)), LCHS_PLAN.nodes, LCHS_PLAN.weights, time, degree, alpha_v, u0
@@ -744,7 +768,7 @@ def verify_lchs_diagonal_gate_vs_qram(report):
     for binding_name, (binding, memory) in bindings.items():
         program = bind(open_program, binding)
         assert not unresolved(program)
-        # rir/adapter 预算原因略去（约 35s/绑定）；多路径执行由案例 1/2 承担
+        # rir/adapter omitted for budget reasons (about 35 s per binding); multi-path execution is covered by cases 1/2
         results = run_amplitude_paths(program, ["reference"], memory)
         path_blocks, block_dev, _, pysparq_floor = compare_path_blocks(results)
         blocks[binding_name] = path_blocks["reference"]
@@ -755,7 +779,7 @@ def verify_lchs_diagonal_gate_vs_qram(report):
             f"lchs-diagonal-spectral-{binding_name}",
             paths=list(results),
             parameters={
-                "input_model": f"对角角数据库（{binding_name} 绑定）",
+                "input_model": f"diagonal angle database ({binding_name} binding)",
                 "time": time,
                 "degree": degree,
                 "alpha_V": alpha_v,
@@ -767,8 +791,8 @@ def verify_lchs_diagonal_gate_vs_qram(report):
                 "pysparq_spectrum_floor": pysparq_floor,
             },
             criterion=(
-                "角数据库绑定实现与独立仿真逐振幅一致（impl_error < 1e-9）；"
-                "pysparq_spectrum_floor 为 junk 分支数值地板（信息性）"
+                "the angle-database-bound implementation matches the independent simulation amplitude by amplitude (impl_error < 1e-9); "
+                "pysparq_spectrum_floor is the junk-branch numerical floor (informative)"
             ),
             passed=impl < 1e-9 and block_dev < 1e-9 and pysparq_floor < 1e-6,
         )
@@ -776,15 +800,15 @@ def verify_lchs_diagonal_gate_vs_qram(report):
     report.case(
         "lchs-diagonal-gate-vs-qram",
         paths=["gate-binding", "qram-binding"],
-        parameters={"note": "同一开放 RIR 的两种数据存储实现"},
+        parameters={"note": "two data-storage implementations of the same open RIR"},
         metrics={"max_amplitude_difference": gate_qram},
-        criterion="gate 与 QRAM 绑定的完整复振幅一致（max_difference < 1e-10）",
+        criterion="gate- and QRAM-bound complete complex amplitudes agree (max_difference < 1e-10)",
         passed=gate_qram < 1e-10,
     )
 
 
 def verify_lchs_fokker_planck(report):
-    """输入模型 4：Fokker–Planck OU 离散生成元（Pauli 展开 BE）+ QODEProblem.solve。"""
+    """Input model 4: the Fokker-Planck OU discrete generator (Pauli-expansion BE) + QODEProblem.solve."""
     from oracq.algorithms.qode.sde import (
         FokkerPlanckProblem,
         boltzmann_distribution,
@@ -819,8 +843,8 @@ def verify_lchs_fokker_planck(report):
     exact_witness = np.array(matrix_exponential(problem.generator_matrix(), time)) @ u0
     classical_agreement = float(np.abs(exact_scipy - exact_witness).max())
     program = state.operation.program()
-    # 分支 6.6 万、深 LCU 事件树：pysparq 系路径实测 71s+（adapter）/数百秒（rir），
-    # 预算原因略去；reference + OriginIR 稠密态向量互为独立对拍。
+    # 66 thousand branches and a deep LCU event tree: the pysparq paths measured 71 s+ (adapter) / hundreds of seconds (rir),
+    # omitted for budget reasons; reference and the dense OriginIR state vector cross-check each other independently.
     results = run_amplitude_paths(program, ["reference", "originir-ext"])
     blocks, block_dev, exact_dev, _ = compare_path_blocks(results)
     impl = 0.0
@@ -830,12 +854,12 @@ def verify_lchs_fokker_planck(report):
         "lchs-fokker-planck-ou",
         paths=list(results),
         parameters={
-            "input_model": "FokkerPlanckProblem(OU, 4 点零通量) + QODEProblem.solve",
+            "input_model": "FokkerPlanckProblem(OU, 4-point zero-flux) + QODEProblem.solve",
             "time": time,
             "degree": degree,
             "alpha_V": alpha_v,
             "qode_dissipative_promise": attrs["qode_dissipative_promise"],
-            "pysparq_skipped": "分支约 6.6 万×深 LCU 事件树，pysparq 系路径超出时间预算（信息性）",
+            "pysparq_skipped": "about 66 thousand branches x deep LCU event tree; the pysparq paths exceed the time budget (informative)",
         },
         metrics={
             "impl_error": impl,
@@ -845,8 +869,8 @@ def verify_lchs_fokker_planck(report):
             "classical_reference_agreement": classical_agreement,
         },
         criterion=(
-            "后选择块与独立仿真一致（impl_error < 1e-9）；scipy expm 与 sde 纯 Python "
-            "矩阵指数两个经典参考一致（< 1e-12）；方法误差信息性"
+            "post-selected block matches the independent simulation (impl_error < 1e-9); the two classical references, "
+            "scipy expm and the pure-Python sde matrix exponential, agree (< 1e-12); method error informative"
         ),
         passed=impl < 1e-9 and block_dev < 1e-9 and exact_dev < 1e-9
         and classical_agreement < 1e-12 and attrs["qode_dissipative_promise"] is True,
@@ -854,7 +878,7 @@ def verify_lchs_fokker_planck(report):
 
 
 def verify_lchs_heat_structured(report):
-    """输入模型 5：周期热方程的结构化移位 BE（qham 差分模板），Fourier 解析参考。"""
+    """Input model 5: the structured shifted BE of the periodic heat equation (qham difference stencil), Fourier analytic reference."""
     from oracq.applications.qham import Grid
     from oracq.applications.qham.stencils import derivative_encoding
 
@@ -866,7 +890,7 @@ def verify_lchs_heat_structured(report):
         "lchs", plan=LCHS_PLAN, hamiltonian_function=partial(taylor_hamiltonian, degree=degree)
     )
     state = solver(generator, gate_state_prep(list(u0)), time)
-    # G = 0.1(S+S†-2I)，循环矩阵特征值 λ_k = 0.1(2cos(2πk/4)-2)（独立解析参考）
+    # G = 0.1(S+S^dagger-2I); circulant eigenvalues lambda_k = 0.1(2cos(2*pi*k/4)-2) (independent analytic reference)
     shift = np.roll(np.eye(4), 1, axis=1)
     g_mat = 0.1 * (shift + shift.T - 2 * np.eye(4))
     a_mat = -g_mat
@@ -884,12 +908,12 @@ def verify_lchs_heat_structured(report):
         degree,
         u0,
         exact,
-        # 分支约 1.6 万×深 LCU 事件树：pysparq 系路径预算原因略去
+        # about 16 thousand branches x deep LCU event tree: pysparq paths omitted for budget reasons
         ["reference", "originir-ext"],
         {
-            "input_model": "结构化移位差分 BE（周期 4 点热方程）",
-            "exact": "Fourier 特征值解析 + scipy expm 交叉",
-            "pysparq_skipped": "分支约 1.6 万×深 LCU 事件树，pysparq 系路径超出时间预算（信息性）",
+            "input_model": "structured shift-difference BE (periodic 4-point heat equation)",
+            "exact": "Fourier-eigenvalue analytic + scipy expm cross-check",
+            "pysparq_skipped": "about 16 thousand branches x deep LCU event tree; the pysparq paths exceed the time budget (informative)",
         },
     )
     report.case(
@@ -897,18 +921,18 @@ def verify_lchs_heat_structured(report):
         paths=["classical"],
         parameters={"eigenvalues": eigenvalues},
         metrics={"max_error": fourier_agreement},
-        criterion="Fourier 解析参考与 scipy expm 一致（max_error < 1e-9）",
+        criterion="the Fourier analytic reference agrees with scipy expm (max_error < 1e-9)",
         passed=fourier_agreement < 1e-9,
     )
 
 
 def verify_lchs_quadrature_convergence(report):
-    """求积收敛：同一标量问题在递增 Kmax 的计划下的方法误差趋势（量子+经典）。"""
+    """Quadrature convergence: the method-error trend of the same scalar problem under plans with increasing Kmax (quantum + classical)."""
     time = 0.2
     u0 = np.array([1.0, 1.0]) / SQRT2
     exact = math.exp(-time)
     trend = {}
-    quantum_checks = [(2, 4), (8, 3)]  # (cutoff, taylor degree)：高次分支 2^d 量级
+    quantum_checks = [(2, 4), (8, 3)]  # (cutoff, taylor degree): high-order branches on the 2^d scale
     for cutoff, degree in quantum_checks:
         plan = QuadraturePlan.cauchy(cutoff=cutoff, spacing=1.0)
         model = LinearODE(HermitianParts(identity(1), zero(1)), gate_state_prep(list(u0)))
@@ -922,7 +946,7 @@ def verify_lchs_quadrature_convergence(report):
         expected = lchs_emulate(
             np.eye(2), np.zeros((2, 2)), plan.nodes, plan.weights, time, degree, alpha_v, u0
         )
-        # rir/adapter 路径预算原因略去（17 节点×degree 4 嵌套 LCU，rir 约 110s）
+        # rir/adapter paths omitted for budget reasons (17 nodes x degree-4 nested LCU, rir about 110 s)
         results = run_amplitude_paths(state.operation.program(), ["reference"])
         blocks, block_dev, _, pysparq_floor = compare_path_blocks(results)
         impl = 0.0
@@ -939,10 +963,10 @@ def verify_lchs_quadrature_convergence(report):
                 "block_cross_deviation": block_dev,
                 "pysparq_spectrum_floor": pysparq_floor,
             },
-            criterion="各求积计划下实现误差 < 1e-9；方法误差为求积余项（信息性）",
+            criterion="implementation error < 1e-9 under every quadrature plan; method error is the quadrature remainder (informative)",
             passed=impl < 1e-9 and block_dev < 1e-9 and pysparq_floor < 1e-6,
         )
-    # 经典趋势线：纯核求积（无 Taylor）对更多截断点
+    # Classical trend line: pure-kernel quadrature (no Taylor) at more truncation points
     classical_trend = {}
     for cutoff in (2, 4, 8, 16, 32):
         nodes = [float(k) for k in range(-cutoff, cutoff + 1)]
@@ -953,20 +977,20 @@ def verify_lchs_quadrature_convergence(report):
     report.case(
         "lchs-quadrature-kernel-trend",
         paths=["classical-quadrature"],
-        parameters={"time": time, "note": "纯 Cauchy 核求积（无 Taylor 截断），振荡尾部见文档"},
+        parameters={"time": time, "note": "pure Cauchy-kernel quadrature (no Taylor truncation); the oscillating tail is documented"},
         metrics={f"kernel_error_cutoff{k}": classical_trend[k] for k in classical_trend},
-        criterion="核求积误差随 Kmax 总体下降（信息性，含振荡尾部）",
+        criterion="kernel quadrature error decreases overall with Kmax (informative, oscillating tail included)",
         passed=classical_trend[32] < classical_trend[2],
     )
 
 
 # ---------------------------------------------------------------------------
-# C. CBMD 端到端与 LCHS 同题对拍
+# C. CBMD end to end and the LCHS same-problem cross-check
 # ---------------------------------------------------------------------------
 
 
 def verify_cbmd_endtoend(report):
-    """CBMD 与 LCHS 同一非对易问题：实现误差、方法误差（omitted 项）、方向对拍。"""
+    """CBMD and LCHS on the same non-commuting problem: implementation error, method error (omitted terms), direction cross-check."""
     time, degree = 0.2, 3
     l_mat = np.array([[1.0, 0.3], [0.3, 0.5]])
     h_mat = np.array([[0.2, 0.1], [0.1, -0.1]])
@@ -983,7 +1007,7 @@ def verify_cbmd_endtoend(report):
     expected = lchs_emulate(l_mat, h_mat, cplan.nodes, cplan.weights, time, degree, alpha_v, u0)
     exact = scipy.linalg.expm(-(l_mat + 1j * h_mat) * time) @ u0
     program = state.operation.program()
-    # 分支约 1.6 万×深 LCU 事件树：pysparq 系路径预算原因略去
+    # about 16 thousand branches x deep LCU event tree: pysparq paths omitted for budget reasons
     results = run_amplitude_paths(program, ["reference", "originir-ext"])
     blocks, block_dev, exact_dev, pysparq_floor = compare_path_blocks(results)
     impl = 0.0
@@ -994,11 +1018,11 @@ def verify_cbmd_endtoend(report):
         "cbmd-parts-noncommuting",
         paths=list(results),
         parameters={
-            "input_model": "直接 HermitianParts（非对易，与 lchs-given-parts-noncommuting 同题）",
+            "input_model": "direct HermitianParts (non-commuting, same problem as lchs-given-parts-noncommuting)",
             "time": time,
             "degree": degree,
             "alpha_V": alpha_v,
-            "omitted": "auxiliary_nonhermitian_evolutions + infinite_series_tail（库文档声明）",
+            "omitted": "auxiliary_nonhermitian_evolutions + infinite_series_tail (declared in the library docs)",
         },
         metrics={
             "impl_error": impl,
@@ -1008,8 +1032,8 @@ def verify_cbmd_endtoend(report):
             "pysparq_spectrum_floor": pysparq_floor,
         },
         criterion=(
-            "后选择块与独立仿真逐振幅一致（impl_error < 1e-9）；"
-            "method_error 为省略辅助极点分支与级数尾的余项（信息性，库中显式记录 omitted）"
+            "post-selected block matches the independent simulation amplitude by amplitude (impl_error < 1e-9); "
+            "method_error is the remainder of the omitted auxiliary-pole branches and series tail (informative; the library records the omission explicitly)"
         ),
         passed=impl < 1e-9 and block_dev < 1e-9 and exact_dev < 1e-9
         and pysparq_floor < 1e-6 and method < 0.1,
@@ -1018,20 +1042,23 @@ def verify_cbmd_endtoend(report):
 
 
 # ---------------------------------------------------------------------------
-# D. Schrödingerization 端到端
+# D. Schrodingerization end to end
 # ---------------------------------------------------------------------------
 
 
 def verify_schrodingerization_decay(report):
-    """标量衰减 G=-I：组装保真度与恢复关系（正向流）同时严格通过。
+    """Scalar decay G=-I: assembly fidelity and the recovery relation (forward flow) both pass strictly.
 
-    历史缺陷已修复：原装配 K = P⊗H1 - I⊗H2 在正 QFT 约定下恢复 e^{+t}·u0
-    （时间反演流，验证发现见组报告）；修复后 K' = -P⊗H1 - I⊗H2 恢复
-    e^{-t}·u0，精确演化下网格误差 < 1e-6；端到端残余为 Nyquist 动量模的
-    Taylor 截断余项（degree 4 约 3e-2，随阶数下降，信息性）。
+    A historical defect is fixed: the original assembly K = P tensor H1 -
+    I tensor H2 recovered e^{+t}*u0 under the positive-QFT convention (a
+    time-reversed flow; the verification finding is in the group report);
+    after the fix K' = -P tensor H1 - I tensor H2 recovers e^{-t}*u0, with
+    the grid error below 1e-6 under exact evolution; the end-to-end residual
+    is the Taylor truncation remainder of the Nyquist momentum mode (about
+    3e-2 at degree 4, decreasing with the order, informative).
     """
     time, degree = 0.3, 4
-    plan = SchrodingerPlan(auxiliary_width=2, period=1.2, selected_index=1)  # Δp = t
+    plan = SchrodingerPlan(auxiliary_width=2, period=1.2, selected_index=1)  # dp = t
     g_mat = -np.eye(2)
     u0 = np.array([1.0, 1.0]) / SQRT2
     g_be = scale(-1, identity(1))
@@ -1045,7 +1072,7 @@ def verify_schrodingerization_decay(report):
     alpha_e = schrodinger_alpha(g_be, plan, time, degree)
     expected = schrodinger_emulate(g_mat, u0, time, plan, degree, alpha_e, flip_momentum=True)
     exact = math.exp(-time) * u0
-    # 分解：同一网格/通道但精确演化的参考（网格+窗口误差）与 Taylor 余项
+    # Decomposition: a reference on the same grid/channel but with exact evolution (grid+window error) and the Taylor remainder
     exact_grid = schrodinger_emulate(
         g_mat, u0, time, plan, degree, alpha_e, exact_evolution=True, flip_momentum=True
     )
@@ -1055,11 +1082,11 @@ def verify_schrodingerization_decay(report):
     recovery = alpha_e * z_norm * math.exp(p_sel)
     grid_error = float(np.abs(exact_grid * recovery - exact).max())
     taylor_remainder = float(np.abs(expected - exact_grid).max())
-    # 方向性证据：恢复逼近 e^{-t}·u0（正向流）而非 e^{+t}·u0（时间反演解）
+    # Directional evidence: the recovery approaches e^{-t}*u0 (forward flow), not e^{+t}*u0 (the time-reversed solution)
     time_reversed = math.exp(time) * u0
     reversed_fit = float(np.abs(exact_grid * recovery - time_reversed).max())
     program = state.operation.program()
-    # 分支约 9 万（8^degree 标度）：pysparq 系路径预算原因略去，reference+OriginIR 对拍
+    # about 90 thousand branches (8^degree scaling of nested LCU): pysparq paths omitted for budget reasons; reference+OriginIR cross-check
     results = run_amplitude_paths(program, ["reference", "originir-ext"])
     blocks, block_dev, exact_dev, _ = compare_path_blocks(results)
     impl = 0.0
@@ -1074,13 +1101,13 @@ def verify_schrodingerization_decay(report):
         "schrodingerization-scalar-decay-grid",
         paths=list(results),
         parameters={
-            "G": "-I（u'=−u 标量衰减）",
+            "G": "-I (u'=-u scalar decay)",
             "time": time,
             "degree": degree,
-            "plan": "auxiliary_width=2, period=1.2（Δp=t），selected p=0.3",
+            "plan": "auxiliary_width=2, period=1.2 (dp=t), selected p=0.3",
             "alpha_E": alpha_e,
-            "pysparq_skipped": "分支约 9 万（嵌套 LCU 的 8^degree 标度），预算原因（信息性）",
-            "finding": "已修复：K'=-P⊗H1-I⊗H2 恢复 e^{-t}·u0（正向流）；残余为 Taylor 截断",
+            "pysparq_skipped": "about 90 thousand branches (8^degree scaling of nested LCU), for budget reasons (informative)",
+            "finding": "fixed: K'=-P tensor H1-I tensor H2 recovers e^{-t}*u0 (forward flow); the residual is the Taylor truncation",
         },
         metrics={
             "impl_error": impl,
@@ -1092,10 +1119,10 @@ def verify_schrodingerization_decay(report):
             "exact_path_deviation": exact_dev,
         },
         criterion=(
-            "量子与全堆叠独立仿真（K'=-P⊗H1-I⊗H2）逐振幅一致（impl_error < 1e-9）；"
-            "恢复幅值逼近 e^{-t}·u0 而非 e^{+t}·u0（grid_error < 1e-6、"
-            "time_reversed_fit_error > 1e-1，方向性证据）；recovery_error_endtoend 为"
-            " Nyquist 动量模的 Taylor 截断余项（信息性，随 degree 下降）"
+            "the quantum result matches the full-stack independent simulation (K'=-P tensor H1-I tensor H2) amplitude by amplitude (impl_error < 1e-9); "
+            "the recovered magnitude approaches e^{-t}*u0 rather than e^{+t}*u0 (grid_error < 1e-6, "
+            "time_reversed_fit_error > 1e-1, directional evidence); recovery_error_endtoend is "
+            "the Taylor truncation remainder of the Nyquist momentum mode (informative, decreasing with degree)"
         ),
         passed=impl < 1e-9
         and block_dev < 1e-9
@@ -1106,7 +1133,7 @@ def verify_schrodingerization_decay(report):
 
 
 def verify_schrodingerization_sign_flipped(report):
-    """独立重组装（K'=-P⊗H1-I⊗H2，公开组合子真实量子程序）：恢复关系精确成立。"""
+    """Independent re-assembly (K'=-P tensor H1-I tensor H2, a real quantum program from public combinators): the recovery relation holds exactly."""
     time = 0.3
     plan = SchrodingerPlan(auxiliary_width=2, period=1.2, selected_index=1)
     g_mat = -np.eye(2)
@@ -1116,7 +1143,7 @@ def verify_schrodingerization_sign_flipped(report):
     grid_coords = [(j if j < 2 else j - 4) * plan.period / 4 for j in range(4)]
     z_norm = math.sqrt(sum(math.exp(-2 * abs(x)) for x in grid_coords))
     p_sel = grid_coords[1]
-    # 结构性主张：同一网格上精确演化（无 Taylor 截断）时翻转构造恢复精确解
+    # Structural claim: with exact evolution (no Taylor truncation) on the same grid, the flipped construction recovers the exact solution
     alpha_probe = schrodinger_alpha(g_be, plan, time, 4)
     exact_grid = schrodinger_emulate(
         g_mat, u0, time, plan, 4, alpha_probe, exact_evolution=True, flip_momentum=True
@@ -1130,8 +1157,8 @@ def verify_schrodingerization_sign_flipped(report):
         alpha_e = schrodinger_alpha(g_be, plan, time, degree)
         expected = schrodinger_emulate(g_mat, u0, time, plan, degree, alpha_e, flip_momentum=True)
         recovery = alpha_e * z_norm * math.exp(p_sel)
-        # originir 在 schrodingerization-scalar-decay-grid 已对拍到 1e-17；
-        # 本变体仅 reference 以控时（稠密 21 量子位态向量较慢）
+        # originir was already cross-checked to 1e-17 in schrodingerization-scalar-decay-grid;
+        # this variant runs reference only to control runtime (the dense 21-qubit state vector is slow)
         results = run_amplitude_paths(state.operation.program(), ["reference"])
         blocks, block_dev, exact_dev, _ = compare_path_blocks(results)
         impl = 0.0
@@ -1147,7 +1174,7 @@ def verify_schrodingerization_sign_flipped(report):
             f"schrodingerization-sign-flipped-degree{degree}",
             paths=list(results),
             parameters={
-                "construction": "公开组合子独立重组装 K' = -P⊗H1 - I⊗H2（修复后库约定；符号回归钉）",
+                "construction": "independent re-assembly from public combinators, K' = -P tensor H1 - I tensor H2 (post-fix library convention; sign regression pin)",
                 "time": time,
                 "degree": degree,
             },
@@ -1159,27 +1186,27 @@ def verify_schrodingerization_sign_flipped(report):
                 "exact_path_deviation": exact_dev,
             },
             criterion=(
-                "翻转构造与独立仿真一致（impl_error < 1e-9）；精确演化下网格误差 < 1e-6"
-                "（证明符号是唯一结构性失配）；recovery_error 为 Nyquist 动量模的 Taylor"
-                " 截断余项（π 相位，随 degree 下降，信息性）"
+                "the flipped construction matches the independent simulation (impl_error < 1e-9); under exact evolution the grid error < 1e-6"
+                " (proving the sign is the only structural mismatch); recovery_error is the Taylor"
+                " truncation remainder of the Nyquist momentum mode (pi phase, decreasing with degree, informative)"
             ),
             passed=impl < 1e-9 and grid_error < 1e-6 and block_dev < 1e-9 and exact_dev < 1e-9,
         )
     report.case(
         "schrodingerization-sign-flipped-taylor-trend",
         paths=["reference"],
-        parameters={"note": "恢复误差 = Nyquist 动量模的 Taylor 截断（π/2 网格平移本征相位）"},
+        parameters={"note": "recovery error = Taylor truncation of the Nyquist momentum mode (pi/2 grid-translation eigenphase)"},
         metrics={
             "recovery_error_degree2": recovery_errors[2],
             "recovery_error_degree4": recovery_errors[4],
         },
-        criterion="恢复误差随 Taylor 阶数下降（信息性；可替换 hamiltonian_function 协议）",
+        criterion="recovery error decreases with the Taylor order (informative; the hamiltonian_function protocol is replaceable)",
         passed=recovery_errors[4] < recovery_errors[2],
     )
 
 
 def verify_schrodingerization_rotation(report):
-    """反对称生成元 G=J：解析旋转解；恢复幅值 e^{p}·Z·alpha_E·块 = u(t)。"""
+    """Antisymmetric generator G=J: analytic rotation solution; recovered magnitude e^{p}*Z*alpha_E*block = u(t)."""
     time, degree = 0.3, 4
     plan = SchrodingerPlan(auxiliary_width=2, period=1.2, selected_index=1)
     j_mat = np.array([[0.0, -1.0], [1.0, 0.0]])
@@ -1200,8 +1227,8 @@ def verify_schrodingerization_rotation(report):
     z_norm = math.sqrt(sum(math.exp(-2 * abs(x)) for x in grid_coords))
     recovery = alpha_e * z_norm * math.exp(p_sel)
     program = state.operation.program()
-    # 分支约 9 万（8^degree 标度）：pysparq 系路径与稠密 originir 均预算原因略去；
-    # originir 在 decay-grid 案例已对拍到 1e-17（同族程序）
+    # about 90 thousand branches (8^degree scaling): both the pysparq paths and dense originir are omitted for budget reasons;
+    # originir was already cross-checked to 1e-17 in the decay-grid case (same program family)
     results = run_amplitude_paths(program, ["reference"])
     blocks, block_dev, exact_dev, _ = compare_path_blocks(results)
     impl = 0.0
@@ -1216,11 +1243,11 @@ def verify_schrodingerization_rotation(report):
         "schrodingerization-rotation-recovery",
         paths=list(results),
         parameters={
-            "G": "J=[[0,-1],[1,0]]（H1=0，纯 H2 旋转）",
+            "G": "J=[[0,-1],[1,0]] (H1=0, pure H2 rotation)",
             "time": time,
             "degree": degree,
             "alpha_E": alpha_e,
-            "other_paths_skipped": "分支约 9 万（嵌套 LCU 的 8^degree 标度）；originir 对拍见 decay-grid 案例（信息性）",
+            "other_paths_skipped": "about 90 thousand branches (8^degree scaling of nested LCU); the originir cross-check appears in the decay-grid case (informative)",
         },
         metrics={
             "impl_error": impl,
@@ -1229,20 +1256,20 @@ def verify_schrodingerization_rotation(report):
             "exact_path_deviation": exact_dev,
         },
         criterion=(
-            "量子与独立仿真一致（impl_error < 1e-9）；"
-            "恢复幅值对解析旋转解的误差 < 1e-3（degree 4 的 Taylor 余项 ~2e-5）"
+            "the quantum result matches the independent simulation (impl_error < 1e-9); "
+            "the recovered magnitude errors < 1e-3 against the analytic rotation solution (the degree-4 Taylor remainder is ~2e-5)"
         ),
         passed=impl < 1e-9 and recovered_err < 1e-3 and block_dev < 1e-9 and exact_dev < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# E. Carleman 端到端（Riccati）与截断趋势
+# E. Carleman end to end (Riccati) and the truncation trend
 # ---------------------------------------------------------------------------
 
 
 def verify_carleman_riccati(report):
-    """Riccati u'=-u+u² 的 Carleman 端到端：注入 Taylor 协议求解器，三级误差分解。"""
+    """Carleman end to end for the Riccati u'=-u+u^2: an injected Taylor-protocol solver, with three-level error decomposition."""
     from scipy.integrate import solve_ivp
 
     problem, matrices, u0 = _riccati_problem()
@@ -1253,7 +1280,7 @@ def verify_carleman_riccati(report):
     alpha_v = evolution_alpha(state)
     g_lift = assemble_carleman_lift(matrices, cutoff)
     z0 = lifted_initial(u0, problem.initial_norm, cutoff)
-    base = 1 << cutoff  # level==1、其余组为零的通道基址（n=1）
+    base = 1 << cutoff  # channel base address with level==1 and the other groups zero (n=1)
     expected = ode_taylor_series(g_lift, time, degree) @ z0 / alpha_v
     z_linear = scipy.linalg.expm(g_lift * time) @ z0
     chan_linear = z_linear[base : base + 2]
@@ -1265,7 +1292,7 @@ def verify_carleman_riccati(report):
         atol=1e-14,
     ).y[:, -1]
     program = state.operation.program()
-    # adapter 路径预算原因略去
+    # adapter path omitted for budget reasons
     results = run_amplitude_paths(program, ["reference", "rir-pysparq"])
     blocks, block_dev, _, pysparq_floor = compare_path_blocks(results)
     impl = 0.0
@@ -1291,9 +1318,9 @@ def verify_carleman_riccati(report):
         "carleman-riccati-endtoend",
         paths=list(results),
         parameters={
-            "problem": "u'=-u+u², u0=0.5·(0.6,0.8), cutoff=2",
+            "problem": "u'=-u+u^2, u0=0.5*(0.6,0.8), cutoff=2",
             "time": time,
-            "linear_solver": "注入的最小 Taylor 协议求解器（degree 3，真实 BE 组装）",
+            "linear_solver": "injected minimal Taylor-protocol solver (degree 3, real BE assembly)",
             "alpha_V": alpha_v,
         },
         metrics={
@@ -1305,8 +1332,8 @@ def verify_carleman_riccati(report):
             "pysparq_spectrum_floor": pysparq_floor,
         },
         criterion=(
-            "物理通道与全堆叠独立仿真一致（impl_error < 1e-9）；"
-            "Taylor 余项、Carleman 截断误差（对 scipy solve_ivp 精确非线性解）信息性分解"
+            "the physical channel matches the full-stack independent simulation (impl_error < 1e-9); "
+            "the Taylor remainder and the Carleman truncation error (vs the scipy solve_ivp exact nonlinear solution) are an informative decomposition"
         ),
         passed=impl < 1e-9 and block_dev < 1e-9 and pysparq_floor < 1e-6,
     )
@@ -1314,7 +1341,7 @@ def verify_carleman_riccati(report):
 
 
 def verify_carleman_cutoff_trend(report, cutoff2_block):
-    """截断趋势：K=1 量子运行 + 复用 E1 的 K=2 量子块的截断误差；K=3 经典补点。"""
+    """Truncation trend: a K=1 quantum run + the truncation error reusing the K=2 quantum block from E1; K=3 added classically."""
     from scipy.integrate import solve_ivp
 
     problem, matrices, u0 = _riccati_problem()
@@ -1337,7 +1364,7 @@ def verify_carleman_cutoff_trend(report, cutoff2_block):
             np.linalg.norm(chan_linear / np.linalg.norm(chan_linear) - riccati_dir)
         )
         if cutoff == 2:
-            # K=2 的量子实现与程序已由 carleman-riccati-endtoend 验证，此处复用其块
+            # The K=2 quantum implementation and program were verified by carleman-riccati-endtoend; its block is reused here
             assert cutoff2_block is not None
             continue
         state = carleman_qode(
@@ -1362,10 +1389,10 @@ def verify_carleman_cutoff_trend(report, cutoff2_block):
                 "block_cross_deviation": block_dev,
                 "pysparq_spectrum_floor": pysparq_floor,
             },
-            criterion="各截断阶量子实现与独立仿真一致（impl_error < 1e-9）",
+            criterion="each truncation order's quantum implementation matches the independent simulation (impl_error < 1e-9)",
             passed=impl < 1e-9 and block_dev < 1e-9 and pysparq_floor < 1e-6,
         )
-    # K=3 仅经典：同一独立组装的 expm 通道（K=2 的组装已被量子块提取验证）
+    # K=3 classical only: the same independently assembled expm channel (the K=2 assembly was verified via the quantum block extraction)
     g3 = assemble_carleman_lift(matrices, 3)
     z3 = lifted_initial(u0, problem.initial_norm, 3)
     chan3 = (scipy.linalg.expm(g3 * time) @ z3)[8:10]
@@ -1373,24 +1400,24 @@ def verify_carleman_cutoff_trend(report, cutoff2_block):
     report.case(
         "carleman-cutoff-trend",
         paths=["quantum(cutoff 1,2)", "classical(cutoff 3)"],
-        parameters={"time": time, "note": "截断误差对 scipy solve_ivp 精确 Riccati 解的方向差"},
+        parameters={"time": time, "note": "truncation error as the direction difference vs the scipy solve_ivp exact Riccati solution"},
         metrics={
             "truncation_cutoff1": truncations[1],
             "truncation_cutoff2": truncations[2],
             "truncation_cutoff3": truncations[3],
         },
-        criterion="截断误差随阶数下降（K=1 → K=2 → K=3，经典收敛证据）",
+        criterion="truncation error decreases with the order (K=1 -> K=2 -> K=3, classical convergence evidence)",
         passed=truncations[2] < truncations[1] and truncations[3] <= truncations[2],
     )
 
 
 # ---------------------------------------------------------------------------
-# 汇总
+# Summary
 # ---------------------------------------------------------------------------
 
 
 def verify_cbmd_vs_lchs(report, lchs_block, cbmd_block):
-    """同一非对易问题上 CBMD 与 LCHS 的量子方向对拍（复用 B2/C1 的量子块）。"""
+    """Quantum direction cross-check of CBMD vs LCHS on the same non-commuting problem (reusing the quantum blocks of B2/C1)."""
     time = 0.2
     l_mat = np.array([[1.0, 0.3], [0.3, 0.5]])
     h_mat = np.array([[0.2, 0.1], [0.1, -0.1]])
@@ -1406,16 +1433,16 @@ def verify_cbmd_vs_lchs(report, lchs_block, cbmd_block):
     mutual = float(np.linalg.norm(directions["lchs"] - directions["cbmd"]))
     report.case(
         "cbmd-vs-lchs-direction",
-        paths=["reference（复用 lchs-given-parts-noncommuting 与 cbmd-parts-noncommuting 的量子块）"],
-        parameters={"time": time, "degree": 3, "note": "与 B2/C1 同题"},
+        paths=["reference (reusing the quantum blocks of lchs-given-parts-noncommuting and cbmd-parts-noncommuting)"],
+        parameters={"time": time, "degree": 3, "note": "same problem as B2/C1"},
         metrics={
             "lchs_direction_error": err_lchs,
             "cbmd_direction_error": err_cbmd,
             "mutual_direction_deviation": mutual,
         },
         criterion=(
-            "两方法量子方向均逼近精确解；CBMD 主级数余项在该实例上小于 LCHS "
-            "Cauchy 求积余项（信息性对比）"
+            "both methods' quantum directions approach the exact solution; the CBMD main-series remainder is smaller than the "
+            "LCHS Cauchy quadrature remainder on this instance (informative comparison)"
         ),
         passed=err_lchs < 0.1 and err_cbmd < 0.02 and mutual < err_lchs + err_cbmd + 1e-9,
     )
@@ -1424,16 +1451,16 @@ def verify_cbmd_vs_lchs(report, lchs_block, cbmd_block):
 def run():
     report = Report(
         "ode",
-        "QODE 组论文级验证：子结构块提取、LCHS/CBMD/Schrödingerization 端到端"
-        "（多输入模型）、Carleman 提升/初态/Riccati 端到端与截断趋势。",
+        "Publication-grade validation of the QODE group: substructure block extraction, LCHS/CBMD/Schrodingerization end to end "
+        "(multiple input models), and Carleman lifting/initial state/Riccati end to end with the truncation trend.",
     )
-    # A. 子结构
+    # A. Substructures
     verify_taylor_hamiltonian_block(report)
     verify_fourier_momentum_block(report)
     verify_carleman_lift_block(report)
     verify_carleman_initial(report)
     verify_quadrature_plans(report)
-    # B. LCHS 端到端（多输入模型）
+    # B. LCHS end to end (multiple input models)
     verify_lchs_given_be(report)
     lchs_block = verify_lchs_parts_noncommuting(report)
     verify_lchs_diagonal_gate_vs_qram(report)
@@ -1443,7 +1470,7 @@ def run():
     # C. CBMD
     cbmd_block = verify_cbmd_endtoend(report)
     verify_cbmd_vs_lchs(report, lchs_block, cbmd_block)
-    # D. Schrödingerization
+    # D. Schrodingerization
     verify_schrodingerization_decay(report)
     verify_schrodingerization_sign_flipped(report)
     verify_schrodingerization_rotation(report)

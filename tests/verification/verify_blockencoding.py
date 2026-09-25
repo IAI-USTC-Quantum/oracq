@@ -1,24 +1,30 @@
-"""块编码组的论文级数值验证。
+"""Publication-grade numerical validation of the block-encoding group.
 
-覆盖模块：
-- ``oracq.algorithms.input_model.block_encoding``（BE 组合代数）
-- ``oracq.algorithms.common.prepare_select``（PREPARE–SELECT 分解）
-- ``oracq.algorithms.input_model.sparse``（稀疏访问辅助与 CKS 稀疏 BE）
-- ``oracq.algorithms.input_model.lowrank``（DF/THC 低秩块编码）
+Modules covered:
+- ``oracq.algorithms.input_model.block_encoding`` (BE composition algebra)
+- ``oracq.algorithms.common.prepare_select`` (PREPARE-SELECT decomposition)
+- ``oracq.algorithms.input_model.sparse`` (sparse-access helpers and the CKS sparse BE)
+- ``oracq.algorithms.input_model.lowrank`` (DF/THC low-rank block encodings)
 
-正确性 oracle：块编码的零信号角块 == A/α。小规模用 OriginIR-ext 经 UniQC
-``Circuit.to_matrix`` 取全幺正，再用 ``harness.effective_block`` 提取有效块并
-报告失败分支（信号≠0）泄漏上界；对角/稀疏块编码跑多矩阵、多规模；三对角与
-一般稀疏矩阵另用 pysparq 自带块编码模块（``BlockEncodingTridiagonal`` /
-``BlockEncodingViaQRAM``）独立编码同一矩阵，双向对拍有效块。
+Correctness oracle: the zero-signal corner block of a block encoding ==
+A/alpha. At small scale the full unitary is obtained via OriginIR-ext and
+UniQC ``Circuit.to_matrix``; ``harness.effective_block`` then extracts the
+effective block and reports a leakage bound over failing branches (signal !=
+0); diagonal / sparse block encodings are run over multiple matrices and
+multiple sizes; for tridiagonal and general sparse matrices, pysparq's own
+block-encoding modules (``BlockEncodingTridiagonal`` /
+``BlockEncodingViaQRAM``) independently encode the same matrix and the
+effective blocks are cross-checked in both directions.
 
-后端备注：早期 pysparq.rir 解释器对切片视图上的 ``add_const`` 不按视图位宽
-回卷（进位写入相邻位），曾影响 ``qram_state_prep`` 旋转树；该缺陷已于
-2026-09 修复，本脚本对切片 ``add_const`` 往返与 ``qram_state_prep``
-width=1..3 的最小复测全部为 0 偏差，QRAM PREPARE 案例恢复 reference 与
-rir_pysparq 双路径对拍。
+Backend note: an early pysparq.rir interpreter did not wrap ``add_const`` on
+slice views modulo the view width (carries spilled into the adjacent bits),
+which affected the ``qram_state_prep`` rotation tree; the defect was fixed in
+2026-09. In this script the slice ``add_const`` round trip and the minimal
+re-test of ``qram_state_prep`` for width=1..3 both show zero deviation, and
+the QRAM PREPARE cases have restored two-path (reference vs rir_pysparq)
+cross-checking.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_blockencoding.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_blockencoding.py
 """
 
 from __future__ import annotations
@@ -92,7 +98,7 @@ from oracq.algorithms.input_model.sparse import (
     word_rotation,
 )
 
-EXACT = 1e-9  # 精确路径（门级、无量化）的块对拍容差
+EXACT = 1e-9  # block cross-check tolerance for exact paths (gate level, no quantization)
 
 PAULI = {
     "I": np.eye(2),
@@ -103,7 +109,7 @@ PAULI = {
 
 
 def pauli_matrix(word):
-    """Pauli 字的稠密矩阵；word[0] 作用于最低位（与 pauli_word 的比特约定一致）。"""
+    """Dense matrix of a Pauli word; word[0] acts on the least significant bit (matching the bit convention of pauli_word)."""
     result = PAULI[word[0]]
     for letter in word[1:]:
         result = np.kron(PAULI[letter], result)
@@ -111,7 +117,7 @@ def pauli_matrix(word):
 
 
 def pauli_l1(matrix):
-    """独立计算 Pauli 展开的 l1 上界：c_P = Tr(P†M)/2^n（numpy 直算，不经被测实现）。"""
+    """Independent l1 bound of the Pauli expansion: c_P = Tr(P^dagger M)/2^n (computed directly with numpy, not via the implementation under test)."""
     n = (len(matrix) - 1).bit_length()
     total = 0.0
     for letters in __import__("itertools").product("IXYZ", repeat=n):
@@ -121,7 +127,7 @@ def pauli_l1(matrix):
 
 
 def block_via_reference(operation, alpha, width):
-    """reference 路径逐列提取 (0,0) 块（乘回 alpha 前）与失败分支泄漏上界。"""
+    """Column-by-column extraction of the (0,0) block via the reference path (before multiplying alpha back) plus a leakage bound over failing branches."""
     program = operation.program() if hasattr(operation, "program") else operation
     dim = 1 << width
     block = np.zeros((dim, dim), dtype=complex)
@@ -137,7 +143,7 @@ def block_via_reference(operation, alpha, width):
 
 
 def cross_columns(operation, columns, paths=("rir", "adapter")):
-    """basis_program 驱动下各后端路径与 reference 的逐列最大偏差。"""
+    """Per-column maximum deviation of each backend path from reference under the basis_program driver."""
     program = operation.program()
     widths = [r.type.width for r in program.main.registers]
     runners = {"rir": rir_pysparq, "adapter": adapter_pysparq, "origin": None}
@@ -156,7 +162,7 @@ def cross_columns(operation, columns, paths=("rir", "adapter")):
 
 
 def sampled_columns(width, count=8):
-    """宽寄存器的列抽样：边界列 + 确定性伪随机列（与 harness.sampled_inputs 同种子）。"""
+    """Column sampling for wide registers: boundary columns plus deterministic pseudo-random columns (same seed as harness.sampled_inputs)."""
     from harness import sampled_inputs
 
     values, _ = sampled_inputs(width, samples=count)
@@ -164,13 +170,13 @@ def sampled_columns(width, count=8):
 
 
 def unitary_block(be):
-    """originir_unitary + effective_block：全幺正的有效块与泄漏（小规模）。"""
+    """originir_unitary + effective_block: effective block and leakage of the full unitary (small scale)."""
     unitary = originir_unitary(be.operation.program())
     return effective_block(unitary, be.width)
 
 
 def driver(operation, initial=None):
-    """带 QRAM 资源的驱动程序：初态 X 置位 + 资源直通（harness.basis_program 无资源版）。"""
+    """Driver with QRAM resources: X-initialized state + resource pass-through (harness.basis_program is the resource-free variant)."""
     b = Builder(
         "verify_driver",
         {r.name: r.type for r in operation.module.registers},
@@ -189,7 +195,7 @@ def driver(operation, initial=None):
 
 
 def tridiagonal(dim, alpha, beta):
-    """经典三对角矩阵 alpha*I + beta*T（numpy 独立参考）。"""
+    """Classical tridiagonal matrix alpha*I + beta*T (independent numpy reference)."""
     a = np.zeros((dim, dim))
     for i in range(dim):
         a[i, i] = alpha
@@ -201,7 +207,7 @@ def tridiagonal(dim, alpha, beta):
 
 
 def structural_permutations(matrix, sparsity_rows):
-    """按每列结构位置构造 CKS 完整置换扩张（前 s 项为结构行，其余任意补全）。"""
+    """Construct the CKS full permutation expansion from each column's structural positions (the first s entries are the structural rows; the rest are arbitrary padding)."""
     dim = len(matrix)
     permutations = []
     for column in range(dim):
@@ -211,19 +217,19 @@ def structural_permutations(matrix, sparsity_rows):
 
 
 def tridiagonal_rows(dim):
-    """三对角矩阵每列的结构行；边界列用条目为零的非结构行补足 s 个（位置置换须互异）。"""
+    """Structural rows of each column of a tridiagonal matrix; boundary columns are padded to s entries with non-structural rows whose entries are zero (positional permutations must be distinct)."""
     rows = []
     for j in range(dim):
         column_rows = [r for r in (j - 1, j, j + 1) if 0 <= r < dim]
         padding = (r for r in range(dim) if r not in column_rows)
         while len(column_rows) < min(3, dim):
-            column_rows.append(next(padding))  # 补足行的矩阵条目为 0，幅度转导后置零
+            column_rows.append(next(padding))  # the padded rows have zero matrix entries, zeroed after magnitude transduction
         rows.append(column_rows)
     return rows
 
 
 def sparse_be_for(matrix, fmt, amax, sparsity_rows, *, signed, entry_database=None):
-    """由稠密对称矩阵组装 gate 版 CKS 稀疏块编码（access 层逐列结构位置）。"""
+    """Assemble the gate-level CKS sparse block encoding from a dense symmetric matrix (access layer with per-column structural positions)."""
     dim = len(matrix)
     n = (dim - 1).bit_length()
     sparsity = len(sparsity_rows[0])
@@ -249,7 +255,7 @@ def sparse_be_for(matrix, fmt, amax, sparsity_rows, *, signed, entry_database=No
 
 
 def ps_tridiagonal_block(alpha, beta, n_bits):
-    """pysparq BlockEncodingTridiagonal 的有效块：逐列 |j>|0> 演化后读 anc==0 振幅。"""
+    """Effective block of pysparq BlockEncodingTridiagonal: evolve |j>|0> column by column and read the anc==0 amplitudes."""
     import pysparq as ps
     from pysparq.algorithms.block_encoding import BlockEncodingTridiagonal
 
@@ -275,7 +281,7 @@ def ps_tridiagonal_block(alpha, beta, n_bits):
 
 
 def ps_qram_block(matrix, n_bits, *, data_size=50, rational_size=51, exponent=15):
-    """pysparq BlockEncodingViaQRAM 的有效块（配置同 C++ CorrectnessTest）。"""
+    """Effective block of pysparq BlockEncodingViaQRAM (configuration matching the C++ CorrectnessTest)."""
     import pysparq as ps
     from pysparq.algorithms.block_encoding import BlockEncodingViaQRAM
     from pysparq.algorithms.qram_utils import make_vector_tree, scale_and_convert_vector
@@ -307,16 +313,16 @@ def ps_qram_block(matrix, n_bits, *, data_size=50, rational_size=51, exponent=15
 
 
 # ---------------------------------------------------------------------------
-# 对角块编码（论文点名 diagonal BE；lowrank._diagonal_encoding 与 DF 公开组装）
+# Diagonal block encodings (the paper names the diagonal BE; lowrank._diagonal_encoding and the public DF assembly)
 # ---------------------------------------------------------------------------
 
 
 def verify_diagonal_be_unitary(report):
-    """小规模对角 BE：originir_unitary 提取块，三后端逐列交叉。"""
+    """Small-scale diagonal BE: originir_unitary extracts the block, three backends cross column by column."""
     spectra = [
         (2, (0.7, -1.3)),
         (4, (0.5, -1.0, 0.25, 1.5)),
-        (8, (0.6, -0.4, 0.0, 1.1, -0.9, 0.3, 0.2, -0.5)),  # 含零元与混合符号
+        (8, (0.6, -0.4, 0.0, 1.1, -0.9, 0.3, 0.2, -0.5)),  # includes a zero entry and mixed signs
     ]
     for dim, spectrum in spectra:
         be = _diagonal_encoding(spectrum)
@@ -335,13 +341,13 @@ def verify_diagonal_be_unitary(report):
                 "cross_deviation": cross,
                 "alpha": alpha,
             },
-            criterion="有效块 == diag(g)/α（max_error < 1e-9），三后端逐列一致",
+            criterion="effective block == diag(g)/alpha (max_error < 1e-9), three backends agree column by column",
             passed=error < EXACT and cross < EXACT and abs(be.alpha - alpha) < 1e-12,
         )
 
 
 def verify_diagonal_be_wide(report):
-    """多规模对角 BE（d=16/32/64）：reference/rir/adapter 逐列对拍（超 OriginIR 预算）。"""
+    """Multi-scale diagonal BE (d=16/32/64): reference/rir/adapter column-by-column cross-check (beyond the OriginIR budget)."""
     for n in (4, 5, 6):
         dim = 1 << n
         spectrum = tuple(math.sin(0.7 * t + 0.3) + 0.2 * math.cos(1.3 * t) for t in range(dim))
@@ -357,16 +363,16 @@ def verify_diagonal_be_wide(report):
             parameters={
                 "dim": dim,
                 "alpha": alpha,
-                "note": "寄存器规模按位预算走 pysparq 路径；交叉列抽样 8 列（全列由 reference 覆盖）",
+                "note": "register scale follows the bit budget via the pysparq path; cross-check samples 8 columns (all columns covered by reference)",
             },
             metrics={"max_error": error, "leakage": leakage, "cross_deviation": cross},
-            criterion="逐列块 == diag(g)/α（max_error < 1e-9），后端间一致",
+            criterion="column-by-column block == diag(g)/alpha (max_error < 1e-9), backends agree",
             passed=error < EXACT and cross < EXACT,
         )
 
 
 def verify_diagonal_be_public_df(report):
-    """同一对角谱的两条编码路径：_diagonal_encoding 与 double_factorized_encoding(U=I)。"""
+    """Two encoding paths for the same diagonal spectrum: _diagonal_encoding and double_factorized_encoding(U=I)."""
     spectrum = (0.5, -1.0, 0.25, 1.5)
     direct = _diagonal_encoding(spectrum)
     identity4 = [[1.0 if i == j else 0.0 for j in range(4)] for i in range(4)]
@@ -384,18 +390,18 @@ def verify_diagonal_be_public_df(report):
         paths=["reference"],
         parameters={"dim": 4, "alpha_direct": direct.alpha, "alpha_df": assembled.alpha},
         metrics={"max_error": error, "alpha_direct": direct.alpha, "alpha_df": assembled.alpha},
-        criterion="公开 DF 组装（恒等旋转、双秩同谱）与直连对角 BE 块一致且 == diag(g)/α",
+        criterion="public DF assembly (identity rotations, doubly-ranked same spectrum) matches the direct diagonal BE block and == diag(g)/alpha",
         passed=error < EXACT and abs(assembled.alpha - 2 * direct.alpha) < 1e-12,
     )
 
 
 # ---------------------------------------------------------------------------
-# BE 组合代数（block_encoding.py 与 operators.py 基元）
+# BE composition algebra (block_encoding.py and operators.py primitives)
 # ---------------------------------------------------------------------------
 
 
 def verify_pauli_word_and_embeddings(report):
-    """pauli_word（无信号、泄漏为零）与布尔嵌入 projector/truncated_shift。"""
+    """pauli_word (no signal, zero leakage) and the Boolean embeddings projector/truncated_shift."""
     cases = [
         ("pauli-word-YZX", pauli_word("YZX"), pauli_matrix("YZX"), 3),
         ("projector-w2-03", projector(2, [0, 3]), np.diag([1, 0, 0, 1]).astype(complex), 2),
@@ -413,13 +419,13 @@ def verify_pauli_word_and_embeddings(report):
             paths=["originir-ext+to_matrix", "reference", "rir-pysparq", "adapter-pysparq"],
             parameters={"width": width, "alpha": be.alpha},
             metrics={"max_error": error, "leakage": leakage, "cross_deviation": cross},
-            criterion="有效块逐元等于经典矩阵（max_error < 1e-9）",
+            criterion="effective block equals the classical matrix element-wise (max_error < 1e-9)",
             passed=error < EXACT and cross < EXACT,
         )
 
 
 def verify_matrix_pauli_encoding(report):
-    """小矩阵显式 Pauli LCU：Hermitian 与非 Hermitian，alpha 与独立 l1 上界对拍。"""
+    """Explicit Pauli LCU of small matrices: Hermitian and non-Hermitian, alpha cross-checked against the independent l1 bound."""
     rng = np.random.default_rng(20260916)
     hermitian = rng.normal(size=(4, 4)) + 1j * rng.normal(size=(4, 4))
     hermitian = (hermitian + hermitian.conj().T) / 2
@@ -440,19 +446,19 @@ def verify_matrix_pauli_encoding(report):
                 "cross_deviation": cross,
                 "alpha_minus_l1": be.alpha - l1,
             },
-            criterion="块*α == M（max_error < 1e-9）且 α 不超过独立 Pauli l1 上界（+1e-9 容差）",
+            criterion="block*alpha == M (max_error < 1e-9) and alpha does not exceed the independent Pauli l1 bound (+1e-9 tolerance)",
             passed=error < EXACT and cross < EXACT and be.alpha <= l1 + 1e-9,
         )
 
 
 def verify_be_algebra_combinators(report):
-    """组合子逐项：tensor/adjoint/pad_signal/lcu/kronecker_sum/direct_sum/product。"""
+    """Combinators one by one: tensor/adjoint/pad_signal/lcu/kronecker_sum/direct_sum/product."""
     rng = np.random.default_rng(7)
     a_mat = rng.normal(size=(2, 2)) + 1j * rng.normal(size=(2, 2))
     a_mat = (a_mat + a_mat.conj().T) / 2
     b_mat = rng.normal(size=(2, 2)) + 1j * rng.normal(size=(2, 2))
     b_mat = (b_mat + b_mat.conj().T) / 2
-    c_mat = np.array([[0.3, 0.5 + 0.2j], [0.1 - 0.4j, -0.6]])  # 非 Hermitian
+    c_mat = np.array([[0.3, 0.5 + 0.2j], [0.1 - 0.4j, -0.6]])  # non-Hermitian
     ea, eb, ec = (matrix_pauli_encoding(m) for m in (a_mat, b_mat, c_mat))
     ca, cb = 0.6 + 0.3j, -0.8
     entries = [
@@ -476,18 +482,18 @@ def verify_be_algebra_combinators(report):
             paths=["originir-ext+to_matrix", "reference"],
             parameters={"alpha": be.alpha, "signal_qubits": be.signal_qubits},
             metrics={"max_error": error, "leakage": leakage, "alpha": be.alpha},
-            criterion="块*α 逐元等于组合语义矩阵（max_error < 1e-9）",
+            criterion="block*alpha equals the compositional-semantics matrix element-wise (max_error < 1e-9)",
             passed=error < EXACT,
         )
 
 
 # ---------------------------------------------------------------------------
-# PREPARE–SELECT（prepare_select.py）
+# PREPARE-SELECT (prepare_select.py)
 # ---------------------------------------------------------------------------
 
 
 def verify_gate_prepare_distribution(report):
-    """gate PREPARE 振幅 == sqrt(|c|/α)，含补零槽位；四路径对拍。"""
+    """gate PREPARE amplitudes == sqrt(|c|/alpha), padded zero slots included; four-path cross-check."""
     for name, coefficients in (
         ("terms4", [0.7, -0.4, 1.1, 0.2]),
         ("terms5-padded", [0.5, 0.25, -0.75, 1.0, 0.1]),
@@ -512,13 +518,13 @@ def verify_gate_prepare_distribution(report):
             paths=["reference", "rir-pysparq", "adapter-pysparq"],
             parameters={"terms": len(coefficients), "selector_width": prep.width, "padded_slots": padded},
             metrics={"max_amplitude_error": error, "cross_deviation": cross},
-            criterion="selector 振幅逐点等于 sqrt(|c|/α)，补零槽位振幅为零（< 1e-9）",
+            criterion="selector amplitudes equal sqrt(|c|/alpha) pointwise, padded zero slots have zero amplitude (< 1e-9)",
             passed=error < EXACT and cross < EXACT,
         )
 
 
 def verify_select_pauli(report):
-    """SELECT 逐 selector 值施加对应 Pauli 字与系数相位（稠密对拍）。"""
+    """SELECT applies the corresponding Pauli word and coefficient phase per selector value (dense cross-check)."""
     terms = [(0.7, "XI"), (-0.4, "ZZ"), (1.1, "IY"), (0.2j, "YX")]
     operation = select_pauli(terms)
     program = operation.program()
@@ -538,13 +544,13 @@ def verify_select_pauli(report):
         paths=["reference"],
         parameters={"terms": len(terms), "selector_width": 2},
         metrics={"max_error": worst},
-        criterion="selector==i 时 target 上恰为 e^{iφ_i}·P_i（max_error < 1e-9）",
+        criterion="with selector==i the target sees exactly e^{i*phi_i}*P_i (max_error < 1e-9)",
         passed=worst < EXACT,
     )
 
 
 def verify_lcu_prepare_select_block(report):
-    """PREPARE–SELECT 块编码：多规模、多系数（含复相位），(0,0) 块 == H/α。"""
+    """PREPARE-SELECT block encoding: multiple scales and coefficients (complex phases included), (0,0) block == H/alpha."""
     families = [
         ("w1-balanced", [(0.6, "X"), (-0.8, "Z")], 1, True),
         ("w2-mixed", [(0.7, "XI"), (-0.4, "ZZ"), (1.1, "IY")], 2, True),
@@ -573,13 +579,13 @@ def verify_lcu_prepare_select_block(report):
             paths=paths,
             parameters={"width": width, "terms": len(terms), "alpha": alpha},
             metrics=metrics,
-            criterion="块*α == Σc_i P_i（max_error < 1e-9），各后端一致",
+            criterion="block*alpha == sum c_i P_i (max_error < 1e-9), all backends agree",
             passed=error < EXACT and cross < EXACT and (unitary_error is None or unitary_error < EXACT),
         )
 
 
 def verify_qram_prepare_quantization(report):
-    """QRAM PREPARE：角表量化误差随 angle_width 收敛；reference 与 rir 双路径。"""
+    """QRAM PREPARE: angle-table quantization error converges with angle_width; reference and rir dual path."""
     coefficients = [0.7, -0.4, 1.1, 0.2]
     alpha = sum(abs(c) for c in coefficients)
     expected = {i: abs(c) / alpha for i, c in enumerate(coefficients)}
@@ -595,13 +601,13 @@ def verify_qram_prepare_quantization(report):
             paths=["reference", "rir-pysparq"],
             parameters={"angle_width": angle_width},
             metrics={"tvd": tvd, "bound": bound, "cross_deviation": cross},
-            criterion=f"量化分布与精确分布的 TVD ≤ {bound}（仓库 QRAM 约定容差）且两后端逐振幅一致",
+            criterion=f"TVD of the quantized distribution vs the exact distribution <= {bound} (repository QRAM convention tolerance) and both backends agree amplitude by amplitude",
             passed=tvd <= bound and cross < EXACT,
         )
 
 
 def verify_alias_prepare(report):
-    """alias 采样 PREPARE：分布 TVD 不超过 2^selector·2^-precision，rir 精确一致。"""
+    """alias-sampling PREPARE: distribution TVD does not exceed 2^selector * 2^-precision; rir matches exactly."""
     coefficients = [0.7, -0.4, 1.1, 0.2]
     alpha = sum(abs(c) for c in coefficients)
     expected = {i: abs(c) / alpha for i, c in enumerate(coefficients)}
@@ -613,20 +619,20 @@ def verify_alias_prepare(report):
         for (t, _w), amplitude in state.items():
             marginal[t] = marginal.get(t, 0.0) + abs(amplitude) ** 2
         tvd = 0.5 * sum(abs(marginal.get(i, 0.0) - p) for i, p in expected.items())
-        bound = 4 * 2.0**-precision  # 文档解析界：TVD ≤ 2^selector·2^-precision
+        bound = 4 * 2.0**-precision  # documented analytic bound: TVD <= 2^selector * 2^-precision
         cross = amplitude_error(rir_pysparq(program, ap.memory), state)
         report.case(
             f"alias-prepare-distribution-p{precision}",
             paths=["reference", "rir-pysparq"],
             parameters={"precision": precision, "selector_width": 2},
             metrics={"tvd": tvd, "bound": bound, "cross_deviation": cross},
-            criterion="target 边缘分布 TVD ≤ 2^2·2^-precision 且 rir 与 reference 逐振幅一致",
+            criterion="target marginal distribution TVD <= 2^2 * 2^-precision and rir matches reference amplitude by amplitude",
             passed=tvd <= bound and cross < EXACT,
         )
 
 
 def verify_alias_prepare_select_block(report):
-    """alias PREPARE 组装的 PREPARE–SELECT BE：块误差受量化界控制，两后端一致。"""
+    """PREPARE-SELECT BE assembled from alias PREPARE: block error controlled by the quantization bound, both backends agree."""
     terms = [(0.7, "XI"), (-0.4, "ZZ"), (1.1, "IY")]
     coefficients = [c for c, _ in terms]
     alpha = sum(abs(c) for c in coefficients)
@@ -635,7 +641,7 @@ def verify_alias_prepare_select_block(report):
     resource = be.operation.module.resources[0].name
     memory = {resource: next(iter(ap.memory.values()))}
     hamiltonian = sum(c * pauli_matrix(w) for c, w in terms)
-    bound = 4 * 2.0**-10  # TVD 界 ×（≤2 的振幅因子）宽松取
+    bound = 4 * 2.0**-10  # TVD bound x (amplitude factor <= 2), taken loosely
     error, cross = 0.0, 0.0
     for column in range(4):
         program = driver(be.operation, {"target": column})
@@ -649,20 +655,20 @@ def verify_alias_prepare_select_block(report):
         paths=["reference", "rir-pysparq"],
         parameters={"precision": 10, "alpha": alpha},
         metrics={"max_error": error, "bound": bound, "cross_deviation": cross},
-        criterion="块*α 与 H 的偏差 ≤ 4·2^-10（量化界）且后端一致",
+        criterion="deviation of block*alpha from H <= 4*2^-10 (quantization bound) and backends agree",
         passed=error <= bound and cross < EXACT,
     )
 
 
 def verify_abstract_prepare_bind(report):
-    """开放 PREPARE 声明：在 BE 内 bind gate 实现后块与直接组装逐列一致。"""
+    """Open PREPARE declaration: after binding a gate implementation inside the BE, the block matches the direct assembly column by column."""
     terms = [(0.7, "XI"), (-0.4, "ZZ"), (1.1, "IY")]
     coefficients = [c for c, _ in terms]
     alpha = sum(abs(c) for c in coefficients)
     be_abstract = lcu_prepare_select(terms, prepare=abstract_prepare(coefficients, work_width=0))
     slots = [r.name for r in unresolved(be_abstract.operation.program())]
     if len(slots) != 1:
-        raise AssertionError(f"抽象 BE 应恰有一个未绑定槽位：{slots}")
+        raise AssertionError(f"abstract BE must have exactly one unbound slot: {slots}")
     bound = bind(be_abstract.operation.program(), {slots[0]: gate_prepare(coefficients).operation})
     hamiltonian = sum(c * pauli_matrix(w) for c, w in terms)
     be_gate = lcu_prepare_select(terms)
@@ -679,18 +685,18 @@ def verify_abstract_prepare_bind(report):
         paths=["reference"],
         parameters={"slot": slots[0], "alpha": alpha},
         metrics={"max_error": error, "bind_deviation": deviation},
-        criterion="绑定后块*α == H 且与 gate 直接组装逐振幅一致（< 1e-9）",
+        criterion="after binding, block*alpha == H and matches the direct gate assembly amplitude by amplitude (< 1e-9)",
         passed=error < EXACT and deviation < EXACT,
     )
 
 
 # ---------------------------------------------------------------------------
-# 稀疏访问辅助（sparse.py）与稀疏块编码
+# Sparse-access helpers (sparse.py) and the sparse block encoding
 # ---------------------------------------------------------------------------
 
 
 def verify_sparse_rotation_helpers(report):
-    """word_rotation / magnitude_rotation 的概率语义穷举（reference + rir 交叉）。"""
+    """Exhaustive probability semantics of word_rotation / magnitude_rotation (reference + rir cross-check)."""
     worst_word = 0.0
     for width in (2, 3, 4):
         operation = word_rotation(width)
@@ -720,13 +726,13 @@ def verify_sparse_rotation_helpers(report):
             "magnitude_rotation_max_error": worst_mag,
             "cross_deviation": cross,
         },
-        criterion="P(flag=1)==sin²(θ_v/2)、P(成功)==min(1,|v|/amax) 逐点成立（< 1e-9）",
+        criterion="P(flag=1) == sin^2(theta_v/2), P(success) == min(1, |v|/amax) hold pointwise (< 1e-9)",
         passed=worst_word < EXACT and worst_mag < EXACT and cross < EXACT,
     )
 
 
 def verify_sparse_boolean_helpers(report):
-    """compare_words / value_transposition 全输入穷举；prefix_state 均匀性。"""
+    """compare_words / value_transposition exhaustive over all inputs; prefix_state uniformity."""
     mismatches = 0
     checked = 0
     for width in (1, 2, 3, 4):
@@ -760,13 +766,13 @@ def verify_sparse_boolean_helpers(report):
         paths=["reference"],
         parameters={"boolean_checked": checked, "prefix_cases": [(1, 1), (2, 3), (3, 5), (3, 8), (4, 13)]},
         metrics={"mismatches": mismatches, "prefix_max_error": prefix_error},
-        criterion="布尔网络全输入语义正确（mismatches == 0）且前缀叠加均匀（< 1e-12）",
+        criterion="boolean networks correct over all inputs (mismatches == 0) and prefix superposition uniform (< 1e-12)",
         passed=mismatches == 0 and prefix_error < 1e-12,
     )
 
 
 def verify_sparse_lookup_helpers(report):
-    """reversible_lookup 融合视图与 batch_lookup 的 XOR 语义（含非零 data 初值）。"""
+    """Fused views of reversible_lookup and the XOR semantics of batch_lookup (with non-zero initial data)."""
     table = {i: (i * i + 3) % 16 for i in range(8)}
     database = gate_database(3, 4, table)
     lookup = reversible_lookup({"x": 2, "y": 1}, {"lo": 2, "hi": 2}, database)
@@ -798,13 +804,13 @@ def verify_sparse_lookup_helpers(report):
         paths=["reference"],
         parameters={"table_size": 8, "lookup_inputs": 128},
         metrics={"mismatches": mismatches, "batch_ok": int(batch_ok)},
-        criterion="融合地址/数据视图 XOR 语义逐点正确（mismatches == 0）",
+        criterion="fused address/data view XOR semantics correct pointwise (mismatches == 0)",
         passed=mismatches == 0 and batch_ok,
     )
 
 
 def verify_sparse_access_layer(report):
-    """CKS 访问层：位置置换逐列对拍、元素 XOR（非零 data）、QRAM 位置复净。"""
+    """CKS access layer: per-column permutation cross-check, entry XOR (non-zero data), QRAM location returning work clean."""
     matrix = tridiagonal(4, 1.5, -0.5)
     rows = tridiagonal_rows(4)
     permutations = structural_permutations(matrix, rows)
@@ -835,7 +841,7 @@ def verify_sparse_access_layer(report):
                     column,
                     data ^ fmt.encode(float(matrix[row, column])),
                 )
-    # QRAM 位置实现：正反思表绑定后 work 复净且 index 持新值（reference + rir）
+    # QRAM location implementation: after binding the forward/inverse tables, work returns clean and index holds the new value (reference + rir)
     forward = {}
     inverse = {}
     for column in range(4):
@@ -862,14 +868,14 @@ def verify_sparse_access_layer(report):
             "qram_mismatches": qmismatch,
             "qram_cross_deviation": cross,
         },
-        criterion="位置/元素 oracle 逐基态语义正确，QRAM 位置 work 复净且两后端一致",
+        criterion="location/entry oracles semantically correct on every basis state, QRAM location returns work clean and both backends agree",
         passed=mismatches == 0 and qmismatch == 0 and cross < EXACT,
     )
 
 
 def verify_sparse_be_signed(report):
-    """带符号稀疏 BE（CKS T†ST）：三对角多规模；d2 走 OriginIR 态向量提取。"""
-    # d=2：15 qubits，OriginIR 态向量预算内
+    """Signed sparse BE (CKS T^dagger S T): tridiagonal at multiple scales; d2 uses OriginIR state-vector extraction."""
+    # d=2: 15 qubits, within the OriginIR state-vector budget
     fmt = FixedFormat(3, 1, signed=True)
     matrix2 = tridiagonal(2, 1.5, -0.5)
     be2 = sparse_be_for(matrix2, fmt, 1.5, [[0, 1], [0, 1]], signed=True)
@@ -881,10 +887,10 @@ def verify_sparse_be_signed(report):
         paths=["originir-ext", "reference", "rir-pysparq", "adapter-pysparq"],
         parameters={"dim": 2, "sparsity": 2, "alpha": be2.alpha, "originir_qubits": 15},
         metrics={"max_error": error2, "leakage": leakage2, "cross_deviation": cross2, "alpha": be2.alpha},
-        criterion="块*α == A（max_error < 1e-9），OriginIR 态向量与稀疏路径一致",
+        criterion="block*alpha == A (max_error < 1e-9), OriginIR state vector agrees with the sparse path",
         passed=error2 < EXACT and cross2 < EXACT and abs(be2.alpha - 2 * 1.5) < 1e-12,
     )
-    # d=4：24 qubits 达到 OriginIR 预算，但门数使单列态向量模拟 ~68 s，按预算只走 pysparq 路径
+    # d=4: 24 qubits reaches the OriginIR budget, but the gate count makes single-column state-vector simulation take ~68 s; per the budget only the pysparq paths are used
     matrix4 = tridiagonal(4, 1.5, -0.5)
     be4 = sparse_be_for(matrix4, fmt, 1.5, tridiagonal_rows(4), signed=True)
     block4, leakage4 = block_via_reference(be4.operation, be4.alpha, 2)
@@ -897,13 +903,13 @@ def verify_sparse_be_signed(report):
             "dim": 4,
             "sparsity": 3,
             "alpha": be4.alpha,
-            "note": "OriginIR 导出 24 qubits 且门数大（单列态向量 ~68 s），按运行时预算只走 pysparq/reference 路径",
+            "note": "OriginIR export is 24 qubits with a large gate count (~68 s per state-vector column); per the runtime budget only the pysparq/reference paths are used",
         },
         metrics={"max_error": error4, "leakage": leakage4, "cross_deviation": cross4, "alpha": be4.alpha},
-        criterion="块*α == A（max_error < 1e-9），三后端一致",
+        criterion="block*alpha == A (max_error < 1e-9), three backends agree",
         passed=error4 < EXACT and cross4 < EXACT and abs(be4.alpha - 3 * 1.5) < 1e-12,
     )
-    # d=8：34 qubits 超 OriginIR 预算
+    # d=8: 34 qubits exceeds the OriginIR budget
     matrix8 = tridiagonal(8, 1.5, -0.5)
     be8 = sparse_be_for(matrix8, fmt, 1.5, tridiagonal_rows(8), signed=True)
     block8, leakage8 = block_via_reference(be8.operation, be8.alpha, 3)
@@ -916,29 +922,29 @@ def verify_sparse_be_signed(report):
             "dim": 8,
             "sparsity": 3,
             "alpha": be8.alpha,
-            "note": "34 qubits 超 OriginIR 24 位预算；交叉列抽样 4 列（全列由 reference 覆盖）",
+            "note": "34 qubits exceeds the 24-qubit OriginIR budget; cross-check samples 4 columns (all columns covered by reference)",
         },
         metrics={"max_error": error8, "leakage": leakage8, "cross_deviation": cross8, "alpha": be8.alpha},
-        criterion="块*α == A（max_error < 1e-9），两后端一致",
+        criterion="block*alpha == A (max_error < 1e-9), two backends agree",
         passed=error8 < EXACT and cross8 < EXACT,
     )
 
 
 def verify_sparse_be_unsigned(report):
-    """无符号稀疏 BE：d4 用 originir_unitary 提取全幺正块；d16 多规模 pysparq 路径。"""
+    """Unsigned sparse BE: d4 extracts the full unitary block via originir_unitary; d16 multi-scale via the pysparq path."""
     fmt = FixedFormat(3, 1, signed=False)
     matrix4 = tridiagonal(4, 1.5, 0.5)
     be4 = sparse_be_for(matrix4, fmt, 1.5, tridiagonal_rows(4), signed=False)
     block4, leakage4 = block_via_reference(be4.operation, be4.alpha, 2)
     error4 = float(np.abs(block4 * be4.alpha - matrix4).max())
-    # 12 qubits 在 OriginIR 态向量预算内逐列提取；to_matrix 因门数多（~65 s/次）超出运行时预算
+    # 12 qubits is within the OriginIR state-vector budget for column-by-column extraction; to_matrix exceeds the runtime budget due to the gate count (~65 s each)
     cross4 = cross_columns(be4.operation, range(4), paths=("rir", "adapter", "origin"))
     report.case(
         "sparse-be-unsigned-unitary-d4",
         paths=["originir-ext", "reference", "rir-pysparq", "adapter-pysparq"],
         parameters={"dim": 4, "sparsity": 3, "alpha": be4.alpha, "originir_qubits": 12},
         metrics={"max_error": error4, "leakage": leakage4, "cross_deviation": cross4, "alpha": be4.alpha},
-        criterion="块*α == A（max_error < 1e-9），OriginIR 态向量与稀疏路径逐列一致",
+        criterion="block*alpha == A (max_error < 1e-9), OriginIR state vector agrees with the sparse path column by column",
         passed=error4 < EXACT and cross4 < EXACT,
     )
     matrix16 = tridiagonal(16, 1.5, 0.5)
@@ -953,16 +959,16 @@ def verify_sparse_be_unsigned(report):
             "dim": 16,
             "sparsity": 3,
             "alpha": be16.alpha,
-            "note": "超 OriginIR 位预算；交叉列抽样 8 列（全列由 reference 覆盖）",
+            "note": "exceeds the OriginIR bit budget; cross-check samples 8 columns (all columns covered by reference)",
         },
         metrics={"max_error": error16, "leakage": leakage16, "cross_deviation": cross16, "alpha": be16.alpha},
-        criterion="块*α == A（max_error < 1e-9），两后端一致",
+        criterion="block*alpha == A (max_error < 1e-9), two backends agree",
         passed=error16 < EXACT and cross16 < EXACT,
     )
 
 
 def verify_sparse_be_qram_access(report):
-    """QRAM 数据绑定的稀疏 BE：位置正反表 + 元素表全在 memory，两后端对拍。"""
+    """Sparse BE with QRAM-bound data: forward/inverse location tables plus the entry table all in memory, two backends cross-checked."""
     fmt = FixedFormat(3, 1, signed=True)
     matrix = tridiagonal(4, 1.5, -0.5)
     rows = tridiagonal_rows(4)
@@ -988,7 +994,7 @@ def verify_sparse_be_qram_access(report):
             if resource.name.endswith(key):
                 memory[resource.name] = value
     if len(memory) != 3:
-        raise AssertionError(f"QRAM 资源映射不全：{list(memory)}")
+        raise AssertionError(f"incomplete QRAM resource mapping: {list(memory)}")
     error, cross = 0.0, 0.0
     leakage = 0.0
     for column in range(4):
@@ -1005,13 +1011,13 @@ def verify_sparse_be_qram_access(report):
         paths=["reference", "rir-pysparq"],
         parameters={"dim": 4, "sparsity": 3, "alpha": be.alpha, "resources": sorted(memory)},
         metrics={"max_error": error, "leakage": leakage, "cross_deviation": cross},
-        criterion="QRAM 数据绑定下块*α == A（max_error < 1e-9）且两后端逐振幅一致",
+        criterion="with QRAM-bound data, block*alpha == A (max_error < 1e-9) and both backends agree amplitude by amplitude",
         passed=error < EXACT and cross < EXACT,
     )
 
 
 def verify_chebyshev_walk(report):
-    """chebyshev_block：自伴酉扩张行走幂的零信号块 == T_k(A/α)。"""
+    """chebyshev_block: the zero-signal block of powers of the self-adjoint unitary-dilation walk == T_k(A/alpha)."""
     fmt = FixedFormat(3, 1, signed=True)
     matrix = np.array([[1.5, -0.5], [-0.5, 1.5]])
     be = sparse_be_for(matrix, fmt, 1.5, [[0, 1], [0, 1]], signed=True)
@@ -1032,13 +1038,13 @@ def verify_chebyshev_walk(report):
             paths=["reference", "rir-pysparq", "adapter-pysparq"],
             parameters={"degree": degree, "argument_scale": be.alpha},
             metrics={"max_error": error, "leakage": leakage, "cross_deviation": cross},
-            criterion=f"行走幂零信号块 == T_{degree}(A/α)（max_error < 1e-9）",
+            criterion=f"zero-signal block of the walk power == T_{degree}(A/alpha) (max_error < 1e-9)",
             passed=error < EXACT and cross < EXACT,
         )
 
 
 def verify_select_swap(report):
-    """Select-Swap QROM：λ 全扫描对拍 gate_database；并作为稀疏 BE 的 entry 端到端。"""
+    """Select-Swap QROM: full lambda sweep cross-checked against gate_database; also used end to end as the entry side of a sparse BE."""
     rng = np.random.default_rng(3)
     words = [int(v) for v in rng.integers(0, 1 << 3, size=16)]
     baseline = gate_database(4, 3, {i: v for i, v in enumerate(words) if v})
@@ -1059,10 +1065,10 @@ def verify_select_swap(report):
             paths=["reference"],
             parameters={"partitions": partitions, "addresses": 16, "data_bits": 3},
             metrics={"max_deviation": worst},
-            criterion="全部地址 × data 初值读出与 gate_database 基线逐振幅一致（< 1e-9）",
+            criterion="readout over all addresses x initial data matches the gate_database baseline amplitude by amplitude (< 1e-9)",
             passed=worst < EXACT,
         )
-    # 端到端：select_swap 作为稀疏块编码的元素数据库
+    # End to end: select_swap as the entry database of the sparse block encoding
     fmt = FixedFormat(3, 1, signed=True)
     matrix = np.array([[1.5, -0.5], [-0.5, 1.5]])
     table = {}
@@ -1080,18 +1086,18 @@ def verify_select_swap(report):
         paths=["reference"],
         parameters={"dim": 2, "partitions": 2, "alpha": be.alpha},
         metrics={"max_error": error, "leakage": leakage},
-        criterion="select_swap 作 entry 的稀疏 BE 块*α == A（max_error < 1e-9）",
+        criterion="sparse BE with select_swap as entry: block*alpha == A (max_error < 1e-9)",
         passed=error < EXACT,
     )
 
 
 # ---------------------------------------------------------------------------
-# 低秩 DF/THC（lowrank.py）
+# Low-rank DF/THC (lowrank.py)
 # ---------------------------------------------------------------------------
 
 
 def verify_diagonalize_symmetric(report):
-    """Jacobi 特征分解：与 numpy.linalg.eigh 独立对拍，重构 G == V diag(λ) Vᵀ。"""
+    """Jacobi eigendecomposition: independently cross-checked against numpy.linalg.eigh, reconstruction G == V diag(lambda) V^T."""
     rng = np.random.default_rng(11)
     for dim in (2, 4, 8, 16, 32):
         raw = rng.normal(size=(dim, dim))
@@ -1112,22 +1118,22 @@ def verify_diagonalize_symmetric(report):
                 "eigenvalue_error": eigen_error,
                 "orthogonality_error": orthogonality,
             },
-            criterion="重构/特征值/正交性误差均 < 1e-9（对照 numpy.linalg.eigh）",
+            criterion="reconstruction/eigenvalue/orthogonality errors all < 1e-9 (against numpy.linalg.eigh)",
             passed=max(reconstruct_error, eigen_error, orthogonality) < EXACT,
         )
 
 
 def _random_orthonormal(dim, rng):
-    """numpy QR 独立生成酉/正交旋转矩阵。"""
+    """Independent unitary/orthogonal rotation matrices generated via numpy QR."""
     q, r = np.linalg.qr(rng.normal(size=(dim, dim)))
     signs = np.sign(np.diag(r))
     return (q * signs).tolist()
 
 
 def verify_double_factorization(report):
-    """DF 块编码：多秩、多规模；originir_unitary 提取块，α 与独立口径对拍。"""
+    """DF block encoding: multiple ranks and scales; originir_unitary extracts the block, alpha cross-checked against an independent formula."""
     rng = np.random.default_rng(23)
-    # 2x2 多秩（含 scalar 与 from_symmetric 预处理）
+    # 2x2 multi-rank (with scalar and from_symmetric preprocessing)
     g1 = [[2.0, 0.5], [0.5, 1.0]]
     g2 = [[1.0, -0.25], [-0.25, 0.75]]
     had = (np.ones((2, 2)) / math.sqrt(2)).tolist()
@@ -1151,10 +1157,10 @@ def verify_double_factorization(report):
             "cross_deviation": cross,
             "alpha_minus_closed_form": be.alpha - expected_alpha,
         },
-        criterion="块*α == scalar·I + Σ U_r G_r U_rᵀ（max_error < 1e-9），α == |scalar|+Σ‖g_r‖₁",
+        criterion="block*alpha == scalar*I + sum U_r G_r U_r^T (max_error < 1e-9), alpha == |scalar| + sum ||g_r||_1",
         passed=error < EXACT and cross < EXACT and abs(be.alpha - expected_alpha) < 1e-9,
     )
-    # 4x4 三秩随机旋转（直接谱构造）
+    # 4x4 rank-3 random rotations (direct spectral construction)
     dim, rank = 4, 3
     rotations = [_random_orthonormal(dim, rng) for _ in range(rank)]
     spectra = [tuple(rng.uniform(-1.5, 1.5, size=dim).tolist()) for _ in range(rank)]
@@ -1171,10 +1177,10 @@ def verify_double_factorization(report):
         paths=["originir-ext+to_matrix", "reference"],
         parameters={"rank": rank, "dim": dim, "alpha": be4.alpha},
         metrics={"max_error": error4, "leakage": leakage4, "alpha": be4.alpha},
-        criterion="块*α == Σ U_r diag(g_r) U_rᵀ（max_error < 1e-9）",
+        criterion="block*alpha == sum U_r diag(g_r) U_r^T (max_error < 1e-9)",
         passed=error4 < EXACT and abs(be4.alpha - alpha4) < 1e-9,
     )
-    # 8x8 双秩：reference + rir 逐列
+    # 8x8 rank-2: reference + rir column by column
     dim8 = 8
     rotations8 = [_random_orthonormal(dim8, rng) for _ in range(2)]
     spectra8 = [tuple(rng.uniform(-1.0, 1.0, size=dim8).tolist()) for _ in range(2)]
@@ -1193,16 +1199,16 @@ def verify_double_factorization(report):
             "rank": 2,
             "dim": dim8,
             "alpha": be8.alpha,
-            "note": "寄存器规模按预算走 pysparq 路径；交叉列抽样 8 列（全列由 reference 覆盖）",
+            "note": "register scale follows the budget via the pysparq path; cross-check samples 8 columns (all columns covered by reference)",
         },
         metrics={"max_error": error8, "leakage": leakage8, "cross_deviation": cross8},
-        criterion="块*α == H（max_error < 1e-9），两后端一致",
+        criterion="block*alpha == H (max_error < 1e-9), two backends agree",
         passed=error8 < EXACT and cross8 < EXACT,
     )
 
 
 def verify_thc(report):
-    """THC 块编码：块*α == Σ ζ_{μν} L_μ L_ν†；α 与独立 Pauli-l1 手算口径对拍。"""
+    """THC block encoding: block*alpha == sum zeta_{mu nu} L_mu L_nu^dagger; alpha cross-checked against an independent hand-computed Pauli-l1 formula."""
     leaf0 = [[0.6, 0.2], [0.1, -0.5]]
     leaf1 = [[0.3, -0.4], [0.2, 0.7]]
     zeta = [[0.8, 0.15], [0.15, -0.5]]
@@ -1230,11 +1236,12 @@ def verify_thc(report):
             "cross_deviation": cross,
             "alpha_minus_independent": be.alpha - expected_alpha,
         },
-        criterion="块*α == ΣζL_μL_ν†（max_error < 1e-9），α == Σ|ζ|α_μα_ν（独立 Pauli-l1）",
+        criterion="block*alpha == sum zeta L_mu L_nu^dagger (max_error < 1e-9), alpha == sum |zeta| alpha_mu alpha_nu (independent Pauli-l1)",
         passed=error < EXACT and cross < EXACT and abs(be.alpha - expected_alpha) < 1e-9,
     )
-    # 4x4 三叶（对角叶 + 全耦合 ζ）：reference + rir。对角叶的 Pauli 项少、信号位宽小，
-    # 电路规模可控；稠密叶的一般性由 leaves2-d2 的全幺正案例覆盖。
+    # 4x4 three leaves (diagonal leaves + fully coupled zeta): reference + rir. Diagonal leaves have few Pauli terms
+    # and a small signal width, keeping the circuit tractable; generality of dense leaves is covered by the
+    # full-unitary leaves2-d2 case.
     rng = np.random.default_rng(29)
     leaves4 = [np.diag(rng.uniform(-0.9, 0.9, size=4)).tolist() for _ in range(3)]
     zeta4 = [[0.5, 0.1, -0.2], [0.1, 0.7, 0.05], [-0.2, 0.05, 0.6]]
@@ -1252,19 +1259,19 @@ def verify_thc(report):
         paths=["reference", "rir-pysparq", "adapter-pysparq"],
         parameters={"leaves": 3, "dim": 4, "alpha": be4.alpha, "leaf_form": "diagonal"},
         metrics={"max_error": error4, "leakage": leakage4, "cross_deviation": cross4},
-        criterion="块*α == ΣζL_μL_ν†（max_error < 1e-9），三后端一致",
+        criterion="block*alpha == sum zeta L_mu L_nu^dagger (max_error < 1e-9), three backends agree",
         passed=error4 < EXACT and cross4 < EXACT,
     )
 
 
 # ---------------------------------------------------------------------------
-# 截断 Taylor 块编码（taylor-block-encoding 页面；由本组 lcu/product 组合而成）
+# Truncated Taylor block encoding (taylor-block-encoding page; composed from this group's lcu/product)
 # ---------------------------------------------------------------------------
 
 
 def verify_taylor_block_encoding(report):
-    """taylor_hamiltonian：块 == 截断级数/α（实现误差）与 e^{-iHt}/α（方法误差）分离报告。"""
-    from oracq.algorithms.common.hamiltonian import taylor_hamiltonian  # 页面归属本组
+    """taylor_hamiltonian: block == truncated series/alpha (implementation error) and e^{-iHt}/alpha (method error) reported separately."""
+    from oracq.algorithms.common.hamiltonian import taylor_hamiltonian  # page belongs to this group
 
     hamiltonian = np.array([[1.0, 0.4], [0.4, -0.6]], dtype=complex)
     source = matrix_pauli_encoding(hamiltonian)
@@ -1273,7 +1280,7 @@ def verify_taylor_block_encoding(report):
     exact = vectors @ np.diag(np.exp(-1j * time * eigenvalues)) @ vectors.conj().T
     for degree in (1, 2, 3, 4):
         be = taylor_hamiltonian(source, time, degree=degree)
-        # 块的语义：截断级数 Σ(-itH)^k/k! 除以 LCU 归一化 α = Σ(α_source·t)^k/k!
+        # Block semantics: the truncated series sum (-itH)^k/k! divided by the LCU normalization alpha = sum (alpha_source*t)^k/k!
         series = sum(
             (-1j * time) ** k / math.factorial(k) * np.linalg.matrix_power(hamiltonian, k)
             for k in range(degree + 1)
@@ -1294,32 +1301,35 @@ def verify_taylor_block_encoding(report):
                 "alpha_minus_series": be.alpha - expected_alpha,
                 "leakage": leakage,
             },
-            criterion="块 == Σ(-itH)^k/k!/α（impl_error < 1e-9）；方法误差（vs e^{-iHt}/α）随阶数下降（信息性）",
+            criterion="block == sum (-itH)^k/k!/alpha (impl_error < 1e-9); method error (vs e^{-iHt}/alpha) decreases with degree (informative)",
             passed=impl_error < EXACT and cross < EXACT and abs(be.alpha - expected_alpha) < 1e-12,
         )
 
 
 # ---------------------------------------------------------------------------
-# 与 pysparq 块编码模块的独立交叉验证
+# Independent cross-validation against pysparq's block-encoding modules
 # ---------------------------------------------------------------------------
 
 
 def verify_cross_tridiagonal(report):
-    """同一三对角矩阵：oracq 稀疏/Pauli 两路 × pysparq BlockEncodingTridiagonal。
+    """The same tridiagonal matrix: oracq sparse/Pauli routes x pysparq BlockEncodingTridiagonal.
 
-    pysparq 侧归一化：dim≥4 时为 Frobenius 范数 norm_f（其 C++ 正确性测试域
-    randint(2,5) 覆盖的规模）；dim=2 时 (0,0) 块实测退化为 A/(|α|+2|β|)
-    （1 位主寄存器上加一/减一都触发溢出分支，anc==0 角块失去 Frobenius 归一，
-    β=0 时无移位分支、仍等于 A/norm_f）。该边界行为作为实证语义记录，
-    不是断言 pysparq 构造文档的标称归一化。
+    pysparq-side normalization: for dim>=4 it is the Frobenius norm norm_f (the
+    scale covered by the randint(2,5) domain of its C++ correctness tests); for
+    dim=2 the measured (0,0) block degenerates to A/(|alpha|+2|beta|) (on a
+    1-bit main register both add-one and subtract-one trigger the overflow
+    branch, so the anc==0 corner block loses Frobenius normalization; when
+    beta=0 there is no shift branch and it still equals A/norm_f). This
+    boundary behavior is recorded as empirical semantics, not as an assertion
+    of the nominal normalization in the pysparq construction docs.
     """
     fmt = FixedFormat(3, 1, signed=True)
     for dim, alpha, beta, fmt_case in (
         (2, 1.5, -0.5, fmt),
         (4, 1.5, 0.5, fmt),
-        (4, 2.0, -1.0, FixedFormat(4, 1, signed=True)),  # amax=2.0 超出 3 位有符号值域
+        (4, 2.0, -1.0, FixedFormat(4, 1, signed=True)),  # amax=2.0 exceeds the 3-bit signed range
         (8, 1.5, -0.5, fmt),
-        (16, 1.25, 0.75, FixedFormat(4, 2, signed=True)),  # 1.25/0.75 需 0.25 步长精确表示
+        (16, 1.25, 0.75, FixedFormat(4, 2, signed=True)),  # 1.25/0.75 needs a 0.25 step for exact representation
     ):
         n_bits = (dim - 1).bit_length()
         amax = max(abs(alpha), abs(beta))
@@ -1329,7 +1339,7 @@ def verify_cross_tridiagonal(report):
         qecc_block, _ = block_via_reference(be.operation, be.alpha, n_bits)
         qecc_matrix = qecc_block * be.alpha
         norm_f = math.sqrt(dim * alpha**2 + 2 * (dim - 1) * beta**2)
-        # pysparq 侧有效归一化（dim=2 且 β≠0 时的实测退化，见函数 docstring）
+        # pysparq-side effective normalization (measured degeneration for dim=2 and beta != 0; see the function docstring)
         ps_norm = norm_f if dim > 2 or beta == 0 else abs(alpha) + 2 * abs(beta)
         ps_matrix = ps_tridiagonal_block(alpha, beta, n_bits) * ps_norm
         qecc_err = float(np.abs(qecc_matrix - matrix).max())
@@ -1346,11 +1356,11 @@ def verify_cross_tridiagonal(report):
         parameters = {"dim": dim, "alpha_diag": alpha, "beta_offdiag": beta}
         if ps_norm != norm_f:
             parameters["note"] = (
-                "pysparq 侧 dim=2 边界行为：(0,0) 块归一化实测为 |α|+2|β| 而非 Frobenius 范数"
+                "pysparq-side dim=2 boundary behavior: the (0,0) block normalization is measured as |alpha|+2|beta| rather than the Frobenius norm"
             )
         passed = qecc_err < EXACT and ps_err < EXACT and cross_err < EXACT
         if dim <= 8:
-            # Pauli 路线：同一矩阵的第二条 oracq 编码路径
+            # Pauli route: a second oracq encoding path for the same matrix
             pauli_be = matrix_pauli_encoding(matrix)
             pauli_block, _ = block_via_reference(pauli_be.operation, pauli_be.alpha, n_bits)
             pauli_err = float(np.abs(pauli_block * pauli_be.alpha - matrix).max())
@@ -1364,17 +1374,17 @@ def verify_cross_tridiagonal(report):
             paths=["reference", "pysparq.BlockEncodingTridiagonal"],
             parameters=parameters,
             metrics=metrics,
-            criterion="两实现有效块各乘自身归一化后均 == A 且互相一致（< 1e-9）",
+            criterion="both implementations' effective blocks, each multiplied by its own normalization, == A and agree with each other (< 1e-9)",
             passed=passed,
         )
 
 
 def verify_cross_qram_block_encoding(report):
-    """pysparq BlockEncodingViaQRAM × oracq 稀疏 BE：三对角与非三对角稀疏矩阵。"""
+    """pysparq BlockEncodingViaQRAM x oracq sparse BE: tridiagonal and non-tridiagonal sparse matrices."""
     fmt = FixedFormat(3, 1, signed=True)
     families = []
     families.append(("tridiagonal-d4", tridiagonal(4, 1.5, -0.5), tridiagonal_rows(4)))
-    # 非三对角：对匹配稀疏图（每列一个非对角伙伴），s=2
+    # Non-tridiagonal: matched sparse graph (one off-diagonal partner per column), s=2
     matched = np.eye(4) * 1.5
     for i, j in ((0, 2), (1, 3)):
         matched[i, j] = matched[j, i] = -0.5
@@ -1385,7 +1395,7 @@ def verify_cross_qram_block_encoding(report):
         n_bits = (dim - 1).bit_length()
         sparsity = len(rows[0])
         amax = float(np.abs(matrix).max())
-        scaled = matrix / np.linalg.norm(matrix, "fro")  # pysparq QRAM 侧按 Frobenius 归一化入表
+        scaled = matrix / np.linalg.norm(matrix, "fro")  # the pysparq QRAM side loads the table Frobenius-normalized
         be = sparse_be_for(matrix, fmt, amax, rows, signed=True)
         qecc_block, _ = block_via_reference(be.operation, be.alpha, n_bits)
         qecc_matrix = qecc_block * be.alpha
@@ -1400,7 +1410,7 @@ def verify_cross_qram_block_encoding(report):
                 "dim": dim,
                 "sparsity": sparsity,
                 "qecc_alpha": be.alpha,
-                "psparq_config": "data_size=50,rational=51,exponent=15（C++ 判据配置）",
+                "psparq_config": "data_size=50,rational=51,exponent=15 (C++ criterion configuration)",
             },
             metrics={
                 "qecc_sparse_error": qecc_err,
@@ -1408,7 +1418,7 @@ def verify_cross_qram_block_encoding(report):
                 "cross_deviation": cross_err,
                 "psparq_tolerance": 5e-3,
             },
-            criterion="oracq 侧 < 1e-9；pysparq 侧定点量化 ≤ 5e-3（C++ 容差 2^-15 量级）",
+            criterion="oracq side < 1e-9; pysparq side fixed-point quantization <= 5e-3 (C++ tolerance, order 2^-15)",
             passed=qecc_err < EXACT and ps_err < 5e-3 and cross_err < 5e-3,
         )
 
@@ -1416,8 +1426,9 @@ def verify_cross_qram_block_encoding(report):
 def run():
     report = Report(
         "blockencoding",
-        "块编码组合代数、PREPARE–SELECT、稀疏与低秩块编码的角块对拍（块 == A/α）"
-        "与 pysparq 自带块编码的独立交叉验证；对角/稀疏多矩阵多规模双路径覆盖。",
+        "Corner-block cross-checks (block == A/alpha) of block-encoding composition algebra, PREPARE-SELECT, "
+        "sparse and low-rank block encodings, plus independent cross-validation against pysparq's own block encodings; "
+        "diagonal/sparse covered over multiple matrices and scales on dual paths.",
     )
     verify_diagonal_be_unitary(report)
     verify_diagonal_be_wide(report)

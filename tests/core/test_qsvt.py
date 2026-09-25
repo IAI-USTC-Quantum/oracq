@@ -1,4 +1,4 @@
-"""QSVT 标准变换库的数值见证：相位合成往返、约定钉死、求逆、过滤、模拟与定点搜索。"""
+"""Numerical witnesses for the QSVT standard transform library: phase synthesis round trips, pinned conventions, inversion, filtering, simulation, and fixed-point search."""
 
 import cmath
 import math
@@ -20,7 +20,7 @@ from oracq.algorithms.input_model.block_encoding import matrix_pauli_encoding
 
 
 def chebyshev_t(n):
-    """T_n 的升幂单项式系数。"""
+    """Monomial coefficients in ascending powers of T_n."""
     if n == 0:
         return (1.0,)
     if n == 1:
@@ -49,7 +49,7 @@ class PhaseSynthesisTests(unittest.TestCase):
                 )
 
     def test_roundtrip_with_explicit_imaginary_part(self):
-        # P(x) = (0.5 + i·√0.75)·x：|P|² = x²，Q = 1，精确可实现。
+        # P(x) = (0.5 + i·√0.75)·x: |P|² = x², Q = 1, exactly realizable.
         phases = qsp_phases((0.0, 0.5), imag=(0.0, math.sqrt(0.75)))
         for i in range(21):
             x = -1.0 + 0.1 * i
@@ -58,7 +58,7 @@ class PhaseSynthesisTests(unittest.TestCase):
             )
 
     def test_convention_matches_qsvt_sequence(self):
-        # 随机相位下，qsvt_sequence 电路的零信号块必须逐点等于 qsp_response。
+        # Under random phases, the zero-signal block of the qsvt_sequence circuit must equal qsp_response pointwise.
         rng = random.Random(7)
         phases = tuple(rng.uniform(-math.pi, math.pi) for _ in range(6))
         matrix = [[0.85, 0.0], [0.0, -0.55]]
@@ -71,7 +71,7 @@ class PhaseSynthesisTests(unittest.TestCase):
             self.assertAlmostEqual(amp, qsp_response(x, phases), delta=1e-10)
 
     def test_negated_phases_conjugate_polynomial(self):
-        # 实部提取 LCU 所依赖的性质：−Φ 实现 P̄。
+        # Property relied on by the real-part-extraction LCU: −Φ realizes P̄.
         rng = random.Random(11)
         phases = tuple(rng.uniform(-math.pi, math.pi) for _ in range(5))
         for i in range(21):
@@ -83,21 +83,21 @@ class PhaseSynthesisTests(unittest.TestCase):
             )
 
     def test_input_validation(self):
-        with self.assertRaises(ValidationError):  # 奇偶性不符
+        with self.assertRaises(ValidationError):  # parity mismatch
             qsp_phases((0.0, 0.5, 0.5))
-        with self.assertRaises(ValidationError):  # 上界违例
+        with self.assertRaises(ValidationError):  # upper bound violation
             qsp_phases((0.0, 2.0))
-        with self.assertRaises(ValidationError):  # 端点未饱和且未给虚部
+        with self.assertRaises(ValidationError):  # endpoints not saturated and no imaginary part given
             qsp_phases((0.0, 0.5))
-        with self.assertRaises(ValidationError):  # 非实系数
+        with self.assertRaises(ValidationError):  # non-real coefficients
             qsp_phases((0.0, 1.0 + 1.0j))
-        with self.assertRaises(ValidationError):  # 虚部奇偶性不符
+        with self.assertRaises(ValidationError):  # imaginary-part parity mismatch
             qsp_phases((0.0, 0.5), imag=(0.5,))
 
 
 class TransformWitnessTests(unittest.TestCase):
     def test_matrix_inversion_block(self):
-        matrix = [[0.6, -0.2], [-0.2, 0.6]]  # 本征值 0.4, 0.8：κ = 2
+        matrix = [[0.6, -0.2], [-0.2, 0.6]]  # eigenvalues 0.4, 0.8: κ = 2
         be = matrix_pauli_encoding(matrix)
         inv = qsvt_matrix_inversion(be, 2.0, error=0.15)
         attrs = dict(inv.operation.module.attributes)
@@ -113,13 +113,13 @@ class TransformWitnessTests(unittest.TestCase):
                 self.assertAlmostEqual(amp, expected, delta=0.35 * abs(expected))
 
     def test_eigenstate_filter_isolates_eigenvalue(self):
-        # 本征值 0.05 与 0.5（α = 0.5），过滤中心平移到 0.1（谱变量）。
+        # Eigenvalues 0.05 and 0.5 (α = 0.5); the filter center shifts to 0.1 (spectral variable).
         be = matrix_pauli_encoding([[0.05, 0.0], [0.0, 0.5]])
         flt = eigenstate_filter(be, 0.2, 8, center=0.1)
         attrs = dict(flt.operation.module.attributes)
         self.assertEqual(attrs["algorithm"], "eigenstate_filter")
         self.assertLess(attrs["suppression"], 0.08)
-        # 平移后本征值：(0.05−0.1)/0.6 ≈ −0.083（通带内）与 (0.5−0.1)/0.6 ≈ 0.667（阻带）。
+        # Shifted eigenvalues: (0.05−0.1)/0.6 ≈ −0.083 (passband) and (0.5−0.1)/0.6 ≈ 0.667 (stopband).
         state = simulate(flt.operation.program(), initial={"target": 0})
         self.assertGreater(abs(state.amplitudes.get((0, 0), 0j)), 0.7)
         state = simulate(flt.operation.program(), initial={"target": 1})
@@ -152,7 +152,7 @@ class TransformWitnessTests(unittest.TestCase):
                 x = i / 400
                 p2 = abs(qsp_response(x, phases)) ** 2
                 self.assertLessEqual(p2, 1.0 + 1e-9)
-                # 与 YLC 成功概率闭式一致
+                # matches the YLC closed-form success probability
                 v = c * math.sqrt(1.0 - x * x)
                 t_l = math.cos(degree * math.acos(v)) if v <= 1 else math.cosh(
                     degree * math.acosh(v)
@@ -160,12 +160,12 @@ class TransformWitnessTests(unittest.TestCase):
                 self.assertAlmostEqual(p2, 1.0 - delta**2 * t_l**2, delta=1e-5)
                 if x >= theta:
                     self.assertGreaterEqual(p2, 1.0 - delta**2 - 1e-9)
-        # 不动点性质：阈值随查询次数单调下降并趋于 0
+        # Fixed-point property: the threshold decreases monotonically with the query count and tends to 0
         self.assertGreater(thresholds[0], thresholds[1])
         self.assertGreater(thresholds[1], thresholds[2])
 
     def test_fixed_point_search_circuit_amplifies(self):
-        be = matrix_pauli_encoding([[0.6, 0.0], [0.0, 0.1]])  # α = 0.6：x = 1.0 与 1/6
+        be = matrix_pauli_encoding([[0.6, 0.0], [0.0, 0.1]])  # α = 0.6: x = 1.0 and 1/6
         delta, degree = 0.4, 5
         fp = fixed_point_search(be, delta, degree)
         attrs = dict(fp.operation.module.attributes)
@@ -180,7 +180,7 @@ class TransformWitnessTests(unittest.TestCase):
             qsvt_matrix_inversion(be, 0.5)
         with self.assertRaises(ValidationError):
             qsvt_matrix_inversion(be, 2.0, error=1.0)
-        with self.assertRaises(ValidationError):  # 需要度数超过合成上限
+        with self.assertRaises(ValidationError):  # required degree exceeds the synthesis cap
             qsvt_matrix_inversion(be, 10.0, error=1e-9)
         with self.assertRaises(ValidationError):
             eigenstate_filter(be, 1.5, 4)
@@ -190,7 +190,7 @@ class TransformWitnessTests(unittest.TestCase):
             qsvt_hamiltonian_simulation(be, 0.0)
         with self.assertRaises(ValidationError):
             fixed_point_search_phases(1.5, 5)
-        with self.assertRaises(ValidationError):  # 度数必须为偶数之外（奇数）
+        with self.assertRaises(ValidationError):  # degree must be odd (even given)
             fixed_point_search_phases(0.3, 4)
 
 

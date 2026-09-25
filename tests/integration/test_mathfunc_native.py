@@ -1,4 +1,4 @@
-"""自动纯函数的真实 PySparQ 执行与 OriginIR 消费。"""
+"""Real PySparQ execution and OriginIR consumption of automatic pure functions."""
 
 import unittest
 

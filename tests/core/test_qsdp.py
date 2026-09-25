@@ -1,4 +1,4 @@
-"""QSDP 框架的数值见证：迹估计电路、MMW 驱动收敛、迭代电路生成。"""
+"""Numerical witnesses for the QSDP framework: trace-estimation circuits, MMW driver convergence, and iterative circuit generation."""
 
 import math
 import unittest
@@ -31,7 +31,7 @@ def probe_probability(operation):
 
 class TraceEstimateTests(unittest.TestCase):
     def test_pure_state_observables(self):
-        # ρ = |0⟩⟨0|：Tr(Zρ) = 1，Tr(Xρ) = 0。
+        # ρ = |0⟩⟨0|: Tr(Zρ) = 1, Tr(Xρ) = 0.
         purification = gate_purification(((1.0 + 0j, 0j), (0j, 0j)))
         circuit = trace_estimate_circuit(purification, matrix_pauli_encoding(Z))
         attrs = dict(circuit.module.attributes)
@@ -44,7 +44,7 @@ class TraceEstimateTests(unittest.TestCase):
         )
 
     def test_mixed_state_observable(self):
-        # ρ = diag(0.75, 0.25)：Tr(Zρ) = 0.5。
+        # ρ = diag(0.75, 0.25): Tr(Zρ) = 0.5.
         purification = gate_purification(((0.75 + 0j, 0j), (0j, 0.25 + 0j)))
         be = matrix_pauli_encoding(Z)
         circuit = trace_estimate_circuit(purification, be)
@@ -63,7 +63,7 @@ class DriverTests(unittest.TestCase):
                 self.assertAlmostEqual(hamiltonian[i][j], expected[i][j], places=12)
 
     def test_equality_via_doubled_constraints(self):
-        # 等式 r_z = 0.2、r_x = 0.1 拆成两组不等式；MMW 应在 ε 内收敛。
+        # The equalities r_z = 0.2 and r_x = 0.1 split into two inequality pairs each; MMW should converge within ε.
         instance = SdpInstance(((Z, 0.2), (NEG_Z, -0.2), (X, 0.1), (NEG_X, -0.1)))
         result = qsdp_gibbs_solve(instance, epsilon=0.08)
         self.assertTrue(result["converged"])
@@ -71,14 +71,14 @@ class DriverTests(unittest.TestCase):
             self.assertLessEqual(violation, 0.08)
         rho = result["rho"]
         self.assertAlmostEqual(rho[0][0] + rho[1][1], 1.0, places=9)
-        # Bloch 向量接近目标 (0.1, 0, 0.2)。
+        # The Bloch vector approaches the target (0.1, 0, 0.2).
         r_z = (rho[0][0] - rho[1][1]).real
         r_x = (2 * rho[0][1]).real
         self.assertAlmostEqual(r_z, 0.2, delta=0.12)
         self.assertAlmostEqual(r_x, 0.1, delta=0.12)
 
     def test_infeasible_instance_does_not_converge(self):
-        # r_z ≤ 0.2 与 r_z ≥ 0.5 矛盾。
+        # r_z ≤ 0.2 and r_z ≥ 0.5 are contradictory.
         instance = SdpInstance(((Z, 0.2), (NEG_Z, -0.5)))
         result = qsdp_gibbs_solve(instance, epsilon=0.05, max_iterations=4000)
         self.assertFalse(result["converged"])
@@ -111,7 +111,7 @@ class IterationCircuitsTests(unittest.TestCase):
         instance = SdpInstance(((Z, 0.2),))
         cases = [
             lambda: SdpInstance(()),
-            lambda: SdpInstance((((1.0, 0.0), (0.0, 0.1)), 0.0)),  # 非 Hermitian
+            lambda: SdpInstance((((1.0, 0.0), (0.0, 0.1)), 0.0)),  # not Hermitian
             lambda: penalty_hamiltonian(instance, (0.5, 0.5)),
             lambda: trace_estimate_circuit(purification, matrix_pauli_encoding(Z), component="abs"),
             lambda: trace_estimate_circuit(object(), matrix_pauli_encoding(Z)),

@@ -1,8 +1,10 @@
-"""QFVM-on-QMem 与既有 QFVM 路径的等价性对拍（simulate 逐振幅）。
+"""Equivalence cross-checks of QFVM-on-QMem against the existing QFVM route (amplitude by amplitude in simulate).
 
-数据访问层（几何表 fuse 编址 vs 二维指针、状态表 vs 三个独立库、周期邻居指针）
-用叠加探针全覆盖；位置 oracle 与残差态做完整对拍；含 Roe 算术的物理层
-（roe_face 编译电路，展开约 1.6e7 步）在单点上做深度对拍。
+The data-access layer (geometry-table fuse addressing vs two-dimensional pointers, state
+tables vs three independent banks, periodic-neighbor pointers) is fully covered by
+superposition probes; the location oracle and the residual state are cross-checked
+end to end; the physical layer containing Roe arithmetic (the roe_face compiled circuit,
+about 1.6e7 expanded steps) gets a deep cross-check at a single point.
 """
 
 import unittest
@@ -39,7 +41,7 @@ def rounded(state):
 
 
 class DataAccessProbeTests(unittest.TestCase):
-    """叠加探针：QMem 二维寻址与 legacy fuse/invoke 编址在真实数据上逐字一致。"""
+    """Superposition probes: QMem two-dimensional addressing matches legacy fuse/invoke addressing word for word on real data."""
 
     def setUp(self):
         self.inputs = roe_qfvm_inputs(fmt=FMT, angle_width=AW)
@@ -238,7 +240,7 @@ class ResidualEquivalenceTests(unittest.TestCase):
 
 class PhysicalEquivalenceTests(unittest.TestCase):
     def test_single_point_matches_legacy(self):
-        """含编译 Roe 算术的物理层深对拍：source=1、row=col=0、band=1（中心带）。"""
+        """Deep cross-check of the physical layer with compiled Roe arithmetic: source=1, row=col=0, band=1 (the central band)."""
         inputs = roe_qfvm_inputs(fmt=FMT, angle_width=AW)
         data = RoeQmemData(STATES, fmt=FMT, angle_width=AW, entropy_delta=DELTA)
 

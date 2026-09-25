@@ -1,4 +1,4 @@
-"""小规模模乘、量子求阶与经典因子后处理。"""
+"""Small-scale modular multiplication, quantum order finding, and classical factor post-processing."""
 
 from __future__ import annotations
 
@@ -17,25 +17,28 @@ from oracq.infrastructure.ir import Bits, ValidationError
 def modular_multiply(
     multiplier: int, modulus: int, *, width: int | None = None, max_width: int = 8
 ) -> Operation:
-    """生成可逆的有限规模模乘置换。
+    """Generate a reversible bounded-size modular multiplication permutation.
 
     Args:
-        multiplier: 与 modulus 互素的正整数。
-        modulus: 大于等于二的模数。
-        width: 目标位宽；省略时取能够容纳模数的最小位宽。
-        max_width: 置换合成预算，默认 8，最多允许 12。
+        multiplier: Positive integer coprime with modulus.
+        modulus: Modulus of at least two.
+        width: Target bit width; when omitted, the smallest width that fits
+            the modulus.
+        max_width: Permutation synthesis budget, default 8, at most 12.
 
     Returns:
-        Operation: x<modulus 时映射到 multiplier*x mod modulus，其余基态保持不变。
+        Operation: Maps x<modulus to multiplier*x mod modulus; other basis
+        states are left unchanged.
 
-    实现枚举有限置换，不代表可扩展的 Shor 模算术。"""
+    The implementation enumerates a finite permutation and does not
+    represent scalable Shor modular arithmetic."""
     positive_integer(modulus, "modular_multiply.modulus", minimum=2)
     positive_integer(multiplier, "modular_multiply.multiplier", minimum=1)
     positive_integer(max_width, "modular_multiply.max_width", maximum=12)
     width = (modulus - 1).bit_length() if width is None else width
     positive_integer(width, "modular_multiply.width", maximum=max_width)
     if modulus > (1 << width) or math.gcd(multiplier, modulus) != 1:
-        raise ValidationError("模数必须适合寄存器，且乘数必须与模数互素")
+        raise ValidationError("the modulus must fit in the register and the multiplier must be coprime with the modulus")
     multiplier %= modulus
     permutation = [multiplier * x % modulus if x < modulus else x for x in range(1 << width)]
     b = Builder(
@@ -64,16 +67,18 @@ def modular_multiply(
 def order_finding(
     multiplier: int, modulus: int, *, precision: int = 3, max_width: int = 8
 ) -> Operation:
-    """从整数一开始，对模乘 unitary 做量子求阶。
+    """Run quantum order finding on the modular multiplication unitary starting from the integer one.
 
     Args:
-        multiplier: 与 modulus 互素的乘数。
-        modulus: 模数。
-        precision: QPE 相位位宽。
-        max_width: 底层模乘置换的位宽预算。
+        multiplier: Multiplier coprime with modulus.
+        modulus: The modulus.
+        precision: Phase bit width of the QPE.
+        max_width: Bit width budget of the underlying modular multiplication
+            permutation.
 
     Returns:
-        Operation: target/phase 接口。phase 提供阶的分数信息，需要经典后处理。"""
+        Operation: target/phase interface. phase carries fractional
+        information about the order and needs classical post-processing."""
     operation = modular_multiply(multiplier, modulus, max_width=max_width)
     n = operation.module.registers[0].type.width
     qpe = phase_estimation(operation, precision=precision)
@@ -96,16 +101,17 @@ def order_finding(
 def factors_from_phase(
     value: int, precision: int, multiplier: int, modulus: int
 ) -> tuple[int, int] | None:
-    """用相位样本的连分数候选阶尝试得到非平凡因子。
+    """Attempt to obtain a nontrivial factor from the continued-fraction candidate order of a phase sample.
 
     Args:
-        value: 相位寄存器的整数读出值。
-        precision: 相位寄存器位宽。
-        multiplier: 量子求阶使用的乘数。
-        modulus: 待处理整数。
+        value: Integer readout of the phase register.
+        precision: Bit width of the phase register.
+        multiplier: The multiplier used in quantum order finding.
+        modulus: The integer to process.
 
     Returns:
-        tuple or None: 已验证的因子对，或表示该样本未能给出因子的 None。"""
+        tuple or None: A verified factor pair, or None when this sample
+        yields no factor."""
     positive_integer(precision, "factors.precision", maximum=63)
     positive_integer(value, "factors.phase", minimum=0, maximum=(1 << precision) - 1)
     positive_integer(modulus, "factors.modulus", minimum=3)

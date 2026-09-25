@@ -1,10 +1,15 @@
-"""文档交叉链接的结构校验。
+"""Structural validation of documentation cross-links.
 
-conf.py 的 ``suppress_warnings = ["ref.python"]`` 会让失效的 py-domain 引用在
-``-W`` 构建中静默降级为纯文本，因此这里直接扫描 Markdown 源文件校验：
-``{obj}`` 目标必须可导入，相对链接与 literalinclude 必须指向存在的文件，
-相对链接的标题锚点必须存在于目标页（MyST 不对缺失锚点报警），算法词条页
-之间的链接必须对称，算法页「源码」行必须指向存在的路径。
+Because ``suppress_warnings = ["ref.python", "myst.xref_missing"]`` in conf.py
+lets broken py-domain references and cross-language links degrade silently to
+plain text under ``-W`` builds, this suite scans the Markdown sources
+directly: ``{obj}`` targets must be importable, relative links and
+literalinclude directives must point at existing files, relative-link anchors
+must exist in the target page's headings (MyST does not warn on missing
+anchors), algorithm entry pages must link symmetrically, and each page's
+"source" line must point at an existing path. Both language trees are
+validated; ``.html`` targets are cross-language switcher links checked against
+their ``.md`` twins.
 """
 
 import importlib
@@ -20,9 +25,9 @@ ROLE_OBJ = re.compile(
 )
 DOWNLOAD = re.compile(r"\{download\}`[^<`]*?<([^<`\s]+)>`")
 MD_LINK = re.compile(r"\]\(([^)\s]+)\)")
-LITERALINCLUDE = re.compile(r"^\{literalinclude\}\s+(\S+)", re.MULTILINE)
+LITERALINCLUDE = re.compile(r"^(`{0,3}\{literalinclude\}\s+)(\S+)", re.MULTILINE)
 FENCE = re.compile(r"```.*?```", re.DOTALL)
-SRC_PATH = re.compile(r"^- 源码：.*?`((?:src|tools|examples|tests)/[^`]+)`", re.MULTILINE)
+SRC_PATH = re.compile(r"^- (?:源码：|Source:)\s.*?`((?:src|tools|examples|tests)/[^`]+)`", re.MULTILINE)
 HEADING = re.compile(r"^(#{1,4})\s+(.+?)\s*#*\s*$", re.MULTILINE)
 SLUG_CLEAN = re.compile(r"[^\w\u4e00-\u9fff\-]")
 EXTERNAL = ("http://", "https://", "mailto:")
@@ -41,13 +46,14 @@ def strip_fences(text: str) -> str:
 
 
 def strip_inline_code(text: str) -> str:
-    """内联代码中的链接语法不会被渲染成链接，检查 md 链接时应忽略。"""
+    """Link syntax inside inline code is not rendered as a link; skip it when
+    checking markdown links."""
     text = re.sub(r"``[^`]+``", "", text)
     return re.sub(r"`[^`\n]+`", "", text)
 
 
 def resolve_object(target: str) -> str | None:
-    """返回错误信息；目标可解析时返回 None。"""
+    """Return an error message; None when the target resolves."""
     parts = target.split(".")
     for split in range(len(parts), 0, -1):
         try:
@@ -58,15 +64,16 @@ def resolve_object(target: str) -> str | None:
             for attr in parts[split:]:
                 obj = getattr(obj, attr)
         except AttributeError:
-            return f"{target}: {'.'.join(parts[:split])} 没有 {target}"
+            return f"{target}: {'.'.join(parts[:split])} has no {target}"
         return None
-    return f"{target}: 找不到可导入的模块前缀"
+    return f"{target}: no importable module prefix"
 
 
 def heading_slug(title: str) -> str:
-    """复现 MyST default_slugify：小写、空格转连字符、剔除字母数字连字符以外字符。"""
-    title = re.sub(r"\[[^\]]*\]\([^)]*\)", "", title)  # 链接文本不进入 slug
-    title = re.sub(r"\$[^$]+\$", "", title)  # 数学式不进入 slug
+    """Reproduce MyST default_slugify: lowercase, spaces to hyphens, drop
+    everything outside word characters, hyphens, and CJK."""
+    title = re.sub(r"\[[^\]]*\]\([^)]*\)", "", title)  # link text stays out of the slug
+    title = re.sub(r"\$[^$]+\$", "", title)  # math stays out of the slug
     title = re.sub(r"\*\*([^*]+)\*\*", r"\1", title)
     title = re.sub(r"\*([^*]+)\*", r"\1", title)
     title = re.sub(r"`([^`]+)`", r"\1", title)
@@ -74,7 +81,8 @@ def heading_slug(title: str) -> str:
 
 
 def page_slugs(path: Path) -> set[str]:
-    """目标页 1-4 级标题的锚点集合；重复标题按 MyST 规则追加 -N。"""
+    """Anchors of the target page's level 1-4 headings; duplicates get -N
+    appended per MyST rules."""
     slugs: list[str] = []
     for match in HEADING.finditer(path.read_text(encoding="utf-8")):
         slug = heading_slug(match.group(2))
@@ -85,6 +93,12 @@ def page_slugs(path: Path) -> set[str]:
             slug = f"{base}-{i}"
         slugs.append(slug)
     return set(slugs)
+
+
+def disk_target(link_file: str) -> str:
+    """Cross-language switcher links use .html targets in the built site;
+    validate them against their .md source twins."""
+    return link_file[:-5] + ".md" if link_file.endswith(".html") else link_file
 
 
 class XrefTargetTests(unittest.TestCase):
@@ -103,18 +117,20 @@ class XrefTargetTests(unittest.TestCase):
         for path in iter_doc_files():
             raw = path.read_text(encoding="utf-8")
             targets = list(DOWNLOAD.findall(raw))
-            targets += LITERALINCLUDE.findall(raw)
+            targets += [m.group(2) for m in LITERALINCLUDE.finditer(raw)]
             targets += MD_LINK.findall(strip_inline_code(strip_fences(raw)))
             for target in targets:
                 if target.startswith(EXTERNAL + ("#",)) or not target:
                     continue
-                location = (path.parent / target.split("#")[0]).resolve()
+                location = (path.parent / disk_target(target.split("#")[0])).resolve()
                 if not location.exists():
                     errors.append(f"{path.relative_to(REPO)}: {target}")
         self.assertEqual(errors, [])
 
     def test_anchor_targets_exist(self):
-        """相对链接的 #锚点 必须存在于目标 .md 页的标题集合（rst 目标除外）。"""
+        """Anchors of relative links must exist in the target .md page's
+        heading set (rst targets and cross-language .html links excluded —
+        headings differ across languages)."""
         errors = []
         cache: dict[str, set[str]] = {}
         for path in iter_doc_files():
@@ -123,11 +139,11 @@ class XrefTargetTests(unittest.TestCase):
                 if "#" not in target or target.startswith(EXTERNAL):
                     continue
                 file_part, _, anchor = target.partition("#")
-                if not anchor or file_part.endswith((".rst", ".json")):
+                if not anchor or file_part.endswith((".rst", ".json", ".html")):
                     continue
-                target_path = path.parent / file_part if file_part else path
+                target_path = path.parent / disk_target(file_part) if file_part else path
                 if not target_path.exists():
-                    continue  # 文件存在性由 test_relative_link_targets_exist 负责
+                    continue  # file existence is covered by test_relative_link_targets_exist
                 key = str(target_path)
                 if key not in cache:
                     cache[key] = page_slugs(target_path)
@@ -136,22 +152,22 @@ class XrefTargetTests(unittest.TestCase):
         self.assertEqual(errors, [])
 
     def test_algorithm_page_links_are_symmetric(self):
-        pages = DOCS / "manual" / "algorithms"
-        edges = {}
-        for path in sorted(pages.glob("*.md")):
-            text = strip_fences(path.read_text(encoding="utf-8"))
-            edges[path.stem] = {
-                match[:-3]
-                for match in re.findall(r"\]\(([a-z0-9-]+\.md)(?:#[^)]*)?\)", text)
-            }
-        errors = []
-        for source, targets in edges.items():
-            for target in targets:
-                if target == source or not (pages / f"{target}.md").exists():
-                    continue
-                if source not in edges[target]:
-                    errors.append(f"{target}.md 缺少指回 {source}.md 的链接")
-        self.assertEqual(errors, [])
+        for pages in (DOCS / "manual" / "algorithms", DOCS / "zh" / "manual" / "algorithms"):
+            edges = {}
+            for path in sorted(pages.glob("*.md")):
+                text = strip_fences(path.read_text(encoding="utf-8"))
+                edges[path.stem] = {
+                    match[:-3]
+                    for match in re.findall(r"\]\(([a-z0-9-]+\.md)(?:#[^)]*)?\)", text)
+                }
+            errors = []
+            for source, targets in edges.items():
+                for target in targets:
+                    if target == source or not (pages / f"{target}.md").exists():
+                        continue
+                    if source not in edges.get(target, {}):
+                        errors.append(f"{pages.relative_to(REPO)}: {target}.md lacks a link back to {source}.md")
+            self.assertEqual(errors, [])
 
     def test_algorithm_page_source_lines_exist(self):
         errors = []

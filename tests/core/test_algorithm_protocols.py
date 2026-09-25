@@ -1,4 +1,4 @@
-"""算法私有结构协议、多角色操作与实际 Hamiltonian 组合。"""
+"""Algorithm-private structural protocols, multi-role operations, and composition with real Hamiltonians."""
 
 import cmath
 import math
@@ -107,7 +107,7 @@ class AlgorithmProtocolTests(unittest.TestCase):
     def test_nonhermitian_and_missing_qsp_are_distinct_errors(self):
         with self.assertRaisesRegex(ValidationError, "Hermitian"):
             hamiltonian_simulation(EncodedOperator(identity(1), hermitian=False), 0.1)
-        with self.assertRaisesRegex(ValidationError, "实际 qsp"):
+        with self.assertRaisesRegex(ValidationError, "actual qsp"):
             hamiltonian_simulation(EncodedOperator(identity(1), hermitian=True), 0.1)
 
     def test_trotter_validates_each_term(self):

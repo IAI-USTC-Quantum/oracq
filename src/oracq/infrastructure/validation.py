@@ -1,4 +1,4 @@
-"RIR 的封闭操作集、类型、别名、资源和无环调用检查。"
+"Closed operation set, type, aliasing, resource and acyclic call checks for RIR."
 
 from __future__ import annotations
 
@@ -26,177 +26,177 @@ from oracq.infrastructure.ir import (
 )
 
 KINDS = {"bits", "uint", "sint", "rational"}
-"""寄存器类型允许的种类集合。"""
+"""Set of register kinds that are allowed."""
 UNARY = {"h", "x", "y", "z", "s", "t", "rx", "ry", "rz", "phase"}
-"""允许的一元量子基元操作名集合。"""
+"""Set of allowed unary quantum primitive operation names."""
 ROTATIONS = {"rx", "ry", "rz", "phase"}
-"""带角度参数的旋转类基元名集合，是 ``UNARY`` 的子集。"""
+"""Set of rotation primitive names that carry an angle argument; a subset of ``UNARY``."""
 BINARY = {"xor", "swap"}
-"""允许的二元量子基元操作名集合。"""
+"""Set of allowed binary quantum primitive operation names."""
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
-"""合法标识符的正则模式：以字母或下划线开头，后随字母、数字或下划线。"""
+"""Regex pattern for valid identifiers: starts with a letter or underscore, followed by letters, digits or underscores."""
 
 
 def require(condition: object, message: str) -> None:
-    """断言结构检查条件成立，否则抛出 ``ValidationError``。
+    """Assert that a structural check condition holds, otherwise raise ``ValidationError``.
 
     Args:
-        condition: 按布尔语义解释的检查结果。
-        message: 失败时写入异常的错误说明。
+        condition: check result interpreted with boolean semantics.
+        message: error description written into the exception on failure.
 
     Raises:
-        ValidationError: ``condition`` 为假。
+        ValidationError: ``condition`` is false.
     """
     if not condition:
         raise ValidationError(message)
 
 
 def integer(value: object, lo: int, hi: int, message: str) -> None:
-    """断言 ``value`` 是位于闭区间 ``lo..hi`` 内的整数。
+    """Assert that ``value`` is an integer within the closed interval ``lo..hi``.
 
     Args:
-        value: 待检查的数值。
-        lo: 允许的最小值（含端点）。
-        hi: 允许的最大值（含端点）。
-        message: 失败时写入异常的错误说明。
+        value: value to check.
+        lo: minimum allowed value, inclusive.
+        hi: maximum allowed value, inclusive.
+        message: error description written into the exception on failure.
 
     Raises:
-        ValidationError: ``value`` 不是 ``int`` 或越出区间。
+        ValidationError: ``value`` is not an ``int`` or lies outside the interval.
     """
     require(type(value) is int and lo <= value <= hi, message)
 
 
 def name(value: object) -> None:
-    """断言 ``value`` 是匹配 ``IDENTIFIER`` 模式的合法标识符字符串。
+    """Assert that ``value`` is a valid identifier string matching the ``IDENTIFIER`` pattern.
 
     Args:
-        value: 待检查的标识符，如寄存器名、资源名或模块名。
+        value: identifier to check, such as a register name, resource name or module name.
 
     Raises:
-        ValidationError: ``value`` 不是字符串或包含非法字符。
+        ValidationError: ``value`` is not a string or contains illegal characters.
     """
     require(
-        isinstance(value, str) and IDENTIFIER.fullmatch(value) is not None, f"非法标识符：{value!r}"
+        isinstance(value, str) and IDENTIFIER.fullmatch(value) is not None, f"invalid identifier: {value!r}"
     )
 
 
 def reg_type(dtype: RegType) -> None:
-    """断言 ``dtype`` 是种类已知、宽度为 0..64 的寄存器类型。
+    """Assert that ``dtype`` is a register type with a known kind and width 0..64.
 
     Args:
-        dtype: 待检查的存储类型对象。
+        dtype: storage type object to check.
 
     Raises:
-        ValidationError: ``dtype`` 不是 ``RegType``、种类未知或宽度越界。
+        ValidationError: ``dtype`` is not a ``RegType``, its kind is unknown, or its width is out of range.
     """
-    require(isinstance(dtype, RegType) and dtype.kind in KINDS, "未知寄存器类型")
-    integer(dtype.width, 0, 64, "每个寄存器或视图的宽度必须为 0..64")
+    require(isinstance(dtype, RegType) and dtype.kind in KINDS, "unknown register type")
+    integer(dtype.width, 0, 64, "width of every register or view must be 0..64")
 
 
 def locations(ref: Ref) -> tuple[tuple[str, int], ...]:
-    """展开视图引用覆盖的全部量子位坐标。
+    """Expand all qubit coordinates covered by a view reference.
 
     Args:
-        ref: 待展开的寄存器视图。
+        ref: register view to expand.
 
     Returns:
-        tuple: ``(寄存器名, 位序号)`` 二元组按视图分段顺序组成的元组。
+        tuple: tuple of ``(register name, bit index)`` pairs in view segment order.
     """
     return tuple((s.register, bit) for s in ref.parts for bit in range(s.start, s.start + s.width))
 
 
 def capture_map(module: Module) -> dict[str, str]:
-    """解析链接器的资源来源属性；保证映射引用存在且一一对应。"""
+    """Parse the linker resource-origin attribute; ensures the referenced mapping exists and is one-to-one."""
     raw = dict(module.attributes).get("binding_captures", "{}")
-    require(isinstance(raw, str), "binding_captures 必须是 JSON 字符串")
+    require(isinstance(raw, str), "binding_captures must be a JSON string")
     try:
         result = json.loads(cast(str, raw))
     except ValueError as exc:
-        raise ValidationError("binding_captures 不是有效 JSON") from exc
-    require(isinstance(result, dict), "binding_captures 必须是对象")
+        raise ValidationError("binding_captures is not valid JSON") from exc
+    require(isinstance(result, dict), "binding_captures must be an object")
     existing = {r.name for r in module.resources}
     for logical, local in result.items():
         name(logical)
         name(local)
-        require(local in existing, "binding_captures 引用了不存在的资源")
-    require(len(set(result.values())) == len(result), "binding_captures 局部资源名重复")
+        require(local in existing, "binding_captures references a nonexistent resource")
+    require(len(set(result.values())) == len(result), "binding_captures has duplicate local resource names")
     return cast(dict[str, str], result)
 
 
 def _validate(program: Program) -> Program:
-    """对程序执行全部跨节点结构检查，通过后原样返回。"""
-    require(isinstance(program, Program) and type(program.modules) is tuple, "需要不可变 Program")
-    require(program.version in {"0.1", "0.2", VERSION}, f"不支持 RIR 版本：{program.version}")
+    """Run all cross-node structural checks on the program and return it unchanged on success."""
+    require(isinstance(program, Program) and type(program.modules) is tuple, "an immutable Program is required")
+    require(program.version in {"0.1", "0.2", VERSION}, f"unsupported RIR version: {program.version}")
     name(program.entry)
     modules = program.module_map
-    require(len(modules) == len(program.modules), "模块名重复")
-    require(program.entry in modules, "入口模块不存在")
+    require(len(modules) == len(program.modules), "duplicate module name")
+    require(program.entry in modules, "entry module does not exist")
     graph: dict[str, set[str]] = {key: set() for key in modules}
 
     for module in program.modules:
         name(module.name)
         require(
             type(module.registers) is tuple and type(module.resources) is tuple,
-            "模块签名必须不可变",
+            "module signature must be immutable",
         )
-        require(type(module.attributes) is tuple, "模块属性必须不可变")
+        require(type(module.attributes) is tuple, "module attributes must be immutable")
         require(
             all(type(pair) is tuple and len(pair) == 2 for pair in module.attributes),
-            "属性条目必须是二元组",
+            "attribute entries must be pairs",
         )
         attributes = dict(module.attributes)
-        require(len(attributes) == len(module.attributes), "模块属性键重复")
+        require(len(attributes) == len(module.attributes), "duplicate module attribute key")
         for key, value in attributes.items():
             name(key)
-            require(type(value) in (str, int, float, bool), "属性必须是标量")
+            require(type(value) in (str, int, float, bool), "attributes must be scalars")
             if type(value) is float:
-                require(math.isfinite(value), "属性浮点数必须有限")
+                require(math.isfinite(value), "attribute floats must be finite")
         for capability in ("supports_adjoint", "supports_controlled"):
             if capability in attributes:
-                require(type(attributes[capability]) is bool, "能力字段必须为布尔值")
-        require(type(module.locals) is tuple, "局部寄存器列表必须不可变")
-        require(program.version == VERSION or not module.locals, "旧 RIR 不支持局部寄存器")
+                require(type(attributes[capability]) is bool, "capability fields must be booleans")
+        require(type(module.locals) is tuple, "local register list must be immutable")
+        require(program.version == VERSION or not module.locals, "legacy RIR does not support local registers")
         if module.body is None:
-            require(not module.locals, "开放声明不能定义私有工作区")
+            require(not module.locals, "open declarations cannot define a private workspace")
         all_registers = module.registers + module.locals
         regs = {reg.name: reg.type for reg in all_registers}
         resources = {res.name: res.type for res in module.resources}
-        require(len(regs) == len(all_registers), "寄存器名重复")
-        require(len(resources) == len(module.resources), "资源名重复")
-        require(not regs.keys() & resources.keys(), "寄存器与资源名字冲突")
+        require(len(regs) == len(all_registers), "duplicate register name")
+        require(len(resources) == len(module.resources), "duplicate resource name")
+        require(not regs.keys() & resources.keys(), "register and resource names conflict")
         for reg in all_registers:
             name(reg.name)
             reg_type(reg.type)
-        require(sum(reg.type.width for reg in module.registers) > 0, "模块必须有非空量子接口")
+        require(sum(reg.type.width for reg in module.registers) > 0, "module must have a nonempty quantum interface")
         for resource in module.resources:
             name(resource.name)
-            integer(resource.type.address_width, 1, 64, "QRAM 地址宽度必须为 1..64")
-            integer(resource.type.data_width, 1, 64, "QRAM 数据宽度必须为 1..64")
+            integer(resource.type.address_width, 1, 64, "QRAM address width must be 1..64")
+            integer(resource.type.data_width, 1, 64, "QRAM data width must be 1..64")
         if "binding_captures" in attributes:
             capture_map(module)
 
         def check_ref(ref: Ref, regs: dict[str, RegType] = regs) -> set[tuple[str, int]]:
-            """校验单个视图的合法性与无重叠，返回其覆盖的量子位集合。"""
-            require(isinstance(ref, Ref), "需要寄存器视图")
+            """Validate a single view for legality and non-overlap, returning the set of qubits it covers."""
+            require(isinstance(ref, Ref), "a register view is required")
             reg_type(ref.type)
-            require(type(ref.parts) is tuple, "视图必须不可变")
-            require(sum(s.width for s in ref.parts) == ref.width, "视图宽度与分段不符")
+            require(type(ref.parts) is tuple, "view must be immutable")
+            require(sum(s.width for s in ref.parts) == ref.width, "view width does not match its segments")
             for span in ref.parts:
-                require(span.register in regs, f"未知寄存器：{span.register}")
+                require(span.register in regs, f"unknown register: {span.register}")
                 width = regs[span.register].width
-                integer(span.start, 0, width, "视图起点越界")
-                integer(span.width, 0, width - span.start, "视图终点越界")
+                integer(span.start, 0, width, "view start out of range")
+                integer(span.width, 0, width - span.start, "view end out of range")
             locs = locations(ref)
-            require(len(set(locs)) == len(locs), "视图内存在重叠量子位")
+            require(len(set(locs)) == len(locs), "overlapping qubits within a view")
             return set(locs)
 
         def distinct(refs: tuple[Ref, ...], protected: frozenset[tuple[str, int]]) -> None:
-            """断言各操作数互不重叠，且不修改受保护的控制量子位。"""
+            """Assert that operands do not overlap each other and do not modify protected control qubits."""
             used: set[tuple[str, int]] = set()
             for ref in refs:
                 current = check_ref(ref)
-                require(not current & used, "操作数存在别名或重叠")
-                require(not current & protected, "操作数修改了受保护的控制寄存器")
+                require(not current & used, "operands alias or overlap")
+                require(not current & protected, "operands modify a protected control register")
                 used |= current
 
         def body(
@@ -207,92 +207,92 @@ def _validate(program: Program) -> Program:
             module: Module = module,
             unitary: bool = True,
         ) -> None:
-            """递归校验指令体：基元元数、别名、控制保护与调用匹配。"""
-            require(depth < 128, "嵌套深度超过 127")
-            require(type(nodes) is tuple, "指令体必须不可变")
+            """Recursively validate an instruction body: primitive arity, aliasing, control protection and call matching."""
+            require(depth < 128, "nesting depth exceeds 127")
+            require(type(nodes) is tuple, "instruction body must be immutable")
             for node in nodes:
                 if isinstance(node, Primitive):
-                    require(type(node.operands) is tuple, "基元操作数必须不可变")
-                    require(node.op in UNARY | BINARY | {"add_const", "gphase"}, "未知基元")
+                    require(type(node.operands) is tuple, "primitive operands must be immutable")
+                    require(node.op in UNARY | BINARY | {"add_const", "gphase"}, "unknown primitive")
                     expected = 2 if node.op in BINARY else 0 if node.op == "gphase" else 1
-                    require(len(node.operands) == expected, "基元参数数量不匹配")
+                    require(len(node.operands) == expected, "primitive operand count mismatch")
                     distinct(node.operands, protected)
                     if node.op in BINARY:
                         require(
-                            node.operands[0].width == node.operands[1].width, "二元操作宽度不符"
+                            node.operands[0].width == node.operands[1].width, "binary operation width mismatch"
                         )
                     if node.op in ROTATIONS | {"gphase"}:
                         require(
-                            # and 短路保证进入 isfinite 时 angle 已是有限实数类型。
+                            # short-circuiting of and guarantees angle is already of a finite real type when isfinite runs.
                             type(node.angle) in (float, int) and math.isfinite(cast(float, node.angle)),
-                            "旋转角必须是有限实数",
+                            "rotation angle must be a finite real number",
                         )
                     else:
-                        require(node.angle is None, "此基元不接受角度")
+                        require(node.angle is None, "this primitive does not accept an angle")
                     if node.op == "add_const":
-                        require(node.operands[0].type.kind == "uint", "add_const 需要 uint")
+                        require(node.operands[0].type.kind == "uint", "add_const requires uint")
                         integer(
                             node.value,
                             0,
                             (1 << node.operands[0].width) - 1,
-                            "加法常量超出寄存器范围",
+                            "addition constant exceeds the register range",
                         )
                     else:
-                        require(node.value is None, "此基元不接受整数参数")
+                        require(node.value is None, "this primitive does not accept an integer argument")
                 elif isinstance(node, Load):
-                    require(node.resource in resources, "QRAM 资源没有声明")
+                    require(node.resource in resources, "QRAM resource is not declared")
                     spec = resources[node.resource]
                     distinct((node.address, node.data), protected)
-                    require(node.address.width == spec.address_width, "QRAM 地址宽度不符")
-                    require(node.data.width == spec.data_width, "QRAM 数据宽度不符")
+                    require(node.address.width == spec.address_width, "QRAM address width mismatch")
+                    require(node.data.width == spec.data_width, "QRAM data width mismatch")
                 elif isinstance(node, Store):
-                    require(unitary, "Store 是非酉副作用，不能出现在 Control 或 Adjoint 体内")
-                    require(program.version == VERSION, "旧 RIR 不支持 Store")
-                    require(node.resource in resources, "QRAM 资源没有声明")
+                    require(unitary, "Store is a non-unitary side effect and cannot appear inside a Control or Adjoint body")
+                    require(program.version == VERSION, "legacy RIR does not support Store")
+                    require(node.resource in resources, "QRAM resource is not declared")
                     spec = resources[node.resource]
                     distinct((node.address, node.data), protected)
-                    require(node.address.width == spec.address_width, "QRAM 地址宽度不符")
-                    require(node.data.width == spec.data_width, "QRAM 数据宽度不符")
+                    require(node.address.width == spec.address_width, "QRAM address width mismatch")
+                    require(node.data.width == spec.data_width, "QRAM data width mismatch")
                 elif isinstance(node, Call):
                     require(
                         type(node.arguments) is tuple and type(node.resources) is tuple,
-                        "调用参数必须不可变",
+                        "call arguments must be immutable",
                     )
-                    require(node.module in modules, f"未知模块：{node.module}")
+                    require(node.module in modules, f"unknown module: {node.module}")
                     target = modules[node.module]
-                    require(len(node.arguments) == len(target.registers), "模块量子参数数量不符")
-                    require(len(node.resources) == len(target.resources), "模块资源参数数量不符")
+                    require(len(node.arguments) == len(target.registers), "module quantum argument count mismatch")
+                    require(len(node.resources) == len(target.resources), "module resource argument count mismatch")
                     distinct(node.arguments, protected)
                     for actual, formal in zip(node.arguments, target.registers, strict=True):
-                        require(actual.type == formal.type, f"模块参数类型不符：{formal.name}")
-                    # actual/formal 在上一循环绑定为 Ref/Register，本循环承载 str/Resource。
+                        require(actual.type == formal.type, f"module argument type mismatch: {formal.name}")
+                    # actual/formal are bound to Ref/Register in the loop above and carry str/Resource in this one.
                     for actual, formal in zip(  # type: ignore[assignment]
                         node.resources, target.resources, strict=True
                     ):
                         require(
                             actual in resources and resources[cast(str, actual)] == formal.type,
-                            "模块 QRAM 实参类型不符",
+                            "module QRAM argument type mismatch",
                         )
                     graph[module.name].add(node.module)
                 elif isinstance(node, Repeat):
-                    integer(node.count, 0, 2**63 - 1, "重复次数必须为 0..2^63-1")
+                    integer(node.count, 0, 2**63 - 1, "repeat count must be 0..2^63-1")
                     body(node.body, protected, depth + 1, unitary=unitary)
                 elif isinstance(node, Control):
                     locs = check_ref(node.register)
-                    require(bool(locs), "控制寄存器不能为空")
-                    integer(node.value, 0, (1 << node.register.width) - 1, "控制值越界")
-                    require(not locs & protected, "嵌套控制寄存器重叠")
+                    require(bool(locs), "control register cannot be empty")
+                    integer(node.value, 0, (1 << node.register.width) - 1, "control value out of range")
+                    require(not locs & protected, "nested control registers overlap")
                     body(node.body, protected | locs, depth + 1, unitary=False)
                 elif isinstance(node, Adjoint):
                     body(node.body, protected, depth + 1, unitary=False)
                 else:
-                    raise ValidationError(f"未知指令类型：{type(node).__name__}")
+                    raise ValidationError(f"unknown instruction type: {type(node).__name__}")
 
         if module.body is None:
-            require(program.version != "0.1", "RIR 0.1 不支持开放声明")
+            require(program.version != "0.1", "RIR 0.1 does not support open declarations")
             require(
                 isinstance(attributes.get("oracle_paradigm"), str),
-                "开放声明必须指定 oracle_paradigm",
+                "open declarations must specify oracle_paradigm",
             )
         else:
             body(module.body)
@@ -302,9 +302,9 @@ def _validate(program: Program) -> Program:
     visited, active = set(), set()
 
     def visit(key: str) -> None:
-        """沿调用图深度优先检测递归与过深的模块调用。"""
-        require(key not in active, "模块调用图存在递归")
-        require(len(active) < 128, "模块调用深度超过 127")
+        """Detect recursion and overly deep module calls by walking the call graph depth-first."""
+        require(key not in active, "module call graph contains recursion")
+        require(len(active) < 128, "module call depth exceeds 127")
         if key in visited:
             return
         active.add(key)
@@ -322,18 +322,18 @@ def _validate(program: Program) -> Program:
     def check_demands(
         nodes: tuple[Instruction, ...] | None, controlled: bool = False, inverse: bool = False
     ) -> None:
-        """检查控制或伴随语境下调用的模块具备相应能力。"""
+        """Check that modules called in a controlled or adjoint context provide the corresponding capabilities."""
         for node in nodes or ():
             if isinstance(node, Call):
                 if controlled:
                     require(
                         inferred[node.module]["supports_controlled"],
-                        f"{node.module} 缺少 supports_controlled",
+                        f"{node.module} lacks supports_controlled",
                     )
                 if inverse:
                     require(
                         inferred[node.module]["supports_adjoint"],
-                        f"{node.module} 缺少 supports_adjoint",
+                        f"{node.module} lacks supports_adjoint",
                     )
             elif isinstance(node, Control):
                 check_demands(node.body, True, inverse)
@@ -348,23 +348,25 @@ def _validate(program: Program) -> Program:
 
 
 def validate(program: Program, *, require_closed: bool = False) -> Program:
-    """对 RIR 程序执行完整结构验证并原样返回。
+    """Run full structural validation on an RIR program and return it unchanged.
 
-    覆盖模块签名与属性、寄存器和视图规则、基元元数与别名约束、
-    控制寄存器保护、QRAM 资源匹配、无环调用图等跨节点规则，并检查
-    控制或伴随语境下调用的模块具备相应能力；规则与
-    docs/reference/rir.md 保持一致。
+    Covers cross-node rules such as module signatures and attributes, register
+    and view rules, primitive arity and aliasing constraints, control register
+    protection, QRAM resource matching and an acyclic call graph, and checks
+    that modules called in a controlled or adjoint context provide the
+    corresponding capabilities; the rules stay consistent with
+    docs/reference/rir.md.
 
     Args:
-        program: 待验证的 ``Program``。
-        require_closed: 为真时还要求程序不含未绑定的开放 oracle 声明。
+        program: ``Program`` to validate.
+        require_closed: when true, additionally require the program to contain no unbound open oracle declarations.
 
     Returns:
-        Program: 通过验证的同一 ``program`` 对象。
+        Program: the same ``program`` object that passed validation.
 
     Raises:
-        ValidationError: 程序违反结构或语义约束；或捕获到表明输入不是
-            合法 RIR 对象的标准异常。
+        ValidationError: the program violates a structural or semantic constraint; or a standard
+            exception indicating that the input is not a valid RIR object was caught.
     """
     try:
         result = _validate(program)
@@ -374,11 +376,11 @@ def validate(program: Program, *, require_closed: bool = False) -> Program:
             missing = unresolved(result)
             if missing:
                 raise ValidationError(
-                    "未绑定 oracle："
-                    + "; ".join(f"{r.name} ({r.paradigm}; {' -> '.join(r.path)})" for r in missing)
+                    "unbound oracle: "
+                    + "; ".join(f"{r.name} {r.paradigm}; {' -> '.join(r.path)}" for r in missing)
                 )
         return result
     except ValidationError:
         raise
     except (AttributeError, TypeError, KeyError, ValueError, OverflowError, RecursionError) as exc:
-        raise ValidationError(f"非法 RIR 对象：{exc}") from exc
+        raise ValidationError(f"invalid RIR object: {exc}") from exc

@@ -1,4 +1,4 @@
-"""一般 QHAM 的数学身份、结构预算、矩形映射和初值尺度。"""
+"""Mathematical identities, structural budgets, rectangular embedding, and initial-value scaling for general QHAM."""
 
 import math
 import random
@@ -141,7 +141,7 @@ class QhamGeneralTests(unittest.TestCase):
             port = dict(bindings.ports)[key]
             source_rank = port.arity
             placed = place_port(port, 1, source_rank, 0)
-            # 非对齐、窄输出窗口，其他行/列必须为零。
+            # Non-aligned, narrow output window: all other rows/columns must be zero.
             encoded = embed_rectangular(placed, 3, 1, 4, source_rank, 1)
             for column in range(8):
                 actual = simulate(encoded.operation.program(), initial={"target": column})
@@ -261,7 +261,7 @@ class QhamGeneralTests(unittest.TestCase):
             initial_norm=math.sqrt(0.05),
         )
         state, _ = lifted_initial(plan, bindings)
-        self.assertEqual(state.work_width, 6)  # 3 个共享工作位 + 5 个分支所需的 3 位标签。
+        self.assertEqual(state.work_width, 6)  # 3 shared work bits + 3 label bits needed by 5 branches.
         self.assertTrue(
             all(work == 0 for _, work in simulate(state.operation.program()).amplitudes)
         )

@@ -1,4 +1,4 @@
-"""通过辅助坐标和 Fourier 变换构造线性非酉演化的量子表示。"""
+"""Construct a quantum representation of linear non-unitary evolution via an auxiliary coordinate and the Fourier transform."""
 
 from __future__ import annotations
 
@@ -37,14 +37,14 @@ from oracq.infrastructure.ir import Bits, ValidationError
 
 
 def fourier_momentum(width: int, period: float) -> BlockEncoding:
-    """频率对角 BE，按位的投影求和；避免构造稠密矩阵。
+    """Diagonal-in-frequency BE as a bit-wise sum of projections; avoids constructing a dense matrix.
 
     Args:
-        width: 频率寄存器位宽，投影按位求和时逐位扫描。
-        period: 辅助网格周期，必须为正的有限实数，决定频率间隔 2π/period。
+        width: Frequency register bit width; projections are scanned bit by bit.
+        period: Auxiliary grid period; must be a positive finite real number and determines the frequency spacing 2π/period.
 
     Returns:
-        BlockEncoding: 以 2πk/period 为对角频率的动量算符块编码。
+        BlockEncoding: Block encoding of the momentum operator with diagonal frequencies 2πk/period.
     """
     terms: list[tuple[float, BlockEncoding]] = []
     for bit in range(width):
@@ -60,15 +60,15 @@ def fourier_momentum(width: int, period: float) -> BlockEncoding:
 
 @dataclass(frozen=True)
 class SchrodingerPlan:
-    """Schrödingerization 辅助网格与读出通道的配置计划。
+    """Configuration plan for the Schrödingerization auxiliary grid and readout channel.
 
     Attributes:
-        auxiliary_width: 辅助 p 寄存器位数，有效范围为 1..63。
-        period: 辅助网格的周期，必须为正的有限实数。
-        selected_index: 最终读出物理解的通道编号，范围为 0..2**auxiliary_width-1。
+        auxiliary_width: Bits of the auxiliary p register; valid range 1..63.
+        period: Period of the auxiliary grid; must be a positive finite real number.
+        selected_index: Channel index of the final physical-solution readout, in 0..2**auxiliary_width-1.
 
     Raises:
-        ValidationError: 任一字段越界或不是有限数值。
+        ValidationError: Any field is out of range or not a finite value.
     """
 
     auxiliary_width: int = 2
@@ -76,7 +76,7 @@ class SchrodingerPlan:
     selected_index: int = 1
 
     def __post_init__(self) -> None:
-        """校验辅助位数、周期与读出通道编号的范围。"""
+        """Validate the ranges of the auxiliary bit count, the period, and the readout channel index."""
         positive_integer(self.auxiliary_width, "SchrodingerPlan.auxiliary_width", maximum=63)
         finite_real(self.period, "SchrodingerPlan.period", minimum=0, strict=True)
         positive_integer(
@@ -90,7 +90,7 @@ class SchrodingerPlan:
             or self.period <= 0
             or not 0 <= self.selected_index < (1 << self.auxiliary_width)
         ):
-            raise ValidationError("Schrodingerization 辅助网格/通道无效")
+            raise ValidationError("Invalid Schrodingerization auxiliary grid or channel")
 
 
 def schrodinger_qode(
@@ -101,18 +101,18 @@ def schrodinger_qode(
     plan: SchrodingerPlan | None = None,
     hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
 ) -> StateOracle:
-    """u'=Gu，G=H1+iH2；Fourier lift −P⊗H1-I⊗H2（正 QFT 约定下恢复正向流）。
+    """u'=Gu with G=H1+iH2; Fourier lift −P⊗H1-I⊗H2 (forward flow recovered under the positive QFT convention).
 
     Args:
-        generator: 演化生成元 G 的块编码。
-        initial: 物理初态的制备句柄。
-        time: 演化时长，取非负有限实数。
-        plan: 辅助网格与读出通道配置；缺省为 2 位辅助位、周期 8、通道 1。
-        hamiltonian_function: 形如 (BE, time) 返回 BlockEncoding 的哈密顿量模拟实现，
-            缺省为截断 Taylor。
+        generator: Block encoding of the evolution generator G.
+        initial: Preparation handle of the physical initial state.
+        time: Evolution duration; a non-negative finite real number.
+        plan: Auxiliary grid and readout channel configuration; defaults to 2 auxiliary bits, period 8, channel 1.
+        hamiltonian_function: Hamiltonian simulation implementation of the form (BE, time)
+            returning a BlockEncoding; defaults to truncated Taylor.
 
     Returns:
-        StateOracle: 选定辅助通道上的物理解读出态 oracle，correctness 标记为 pending。
+        StateOracle: The physical-solution readout state oracle on the selected auxiliary channel, with correctness marked pending.
     """
     operator_state_contract("schrodingerization").check(
         generator=generator, initial=initial

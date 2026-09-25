@@ -1,4 +1,4 @@
-"""MIR JSON 形状与语义约束；MIR 文本格式保持 JSON。"""
+"""MIR JSON shape and semantic constraints; the MIR text format stays JSON."""
 
 import json
 import unittest

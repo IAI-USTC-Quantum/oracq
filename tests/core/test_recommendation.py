@@ -1,4 +1,4 @@
-"""KP 量子推荐系统的数值验证：秩一精确对照与阈值过滤。"""
+"""Numerical validation of the KP quantum recommendation system: exact rank-one reference and threshold filtering."""
 
 import math
 import unittest

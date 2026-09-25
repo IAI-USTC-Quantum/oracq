@@ -1,20 +1,27 @@
-"""Toffoli+Clifford+T+QRAM 级别的资源估计。
+"""Toffoli+Clifford+T+QRAM level resource estimation.
 
-沿 OriginIR-ext → basis 降低链路的真实发射配方（``basis.mcx`` 与
-``basis.controlled_u3``）逐级计数：模块图组合式聚合，``Repeat`` 以符号
-计数相乘，不做指数展开。旋转门按角度分类：π/4 整数倍落入精确
-Clifford+T（T/SDG/S/Z 计数），其余记为待合成旋转原子，T 开销按
-Ross–Selinger 型模型 ``synthesis_t_per_rotation`` 估算（默认
-``ceil(3*log2(1/eps))``）。全局相位不计（与 strict 导出一致）。
+Counting descends the OriginIR-ext → basis lowering chain following the real
+emission recipes (``basis.mcx`` and ``basis.controlled_u3``): the module graph
+aggregates compositionally, ``Repeat`` multiplies symbolic counts, and no
+exponential expansion happens. Rotation gates are classified by angle: integer
+multiples of π/4 fall into exact Clifford+T (T/SDG/S/Z counts), the rest are
+recorded as rotation atoms pending synthesis, with the T cost estimated by the
+Ross–Selinger style model ``synthesis_t_per_rotation`` (default
+``ceil(3*log2(1/eps))``). Global phase is not counted (consistent with strict
+export).
 
-控制成本与导出器逐行对齐：零值控制位在每个发射行组（原始门 / 调用 /
-Repeat 调用行）两侧各翻转一次（2×零位数个 X）；受控单比特门走
-``controlled_u3`` 配方（c≥2 时 2(c−1) Toffoli 梯子 + 中间网络），X 型
-多控走 ``mcx`` 配方（c≥3 时 2c−3 Toffoli）。
+Control costs align with the exporter line by line: zero-valued control bits
+are flipped once on each side of every emitted line group (primitive gate /
+call / Repeat call lines), for 2 X gates per zero bit; controlled single-qubit
+gates follow the ``controlled_u3`` recipe (a 2(c−1) Toffoli ladder + an
+intermediate network when c≥2), and X-type multi-controls follow the ``mcx``
+recipe (2c−3 Toffoli when c≥3).
 
-QRAM 查询数按 ``Load`` 节点逐资源计数（每次 Load = 1 次查询），是
-独立于门级成本的第一类指标。QRAM 随机写按 ``Store`` 节点逐资源计入
-``qram_writes``：存储单元按经典单元建模，随机写不计入门成本。
+QRAM query counts are tallied per resource over ``Load`` nodes (each Load = 1
+query) as a first-class metric independent of gate-level cost. QRAM random
+writes are tallied per resource over ``Store`` nodes into ``qram_writes``:
+storage cells are modeled as classical cells, and random writes do not enter
+gate cost.
 """
 
 from __future__ import annotations
@@ -44,11 +51,11 @@ from oracq.infrastructure.validation import validate
 _PI = math.pi
 
 CLIFFORD_ATOMS = ("h", "x", "y", "z", "s", "sdg", "cnot", "cz")
-"""Clifford 原子名集合；``ResourceEstimate.clifford`` 按这些名字汇总 ``atoms`` 计数。"""
+"""Set of Clifford atom names; ``ResourceEstimate.clifford`` summarizes ``atoms`` counts over these names."""
 
 
 def _rz_exact_counts(k: int) -> Counter[str]:
-    """rz(k·π/4) 的精确 Clifford+T 计数（k 按 mod 8 归一）。"""
+    """Exact Clifford+T counts of rz(k·π/4), with k normalized mod 8."""
     k %= 8
     if k > 4:
         counts = _rz_exact_counts(8 - k)
@@ -68,7 +75,7 @@ def _rz_exact_counts(k: int) -> Counter[str]:
 
 
 def _quarter_turns(angle: float) -> int | None:
-    """angle 是否为 π/4 的整数倍；是则返回 k（mod 8），否则 None。"""
+    """Whether angle is an integer multiple of π/4; returns k mod 8 if so, otherwise None."""
     k = round(angle / (_PI / 4))
     if abs(angle - k * _PI / 4) < 1e-12:
         return k % 8
@@ -76,15 +83,16 @@ def _quarter_turns(angle: float) -> int | None:
 
 
 def classify_rz(angle: float) -> tuple[Counter[str], list[tuple[str, float]]]:
-    """rz/phase 原子分类：精确 Clifford+T 或待合成旋转。
+    """Classify an rz/phase atom: exact Clifford+T or a rotation pending synthesis.
 
     Args:
-        angle: 旋转角，单位为弧度。
+        angle: rotation angle in radians.
 
     Returns:
-        tuple[Counter[str], list[tuple[str, float]]]: 二元组 ``(精确原子计数,
-        待合成旋转列表)``；角度为 π/4 整数倍时计入前者，否则整笔记为
-        ``("rz", angle)`` 待合成旋转。
+        tuple[Counter[str], list[tuple[str, float]]]: pair ``(exact atom counts,
+        rotations pending synthesis)``; an angle that is an integer multiple of
+        π/4 goes into the former, otherwise the whole entry is recorded as the
+        rotation ``("rz", angle)`` pending synthesis.
     """
     k = _quarter_turns(angle)
     if k is None:
@@ -93,15 +101,16 @@ def classify_rz(angle: float) -> tuple[Counter[str], list[tuple[str, float]]]:
 
 
 def classify_ry(angle: float) -> tuple[Counter[str], list[tuple[str, float]]]:
-    """ry 原子分类：RY(θ) = S·H·RZ(θ)·H·S†。
+    """Classify an ry atom: RY(θ) = S·H·RZ(θ)·H·S†.
 
     Args:
-        angle: 旋转角，单位为弧度。
+        angle: rotation angle in radians.
 
     Returns:
-        tuple[Counter[str], list[tuple[str, float]]]: 二元组 ``(精确原子计数,
-        待合成旋转列表)``；角度非 π/4 整数倍时整笔记为 ``("ry", angle)`` 待
-        合成旋转，零角度返回两个空容器。
+        tuple[Counter[str], list[tuple[str, float]]]: pair ``(exact atom counts,
+        rotations pending synthesis)``; an angle that is not an integer multiple
+        of π/4 is recorded whole as the rotation ``("ry", angle)`` pending
+        synthesis, and a zero angle returns two empty containers.
     """
     k = _quarter_turns(angle)
     if k is None:
@@ -116,22 +125,24 @@ def classify_ry(angle: float) -> tuple[Counter[str], list[tuple[str, float]]]:
 def classify_u3(
     theta: float, phi: float, lam: float
 ) -> tuple[Counter[str], list[tuple[str, float]]]:
-    """U3(θ,φ,λ) = RZ(φ)·RY(θ)·RZ(λ)（丢弃全局相位，与 strict 导出一致）。
+    """U3(θ,φ,λ) = RZ(φ)·RY(θ)·RZ(λ), dropping global phase, consistent with strict export.
 
-    常见门 H/X/Y 先按精确单原子匹配，再走 Euler 分解。
+    Common gates H/X/Y are first matched as exact single atoms, then fall back
+    to the Euler decomposition.
 
     Args:
-        theta: Y 轴欧拉角，单位为弧度。
-        phi: 左侧 Z 轴欧拉角，单位为弧度。
-        lam: 右侧 Z 轴欧拉角，单位为弧度。
+        theta: Y-axis Euler angle in radians.
+        phi: left Z-axis Euler angle in radians.
+        lam: right Z-axis Euler angle in radians.
 
     Returns:
-        tuple[Counter[str], list[tuple[str, float]]]: 二元组 ``(精确原子计数,
-        待合成旋转列表)``；H/X/Y 特例匹配单原子，其余按 Euler 分解逐项汇总。
+        tuple[Counter[str], list[tuple[str, float]]]: pair ``(exact atom counts,
+        rotations pending synthesis)``; the H/X/Y special cases match a single
+        atom, the rest are summarized item by item via the Euler decomposition.
     """
 
     def close(a: float, b: float) -> bool:
-        """判断两个浮点数在容差内相等。"""
+        """Decide whether two floats are equal within tolerance."""
         return abs(a - b) < 1e-12
 
     if close(theta, _PI / 2) and close(phi, 0.0) and close(lam, _PI):
@@ -154,14 +165,15 @@ def classify_u3(
 
 
 def mcx_counts(n_controls: int) -> Counter[str]:
-    """basis.mcx 配方（X 型多控）。
+    """basis.mcx recipe, the X-type multi-control.
 
     Args:
-        n_controls: 有效控制位个数，取非负整数。
+        n_controls: number of effective control bits, a nonnegative integer.
 
     Returns:
-        Counter[str]: 多控 X 的原子计数；c 为 0/1/2 时分别为单 X、
-        H-CZ-H 与单个 Toffoli，c≥3 时为 2c−3 个 Toffoli。
+        Counter[str]: atom counts of the multi-control X; c of 0/1/2 gives a
+        single X, H-CZ-H and a single Toffoli respectively, and c≥3 gives
+        2c−3 Toffoli gates.
     """
     if n_controls <= 0:
         return Counter({"x": 1})
@@ -175,7 +187,7 @@ def mcx_counts(n_controls: int) -> Counter[str]:
 def _controlled_u3_counts(
     n_controls: int, theta: float, phi: float, lam: float, global_angle: float = 0.0
 ) -> tuple[Counter[str], list[tuple[str, float]]]:
-    """basis.controlled_u3 配方的计数；c≥2 时含 2(c−1) Toffoli 梯子。"""
+    """Counts of the basis.controlled_u3 recipe; includes a 2(c−1) Toffoli ladder when c≥2."""
     counts: Counter[str]
     rotations: list[tuple[str, float]]
     counts, rotations = Counter(), []
@@ -207,7 +219,7 @@ def _controlled_u3_counts(
     return counts, rotations
 
 
-# basis.py 中单比特门的 (θ, φ, λ, 全局相位) 参数表
+# Table of (θ, φ, λ, global phase) parameters for single-qubit gates in basis.py
 _GATE_PARAMETERS = {
     "h": (_PI / 2, 0.0, _PI, 0.0),
     "y": (_PI, _PI / 2, _PI / 2, 0.0),
@@ -220,7 +232,7 @@ _GATE_PARAMETERS = {
 def _gate_counts(
     op: str, angle: float | None, n_controls: int
 ) -> tuple[Counter[str], list[tuple[str, float]]]:
-    """单个 1q 门在 n_controls 个有效控制下的计数。"""
+    """Counts of a single 1q gate under n_controls effective controls."""
     if op == "x":
         return mcx_counts(n_controls), []
     if op in _GATE_PARAMETERS:
@@ -234,18 +246,18 @@ def _gate_counts(
         return _controlled_u3_counts(n_controls, cast(float, angle), -_PI / 2, _PI / 2, 0.0)
     if op == "rz":
         return _controlled_u3_counts(n_controls, 0.0, 0.0, cast(float, angle), -cast(float, angle) / 2)
-    raise ValidationError(f"资源估计不支持的原始门：{op}")
+    raise ValidationError(f"primitive gate not supported by resource estimation: {op}")
 
 
 class RotationCounts(Sequence[tuple[str, float]]):
-    """按轴和角度保存旋转重数；兼容只读长度、索引和惰性迭代。"""
+    """Store rotation multiplicities by axis and angle; supports read-only length, indexing and lazy iteration."""
 
     def __init__(self, values: Iterable[tuple[str, float]] = ()) -> None:
         self.counts: Counter[tuple[str, float]] = values.counts.copy() if isinstance(values, RotationCounts) else Counter(values)
 
     @property
     def total(self) -> int:
-        """旋转总数；不受 Python 序列长度的机器整数限制。"""
+        """Total number of rotations; not limited by the machine integer bound on Python sequence lengths."""
         return sum(self.counts.values())
 
     def __len__(self) -> int:
@@ -266,7 +278,7 @@ class RotationCounts(Sequence[tuple[str, float]]):
         if isinstance(index, slice):
             indices = range(*index.indices(self.total))
             if len(indices) > 100_000:
-                raise ValidationError("旋转切片过大；请读取 counts 中的紧凑重数")
+                raise ValidationError("rotation slice too large; read the compact multiplicities from counts")
             return [self[i] for i in indices]
         if index < 0:
             index += self.total
@@ -275,17 +287,17 @@ class RotationCounts(Sequence[tuple[str, float]]):
                 if index < count:
                     return value
                 index -= count
-        raise IndexError("旋转索引越界")
+        raise IndexError("rotation index out of range")
 
     def add_scaled(self, other: RotationCounts, factor: int = 1) -> None:
-        """组合重数而不复制旋转列表。"""
+        """Combine multiplicities without copying the rotation list."""
         for value, count in other.counts.items():
             self.counts[value] += count * factor
 
 
 @dataclass(frozen=True, order=True)
 class OracleCall:
-    """开放 oracle 的调用形式；资源名相对于当前模块，入口报告中已完成实参替换。"""
+    """Call form of an open oracle; resource names are relative to the current module, with argument substitution already done in the entry report."""
 
     module: str
     controls: int = 0
@@ -295,7 +307,7 @@ class OracleCall:
 
 @dataclass
 class ResourceEstimate:
-    "Toffoli+Clifford+T+QRAM 级别的资源台账。"
+    "Toffoli+Clifford+T+QRAM level resource ledger."
 
     qubits: int | None
     atoms: Counter = field(default_factory=Counter)
@@ -309,82 +321,83 @@ class ResourceEstimate:
 
     @property
     def complete(self) -> bool:
-        """已知实现是否覆盖全部入口可达槽位。"""
+        """Whether known implementations cover all entry-reachable slots."""
         return not self.unknown_workspace
 
     @property
     def toffoli(self) -> int:
-        """``atoms`` 中的 Toffoli 门总数。"""
+        """Total number of Toffoli gates in ``atoms``."""
         return self.atoms.get("toffoli", 0)
 
     @property
     def t_exact(self) -> int:
-        """精确落入 Clifford+T 的 T 与 TDG 门总数（不含待合成旋转的 T 开销）。"""
+        """Total number of T and TDG gates falling exactly into Clifford+T, excluding the T cost of rotations pending synthesis."""
         return self.atoms.get("t", 0) + self.atoms.get("tdg", 0)
 
     @property
     def clifford(self) -> int:
-        """``atoms`` 中 ``CLIFFORD_ATOMS`` 所列原子的计数总和。"""
+        """Sum of counts of the atoms listed in ``CLIFFORD_ATOMS`` within ``atoms``."""
         return sum(self.atoms.get(name, 0) for name in CLIFFORD_ATOMS)
 
     @property
     def qram_total(self) -> int:
-        """``qram_queries`` 中全部资源的查询次数总和。"""
+        """Sum of query counts over all resources in ``qram_queries``."""
         return sum(self.qram_queries.values())
 
     @property
     def qram_write_total(self) -> int:
-        """``qram_writes`` 中全部资源的随机写次数总和。"""
+        """Sum of random-write counts over all resources in ``qram_writes``."""
         return sum(self.qram_writes.values())
 
     @property
     def gate_total(self) -> int:
-        """``atoms`` 中全部原子计数的总和（不含 QRAM 查询与写入）。"""
+        """Sum of all atom counts in ``atoms``, excluding QRAM queries and writes."""
         return sum(self.atoms.values())
 
     def synthesis_t_per_rotation(self, epsilon: float = 1e-10) -> int:
-        """Ross–Selinger 型前导项模型；可整体替换。
+        """Ross–Selinger style leading-term model; replaceable as a whole.
 
         Args:
-            epsilon: 单个旋转的合成精度，取值范围为 (0, 1)。
+            epsilon: synthesis precision of a single rotation, in (0, 1).
 
         Returns:
-            int: 每个待合成旋转的 T 门开销，即 ``ceil(3*log2(1/epsilon))``，至少为 1。
+            int: T gate cost per rotation pending synthesis, i.e. ``ceil(3*log2(1/epsilon))``, at least 1.
         """
         return max(1, math.ceil(3 * math.log2(1 / epsilon)))
 
     def t_synthesis(self, epsilon: float = 1e-10) -> int:
-        """待合成旋转的总 T 开销：旋转数乘以 ``synthesis_t_per_rotation(epsilon)``。
+        """Total T cost of rotations pending synthesis: rotation count times ``synthesis_t_per_rotation(epsilon)``.
 
         Args:
-            epsilon: 单个旋转的合成精度。
+            epsilon: synthesis precision of a single rotation.
 
         Returns:
-            int: 全部待合成旋转的 T 门开销估计。
+            int: estimated T gate cost of all rotations pending synthesis.
         """
         return self.rotations.total * self.synthesis_t_per_rotation(epsilon)
 
     def t_total(self, epsilon: float = 1e-10) -> int:
-        """精确 T 数与待合成旋转的 T 开销之和（``t_exact + t_synthesis``）。
+        """Sum of the exact T count and the T cost of rotations pending synthesis, i.e. ``t_exact + t_synthesis``.
 
         Args:
-            epsilon: 单个旋转的合成精度。
+            epsilon: synthesis precision of a single rotation.
 
         Returns:
-            int: 精确 T/TDG 计数加上合成 T 开销的总 T 门数。
+            int: total T gate count: exact T/TDG counts plus the synthesis T cost.
         """
         return self.t_exact + self.t_synthesis(epsilon)
 
     def to_dict(self, epsilon: float = 1e-10) -> dict[str, object]:
-        """导出 JSON 友好的扁平资源台账。
+        """Export a JSON-friendly flat resource ledger.
 
         Args:
-            epsilon: 旋转合成精度，同时作为 ``epsilon`` 键记入结果。
+            epsilon: rotation synthesis precision, also recorded in the result under the ``epsilon`` key.
 
         Returns:
-            dict: 包含量子位数与 ``mcx_ancilla``、Toffoli/Clifford/精确 T
-            计数、待合成旋转总数及按轴统计、T 开销估计、逐原子 ``atoms``
-            明细、逐资源 QRAM 查询/写入计数与总和，以及 ``gate_total``。
+            dict: includes the qubit count and ``mcx_ancilla``, Toffoli/Clifford/exact T
+            counts, the total of rotations pending synthesis with per-axis statistics,
+            T cost estimates, per-atom ``atoms`` details, per-resource QRAM
+            query/write counts and totals, plus ``gate_total``.
         """
         axes: Counter[str] = Counter()
         for (axis, _), count in self.rotations.counts.items():
@@ -422,7 +435,7 @@ class ResourceEstimate:
 
 @dataclass
 class _Cost:
-    """模块相对成本；资源实参在每条调用边上替换。"""
+    """Module-relative cost; resource arguments are substituted along each call edge."""
 
     atoms: Counter[str] = field(default_factory=Counter)
     rotations: RotationCounts = field(default_factory=RotationCounts)
@@ -444,15 +457,15 @@ class _Cost:
 
 
 def estimate_resources(program: Program, *, require_closed: bool = True) -> ResourceEstimate:
-    """组合式资源估计：按 (module, 控制数) 记忆化，Repeat 符号相乘。
+    """Composable resource estimation: memoized by module and control count, with Repeat counts multiplied symbolically.
 
     Args:
-        program: 待估计的 RIR 程序；模块实现须封闭，除非放宽校验。
-        require_closed: 为假时允许保留开放声明模块，默认要求全部封闭。
+        program: RIR program to estimate; module implementations must be closed unless validation is relaxed.
+        require_closed: when false, open declaration modules may remain; by default all must be closed.
 
     Returns:
-        ResourceEstimate: 汇总后的资源台账；量子位数含工作空间，最大控制数
-        决定 ``mcx_ancilla``。
+        ResourceEstimate: aggregated resource ledger; the qubit count includes the workspace, and the maximum control count
+        determines ``mcx_ancilla``.
     """
     program = validate(program, require_closed=require_closed)
     modules = program.module_map
@@ -463,7 +476,7 @@ def estimate_resources(program: Program, *, require_closed: bool = True) -> Reso
     def primitive_cost(
         node: Primitive, n_controls: int
     ) -> _Cost:
-        """计算单条基元指令在给定控制数下的门级成本。"""
+        """Compute the gate-level cost of a single primitive instruction under the given control count."""
         nonlocal max_controls
         counts: Counter[str]
         rotations: list[tuple[str, float]]
@@ -510,7 +523,7 @@ def estimate_resources(program: Program, *, require_closed: bool = True) -> Reso
     def body_cost(
         nodes: tuple[Instruction, ...], n_controls: int, n_zeros: int, inverse: bool
     ) -> _Cost:
-        """聚合指令体成本，处理零值控制位翻转、重复与模块调用。"""
+        """Aggregate instruction body cost, handling zero-valued control bit flips, repetition and module calls."""
         total = _Cost()
         for node in nodes:
             if isinstance(node, Primitive):
@@ -552,7 +565,7 @@ def estimate_resources(program: Program, *, require_closed: bool = True) -> Reso
     def module_cost(
         name: str, n_controls: int, inverse: bool
     ) -> _Cost:
-        """按模块、控制数和伴随语境记忆化，不展开重复。"""
+        """Memoize by module, control count and adjoint context; repetitions are not expanded."""
         key = (name, n_controls, inverse)
         if key in memo:
             return memo[key]

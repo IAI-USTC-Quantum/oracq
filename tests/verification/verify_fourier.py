@@ -1,30 +1,42 @@
-"""Fourier 与 transforms 模块的论文级数值验证。
+"""Publication-grade numerical validation of the Fourier and transforms modules.
 
-覆盖两个源文件：
+Two source files are covered:
 
-- ``algorithms/fourier.py``（qft / qft_with_work / inverse_qft / fourier_add）：
-  * n ≤ 4 全幺正与独立 DFT 矩阵逐元素对比（OriginIR-ext → UniQC ``to_matrix``
-    加 ``effective_block`` 提取）；
-  * n = 6/8/12 叠加态相位逐点对比与 Fourier 模式聚焦（rir-pysparq）；
-  * fourier_add 与整数加法真值表（n ≤ 4 幺正与态向量穷举、n = 8 叠加穷举、
-    n = 12 确定性采样基态对）；
-  * 逆 QFT 往返恒等（幺正级 n = 3/4，寄存器级 n = 8/12）。
-- ``algorithms/transforms.py``（qubitization_walk / qsvt_sequence /
-  oblivious_amplification）：输入为开放块编码接口，按任务约定以 gate 级绑定的
-  小实例（matrix_pauli_encoding 的 1 比特目标厄米矩阵、门级 X/2 夹具、
-  signal 为 0 宽的 Pauli 字）做端到端验证：
-  * 行走算子全幺正 = (2Π−I)U，谱转角 = ±arccos(λ/α)；
-  * QSVT 序列全幺正 = 交替 S(φ)·U/U† 乘积；零信号块 = p(A/α)，经典参考为
-    独立实现的 2×2 乘积公式与 Chebyshev 矩阵递推（不复用被测组装逻辑）；
-  * OAA 迭代全幺正 = U·[R U† R U]^it（历史缺陷已修复：原实现缺收尾 U，
-    只装配 [R U† R U]^it）；零块为 X/2 的最小实例上，零信号块
-    = (−1)^it·sin((2it+1)θ)·V，幅值与标准三查询 OAA 叙事（sin θ → sin 3θ）
-    逐次一致。
+- ``algorithms/fourier.py`` (qft / qft_with_work / inverse_qft / fourier_add):
+  * n <= 4 full unitaries compared element-wise against independent DFT
+    matrices (OriginIR-ext -> UniQC ``to_matrix`` plus ``effective_block``
+    extraction);
+  * n = 6/8/12 pointwise phase comparison on superposition states and Fourier
+    mode focusing (rir-pysparq);
+  * fourier_add against the integer-addition truth table (unitary and
+    state-vector exhaustive for n <= 4, superposition exhaustive for n = 8,
+    deterministic sampled basis pairs for n = 12);
+  * inverse-QFT round-trip identity (unitary level for n = 3/4,
+    register level for n = 8/12).
+- ``algorithms/transforms.py`` (qubitization_walk / qsvt_sequence /
+  oblivious_amplification): the inputs are the open block-encoding interfaces;
+  per the task convention, end-to-end validation uses small gate-level bound
+  instances (a 1-qubit target Hermitian matrix from matrix_pauli_encoding,
+  a gate-level X/2 fixture, and a zero-width-signal Pauli word):
+  * the full walk unitary = (2*Pi - I)U with spectral rotation angles
+    +/-arccos(lambda/alpha);
+  * the full QSVT-sequence unitary = the alternating S(phi)*U/U^dagger product;
+    the zero-signal block = p(A/alpha), with the classical reference being an
+    independently implemented 2x2 product formula and Chebyshev matrix
+    recursion (not reusing the assembly logic under test);
+  * the full OAA-iterate unitary = U*[R U^dagger R U]^it (a historical defect
+    is now fixed: the original implementation was missing the trailing U and
+    only assembled [R U^dagger R U]^it); on the minimal instance whose zero
+    block is X/2, the zero-signal block = (-1)^it*sin((2it+1)theta)*V, with
+    amplitudes matching the standard three-query OAA narrative step by step
+    (sin theta -> sin 3theta).
 
-经典参考全部独立构造：numpy/cmath 的 DFT 矩阵与置换矩阵、逐比特相位门制备
-（不经过被测 qft 组装）、显式 Pauli 展开求 α、2×2 QSP 乘积与 Chebyshev 递推。
+All classical references are constructed independently: DFT and permutation
+matrices from numpy/cmath, bit-by-bit phase-gate preparation (bypassing the
+qft assembly under test), an explicit Pauli expansion for alpha, and the 2x2
+QSP product and Chebyshev recursion.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_fourier.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_fourier.py
 """
 
 from __future__ import annotations
@@ -62,12 +74,12 @@ from oracq.algorithms.input_model.operators import BlockEncoding
 from oracq.algorithms.input_model.oracles import annotate
 
 # ---------------------------------------------------------------------------
-# 独立经典参考
+# Independent classical references
 # ---------------------------------------------------------------------------
 
 
 def _dft_matrix(n):
-    """正号 DFT 矩阵：F[y, x] = exp(2πi x y / 2^n) / sqrt(2^n)。"""
+    """Positive-sign DFT matrix: F[y, x] = exp(2*pi*i*x*y / 2^n) / sqrt(2^n)."""
     size = 1 << n
     scale = 1.0 / math.sqrt(size)
     return np.array(
@@ -79,7 +91,7 @@ def _dft_matrix(n):
 
 
 def _add_permutation(n):
-    """fourier_add 的经典真值表置换：|a, b> → |a, (a+b) mod 2^n>（a 在低位）。"""
+    """Classical truth-table permutation of fourier_add: |a, b> -> |a, (a+b) mod 2^n> (a in the low bits)."""
     size = 1 << n
     perm = np.zeros((size * size, size * size), dtype=complex)
     for a in range(size):
@@ -89,7 +101,7 @@ def _add_permutation(n):
 
 
 def _pauli_alpha(matrix):
-    """显式 Pauli 展开求块编码归一化 α = Σ_P |Tr(P M)| / d（独立于库实现）。"""
+    """Block-encoding normalization alpha = sum_P |Tr(P M)| / d via an explicit Pauli expansion (independent of the library implementation)."""
     m = np.asarray(matrix, dtype=complex)
     d = m.shape[0]
     n = (d - 1).bit_length()
@@ -111,21 +123,21 @@ def _pauli_alpha(matrix):
 
 
 def _signal_projector(dim, data_dim):
-    """Π = |0><0|_signal ⊗ I（入口布局中 signal 为高位，零块即低 data_dim 维）。"""
+    """Pi = |0><0|_signal tensor I (in the entry layout signal is the high part; the zero block is the low data_dim dimensions)."""
     proj = np.zeros((dim, dim))
     proj[:data_dim, :data_dim] = np.eye(data_dim)
     return proj
 
 
 def _signal_phase(phi, dim, data_dim):
-    """QSVT 相位算子 S(φ)：信号零分支 e^{+iφ}，其余分支 e^{-iφ}。"""
+    """QSVT phase operator S(phi): e^{+i*phi} on the zero-signal branch, e^{-i*phi} elsewhere."""
     diag = np.full(dim, cmath.exp(-1j * phi), dtype=complex)
     diag[:data_dim] = cmath.exp(1j * phi)
     return np.diag(diag)
 
 
 def _qsp_response_independent(x, phases):
-    """文档约定的 2×2 乘积参考：p(x) = [S(φ_d) W … W S(φ_0)]_00，右端最先作用。"""
+    """2x2 product reference per the documented convention: p(x) = [S(phi_d) W ... W S(phi_0)]_00, rightmost factor applied first."""
     s = math.sqrt(max(0.0, 1.0 - x * x))
     w = np.array([[x, s], [s, -x]], dtype=complex)
     total = np.diag([cmath.exp(1j * phases[0]), cmath.exp(-1j * phases[0])])
@@ -135,7 +147,7 @@ def _qsp_response_independent(x, phases):
 
 
 def _chebyshev_matrix(degree, m):
-    """T_d(M) 的独立递推：T_0 = I，T_1 = M，T_{k+1} = 2 M T_k − T_{k−1}。"""
+    """Independent recursion for T_d(M): T_0 = I, T_1 = M, T_{k+1} = 2 M T_k - T_{k-1}."""
     if degree == 0:
         return np.eye(m.shape[0], dtype=complex)
     t0, t1 = np.eye(m.shape[0], dtype=complex), np.asarray(m, dtype=complex).copy()
@@ -145,22 +157,24 @@ def _chebyshev_matrix(degree, m):
 
 
 def _angle_distance(a, b):
-    """两个转角在圆周上的距离（[0, π]）。"""
+    """Distance of two rotation angles on the circle (in [0, pi])."""
     d = abs(a - b) % (2 * math.pi)
     return min(d, 2 * math.pi - d)
 
 
 # ---------------------------------------------------------------------------
-# 驱动程序与夹具
+# Drivers and fixtures
 # ---------------------------------------------------------------------------
 
 
 def _fourier_mode_program(n, k):
-    """逐比特相位门制备负号 Fourier 模式后接 qft。
+    """Bit-by-bit phase-gate preparation of the negative-sign Fourier mode followed by qft.
 
-    制备态 |φ_k⟩ = Σ_x exp(-2πi k x / 2^n) |x⟩ / sqrt(2^n) 是可分解乘积态，
-    只用 H 与单比特相位门（不经过被测 qft 组装）；它是正号 DFT 的第 -k 行，
-    故 QFT 后全部振幅应聚焦到基态索引 k。
+    The prepared state |phi_k> = sum_x exp(-2*pi*i*k*x / 2^n) |x> / sqrt(2^n)
+    is a separable product state built only from H and single-qubit phase
+    gates (bypassing the qft assembly under test); it is row -k of the
+    positive-sign DFT, so after the QFT all amplitude must focus onto basis
+    index k.
     """
     size = 1 << n
     b = Builder(f"fourier_mode_{n}_{k}", {"target": Bits(n)})
@@ -172,7 +186,7 @@ def _fourier_mode_program(n, k):
 
 
 def _roundtrip_unitary_program(n):
-    """qft 后接 inverse_qft 的裸复合（幺正级往返检查，不含态制备）。"""
+    """Bare composition of qft followed by inverse_qft (unitary-level round trip, no state preparation)."""
     b = Builder(f"qft_roundtrip_unitary_{n}", {"target": Bits(n)})
     b.call(qft(n), target=b["target"])
     b.call(inverse_qft(n), target=b["target"])
@@ -180,7 +194,7 @@ def _roundtrip_unitary_program(n):
 
 
 def _roundtrip_program(n, *, value=None):
-    """qft 与 inverse_qft 的往返程序；value 为 None 时以全叠加出发。"""
+    """Round-trip program of qft then inverse_qft; starts from full superposition when value is None."""
     b = Builder(f"qft_roundtrip_{n}_{value}", {"target": Bits(n)})
     if value is None:
         b.h(b["target"])
@@ -194,7 +208,7 @@ def _roundtrip_program(n, *, value=None):
 
 
 def _fourier_add_fixed_b(n, b0):
-    """a 全叠加、b 固定为已知常量后调用 fourier_add：分支 (a, (a+b0) mod 2^n)。"""
+    """Invoke fourier_add with a in full superposition and b fixed to a known constant: branches (a, (a+b0) mod 2^n)."""
     b = Builder(f"fadd_superposed_a_{n}_{b0}", {"a": Bits(n), "b": Bits(n)})
     b.h(b["a"])
     for bit in range(n):
@@ -204,17 +218,17 @@ def _fourier_add_fixed_b(n, b0):
     return b.finish().program()
 
 
-# transforms 的 gate 级绑定夹具：1 比特目标厄米矩阵（谱值归一后落在 (-1, 1)）
+# Gate-level binding fixture for transforms: 1-qubit target Hermitian matrix (spectral values fall in (-1, 1) after normalization)
 MATRIX = np.array([[0.5, 0.3], [0.3, -0.1]])
 
 
 def _fixture_be():
-    """matrix_pauli_encoding 属 block_encoding 模块，此处仅作绑定实例来源。"""
+    """matrix_pauli_encoding belongs to the block_encoding module; here it only serves as the source of the bound instance."""
     return matrix_pauli_encoding(MATRIX.tolist())
 
 
 def _half_x_be():
-    """门级最小 OAA 夹具：U = M ⊗ X，零信号块恰为 X/2（sin θ = 1/2 的 V/2 实例）。"""
+    """Gate-level minimal OAA fixture: U = M tensor X, with the zero-signal block exactly X/2 (a V/2 instance with sin theta = 1/2)."""
     b = Builder("be_half_x", {"target": Bits(1), "signal": Bits(1)})
     b.x(b["target"])
     b.z(b["signal"])
@@ -223,7 +237,7 @@ def _half_x_be():
 
 
 def _unitary_from_runs(operation, target_width, signal_width):
-    """经 reference 路径逐基态列组装小实例幺正（与 OriginIR 路径交叉对拍）。"""
+    """Assemble the small-instance unitary column by column via the reference path (cross-checked against the OriginIR path)."""
     data = 1 << target_width
     dim = 1 << (target_width + signal_width)
     matrix = np.zeros((dim, dim), dtype=complex)
@@ -236,7 +250,7 @@ def _unitary_from_runs(operation, target_width, signal_width):
 
 
 # ---------------------------------------------------------------------------
-# fourier.py：幺正级验证（n ≤ 4，OriginIR-ext + UniQC to_matrix）
+# fourier.py: unitary-level validation (n <= 4, OriginIR-ext + UniQC to_matrix)
 # ---------------------------------------------------------------------------
 
 
@@ -250,7 +264,7 @@ def verify_qft_unitary(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"width": n, "dimension": 1 << n},
             metrics={"max_error": error, "workspace_leakage": leakage},
-            criterion="全幺正与正号 DFT 矩阵逐元素一致（max_error < 1e-12，泄漏为 0）",
+            criterion="full unitary agrees element-wise with the positive-sign DFT matrix (max_error < 1e-12, zero leakage)",
             passed=error < 1e-12 and leakage < 1e-12,
         )
 
@@ -265,7 +279,7 @@ def verify_inverse_qft_unitary(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"width": n, "dimension": 1 << n},
             metrics={"max_error": error, "workspace_leakage": leakage},
-            criterion="全幺正与 DFT 的伴随矩阵逐元素一致（max_error < 1e-12）",
+            criterion="full unitary agrees element-wise with the adjoint of the DFT matrix (max_error < 1e-12)",
             passed=error < 1e-12 and leakage < 1e-12,
         )
     for n in (3, 4):
@@ -276,18 +290,18 @@ def verify_inverse_qft_unitary(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"width": n},
             metrics={"max_error": error},
-            criterion="qft 后接 inverse_qft 的复合幺正为恒等（max_error < 1e-12）",
+            criterion="composite unitary of qft followed by inverse_qft is the identity (max_error < 1e-12)",
             passed=error < 1e-12,
         )
 
 
 # ---------------------------------------------------------------------------
-# fourier.py：寄存器级验证（rir-pysparq，n = 6/8/12）
+# fourier.py: register-level validation (rir-pysparq, n = 6/8/12)
 # ---------------------------------------------------------------------------
 
 
 def verify_qft_basis_rows(report):
-    """基态 |x> 经 QFT 的全部 2^n 个振幅与 DFT 行逐点对比。"""
+    """Pointwise comparison of all 2^n amplitudes of a basis state |x> after QFT against the DFT row."""
     for n in (6, 8, 12):
         size = 1 << n
         uniform = 1.0 / math.sqrt(size)
@@ -303,13 +317,13 @@ def verify_qft_basis_rows(report):
             paths=["rir-pysparq"],
             parameters={"width": n, "inputs": inputs, "amplitudes_per_input": size},
             metrics={"max_error": worst},
-            criterion="每个输入的全部 2^n 个振幅与 DFT 行逐点一致（max_error < 1e-9）",
+            criterion="all 2^n amplitudes of every input agree pointwise with the DFT row (max_error < 1e-9)",
             passed=worst < 1e-9,
         )
 
 
 def verify_qft_fourier_mode_focus(report):
-    """独立门级制备的 Fourier 模式经 QFT 后聚焦到单个基态索引。"""
+    """A Fourier mode prepared by independent gate-level means focuses onto a single basis index after the QFT."""
     for n in (6, 8, 12):
         size = 1 << n
         modes = sorted({1, size // 3, size - 1})
@@ -331,13 +345,13 @@ def verify_qft_fourier_mode_focus(report):
                 "min_success_probability": min_probability,
                 "max_leaked_amplitude": worst_leak,
             },
-            criterion="聚焦成功概率 ≥ 1 − 1e-12 且模式外泄漏振幅 < 1e-6",
+            criterion="focusing success probability >= 1 - 1e-12 with out-of-mode leaked amplitude < 1e-6",
             passed=min_probability >= 1 - 1e-12 and worst_leak < 1e-6,
         )
 
 
 def verify_qft_cross_path(report):
-    """n = 4 富相位态（QFT 作用于基态）四路径对拍，附 qft_with_work 适配等价。"""
+    """n = 4 phase-rich state (QFT acting on a basis state) four-path cross-check, plus qft_with_work adapter equivalence."""
     program = basis_program(qft(4), {"target": 11})
     ref = reference(program)
     deviation = max(
@@ -355,13 +369,13 @@ def verify_qft_cross_path(report):
         paths=["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
         parameters={"width": 4, "input": 11},
         metrics={"max_pairwise_deviation": deviation},
-        criterion="四路径及 qft_with_work 适配两两偏差 < 1e-9",
+        criterion="pairwise deviation across the four paths and the qft_with_work adapter < 1e-9",
         passed=deviation < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# fourier.py：Fourier 加法真值表
+# fourier.py: Fourier addition truth table
 # ---------------------------------------------------------------------------
 
 
@@ -375,13 +389,13 @@ def verify_fourier_add_unitary(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"width": n, "dimension": 1 << (2 * n)},
             metrics={"max_error": error, "workspace_leakage": leakage},
-            criterion="全幺正与整数模加法置换矩阵一致（max_error < 1e-12）",
+            criterion="full unitary agrees with the integer modular-addition permutation matrix (max_error < 1e-12)",
             passed=error < 1e-12 and leakage < 1e-12,
         )
 
 
 def verify_fourier_add_truth_table(report):
-    """n ≤ 4：固定 b0、叠加 a 逐次覆盖全部 4^n 个 (a, b) 输入（双路径对拍）。"""
+    """n <= 4: fixing b0 and superposing a covers all 4^n (a, b) inputs across iterations (two-path cross-check)."""
     for n in (1, 2, 3, 4):
         size = 1 << n
         uniform = 1.0 / math.sqrt(size)
@@ -400,13 +414,13 @@ def verify_fourier_add_truth_table(report):
             paths=["reference", "originir-ext"],
             parameters={"width": n, "input_pairs": size * size},
             metrics={"max_error": worst},
-            criterion="全部 (a, b) 输入对映射到 |a, (a+b) mod 2^n> 且振幅均匀（max_error < 1e-9）",
+            criterion="all (a, b) input pairs map to |a, (a+b) mod 2^n> with uniform amplitudes (max_error < 1e-9)",
             passed=worst < 1e-9,
         )
 
 
 def verify_fourier_add_superposed_a_n8(report):
-    """n = 8：rir-pysparq 一次叠加穷举 a 的全部 256 个分支（中间态峰值 2^16）。"""
+    """n = 8: a single rir-pysparq superposition run exhausts all 256 branches of a (intermediate-state peak 2^16)."""
     n, size = 8, 256
     uniform = 1.0 / math.sqrt(size)
     worst = 0.0
@@ -419,13 +433,13 @@ def verify_fourier_add_superposed_a_n8(report):
         paths=["rir-pysparq"],
         parameters={"width": n, "constants": [0, 1, 0x55, 0x80, 0xFF], "branches": size},
         metrics={"max_error": worst},
-        criterion="每个 b0 的 256 个分支逐振幅一致（max_error < 1e-9）",
+        criterion="all 256 branches of every b0 agree amplitude by amplitude (max_error < 1e-9)",
         passed=worst < 1e-9,
     )
 
 
 def verify_fourier_add_sampled_n12(report):
-    """n = 12：采样基态对的确定性输出检查（中间态峰值 2^12，叠加 a 会超预算）。"""
+    """n = 12: deterministic output check on sampled basis pairs (intermediate-state peak 2^12; superposing a would exceed the budget)."""
     n = 12
     values, _ = sampled_inputs(n)
     pairs = list(zip(values[:12], values[1:13], strict=True))
@@ -444,13 +458,13 @@ def verify_fourier_add_sampled_n12(report):
         paths=["rir-pysparq"],
         parameters={"width": n, "sampled_pairs": len(pairs)},
         metrics={"failures": failures},
-        criterion="采样输入的输出恰为 |a, (a+b) mod 2^12>（failures == 0）",
+        criterion="sampled inputs produce exactly |a, (a+b) mod 2^12> (failures == 0)",
         passed=failures == 0,
     )
 
 
 # ---------------------------------------------------------------------------
-# fourier.py：逆 QFT 往返恒等（寄存器级）
+# fourier.py: inverse-QFT round-trip identity (register level)
 # ---------------------------------------------------------------------------
 
 
@@ -471,13 +485,13 @@ def verify_inverse_qft_roundtrip_wide(report):
             paths=["rir-pysparq"],
             parameters={"width": n, "branches": size, "basis_samples": 5},
             metrics={"uniform_max_error": uniform_error, "basis_failures": failures},
-            criterion="全叠加往返恢复均匀态（< 1e-9）且采样基态往返恒等（failures == 0）",
+            criterion="full-superposition round trip restores the uniform state (< 1e-9) and sampled basis states round-trip to themselves (failures == 0)",
             passed=uniform_error < 1e-9 and failures == 0,
         )
 
 
 # ---------------------------------------------------------------------------
-# transforms.py：门级绑定小实例的端到端验证
+# transforms.py: end-to-end validation on small gate-level bound instances
 # ---------------------------------------------------------------------------
 
 
@@ -494,7 +508,7 @@ def verify_qubitization_walk(report):
     unitary_error = float(np.abs(walk_actual - walk_expected).max())
     alpha = _pauli_alpha(MATRIX)
     zero_block_error = float(np.abs(walk_actual[:data, :data] - MATRIX / alpha).max())
-    # 谱性质：每个谱值 x = λ/α 对应一对本征角 ±arccos(x)，其余空间转角 ∈ {0, π}
+    # Spectral property: every spectral value x = lambda/alpha corresponds to a pair of eigenangles +/-arccos(x); the rotation angle on the remaining space lies in {0, pi}
     eigenangles = [abs(float(a)) for a in np.angle(np.linalg.eigvals(walk_actual))]
     allowed = {0.0, math.pi}
     for x in np.linalg.eigvalsh(MATRIX / alpha):
@@ -518,8 +532,8 @@ def verify_qubitization_walk(report):
             "spectrum_max_deviation": spectrum_dev,
         },
         criterion=(
-            "行走幺正 = (2Π−I)U（< 1e-12），零信号块 = A/α，"
-            "本征角落入 {±arccos(λ/α)} ∪ {0, π}（角度偏差 < 1e-9）"
+            "walk unitary = (2*Pi - I)U (< 1e-12), zero-signal block = A/alpha, "
+            "eigenangles fall in {+/-arccos(lambda/alpha)} U {0, pi} (angle deviation < 1e-9)"
         ),
         passed=unitary_error < 1e-12
         and zero_block_error < 1e-12
@@ -535,13 +549,13 @@ def verify_qsvt_sequence(report):
     rng = random.Random(20260916)
     phases = tuple(rng.uniform(-math.pi, math.pi) for _ in range(7))
     actual = originir_unitary(qsvt_sequence(be, phases).program())
-    # 全幺正参考：时间正序交替 S(φ)·U/U†（U 取 BE 的实测幺正）
+    # Full-unitary reference: alternating S(phi)*U/U^dagger in chronological order (U taken as the measured unitary of the BE)
     expected = _signal_phase(phases[0], dim, data)
     for k in range(len(phases) - 1):
         expected = (u if k % 2 == 0 else u.conj().T) @ expected
         expected = _signal_phase(phases[k + 1], dim, data) @ expected
     unitary_error = float(np.abs(actual - expected).max())
-    # 零信号块谱语义：p(A/α)，p 来自独立 2×2 乘积公式
+    # Zero-signal-block spectral semantics: p(A/alpha) with p from the independent 2x2 product formula
     alpha = _pauli_alpha(MATRIX)
     values, vectors = np.linalg.eigh(MATRIX / alpha)
     response = [complex(_qsp_response_independent(float(x), phases)) for x in values]
@@ -555,10 +569,10 @@ def verify_qsvt_sequence(report):
             "unitary_max_error": unitary_error,
             "zero_block_max_error": block_error,
         },
-        criterion="序列幺正 = 交替 S(φ)·U/U† 乘积且零块 = p(A/α)（均 < 1e-12）",
+        criterion="sequence unitary = the alternating S(phi)*U/U^dagger product with zero block = p(A/alpha) (both < 1e-12)",
         passed=unitary_error < 1e-12 and block_error < 1e-12,
     )
-    # Chebyshev 多项式端到端：qsp_phases 仅作相位输入生成，参考为独立 T_d 递推
+    # Chebyshev polynomial end to end: qsp_phases only generates the phase input; the reference is the independent T_d recursion
     for degree in (4, 5):
         coeffs = tuple(float(c) for c in np.polynomial.chebyshev.cheb2poly([0] * degree + [1]))
         t_phases = qsp_phases(coeffs)
@@ -570,13 +584,13 @@ def verify_qsvt_sequence(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"degree": degree, "alpha": alpha},
             metrics={"zero_block_max_error": block_error},
-            criterion=f"零信号块 = T_{degree}(A/α)（独立 Chebyshev 递推，< 1e-12）",
+            criterion=f"zero-signal block = T_{degree}(A/alpha) (independent Chebyshev recursion, < 1e-12)",
             passed=block_error < 1e-12,
         )
 
 
 def verify_qsvt_degenerate(report):
-    """signal_qubits == 0 的退化分支：相位退化为无条件全局相位。"""
+    """Degenerate branch with signal_qubits == 0: phases degenerate into unconditional global phases."""
     be = pauli_word("X")
     x_matrix = np.array([[0, 1], [1, 0]], dtype=complex)
     for phases in ((0.3, -0.7, 1.1), (0.3, -0.7, 1.1, 0.5)):
@@ -590,7 +604,7 @@ def verify_qsvt_degenerate(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"degree": degree, "be": "pauli_word(X)"},
             metrics={"max_error": error},
-            criterion="退化序列 = e^{iΣφ}·X^d（max_error < 1e-12）",
+            criterion="degenerate sequence = e^{i*sum(phi)}*X^d (max_error < 1e-12)",
             passed=error < 1e-12,
         )
 
@@ -613,18 +627,20 @@ def verify_oaa_unitary(report):
             paths=["originir-ext+uniqc-to_matrix"],
             parameters={"iterations": iterations, "dimension": dim},
             metrics={"max_error": error},
-            criterion="迭代幺正 = U·[R U† R U]^it（R = I − 2Π，max_error < 1e-12）",
+            criterion="iterate unitary = U*[R U^dagger R U]^it (R = I - 2*Pi, max_error < 1e-12)",
             passed=error < 1e-12,
         )
 
 
 def verify_oaa_half_block(report):
-    """零块为 X/2 的最小实例：验证标准三查询 OAA 的放大行为。
+    """Minimal instance with zero block X/2: validates the amplification behavior of the standard three-query OAA.
 
-    修复后的算子 U·[R U† R U]^it 在该夹具上零信号块
-    = (−1)^it·sin((2it+1)θ)·V（V = X，θ = π/6）：一次迭代幅值
-    sin 3θ = 1（幅值意义下完整恢复信号），幅值与标准 OAA 叙事逐次一致；
-    (−1)^it 为可观测幺正中的全局相位，作为信息性指标记录。
+    On this fixture the fixed operator U*[R U^dagger R U]^it has zero-signal
+    block = (-1)^it*sin((2it+1)theta)*V (V = X, theta = pi/6): one iteration
+    gives amplitude sin 3theta = 1 (full signal recovery in amplitude terms),
+    with amplitudes matching the standard OAA narrative step by step; the
+    (-1)^it is a global phase of the observable unitary, recorded as an
+    informative metric.
     """
     x_matrix = np.array([[0, 1], [1, 0]], dtype=complex)
     theta = math.pi / 6
@@ -644,8 +660,8 @@ def verify_oaa_half_block(report):
                 "global_sign": int(sign),
             },
             criterion=(
-                "零信号块 = (−1)^it·sin((2it+1)θ)·X（max_error < 1e-12）；"
-                "幅值按标准 OAA 叙事 sin((2it+1)θ) 逐次一致"
+                "zero-signal block = (-1)^it*sin((2it+1)theta)*X (max_error < 1e-12); "
+                "amplitudes follow the standard OAA narrative sin((2it+1)theta) step by step"
             ),
             passed=error < 1e-12,
         )
@@ -654,8 +670,8 @@ def verify_oaa_half_block(report):
 def run():
     report = Report(
         "fourier",
-        "QFT/逆 QFT/Fourier 加法的幺正-叠加-真值表三级验证（n ≤ 12），"
-        "以及 transforms 块编码变换（行走/QSVT/OAA）的门级绑定端到端验证。",
+        "Three-level (unitary / superposition / truth-table) validation of QFT/inverse QFT/Fourier addition (n <= 12), "
+        "plus gate-level bound end-to-end validation of the transforms block-encoding operations (walk/QSVT/OAA).",
     )
     verify_qft_unitary(report)
     verify_inverse_qft_unitary(report)

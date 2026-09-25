@@ -1,4 +1,4 @@
-"""从普通 PDE 表达式到开放 QODE 输入的最小示例。"""
+"""A minimal example going from an ordinary PDE expression to an open QODE input."""
 
 from __future__ import annotations
 
@@ -29,13 +29,13 @@ initial = space.encode_fields({"u": [0.1, 0.2, 0, -0.1]})
 bindings = structured_fd_bindings(space, initial)
 qode_input = qham_input_model(plan, bindings, eta=-0.4)
 
-# Schrödingerization 接收一般生成元；恢复区间和时间近似仍需后续验证。
+# Schrödingerization accepts a general generator; the recovery interval and time approximation still need later validation.
 solver = linear_qode(
     "schrodingerization", hamiltonian_function=partial(taylor_hamiltonian, degree=1)
 )
 solution = qode_input.solve(solver, 0.01)
 
-# 如改用 CBMD/LCHS，先显式施加使生成元耗散的整体移位。
+# To switch to CBMD/LCHS instead, first apply an explicit global shift that makes the generator dissipative.
 shifted = qode_input.dissipative_shift()
 cbmd_solution = shifted.solve(
     linear_qode("cbmd", hamiltonian_function=partial(taylor_hamiltonian, degree=1)), 0.01

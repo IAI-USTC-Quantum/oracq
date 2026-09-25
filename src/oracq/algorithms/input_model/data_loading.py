@@ -1,11 +1,16 @@
-"""Select-Swap QROM 数据加载（Low–Kliuchnikov–Schaeffer 2018；Babbush et al. 2018）。
+"""Select-Swap QROM data loading (Low–Kliuchnikov–Schaeffer 2018; Babbush et al. 2018).
 
-QROM 查找把经典表 ``T`` 实现为 XOR 数据库 ``|address, data> -> |address, data XOR T[address]>``。
-基线 ``qrom_lookup`` 是逐地址受控 XOR 的一元迭代；``select_swap_qrom`` 把地址拆为
-高位 ``h``（k 位）与低位 ``y``（l 位），``λ = partitions = 2^l`` 个窗口分区共享高位
-地址并行加载子表 ``T[h·λ + i]``，再按 ``y == i`` 受控交换归并，以 T 计数约
-``4(2^k + λ·b)`` 在查询深度与辅助比特之间权衡。数据表与 gate_database 一样在生成时
-展开为门级子数据库，不进入 IR JSON；资源估算由 ``qrom_cost`` 纯经典给出。
+A QROM lookup realizes a classical table ``T`` as the XOR database
+``|address, data> -> |address, data XOR T[address]>``. The baseline
+``qrom_lookup`` is a unary iteration of per-address controlled XOR;
+``select_swap_qrom`` splits the address into high bits ``h`` (k bits) and low
+bits ``y`` (l bits); ``λ = partitions = 2^l`` window partitions share the high
+address and load the sub-tables ``T[h·λ + i]`` in parallel, then merge by
+controlled swaps keyed on ``y == i``, trading query depth against ancilla
+qubits at a T count of about ``4(2^k + λ·b)``. Like gate_database, the data
+table is expanded into gate-level sub-databases at generation time and does not
+enter the IR JSON; resource estimation is given purely classically by
+``qrom_cost``.
 """
 
 from __future__ import annotations
@@ -26,27 +31,27 @@ __all__ = ["QromCost", "qrom_cost", "qrom_lookup", "select_swap_qrom"]
 def _normalize_table(
     table: Mapping[int, int] | Sequence[int], data_bits: int | None, path: str
 ) -> tuple[tuple[tuple[int, int], ...], int, int]:
-    """校验查询表并给出 ``(有序条目, 地址位宽, 数据位宽)``；缺失地址按 0 处理。"""
+    """Validate the lookup table and return ``(ordered entries, address bit width, data bit width)``; missing addresses are treated as 0."""
     if isinstance(table, dict):
         pairs = tuple(sorted(table.items()))
     else:
         try:
             pairs = tuple(enumerate(table))
         except TypeError as exc:
-            raise ValidationError(f"{path}：查询表必须是字序列或稀疏字典") from exc
+            raise ValidationError(f"{path}: lookup table must be a sequence of words or a sparse dict") from exc
     if not pairs:
-        raise ValidationError(f"{path}：查询表不能为空")
+        raise ValidationError(f"{path}: lookup table cannot be empty")
     for address, value in pairs:
         if type(address) is not int or address < 0:
-            raise ValidationError(f"{path}：表地址必须是非负整数")
+            raise ValidationError(f"{path}: table addresses must be non-negative integers")
         if type(value) is not int or value < 0:
-            raise ValidationError(f"{path}：表字必须是非负整数")
+            raise ValidationError(f"{path}: table words must be non-negative integers")
     address_bits = max(1, max(address for address, _ in pairs).bit_length())
     peak = max(value for _, value in pairs)
     if data_bits is not None:
         positive_integer(data_bits, path + ".data_bits", maximum=64)
         if peak >= 1 << data_bits:
-            raise ValidationError(f"{path}：表字超出 data_bits 位宽")
+            raise ValidationError(f"{path}: table word exceeds the data_bits width")
         width = data_bits
     else:
         width = max(1, peak.bit_length())
@@ -54,15 +59,15 @@ def _normalize_table(
 
 
 def _check_partitions(partitions: int, address_bits: int, path: str) -> None:
-    """校验分区数是不超过地址空间且为二的幂的正整数。"""
+    """Validate that the partition count is a positive integer, a power of two, and no larger than the address space."""
     positive_integer(partitions, path + ".partitions", maximum=1 << address_bits)
     if partitions & (partitions - 1):
-        raise ValidationError(f"{path}：partitions 必须是二的幂")
+        raise ValidationError(f"{path}: partitions must be a power of two")
 
 
 @dataclass(frozen=True)
 class QromCost:
-    """Select-Swap QROM 的资源估算快照；Toffoli/T 计数为 compute 单程。"""
+    """Resource-estimation snapshot for Select-Swap QROM; the Toffoli/T counts are for a single compute pass."""
 
     n_addresses: int
     data_bits: int
@@ -75,29 +80,29 @@ class QromCost:
 
     @property
     def t_count(self) -> int:
-        """compute 单程 T 计数，按每个 Toffoli 4 个 T 估计。"""
+        """T count of a single compute pass, estimated at 4 T per Toffoli."""
         return 4 * (self.select_toffoli + self.swap_toffoli)
 
     @property
     def t_depth(self) -> int:
-        """T 深度：分区并行加载时 select 段为串行一元迭代，交换段按分区逐级归并。"""
+        """T depth: with partitioned parallel loading the select segment is a serial unary iteration and the swap segment merges level by level per partition."""
         return self.select_toffoli + max(0, self.partitions - 1)
 
     @property
     def round_trip_t_count(self) -> int:
-        """相干复净（compute 加伴随 uncompute）的往返 T 计数；测量复净可省掉 uncompute。"""
+        """Round-trip T count for coherent uncomputation (compute plus adjoint uncompute); measurement-based uncomputation can drop the uncompute."""
         return 2 * self.t_count
 
     @property
     def ancilla_qubits(self) -> int:
-        """辅助比特总数：λ 个数据窗口加低位扇出副本（后者可用 dirty qubit）。"""
+        """Total ancilla qubits: the λ data windows plus the low-bit fanout copies (the latter may use dirty qubits)."""
         return self.work_qubits + self.fanout_qubits
 
     def to_dict(self) -> dict[str, int]:
-        """供目录与后端报告使用的结构化字典。
+        """Structured dictionary for gallery and backend reports.
 
         Returns:
-            dict[str, int]: 各项资源计数与宽度字段的扁平字典。
+            dict[str, int]: Flat dictionary of the resource counts and width fields.
         """
         return {
             "n_addresses": self.n_addresses,
@@ -116,15 +121,15 @@ class QromCost:
 
 
 def qrom_cost(n_addresses: int, data_bits: int, partitions: int = 1) -> QromCost:
-    """Select-Swap QROM 的纯经典资源估算：T 计数/深度约 ``4(N/λ + λ·b)``，λ 即 partitions。
+    """Purely classical resource estimation for Select-Swap QROM: T count/depth about ``4(N/λ + λ·b)``, with λ being partitions.
 
     Args:
-        n_addresses: 查询表字数 N。
-        data_bits: 数据字位宽 b。
-        partitions: 分区数 λ，必须是二的幂且不超过 ``2^ceil(log2 N)``。
+        n_addresses: Number N of words in the lookup table.
+        data_bits: Data word bit width b.
+        partitions: Partition count λ; must be a power of two not exceeding ``2^ceil(log2 N)``.
 
     Returns:
-        QromCost: 该配置下的 Toffoli/T 计数与辅助比特估算快照。
+        QromCost: Snapshot of the Toffoli/T counts and ancilla-qubit estimates for this configuration.
     """
     positive_integer(n_addresses, "qrom_cost.n_addresses")
     positive_integer(data_bits, "qrom_cost.data_bits", maximum=64)
@@ -149,7 +154,7 @@ def qrom_cost(n_addresses: int, data_bits: int, partitions: int = 1) -> QromCost
 
 
 def _cost_attributes(cost: QromCost) -> dict[str, int]:
-    """把 ``QromCost`` 快照转成可写入模块属性的扁平字典。"""
+    """Convert a ``QromCost`` snapshot into a flat dictionary writable as module attributes."""
     return {
         "qrom_partitions": cost.partitions,
         "qrom_address_bits": cost.address_bits,
@@ -169,18 +174,19 @@ def qrom_lookup(
     data_bits: int | None = None,
     name: str | None = None,
 ) -> XorDatabase:
-    """QROM 基线：逐地址受控 XOR 的一元迭代（即 partitions=1 的 Select-Swap）。
+    """QROM baseline: a unary iteration of per-address controlled XOR (i.e. Select-Swap with partitions=1).
 
-    结构与 gate_database 相同，但标注 qrom_unary_iteration 并附带 qrom_cost 估算，
-    作为 Select-Swap 权衡曲线的 λ=1 端点。
+    Same structure as gate_database but annotated qrom_unary_iteration and
+    carrying a qrom_cost estimate, serving as the λ=1 endpoint of the
+    Select-Swap trade-off curve.
 
     Args:
-        table: 字序列或稀疏字典，缺失地址按 0 处理。
-        data_bits: 数据位宽，缺省取最大表字的位宽。
-        name: 模块名，缺省按表内容生成。
+        table: Sequence of words or a sparse dict; missing addresses are treated as 0.
+        data_bits: Data bit width; defaults to the width of the largest table word.
+        name: Module name; generated from the table content when omitted.
 
     Returns:
-        XorDatabase: 带 qrom_cost 标注的一元迭代数据库视图。
+        XorDatabase: Unary-iteration database view annotated with qrom_cost.
     """
     pairs, address_bits, width = _normalize_table(table, data_bits, "qrom_lookup")
     base = gate_database(address_bits, width, dict(pairs), name=name)
@@ -202,23 +208,27 @@ def select_swap_qrom(
     data_bits: int | None = None,
     name: str | None = None,
 ) -> XorDatabase:
-    """Select-Swap QROM：高位地址共享的分区并行加载加低位受控交换归并。
+    """Select-Swap QROM: partitioned parallel loading sharing the high address bits, merged by low-bit controlled swaps.
 
-    λ 个窗口寄存器（clean 局部寄存器）各自执行子表查询 ``window_i ^= T[h·λ + i]``，
-    全部窗口共享高位地址 h，因此 select 段只支付一次 2^k 一元迭代；随后按
-    ``y == i`` 对 ``(window_i, data)`` 施加受控 swap–xor–swap 复合（在 data 任意初值下
-    保持 database_xor 的 XOR 语义，窗口内容不被破坏），最后用伴随重放子查询复净全部
-    窗口。低位 y 的扇出副本（可用 dirty qubit，计入 qrom_cost 的 fanout_qubits）在
-    RIR 中由 Control 原语隐含，留待后端降低时展开。
+    The λ window registers (clean local registers) each perform the sub-table
+    query ``window_i ^= T[h·λ + i]``; all windows share the high address h, so
+    the select segment pays for only one 2^k unary iteration. Then, keyed on
+    ``y == i``, the controlled swap–xor–swap composite is applied to
+    ``(window_i, data)`` (preserving the database_xor XOR semantics under
+    arbitrary initial data values without destroying the window contents), and
+    finally the sub-queries are replayed adjointly to uncompute all windows. The
+    fanout copies of the low bits y (which may use dirty qubits and are counted
+    in qrom_cost's fanout_qubits) are implied by the Control primitive in the
+    RIR and left for expansion during backend lowering.
 
     Args:
-        table: 字序列或稀疏字典，缺失地址按 0 处理。
-        partitions: 分区数 λ，必须是二的幂且不超过地址数。
-        data_bits: 数据位宽，缺省取最大表字的位宽。
-        name: 模块名，缺省按表内容生成。
+        table: Sequence of words or a sparse dict; missing addresses are treated as 0.
+        partitions: Partition count λ; must be a power of two not exceeding the number of addresses.
+        data_bits: Data bit width; defaults to the width of the largest table word.
+        name: Module name; generated from the table content when omitted.
 
     Returns:
-        XorDatabase: 带 qrom_cost 标注的 Select-Swap 数据库视图。
+        XorDatabase: Select-Swap database view annotated with qrom_cost.
     """
     pairs, address_bits, width = _normalize_table(table, data_bits, "select_swap_qrom")
     _check_partitions(partitions, address_bits, "select_swap_qrom")
@@ -241,7 +251,7 @@ def select_swap_qrom(
     windows = [b.local(f"window{index}", Bits(width)) for index in range(partitions)]
 
     def load() -> None:
-        """每个窗口并行加载自己分区对应的子表。"""
+        """Each window loads the sub-table of its own partition in parallel."""
         for index, window in enumerate(windows):
             if high_bits:
                 invoke(
@@ -257,7 +267,7 @@ def select_swap_qrom(
                         b.x(window[bit])
 
     def merge(index: int, window: Ref) -> None:
-        """按低位地址比较把窗口内容归并进数据寄存器。"""
+        """Merge the window contents into the data register by comparing the low address bits."""
         data = b["data"]
         if partitions == 1:
             b.swap(window, data)

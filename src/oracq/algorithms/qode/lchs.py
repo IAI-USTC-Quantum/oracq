@@ -1,4 +1,4 @@
-"""将耗散线性演化组装为 Hermitian 演化分支的有限加权和。"""
+"""Assemble dissipative linear evolution as a finite weighted sum of Hermitian evolution branches."""
 
 from __future__ import annotations
 
@@ -22,15 +22,15 @@ from oracq.infrastructure.ir import ValidationError
 
 @dataclass(frozen=True)
 class QuadraturePlan:
-    """LCHS 积分的离散求积计划。
+    """Discrete quadrature plan for the LCHS integral.
 
     Attributes:
-        nodes: 有限实数求积节点。
-        weights: 与 ``nodes`` 等长的有限复权重，需已包含积分核且不全为零。
-        kernel: 计划来源标记，原样写入结果元数据。
+        nodes: Finite real quadrature nodes.
+        weights: Finite complex weights of the same length as ``nodes``; must already include the integration kernel and not be all zero.
+        kernel: Plan source marker, written verbatim into the result metadata.
 
     Raises:
-        ValidationError: 节点与权重长度不符、含非有限数值或权重全为零。
+        ValidationError: Node and weight lengths mismatch, non-finite values are present, or the weights are all zero.
     """
 
     nodes: tuple[float, ...]
@@ -38,11 +38,11 @@ class QuadraturePlan:
     kernel: str = "user_supplied"
 
     def __post_init__(self) -> None:
-        """把节点与权重规范化为元组，并校验长度一致、数值有限且权重非全零。"""
+        """Normalize the nodes and weights into tuples, and validate matching lengths, finite values, and not-all-zero weights."""
         object.__setattr__(self, "nodes", tuple(self.nodes))
         object.__setattr__(self, "weights", tuple(self.weights))
         if not self.nodes or len(self.nodes) != len(self.weights):
-            raise ValidationError("离散节点和权重长度不符")
+            raise ValidationError("Discrete node and weight lengths do not match")
         for node in self.nodes:
             finite_real(node, "QuadraturePlan.node")
         if any(
@@ -50,28 +50,28 @@ class QuadraturePlan:
             or not (math.isfinite(w.real) and math.isfinite(w.imag))
             for w in self.weights
         ):
-            raise ValidationError("积分权重必须是有限复数")
+            raise ValidationError("Integration weights must be finite complex numbers")
         if not any(self.weights):
-            raise ValidationError("积分权重不能全部为零")
+            raise ValidationError("Integration weights cannot all be zero")
 
     @classmethod
     def cauchy(cls, cutoff: int = 2, spacing: float = 1.0) -> QuadraturePlan:
-        """构造 Cauchy 核的对称求积计划。
+        """Construct a symmetric quadrature plan for the Cauchy kernel.
 
         Args:
-            cutoff: 非负截断，节点取 k*spacing、k 在 -cutoff..cutoff 内。
-            spacing: 正的节点间距。
+            cutoff: Non-negative truncation; nodes are k*spacing with k in -cutoff..cutoff.
+            spacing: Positive node spacing.
 
         Returns:
-            QuadraturePlan: 权重为 spacing/(pi*(1+k**2))，kernel 标记为 ``finite_cauchy``。
+            QuadraturePlan: Weights are spacing/(pi*(1+k**2)), with kernel marked ``finite_cauchy``.
 
         Raises:
-            ValidationError: 截断为负或间距非正。
+            ValidationError: The truncation is negative or the spacing is not positive.
         """
         positive_integer(cutoff, "QuadraturePlan.cutoff", minimum=0)
         finite_real(spacing, "QuadraturePlan.spacing", minimum=0, strict=True)
         if cutoff < 0 or spacing <= 0:
-            raise ValidationError("Cauchy 离散参数无效")
+            raise ValidationError("Invalid Cauchy discretization parameters")
         nodes = tuple(k * spacing for k in range(-cutoff, cutoff + 1))
         return cls(nodes, tuple(spacing / (math.pi * (1 + k * k)) for k in nodes), "finite_cauchy")
 
@@ -83,21 +83,22 @@ def lchs_qode(
     plan: QuadraturePlan | None = None,
     hamiltonian_function: Callable[[BlockEncoding, float], BlockEncoding] = taylor_hamiltonian,
 ) -> StateOracle:
-    """按 LCHS 把耗散线性演化组装为 Hermitian 演化分支的有限加权和。
+    """Assemble dissipative linear evolution as a finite weighted sum of Hermitian evolution branches per LCHS.
 
     Args:
-        model: LinearODE 输入模型，parts.hermitian 为 L、parts.h 为 H，initial 为初态制备。
-        time: 非负演化时间。
-        plan: QuadraturePlan 求积计划；省略时使用 Cauchy 默认计划。
-        hamiltonian_function: 接受 (K, time) 并返回 BlockEncoding 的可替换协议。
+        model: LinearODE input model; parts.hermitian is L, parts.h is H, and initial is the initial state preparation.
+        time: Non-negative evolution time.
+        plan: QuadraturePlan quadrature plan; the default Cauchy plan is used when omitted.
+        hamiltonian_function: Replaceable protocol taking (K, time) and returning a BlockEncoding.
 
     Returns:
-        StateOracle: 逐节点 K_j=H+k_j*L 分支经 LCU 组合后作用到初态，成功子空间为 signal 全零。
+        StateOracle: Per-node K_j=H+k_j*L branches combined via LCU and applied to the initial state; the success subspace is all-zero signal.
 
     Raises:
-        ValidationError: model 或 plan 类型不符、time 非法或输入能力契约不满足。
+        ValidationError: model or plan has the wrong type, time is invalid, or the input capability contract is not satisfied.
 
-    有限求积没有尾积分保证，余项以 ``remainder`` 元数据声明为 pending。"""
+    Finite quadrature carries no tail-integral guarantee; the remainder is declared pending
+    in the ``remainder`` metadata."""
     plan = plan or QuadraturePlan.cauchy()
     require_instance(plan, QuadraturePlan, "lchs.plan")
     return _lcu_dynamics(

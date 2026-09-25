@@ -1,4 +1,4 @@
-"""重建第二阶段开放/闭合 RIR 与模块化后端描述，产物一律放 out/。"""
+"""Rebuild the stage-2 open/closed RIR and modular backend descriptions; all artifacts go to out/."""
 
 from __future__ import annotations
 
@@ -169,7 +169,7 @@ def main():
         state = qode(a, initial, 0.1)
         p = state.operation.program()
         reports.append(save_case(root, method + "_qode", p, bind(p, bindings)))
-        # PDE 入口只负责空间离散化到开放算子；同一 oracle 图可来自非矩阵输入。
+        # The PDE entry only handles spatial discretization into open operators; the same oracle graph can come from non-matrix inputs.
         from oracq.algorithms.qpde.pde import DiscretePDE
 
         state = make_qpde(qode)(DiscretePDE(a, initial, "heat_equation_open_space"), 0.1)

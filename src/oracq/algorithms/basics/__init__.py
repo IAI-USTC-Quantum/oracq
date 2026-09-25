@@ -1,1 +1,1 @@
-"基础示例算法：查询算法（Deutsch–Jozsa、Bernstein–Vazirani、Simon）与数论（量子求阶）。"
+"Basic example algorithms: query algorithms (Deutsch–Jozsa, Bernstein–Vazirani, Simon) and number theory (quantum order finding)."

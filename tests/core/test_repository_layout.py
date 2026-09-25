@@ -1,4 +1,4 @@
-"""源码分类与 API 入口的维护约束。"""
+"""Maintenance constraints on source layout and API entry points."""
 
 import ast
 import importlib

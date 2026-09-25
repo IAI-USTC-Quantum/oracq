@@ -1,4 +1,4 @@
-"按 HAM 阶数和有序张量字惰性生成 QCL；不物化空间矩阵。"
+"Lazily generate the QCL by HAM order and ordered tensor words; spatial matrices are not materialized."
 
 from __future__ import annotations
 
@@ -12,18 +12,20 @@ from oracq.infrastructure.ir import ValidationError
 
 
 def compositions(total: int, length: int) -> Iterator[tuple[int, ...]]:
-    """按首分量递增的顺序，惰性枚举和为 ``total`` 的 ``length`` 个非负整数的全部有序拆分。
+    """Lazily enumerate all ordered splits of ``length`` non-negative integers summing to ``total``, in increasing first-component order.
 
     Args:
-        total: 目标和，为非负整数。
-        length: 拆分的元数。
+        total: Target sum, a non-negative integer.
+        length: Number of components in each split.
 
     Returns:
-        Iterator[tuple[int, ...]]: 惰性生成器，逐个产出而不物化全部拆分。
+        Iterator[tuple[int, ...]]: Lazy generator yielding one split at a
+        time without materializing all splits.
 
     Yields:
-        tuple[int, ...]: 长度为 ``length`` 且元素之和等于 ``total`` 的有序元组；
-            ``length`` 为 0 时仅当 ``total`` 为 0 产出空元组。
+        tuple[int, ...]: Ordered tuples of length ``length`` whose elements
+            sum to ``total``; when ``length`` is 0 the empty tuple is yielded
+            only if ``total`` is 0.
     """
     if length == 0:
         if total == 0:
@@ -38,28 +40,30 @@ def compositions(total: int, length: int) -> Iterator[tuple[int, ...]]:
 
 @dataclass(frozen=True)
 class HomotopyWeight:
-    """QCL 线性边上随同伦参数 ``eta`` 变化的系数。
+    """Coefficient on a QCL linear edge that varies with the homotopy parameter ``eta``.
 
     Attributes:
-        kind: 权重类型，取 ``one``（恒为 1）、``correction`` 或 ``physical``。
-        power: ``correction`` 与 ``physical`` 类型所用的幂次。
+        kind: Weight kind: ``one`` (identically 1), ``correction``, or
+            ``physical``.
+        power: Exponent used by the ``correction`` and ``physical`` kinds.
     """
 
     kind: str = "one"
     power: int = 0
 
     def evaluate(self, eta: complex) -> complex:
-        """计算权重在同伦参数 ``eta`` 处的取值。
+        """Evaluate the weight at the homotopy parameter ``eta``.
 
         Args:
-            eta: 同伦参数值。
+            eta: Homotopy parameter value.
 
         Returns:
-            ``one`` 恒为 1，``correction`` 为 ``-eta*(1+eta)**power``，
-            ``physical`` 为 ``1-(1+eta)**power``。
+            ``one`` is identically 1, ``correction`` is
+            ``-eta*(1+eta)**power``, and ``physical`` is
+            ``1-(1+eta)**power``.
 
         Raises:
-            ValidationError: ``kind`` 不是已支持的权重类型。
+            ValidationError: ``kind`` is not a supported weight kind.
         """
         if self.kind == "one":
             return 1.0
@@ -67,13 +71,14 @@ class HomotopyWeight:
             return -eta * (1 + eta) ** self.power
         if self.kind == "physical":
             return 1 - (1 + eta) ** self.power
-        raise ValidationError("未知同伦权重")
+        raise ValidationError("unknown homotopy weight")
 
     def formula(self) -> str:
-        """返回权重的公式文本，同伦参数记作 ``eta``。
+        """Return the formula text of the weight, with the homotopy parameter written ``eta``.
 
         Returns:
-            str: 与 ``evaluate`` 对应的中缀表达式，如 ``-eta*(1+eta)^3``。
+            str: Infix expression matching ``evaluate``, e.g.
+            ``-eta*(1+eta)^3``.
         """
         if self.kind == "one":
             return "1"
@@ -84,13 +89,16 @@ class HomotopyWeight:
 
 @dataclass(frozen=True)
 class Block:
-    """QCL 有限闭包中的一个块变量。
+    """One block variable of the QCL finite closure.
 
     Attributes:
-        kind: 块类型；``physical`` 为物理输出块（各 HAM 阶分量之和），
-            ``tensor`` 为独立坐标上的张量块。
-        orders: 张量字，即各因子的 HAM 阶数组成的有序元组；物理块恒为
-            空元组，``tensor`` 且为空元组时表示强迫齐次化引入的常量块。
+        kind: Block kind; ``physical`` is the physical output block, the sum
+            of the HAM order components, and ``tensor`` is a tensor block on
+            independent coordinates.
+        orders: Tensor word, i.e. the ordered tuple of HAM orders of the
+            factors; always the empty tuple for physical blocks, and the empty
+            tuple with ``tensor`` denotes the constant block introduced by
+            forcing homogenization.
     """
 
     kind: str
@@ -98,15 +106,16 @@ class Block:
 
     @property
     def rank(self) -> int:
-        """块的张量因子个数；物理块按 1 计，空字常量块为 0。"""
+        """Number of tensor factors of the block; 1 for physical blocks and 0 for the empty-word constant block."""
         return 1 if self.kind == "physical" else len(self.orders)
 
     @property
     def label(self) -> str:
-        """返回块的可读标签。
+        """Return the human-readable label of the block.
 
-        物理块为 ``u_sum``，空字常量块为 ``one``，其余张量块为 ``Y_``
-        后接下划线连接的各阶数。
+        Physical blocks are ``u_sum``, the empty-word constant block is
+        ``one``, and other tensor blocks are ``Y_`` followed by the
+        underscore-joined orders.
         """
         if self.kind == "physical":
             return "u_sum"
@@ -117,15 +126,17 @@ class Block:
 
 @dataclass(frozen=True)
 class Coupling:
-    """QCL 闭包中的一条线性边，把列块的贡献送入行块的方程。
+    """One linear edge of the QCL closure, delivering a column block's contribution into the row block's equation.
 
     Attributes:
-        row: 边的目标块（所属的方程行）。
-        column: 边的源块（输入变量）。
-        operator: 作用的多线性端口名，如 ``L``、``F`` 或 ``B_i``。
-        position: 端口作用（替换）行块的第几个张量因子，从 0 计。
-        arity: 端口的输入元数。
-        weight: 该边的同伦权重，默认恒为 1。
+        row: Target block of the edge (the owning equation row).
+        column: Source block of the edge (the input variable).
+        operator: Name of the applied multilinear port, e.g. ``L``, ``F``, or
+            ``B_i``.
+        position: Which tensor factor of the row block the port acts on,
+            replacing it; counted from 0.
+        arity: Number of port inputs.
+        weight: Homotopy weight of this edge, identically 1 by default.
     """
 
     row: Block
@@ -138,20 +149,22 @@ class Coupling:
 
 @dataclass(frozen=True)
 class QHAMPlan:
-    """多项式 PDE 在 HAM 截断阶下的 QCL 有限闭包计划。
+    """QCL finite closure plan of a polynomial PDE at a HAM truncation order.
 
-    闭包由权重判据 ``p*sum(orders)+len(orders) <= p*m+1`` 限定，其中
-    ``p = max(1, D-1)``、``D`` 为 PDE 多项式次数、``m`` 为截断阶。块集合
-    与各行规则均惰性枚举，不物化闭包矩阵。
+    The closure is bounded by the weight criterion
+    ``p*sum(orders)+len(orders) <= p*m+1``, where ``p = max(1, D-1)``, ``D``
+    is the PDE polynomial degree, and ``m`` is the truncation order. The block
+    set and each row rule are enumerated lazily; the closure matrix is never
+    materialized.
 
     Attributes:
-        pde: 构造时经过验证的 ``PolynomialPDE``。
-        order: HAM 截断阶 ``m``，须为非负整数。
-        version: 序列化格式版本，当前为 ``0.1``。
+        pde: The ``PolynomialPDE``, validated at construction.
+        order: HAM truncation order ``m``, must be a non-negative integer.
+        version: Serialization format version, currently ``0.1``.
 
     Raises:
-        ValidationError: ``pde`` 未通过验证，或 ``order`` 不是非负整数、
-            ``version`` 不是 ``0.1``。
+        ValidationError: ``pde`` fails validation, or ``order`` is not a
+            non-negative integer, or ``version`` is not ``0.1``.
     """
 
     pde: PolynomialPDE
@@ -159,48 +172,50 @@ class QHAMPlan:
     version: str = "0.1"
 
     def __post_init__(self) -> None:
-        """校验 PDE、截断阶与版本号，非法时抛出 ``ValidationError``。"""
+        """Validate the PDE, truncation order, and version, raising ``ValidationError`` when invalid."""
         self.pde.validate()
         if self.version != "0.1" or type(self.order) is not int or self.order < 0:
-            raise ValidationError("QHAM 截断阶必须为非负整数")
+            raise ValidationError("the QHAM truncation order must be a non-negative integer")
 
     @property
     def grade(self) -> int:
-        """闭包权重判据的次数缩放 ``p = max(1, D-1)``，``D`` 为 PDE 多项式次数。"""
+        """Degree scaling of the closure weight criterion, ``p = max(1, D-1)``, with ``D`` the PDE polynomial degree."""
         return max(1, self.pde.degree - 1)
 
     @property
     def max_rank(self) -> int:
-        """闭包权重上限 ``p*m+1``，即张量块允许的最大张量秩。"""
+        """Closure weight bound ``p*m+1``, the maximum tensor rank allowed for tensor blocks."""
         return self.grade * self.order + 1
 
     @property
     def has_forcing(self) -> bool:
-        """PDE 是否含常量强迫项（即存在端口 ``F``，闭包需要空字常量块）。"""
+        """Whether the PDE has a constant forcing term, i.e. port ``F`` exists and the closure needs the empty-word constant block."""
         return any(port.name == "F" for port in self.pde.ports)
 
     def weight(self, word: Sequence[int]) -> int:
-        """计算张量字的闭包权重 ``p*sum(word)+len(word)``。
+        """Compute the closure weight ``p*sum(word)+len(word)`` of a tensor word.
 
         Args:
-            word: 各因子的 HAM 阶数组成的元组。
+            word: Tuple of the HAM orders of the factors.
 
         Returns:
-            int: 该张量字的闭包权重。
+            int: The closure weight of this tensor word.
         """
         return self.grade * sum(word) + len(word)
 
     def contains(self, block: Block) -> bool:
-        """判断块是否属于该计划的有限闭包。
+        """Test whether a block belongs to this plan's finite closure.
 
-        物理块须不带阶数；空字张量块仅当存在强迫；其余张量块要求各阶数
-        均为非负整数且闭包权重不超过上限；其他块类型一律不在闭包内。
+        Physical blocks must carry no orders; the empty-word tensor block
+        belongs only when forcing exists; other tensor blocks require every
+        order to be a non-negative integer with closure weight within the
+        bound; block kinds other than these never belong to the closure.
 
         Args:
-            block: 待检查的块。
+            block: The block to check.
 
         Returns:
-            bool: 块属于闭包时为 True。
+            bool: True when the block belongs to the closure.
         """
         if block.kind == "physical":
             return block.orders == ()
@@ -214,45 +229,51 @@ class QHAMPlan:
         )
 
     def rank_count(self, rank: int) -> int:
-        """统计给定张量秩的闭包张量块个数。
+        """Count the closure tensor blocks of a given tensor rank.
 
         Args:
-            rank: 张量因子个数，从 1 起计。
+            rank: Number of tensor factors, counted from 1.
 
         Returns:
-            int: 该秩下满足权重约束的张量字数目；秩小于 1 或超过上限时为 0。
+            int: Number of tensor words of this rank satisfying the weight
+            constraint; 0 when the rank is below 1 or above the bound.
         """
         limit = (self.max_rank - rank) // self.grade
         return math.comb(limit + rank, rank) if limit >= 0 and rank >= 1 else 0
 
     @property
     def block_count(self) -> int:
-        """闭包块总数：物理块、可选空字常量块与各秩张量块个数之和。"""
+        """Total closure block count: the physical block, the optional empty-word constant block, plus the tensor blocks of each rank."""
         return (
             1 + int(self.has_forcing) + sum(self.rank_count(k) for k in range(1, self.max_rank + 1))
         )
 
     def blocks(self, *, max_blocks: int | None = None) -> Iterator[Block]:
-        """按规范顺序惰性枚举闭包中的全部块。
+        """Lazily enumerate all blocks of the closure in canonical order.
 
-        物理块在前，张量块按秩升序、同秩内按字和升序（同字和按 ``compositions``
-        的枚举序）排列，空字常量块（若有强迫）在最后。
+        The physical block comes first, tensor blocks follow by ascending rank
+        and, within a rank, by ascending word sum (ties follow the
+        ``compositions`` enumeration order), and the empty-word constant
+        block, when forcing exists, comes last.
 
         Args:
-            max_blocks: 显式枚举的块数预算；块总数超过该值时立即报错，
-                提示改用惰性查询。
+            max_blocks: Budget for explicitly enumerated blocks; when the
+                total block count exceeds it an error is raised immediately,
+                pointing to lazy queries instead.
 
         Returns:
-            Iterator[Block]: 惰性生成器，逐个产出闭包块而不物化完整块列表。
+            Iterator[Block]: Lazy generator yielding closure blocks one at a
+            time without materializing the full block list.
 
         Yields:
-            Block: 闭包中的块。
+            Block: A block of the closure.
 
         Raises:
-            ValidationError: 指定了 ``max_blocks`` 且闭包块数超过预算。
+            ValidationError: ``max_blocks`` is given and the closure block
+                count exceeds the budget.
         """
         if max_blocks is not None and self.block_count > max_blocks:
-            raise ValidationError("显式块生成超过预算；QHAMPlan 仍可惰性查询")
+            raise ValidationError("explicit block enumeration exceeds the budget; QHAMPlan remains lazily queryable")
         yield Block("physical")
         for rank in range(1, self.max_rank + 1):
             limit = (self.max_rank - rank) // self.grade
@@ -263,25 +284,30 @@ class QHAMPlan:
             yield Block("tensor")
 
     def row_terms(self, row: Block) -> tuple[Coupling, ...]:
-        """枚举行块在闭包内的全部线性边。
+        """Enumerate all linear edges of a row block within the closure.
 
-        覆盖三类边：同字的线性边 ``L``；强迫插入边 ``F``（物理行来自空字
-        常量块，张量行来自删去该零阶因子后的字）；把高阶因子替换为低阶
-        多元组并施加非线性端口的边（携带 ``physical`` 或 ``correction``
-        同伦权重）。空字常量块的行没有边。
+        Three edge classes are covered: the same-word linear edge ``L``;
+        forcing insertion edges ``F`` (physical rows take the empty-word
+        constant block, tensor rows take the word with that zero-order factor
+        removed); and edges replacing a higher-order factor with a lower-order
+        tuple and applying a nonlinear port, carrying a ``physical`` or
+        ``correction`` homotopy weight. The row of the empty-word constant
+        block has no edges.
 
         Args:
-            row: 行块，须属于闭包。
+            row: Row block, must belong to the closure.
 
         Returns:
-            tuple[Coupling, ...]: 该行的全部边，每条边的 ``row`` 字段即入参。
+            tuple[Coupling, ...]: All edges of this row; each edge's ``row``
+            field equals the input.
 
         Raises:
-            ValidationError: 行块不属于有限闭包。
-            AssertionError: 生成的列块越出闭包，即闭包构造不变量被破坏。
+            ValidationError: The row block is outside the finite closure.
+            AssertionError: A generated column block escapes the closure,
+                i.e. the closure construction invariant is broken.
         """
         if not self.contains(row):
-            raise ValidationError("QCL 行不属于有限闭包")
+            raise ValidationError("the QCL row does not belong to the finite closure")
         if row.kind == "tensor" and not row.orders:
             return ()
         ports = self.pde.ports
@@ -330,18 +356,19 @@ class QHAMPlan:
                                     )
                                 )
         if any(not self.contains(term.column) for term in result):
-            raise AssertionError("QCL 闭包构造错误")
+            raise AssertionError("QCL closure construction error")
         return tuple(result)
 
     def raw_dimension(self, dimension: int) -> int:
-        """计算闭包线性系统的总维数。
+        """Compute the total dimension of the closure linear system.
 
         Args:
-            dimension: 单块局部状态空间的维数。
+            dimension: Dimension of a single block's local state space.
 
         Returns:
-            int: 物理块与各秩张量块的局部维数（``dimension**rank``）之和，
-            再加空字常量块的 1 个坐标（若有强迫）。
+            int: Sum of the local dimensions of the physical block and each
+            rank's tensor blocks (``dimension**rank``), plus the single
+            coordinate of the empty-word constant block when forcing exists.
         """
         return (
             dimension
@@ -350,23 +377,25 @@ class QHAMPlan:
         )
 
     def offset(self, block: Block, dimension: int) -> int:
-        """返回块内局部坐标 0 在闭包系统中的全局起始索引。
+        """Return the global start index of local coordinate 0 of a block within the closure system.
 
-        块按 ``blocks`` 的规范顺序展开：物理块在最前，各秩张量块占
-        ``dimension**rank`` 个连续坐标，空字常量块占最后 1 个坐标。
+        Blocks are laid out in the canonical order of ``blocks``: the physical
+        block first, each rank's tensor blocks occupying ``dimension**rank``
+        consecutive coordinates, and the empty-word constant block last with a
+        single coordinate.
 
         Args:
-            block: 闭包内的块。
-            dimension: 单块局部状态空间的维数。
+            block: A block within the closure.
+            dimension: Dimension of a single block's local state space.
 
         Returns:
-            int: 该块的起始全局索引。
+            int: The starting global index of this block.
 
         Raises:
-            ValidationError: 块不属于闭包。
+            ValidationError: The block is outside the closure.
         """
         if not self.contains(block):
-            raise ValidationError("未知 QCL 块")
+            raise ValidationError("unknown QCL block")
         if block.kind == "physical":
             return 0
         if not block.orders:
@@ -383,20 +412,22 @@ class QHAMPlan:
         return offset + before * dimension**rank
 
     def locate(self, index: int, dimension: int) -> tuple[Block, int]:
-        """把全局索引分解为所属块与块内局部索引，为 ``offset`` 的逆。
+        """Decompose a global index into its owning block and local index within the block; inverse of ``offset``.
 
         Args:
-            index: 闭包系统内的全局索引。
-            dimension: 单块局部状态空间的维数。
+            index: Global index within the closure system.
+            dimension: Dimension of a single block's local state space.
 
         Returns:
-            tuple[Block, int]: 索引所在的块及块内局部索引。
+            tuple[Block, int]: The block containing the index and the local
+            index within it.
 
         Raises:
-            ValidationError: 索引越出闭包系统总维数。
+            ValidationError: The index is outside the closure system's total
+                dimension.
         """
         if not 0 <= index < self.raw_dimension(dimension):
-            raise ValidationError("QCL 原始索引越界")
+            raise ValidationError("QCL raw index out of range")
         if index < dimension:
             return Block("physical"), index
         index -= dimension
@@ -426,11 +457,12 @@ class QHAMPlan:
         return Block("tensor"), 0
 
     def summary(self) -> dict[str, object]:
-        """汇总计划的关键量，供报告与诊断使用。
+        """Summarize the plan's key quantities for reports and diagnostics.
 
         Returns:
-            dict: 含版本、截断阶、PDE 次数、最大张量秩、块总数、是否含
-            强迫、闭包判据描述与各端口元数的字典。
+            dict: Dictionary with the version, truncation order, PDE degree,
+            maximum tensor rank, total block count, whether forcing exists, a
+            description of the closure criterion, and each port's arity.
         """
         return {
             "version": self.version,
@@ -446,11 +478,11 @@ class QHAMPlan:
         }
 
     def dumps(self) -> str:
-        """把计划序列化为规范 JSON 文本。
+        """Serialize the plan to canonical JSON text.
 
         Returns:
-            str: 含 ``version``、``order`` 与 ``pde`` 字段的 JSON 文本，
-            键排序、缩进为 2 且以换行结尾。
+            str: JSON text with ``version``, ``order``, and ``pde`` fields,
+            keys sorted, indentation 2, ending with a newline.
         """
         return (
             json.dumps(
@@ -464,21 +496,22 @@ class QHAMPlan:
 
     @classmethod
     def loads(cls, text: str) -> QHAMPlan:
-        """从 ``dumps`` 输出的 JSON 文本重建计划。
+        """Rebuild a plan from the JSON text produced by ``dumps``.
 
         Args:
-            text: JSON 文本。
+            text: JSON text.
 
         Returns:
-            QHAMPlan: 重建后的计划，构造时会再次执行验证。
+            QHAMPlan: The rebuilt plan; validation runs again at construction.
 
         Raises:
-            ValidationError: JSON 结构、字段集合或数据无效。
+            ValidationError: The JSON structure, field set, or data is
+                invalid.
         """
         try:
             raw = json.loads(text)
             if set(raw) != {"version", "order", "pde"}:
-                raise ValidationError("未知 QCL plan 字段")
+                raise ValidationError("unknown QCL plan field")
             return cls(PolynomialPDE.loads(json.dumps(raw["pde"])), raw["order"], raw["version"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise ValidationError("无效 QCL plan：" + str(exc)) from exc
+            raise ValidationError("invalid QCL plan: " + str(exc)) from exc

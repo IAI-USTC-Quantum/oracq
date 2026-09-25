@@ -1,4 +1,4 @@
-"""SDE/Fokker–Planck 输入模型的数值见证与求解器契约测试。"""
+"""Numerical witnesses and solver-contract tests for the SDE/Fokker–Planck input model."""
 
 import math
 import unittest
@@ -24,7 +24,7 @@ from oracq.infrastructure.ir import ValidationError
 
 
 def ou_problem(size=16, half_width=3.0, theta=1.0, diffusion=0.5):
-    """Ornstein–Uhlenbeck 过程 a(x) = -theta*x、D 常量的小网格实例。"""
+    """A small-grid instance of the Ornstein–Uhlenbeck process with a(x) = -theta*x and constant D."""
     h = 2 * half_width / size
     points = [-half_width + (i + 0.5) * h for i in range(size)]
     return FokkerPlanckProblem([-theta * x for x in points], [diffusion] * size, points)
@@ -63,7 +63,7 @@ class GeneratorDiscretizationTests(unittest.TestCase):
         ]
         coarse = evolve_distribution(g, initial, 0.25, steps=2000)
         fine = evolve_distribution(g, initial, 0.25, steps=4000)
-        # 显式 Euler 一阶：细步误差约为粗步一半。
+        # Explicit Euler is first order: the fine-step error is about half the coarse-step error.
         err_coarse = max(abs(a - b) for a, b in zip(coarse, exact, strict=True))
         err_fine = max(abs(a - b) for a, b in zip(fine, exact, strict=True))
         self.assertLess(err_fine, 0.6 * err_coarse)

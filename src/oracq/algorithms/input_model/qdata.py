@@ -1,11 +1,14 @@
-"""KP/QFVM 式量子数据结构：平方范数树的 QVector（qsample）与 sample-and-query 的 QMatrix。
+"""KP/QFVM style quantum data structures: QVector (qsample) with a squared-norm tree, and the sample-and-query QMatrix.
 
-QVector 实现 Kerenidis-Prakash（arXiv:1603.08675 Thm 5.1 + 附录 A.1）与 QFVM
-（arXiv:2102.03557 式 15–22）共用的数据结构：叶子存分量平方、逐层上卷的二叉树，
-内部节点缓存 RY 旋转角字；量子侧按层制备归一化态，每层两次 QRAM 查询。
-符号经独立的 1 位 bank 以相位反冲写入。QMatrix 在此之上实现 sample-and-query
-访问（arXiv:1704.04992 §I.1）：条目 bank 支持任意叠加查询，行树给出
-Ũ|i⟩|0⟩→|i⟩|Ā_i⟩，行范数根树给出 Ṽ|0⟩|j⟩→|Ã⟩|j⟩。
+QVector implements the data structure shared by Kerenidis-Prakash (arXiv:1603.08675
+Thm 5.1 + Appendix A.1) and QFVM (arXiv:2102.03557 Eqs. 15–22): a binary tree whose
+leaves store squared components rolled up layer by layer, with internal nodes
+caching RY rotation angle words; the quantum side prepares the normalized state
+layer by layer, with two QRAM queries per layer. Signs are written through an
+independent 1-bit bank by phase kickback. On top of this, QMatrix implements
+sample-and-query access (arXiv:1704.04992 §I.1): the entries bank supports queries
+in arbitrary superposition, the row trees give Ũ|i⟩|0⟩→|i⟩|Ā_i⟩, and the row-norm
+root tree gives Ṽ|0⟩|j⟩→|Ã⟩|j⟩.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from oracq.infrastructure.qmem import QMem, QPtr
 
 
 def _angle_word(left_square: float, total_square: float, angle_width: int) -> int:
-    """层旋转角字：θ = 2·acos(√(S_left/S_node))，与 qram_state_angles 同一约定。"""
+    """Layer rotation angle word: θ = 2·acos(√(S_left/S_node)), same convention as qram_state_angles."""
     if total_square <= 0:
         return 0
     ratio = math.sqrt(max(0.0, min(1.0, left_square / total_square)))
@@ -32,7 +35,7 @@ def _angle_word(left_square: float, total_square: float, angle_width: int) -> in
 def _build_tree(
     squares: Sequence[float], angle_width: int
 ) -> tuple[list[float], dict[int, int]]:
-    """由叶平方数组构建 1-based 堆树与内部节点角字表（地址 = node-1）。"""
+    """Build the 1-based heap tree and the internal-node angle word table from the leaf square array (address = node-1)."""
     n = len(squares)
     tree = [0.0] * (2 * n)
     tree[n:] = [float(square) for square in squares]
@@ -44,17 +47,17 @@ def _build_tree(
 
 
 def _check_shape(values: Sequence[object], what: str) -> int:
-    """校验序列长度为不少于 2 的二次幂并返回该长度。"""
+    """Validate that the sequence length is a power of two no smaller than 2 and return that length."""
     n = len(values)
     if n < 2 or n & (n - 1):
-        raise ValidationError(f"{what} 长度必须是不少于 2 的二次幂")
+        raise ValidationError(f"{what} length must be a power of two no smaller than 2")
     return n
 
 
 def _tree_layers(
     builder: Builder, cell_of: Callable[[Ref], QPtr], target: Ref, angle: Ref, width: int
 ) -> None:
-    """按层走树：cell_of(prefix) 返回该层树节点指针，前缀取目标寄存器已定高位。"""
+    """Walk the tree layer by layer: cell_of(prefix) returns the tree node pointer at that layer, with the prefix taken from the already-fixed high bits of the target register."""
     for depth in range(width):
         bit = width - 1 - depth
         offset = (1 << depth) - 1
@@ -67,7 +70,7 @@ def _tree_layers(
 
 
 class QVector:
-    """qsample 向量：平方范数二叉树 + 角字/符号 bank，支持 O(log) 经典局部更新。"""
+    """qsample vector: squared-norm binary tree + angle-word/sign banks, supporting O(log) classical local updates."""
 
     def __init__(
         self,
@@ -77,20 +80,20 @@ class QVector:
         angle_width: int = 8,
         name: str = "qvec",
     ) -> None:
-        """初始化 qsample 向量并构建平方范数树。
+        """Initialize the qsample vector and build the squared-norm tree.
 
         Args:
-            values: 分量序列，长度须为不少于 2 的二次幂。
-            fmt: 分量的定点数格式；缺省为 ``FixedFormat(10, 5)``。
-            angle_width: 旋转角字的位宽，范围为 1..64。
-            name: QRAM bank 的命名前缀。
+            values: Sequence of components; the length must be a power of two no smaller than 2.
+            fmt: Fixed-point format of the components; defaults to ``FixedFormat(10, 5)``.
+            angle_width: Bit width of the rotation angle word, range 1..64.
+            name: Naming prefix of the QRAM banks.
 
         Raises:
-            ValidationError: 分量长度非法或 angle_width 越界。
+            ValidationError: The component length is invalid or angle_width is out of range.
         """
         self.fmt: FixedFormat = fmt or FixedFormat(10, 5)
         if not 1 <= angle_width <= 64:
-            raise ValidationError("angle_width 必须是 1..64")
+            raise ValidationError("angle_width must be in the range 1..64")
         values = tuple(float(v) for v in values)
         self.width: int = _check_shape(values, "QVector").bit_length() - 1
         self.angle_width: int = angle_width
@@ -99,11 +102,11 @@ class QVector:
         self._refresh()
 
     def _decoded(self, index: int) -> float:
-        """按下标解码分量的定点数值。"""
+        """Decode the fixed-point value of the component at the given index."""
         return self.fmt.decode(self.words[index])
 
     def _refresh(self) -> None:
-        """按当前字值重建平方范数树与角字表。"""
+        """Rebuild the squared-norm tree and the angle word table from the current word values."""
         self.tree: list[float]
         self.angles: dict[int, int]
         self.tree, self.angles = _build_tree(
@@ -111,25 +114,25 @@ class QVector:
         )
 
     def signs(self) -> dict[int, int]:
-        """符号 bank 内容；全零符号可以省略 signed 制备。
+        """Sign bank content; when all signs are zero the signed preparation can be omitted.
 
         Returns:
-            dict[int, int]: 下标到符号位的映射，仅含负分量条目。
+            dict[int, int]: Mapping from indices to sign bits, containing only negative-component entries.
         """
         return {i: int(self._decoded(i) < 0) for i in range(1 << self.width) if self._decoded(i) < 0}
 
     def update(self, index: int, value: float) -> dict[int, int]:
-        """单点更新：只重算叶到根路径上的和与角字；返回角字 bank 的变化。
+        """Single-point update: only the sums and angle words along the leaf-to-root path are recomputed; returns the changes to the angle word bank.
 
         Args:
-            index: 待更新分量的下标，范围 0..2^width-1。
-            value: 新的分量值，须可被定点格式编码。
+            index: Index of the component to update, range 0..2^width-1.
+            value: New component value, which must be encodable by the fixed-point format.
 
         Returns:
-            dict[int, int]: 角字 bank 的变化，键为树节点编号减一的地址。
+            dict[int, int]: Changes to the angle word bank, keyed by the address, i.e. the tree node number minus one.
         """
         if not 0 <= index < 1 << self.width:
-            raise ValidationError("QVector 更新地址越界")
+            raise ValidationError("QVector update address is out of range")
         self.words[index] = self.fmt.encode(float(value))
         node = (1 << self.width) + index
         self.tree[node] = self._decoded(index) ** 2
@@ -143,29 +146,29 @@ class QVector:
 
     @property
     def norm(self) -> float:
-        """向量的欧几里得范数：平方范数树根节点开方（按定点解码值计算）。"""
+        """Euclidean norm of the vector: the square root of the squared-norm tree root (computed from the fixed-point decoded values)."""
         return math.sqrt(self.tree[1])
 
     def amplitudes(self) -> list[float]:
-        """归一化期望振幅（含量化与符号），供经典侧对照。
+        """Normalized expected amplitudes (including quantization and signs), as the classical reference.
 
         Returns:
-            list[float]: 长度 2^width、除以欧几里得范数后的振幅表。
+            list[float]: Amplitude table of length 2^width after division by the Euclidean norm.
         """
         norm = self.norm
         if norm == 0:
-            raise ValidationError("零向量没有归一化态")
+            raise ValidationError("the zero vector has no normalized state")
         return [self._decoded(i) / norm for i in range(1 << self.width)]
 
     def snapshot(self, *, signed: bool = False) -> dict[str, dict[int, int]]:
-        """导出 QRAM bank 内容快照，供 ``simulate`` 等按名绑定数据。
+        """Export a snapshot of the QRAM bank contents, for ``simulate`` and the like to bind data by name.
 
         Args:
-            signed: 为 True 时附带符号 bank，只含负分量的条目。
+            signed: When True, attach the sign bank, containing only negative-component entries.
 
         Returns:
-            dict: 键为 ``{name}_angles``（地址为树节点编号减一），
-            以及可选的 ``{name}_sign``。
+            dict: Keys are ``{name}_angles`` (address is the tree node number
+            minus one), plus the optional ``{name}_sign``.
         """
         banks = {f"{self.name}_angles": dict(self.angles)}
         if signed:
@@ -173,14 +176,14 @@ class QVector:
         return banks
 
     def preparation(self, *, signed: bool = False, name: str | None = None) -> StatePreparation:
-        """按层 QMem 寻址的树制备；带符号时经 Load→Z→反 Load 写入相位。
+        """Layer-by-layer tree preparation addressed via QMem; when signed, the phase is written via Load→Z→inverse Load.
 
         Args:
-            signed: 为 True 时附加符号 bank 的相位写入。
-            name: 生成操作的名称；缺省由向量名与位宽派生。
+            signed: When True, attach the phase writing from the sign bank.
+            name: Name of the generated operation; derived from the vector name and bit widths by default.
 
         Returns:
-            StatePreparation: 按层 QRAM 查询制备归一化态的视图。
+            StatePreparation: View preparing the normalized state via layer-by-layer QRAM queries.
         """
         width, angle_width = self.width, self.angle_width
         angles_name, sign_name = f"{self.name}_angles", f"{self.name}_sign"
@@ -214,7 +217,7 @@ class QVector:
 
 
 class QMatrix:
-    """sample-and-query 矩阵：条目查询 + 行 qsample Ũ + 行范数根树 Ṽ；条目限非负。"""
+    """Sample-and-query matrix: entry query + row qsample Ũ + row-norm root tree Ṽ; entries are restricted to nonnegative values."""
 
     def __init__(
         self,
@@ -224,29 +227,29 @@ class QMatrix:
         angle_width: int = 8,
         name: str = "qmat",
     ) -> None:
-        """初始化 sample-and-query 矩阵并构建行树与根树。
+        """Initialize the sample-and-query matrix and build the row trees and the root tree.
 
         Args:
-            matrix: 非负实数矩阵，行数与列数均须为不少于 2 的二次幂。
-            fmt: 条目的定点数格式；缺省为 ``FixedFormat(10, 5)``。
-            angle_width: 旋转角字的位宽，范围为 1..64。
-            name: QRAM bank 的命名前缀。
+            matrix: Nonnegative real matrix; both the row count and the column count must be powers of two no smaller than 2.
+            fmt: Fixed-point format of the entries; defaults to ``FixedFormat(10, 5)``.
+            angle_width: Bit width of the rotation angle word, range 1..64.
+            name: Naming prefix of the QRAM banks.
 
         Raises:
-            ValidationError: 矩阵形状非法，或条目越出定点格式的非负值域。
+            ValidationError: The matrix shape is invalid, or an entry falls outside the nonnegative range of the fixed-point format.
         """
         self.fmt: FixedFormat = fmt or FixedFormat(10, 5)
         if not 1 <= angle_width <= 64:
-            raise ValidationError("angle_width 必须是 1..64")
-        rows = _check_shape(matrix, "QMatrix 行")
-        cols = _check_shape(matrix[0], "QMatrix 列")
+            raise ValidationError("angle_width must be in the range 1..64")
+        rows = _check_shape(matrix, "QMatrix rows")
+        cols = _check_shape(matrix[0], "QMatrix columns")
         if any(len(row) != cols for row in matrix):
-            raise ValidationError("QMatrix 每行长度必须一致")
+            raise ValidationError("QMatrix rows must all have the same length")
         maximum = self.fmt.decode((1 << (self.fmt.width - 1)) - 1)
         for row in matrix:
             for value in row:
                 if not 0 <= float(value) <= maximum:
-                    raise ValidationError("QMatrix 条目必须处于定点格式非负值域内")
+                    raise ValidationError("QMatrix entries must lie within the nonnegative range of the fixed-point format")
         self.rows: int = rows.bit_length() - 1
         self.cols: int = cols.bit_length() - 1
         self.angle_width: int = angle_width
@@ -255,11 +258,11 @@ class QMatrix:
         self._refresh()
 
     def _row_squares(self, index: int) -> list[float]:
-        """解码指定行全部条目的平方值。"""
+        """Decode the squared values of all entries in the given row."""
         return [self.fmt.decode(w) ** 2 for w in self.words[index]]
 
     def _refresh(self) -> None:
-        """按当前字值重建各行树、行角字表与根树。"""
+        """Rebuild the row trees, the row angle word table, and the root tree from the current word values."""
         self.row_trees: list[list[float]]
         self.row_angles: dict[int, int]
         self.row_trees, self.row_angles = [], {}
@@ -274,22 +277,22 @@ class QMatrix:
         self.root_tree, self.root_angles = _build_tree(squares, self.angle_width)
 
     def update(self, row: int, column: int, value: float) -> dict[str, dict[int, int]]:
-        """单条目更新：重算所在行树与根树路径；返回各 bank 的变化。
+        """Single-entry update: recompute the affected row tree and the root tree path; returns the changes to each bank.
 
         Args:
-            row: 待更新条目所在行下标，范围 0..2^rows-1。
-            column: 待更新条目所在列下标，范围 0..2^cols-1。
-            value: 新条目值，须处于定点格式的非负值域内。
+            row: Row index of the entry to update, range 0..2^rows-1.
+            column: Column index of the entry to update, range 0..2^cols-1.
+            value: New entry value, which must lie within the nonnegative range of the fixed-point format.
 
         Returns:
-            dict[str, dict[int, int]]: ``entries``、``row_angles`` 与
-            ``root_angles`` 三个 bank 的变化。
+            dict[str, dict[int, int]]: Changes to the three banks ``entries``,
+            ``row_angles`` and ``root_angles``.
         """
         if not (0 <= row < 1 << self.rows and 0 <= column < 1 << self.cols):
-            raise ValidationError("QMatrix 更新地址越界")
+            raise ValidationError("QMatrix update address is out of range")
         maximum = self.fmt.decode((1 << (self.fmt.width - 1)) - 1)
         if not 0 <= float(value) <= maximum:
-            raise ValidationError("QMatrix 条目必须处于定点格式非负值域内")
+            raise ValidationError("QMatrix entries must lie within the nonnegative range of the fixed-point format")
         self.words[row][column] = self.fmt.encode(float(value))
         self.row_trees[row], angles = _build_tree(self._row_squares(row), self.angle_width)
         changed: dict[str, dict[int, int]] = {
@@ -312,46 +315,46 @@ class QMatrix:
 
     @property
     def frobenius(self) -> float:
-        """矩阵的 Frobenius 范数：根树根节点开方，即全部条目平方和的平方根。"""
+        """Frobenius norm of the matrix: the square root of the root tree root, i.e. the square root of the sum of squared entries."""
         return math.sqrt(self.root_tree[1])
 
     def row_norm(self, index: int) -> float:
-        """返回第 ``index`` 行的欧几里得范数（行树根节点开方）。
+        """Return the Euclidean norm of row ``index`` (the square root of the row tree root).
 
         Args:
-            index: 行下标，范围 0..2^rows-1。
+            index: Row index, range 0..2^rows-1.
 
         Returns:
-            float: 该行全部条目平方和的平方根。
+            float: Square root of the sum of squared entries of that row.
         """
         return math.sqrt(self.row_trees[index][1])
 
     def row_amplitudes(self, index: int) -> list[float]:
-        """第 index 行的归一化期望振幅（行 qsample 的对照真值）。
+        """Normalized expected amplitudes of row index (the reference ground truth for the row qsample).
 
         Args:
-            index: 行下标，范围 0..2^rows-1。
+            index: Row index, range 0..2^rows-1.
 
         Returns:
-            list[float]: 该行除以行范数后的振幅表。
+            list[float]: Amplitude table of that row after division by the row norm.
         """
         return [self.fmt.decode(w) / self.row_norm(index) for w in self.words[index]]
 
     def user_amplitudes(self) -> list[float]:
-        """根树的归一化期望振幅（Ṽ 制备用户叠加态的对照真值）。
+        """Normalized expected amplitudes of the root tree (the reference ground truth for the user superposition prepared by Ṽ).
 
         Returns:
-            list[float]: 第 i 项为第 i 行范数与 Frobenius 范数之比。
+            list[float]: The i-th entry is the ratio of the i-th row norm to the Frobenius norm.
         """
         total = self.root_tree[1]
         return [math.sqrt(self.row_trees[i][1] / total) for i in range(1 << self.rows)]
 
     def snapshot(self) -> dict[str, dict[int, int]]:
-        """导出条目 bank 与行/根角度 bank 的内容快照。
+        """Export a snapshot of the entries bank and the row/root angle banks.
 
         Returns:
-            dict: 键为 ``entries``（行主序扁平地址到定点字）、
-            ``row_angles`` 与 ``root_angles``。
+            dict: Keys are ``entries`` (row-major flattened addresses to
+            fixed-point words), ``row_angles`` and ``root_angles``.
         """
         return {
             "entries": {
@@ -364,10 +367,10 @@ class QMatrix:
         }
 
     def query(self) -> XorDatabase:
-        """条目 XOR 查询：地址 (行, 列) 处的字异或进 data，二维指针寻址。
+        """Entry XOR query: the word at address (row, column) is XORed into data, addressed by a two-dimensional pointer.
 
         Returns:
-            XorDatabase: 以行主序扁平 entries bank 为后端的查询视图。
+            XorDatabase: Query view backed by the row-major flattened entries bank.
         """
         r, c = self.rows, self.cols
         b = Builder(
@@ -380,10 +383,10 @@ class QMatrix:
         return XorDatabase(annotate(b.finish(), "database_xor", implementation="qmem_2d"))
 
     def row_preparation(self) -> Operation:
-        """Ũ：把条目寄存器从零态制备到第 i 行的归一化行向量；行树按 (行, 前缀) 二维寻址。
+        """Ũ: prepare the item register from the zero state into the normalized row vector of row i; the row trees are addressed two-dimensionally by (row, prefix).
 
         Returns:
-            Operation: 实现 Ũ 的酉操作。
+            Operation: The unitary operation implementing Ũ.
         """
         r, c, aw = self.rows, self.cols, self.angle_width
         b = Builder(
@@ -401,10 +404,10 @@ class QMatrix:
         )
 
     def amplitude_preparation(self) -> Operation:
-        """Ṽ：把零态行寄存器制备到用户分布 Ã，条目寄存器直通。
+        """Ṽ: prepare the zero-state row register into the user distribution Ã, with the item register passed through.
 
         Returns:
-            Operation: 实现 Ṽ 的酉操作。
+            Operation: The unitary operation implementing Ṽ.
         """
         r, aw = self.rows, self.angle_width
         b = Builder(
@@ -421,17 +424,17 @@ class QMatrix:
         )
 
     def row_state_prep(self, user: int) -> StatePreparation:
-        """经典行 user 的一维树制备，行号折叠为常量地址。
+        """One-dimensional tree preparation of the classical row user, with the row number folded into a constant address.
 
         Args:
-            user: 经典行号，范围 0..2^rows-1。
+            user: Classical row number, range 0..2^rows-1.
 
         Returns:
-            StatePreparation: 该行归一化行向量的一维树制备视图。
+            StatePreparation: 1D tree preparation view of that row's normalized row vector.
         """
         c, aw = self.cols, self.angle_width
         if not 0 <= user < 1 << self.rows:
-            raise ValidationError("行号越界")
+            raise ValidationError("row number is out of range")
         b = Builder(
             f"{self.name}_row_{user}_prep_{c}_{aw}",
             {"target": Bits(c), "work": Bits(aw)},

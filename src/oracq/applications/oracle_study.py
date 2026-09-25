@@ -1,4 +1,4 @@
-"""同一对角算子算法的门表、QRAM 与可逆整数算术绑定实验。"""
+"""Binding experiments pairing one diagonal-operator algorithm with a gate table, QRAM and reversible integer arithmetic."""
 
 from __future__ import annotations
 
@@ -19,11 +19,13 @@ from oracq.infrastructure.linking import Binding
 def oracle_study(
     width: int = 2, repetitions: int = 1,
 ) -> tuple[Program, dict[str, tuple[Binding, dict[str, list[int]]]]]:
-    """构造开放程序及三种实现；数据字为 ``(address + 1) mod 2**width``。
+    """Build an open program and three implementations; the data word is ``(address + 1) mod 2**width``.
 
-    程序均匀制备 target，重复调用角字驱动的对角旋转。零信号块对角元为
-    ``cos(repetitions * pi * word / 2**width)``。该恒等式只用于本例的旋转
-    扩张，不作为任意块编码幂的普遍性质。
+    The program prepares target uniformly and repeatedly calls the angle-word
+    driven diagonal rotation. The zero-signal block diagonal element is
+    ``cos(repetitions * pi * word / 2**width)``. This identity is used only for
+    the rotation dilation in this example and is not claimed as a general
+    property of powers of arbitrary block encodings.
     """
     slot = abstract_database("AngleWord", width, width)
     encoding = diagonal_block_encoding(slot)
@@ -56,7 +58,7 @@ def oracle_study(
 
 
 def oracle_study_reference(width: int, repetitions: int) -> dict[tuple[int, ...], complex]:
-    """独立三角公式参考，包含成功与失败信号的复幅度。"""
+    """Independent trigonometric reference, including the complex amplitudes of the success and failure signals."""
     size = 1 << width
     state: dict[tuple[int, ...], complex] = {}
     for address in range(size):

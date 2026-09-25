@@ -1,15 +1,16 @@
-"""不变量断言库：跨算法测试共享的见证原语。
+"""Invariant assertion library: witness primitives shared across algorithm tests.
 
-四个原语均以 ``unittest.TestCase`` 实例为首参数，失败时抛 ``AssertionError``。
-本文件名不带 ``test_`` 前缀，不会被 unittest discover 收集；自证测试见
-``test_witness.py``。
+All four primitives take a ``unittest.TestCase`` instance as their first
+argument and raise ``AssertionError`` on failure. This file name lacks the
+``test_`` prefix, so unittest discover does not collect it; the self-tests
+live in ``test_witness.py``.
 """
 
 import random
 
 from oracq import ValidationError, bind, simulate, unresolved
 
-# simulate 会丢弃 |a| < 1e-15 的幅度，复净检查用更宽松的阈值判零。
+# simulate drops amplitudes with |a| < 1e-15; uncomputation checks use a looser zero threshold.
 _ZERO_AMPLITUDE = 1e-9
 
 
@@ -18,7 +19,7 @@ def _register_index(program):
 
 
 def _basis_indices(program, samples):
-    """全部基态（小寄存器空间）或固定种子的随机抽样（大空间），确定性优先。"""
+    """All basis states (small register space) or a fixed-seed random sample (large space); determinism first."""
     registers = program.main.registers
     width = sum(r.type.width for r in registers)
     size = 1 << width
@@ -30,7 +31,7 @@ def _basis_indices(program, samples):
 
 
 def _initial_for_index(program, index):
-    """把扁平基态下标按寄存器声明序（小端）拆成 simulate 的 initial 字典。"""
+    """Split a flat basis-state index into simulate's initial dict in register declaration order (little-endian)."""
     initial = {}
     offset = 0
     for reg in program.main.registers:
@@ -46,10 +47,11 @@ def _inner_product(first, second):
 
 
 def assert_unitary(case, program, *, places=9, samples=None):
-    """W†W = I 的抽样见证：各基态列归一（Σ|a|²=1）且两两正交。
+    """Sampled witness for W†W = I: every basis-state column is normalized (Σ|a|²=1) and pairwise orthogonal.
 
-    samples 显式给出基态下标列表；缺省时小寄存器空间（≤16 个基态）取全部，
-    大空间用 ``random.Random(0)`` 固定种子抽 16 个。
+    samples explicitly provides the list of basis-state indices; by default a
+    small register space (≤16 basis states) uses all of them, and a large space
+    draws 16 with the fixed seed ``random.Random(0)``.
     """
     indices = _basis_indices(program, samples)
     columns = [
@@ -59,7 +61,7 @@ def assert_unitary(case, program, *, places=9, samples=None):
     for index, amplitudes in zip(indices, columns, strict=True):
         norm = sum(abs(a) ** 2 for a in amplitudes.values())
         case.assertAlmostEqual(
-            norm, 1.0, places=places, msg=f"基态 {index} 的输出列不归一：Σ|a|²={norm}"
+            norm, 1.0, places=places, msg=f"output column of basis state {index} is not normalized: Σ|a|²={norm}"
         )
     for i, first in enumerate(columns):
         for j in range(i + 1, len(columns)):
@@ -68,27 +70,29 @@ def assert_unitary(case, program, *, places=9, samples=None):
                 inner.real,
                 0.0,
                 places=places,
-                msg=f"列 {indices[i]} 与列 {indices[j]} 不正交：内积 {inner}",
+                msg=f"columns {indices[i]} and {indices[j]} are not orthogonal: inner product {inner}",
             )
             case.assertAlmostEqual(
                 inner.imag,
                 0.0,
                 places=places,
-                msg=f"列 {indices[i]} 与列 {indices[j]} 不正交：内积 {inner}",
+                msg=f"columns {indices[i]} and {indices[j]} are not orthogonal: inner product {inner}",
             )
 
 
 def assert_uncomputation(case, program, *, initial=None, work_registers=None):
-    """复净见证：局部寄存器必须复净，且指定根寄存器在输出中恒为 0。
+    """Uncomputation witness: local registers must be uncomputed and the named root registers must be 0 in the output.
 
-    simulate 在 LocalExit 处强制复净（未复净抛 ValidationError），此处将其
-    转为 AssertionError；work_registers 列出的根寄存器须在所有非零幅度
-    基态中取值为 0。返回 simulate 的 RegisterState 便于调用方继续断言。
+    simulate forces uncomputation at LocalExit (raising ValidationError when
+    not uncomputed), which is converted here into AssertionError; the root
+    registers listed in work_registers must evaluate to 0 in every basis state
+    with nonzero amplitude. Returns simulate's RegisterState so the caller can
+    keep asserting.
     """
     try:
         state = simulate(program, initial=initial)
     except ValidationError as exc:
-        case.fail(f"复净失败：{exc}")
+        case.fail(f"uncomputation failed: {exc}")
     if work_registers:
         index = _register_index(program)
         for name in work_registers:
@@ -98,21 +102,23 @@ def assert_uncomputation(case, program, *, initial=None, work_registers=None):
                     case.assertEqual(
                         key[position],
                         0,
-                        msg=f"工作寄存器 {name} 未复净：基态 {key} 幅度 {amplitude}",
+                        msg=f"work register {name} not uncomputed: basis state {key} amplitude {amplitude}",
                     )
     return state
 
 
 def assert_bind_invariant(case, abstract_program, bindings, *, tolerance=0.0):
-    """绑定不变量：同一抽象槽位的各候选实现须给出一致的可观察分布。
+    """Binding invariant: candidate implementations of the same abstract slot must give consistent observable distributions.
 
-    abstract_program 须恰有一个未绑定槽位（经 unresolved 解析）；bindings 的
-    每个 (标签, Operation) 视为该槽位的一个候选实现，逐一 bind 后 simulate，
-    逐基态比较 |a|² 分布。tolerance=0 时精确对拍；QRAM 等有量化误差的绑定
-    传入误差界（如 0.02，沿用现有约定）。
+    abstract_program must have exactly one unbound slot (resolved via
+    unresolved); each (label, Operation) in bindings is treated as one
+    candidate implementation of that slot: bind one at a time, simulate, and
+    compare the |a|² distributions basis state by basis state. tolerance=0
+    means an exact cross-check; bindings with quantization error, such as
+    QRAM, pass an error bound (e.g. 0.02, following the existing convention).
     """
     names = [r.name for r in unresolved(abstract_program)]
-    case.assertEqual(len(names), 1, msg=f"抽象程序须恰有一个未绑定槽位：{names}")
+    case.assertEqual(len(names), 1, msg=f"abstract program must have exactly one unbound slot: {names}")
     slot = names[0]
     reference = None
     reference_label = None
@@ -128,8 +134,8 @@ def assert_bind_invariant(case, abstract_program, bindings, *, tolerance=0.0):
             expected = reference.get(key, 0.0)
             actual = distribution.get(key, 0.0)
             message = (
-                f"候选 {label} 与 {reference_label} 在基态 {key} 的分布不一致："
-                f"{actual} != {expected}"
+                f"candidate {label} and {reference_label} disagree on the "
+                f"distribution at basis state {key}: {actual} != {expected}"
             )
             if tolerance:
                 case.assertAlmostEqual(actual, expected, delta=tolerance, msg=message)
@@ -138,14 +144,14 @@ def assert_bind_invariant(case, abstract_program, bindings, *, tolerance=0.0):
 
 
 def block_column(be, column):
-    """BE 的 (0,0) 块第 column 列（乘以 alpha 后）。"""
+    """Column `column` of the BE's (0,0) block (after multiplying by alpha)."""
     state = simulate(be.operation.program(), initial={"target": column})
     size = 1 << be.width
     return [state.amplitudes.get((row, 0), 0) * be.alpha for row in range(size)]
 
 
 def assert_block_equals(case, be, matrix, *, places=9):
-    """块编码的 (0,0) 块逐列与稠密矩阵对拍（乘回 alpha）。"""
+    """Column-by-column cross-check of a block encoding's (0,0) block against a dense matrix (multiplying alpha back in)."""
     for column in range(len(matrix)):
         actual = block_column(be, column)
         for row in range(len(matrix)):

@@ -1,4 +1,4 @@
-"可逆定点算术：Boolean SSA → compute/XOR/uncompute，及同图原生实现。"
+"Reversible fixed-point arithmetic: Boolean SSA to compute/XOR/uncompute, plus native implementations of the same graph."
 
 from __future__ import annotations
 
@@ -20,49 +20,54 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class FixedFormat:
-    """描述可逆定点算术使用的定点数格式。
+    """Describes the fixed-point number format used by reversible arithmetic.
 
-    ``width`` 位字长的低 ``fraction`` 位为小数位；``signed`` 为 True 时最高位
-    为补码符号位。数值与位模式之间通过 ``encode`` 与 ``decode`` 换算。
+    The low ``fraction`` bits of the ``width``-bit word hold the fraction;
+    when ``signed`` is True the most significant bit is the two's-complement
+    sign bit. Values and bit patterns are converted through ``encode`` and
+    ``decode``.
 
     Attributes:
-        width: 总位宽，含符号位（若存在），有效范围为 2..64。
-        fraction: 小数位数，不得占用符号位。
-        signed: 是否以最高位为补码符号位。
+        width: Total bit width, including the sign bit if present; the valid range is 2..64.
+        fraction: Number of fraction bits, which must not occupy the sign bit.
+        signed: Whether the most significant bit is a two's-complement sign bit.
 
     Raises:
-        ValidationError: ``width`` 越出 2..64，或 ``fraction`` 占用到符号位。
+        ValidationError: ``width`` falls outside 2..64, or ``fraction`` occupies the sign bit.
     """
     width: int = 8
     fraction: int = 3
     signed: bool = True
 
     def __post_init__(self) -> None:
-        """校验位宽与小数位组合的静态约束。"""
+        """Validate the static constraints on the width and fraction combination."""
         if not 2 <= self.width <= 64 or not 0 <= self.fraction < self.width - int(self.signed):
-            raise ValidationError("定点格式要求 2≤width≤64 且小数位不占用符号位")
+            raise ValidationError("Fixed-point format requires 2≤width≤64 and fraction bits that"
+                                  " do not occupy the sign bit")
 
     def encode(self, value: float) -> int:
-        """把定点数值编码为 ``width`` 位整数。
+        """Encode a fixed-point value as a ``width``-bit integer.
 
-        数值先乘以 ``2**fraction`` 并向零截断，再掩码到 ``width`` 位。
+        The value is first multiplied by ``2**fraction`` and truncated toward
+        zero, then masked to ``width`` bits.
 
         Args:
-            value: 待编码的定点数值。
+            value: The fixed-point value to encode.
 
         Returns:
-            int: 按 ``2**width`` 回绕后的整数位模式。
+            int: The integer bit pattern after wrapping modulo ``2**width``.
         """
         return int(value * (1 << self.fraction)) & ((1 << self.width) - 1)
 
     def decode(self, value: int) -> float:
-        """把 ``width`` 位整数位模式解码回定点数值。
+        """Decode a ``width``-bit integer bit pattern back to a fixed-point value.
 
         Args:
-            value: 整数位模式，越出字长的高位先被掩掉。
+            value: The integer bit pattern; higher bits beyond the word width are masked off first.
 
         Returns:
-            float: 有符号格式按补码解释符号位后，再除以 ``2**fraction`` 的值。
+            float: The value after interpreting the sign bit as two's complement in the signed
+            format, then dividing by ``2**fraction``.
         """
         value &= (1 << self.width) - 1
         if self.signed and value >> (self.width - 1):
@@ -71,25 +76,25 @@ class FixedFormat:
 
 
 class BooleanNetwork:
-    """0/1 为常量；其余编号是输入或不可变布尔值。"""
+    """0/1 are constants; every other index is an input or an immutable Boolean value."""
 
     def __init__(self) -> None:
-        """创建只含常量 0 与 1 两个节点的空网络。"""
+        """Create an empty network containing only the two constants 0 and 1."""
         self.nodes: list[tuple[str | int, ...]] = [("const", 0), ("const", 1)]
         self.cache: dict[tuple[str | int, ...], int] = {}
         self.inputs: dict[str, list[int]] = {}
         self.outputs: dict[str, list[int]] = {}
 
     def node(self, key: Iterable[str | int]) -> int:
-        """返回键对应的节点编号，不存在时创建新节点。
+        """Return the node index for a key, creating a new node when absent.
 
-        以元组键做 hash-consing：相同键始终返回相同编号。
+        Hash-consing on tuple keys: identical keys always return the same index.
 
         Args:
-            key: 描述常量、输入或运算的可迭代键。
+            key: Iterable key describing a constant, input, or operation.
 
         Returns:
-            int: 该键的节点编号。
+            int: The node index of the key.
         """
         key = tuple(key)
         if key not in self.cache:
@@ -98,27 +103,27 @@ class BooleanNetwork:
         return self.cache[key]
 
     def input(self, name: str, width: int) -> list[int]:
-        """声明一个输入端口并登记其逐位节点。
+        """Declare an input port and register its per-bit nodes.
 
         Args:
-            name: 端口名。
-            width: 端口位宽。
+            name: Port name.
+            width: Port bit width.
 
         Returns:
-            list: 节点编号列表，下标为位序（低位在前）。
+            list: List of node indices, indexed by bit position, least significant bit first.
         """
         bits = [self.node(("input", name, i)) for i in range(width)]
         self.inputs[name] = bits
         return bits
 
     def inv(self, a: int) -> int:
-        """对节点取反，带常量折叠与双重取消化简。
+        """Invert a node, with constant folding and double-negation simplification.
 
         Args:
-            a: 节点编号。
+            a: Node index.
 
         Returns:
-            int: 取反结果的节点编号。
+            int: Node index of the inverted result.
         """
         if a < 2:
             return 1 - a
@@ -127,14 +132,14 @@ class BooleanNetwork:
         return self.node(("not", a))
 
     def xor(self, a: int, b: int) -> int:
-        """异或两个节点，带常量单位元与 ``a xor a = 0`` 化简。
+        """XOR two nodes, with the constant identity and ``a xor a = 0`` simplifications.
 
         Args:
-            a: 节点编号。
-            b: 节点编号。
+            a: Node index.
+            b: Node index.
 
         Returns:
-            int: 异或结果的节点编号。
+            int: Node index of the XOR result.
         """
         if a == b:
             return 0
@@ -145,14 +150,14 @@ class BooleanNetwork:
         return self.node(("xor", *sorted((a, b))))
 
     def and_(self, a: int, b: int) -> int:
-        """对两个节点做按位与，带常量吸收与幂等化简。
+        """Bitwise AND of two nodes, with constant absorption and idempotence simplifications.
 
         Args:
-            a: 节点编号。
-            b: 节点编号。
+            a: Node index.
+            b: Node index.
 
         Returns:
-            int: 与结果的节点编号。
+            int: Node index of the AND result.
         """
         if a == b:
             return a
@@ -163,25 +168,25 @@ class BooleanNetwork:
         return self.node(("and", *sorted((a, b))))
 
     def or_(self, a: int, b: int) -> int:
-        """对两个节点做按位或，经 ``xor`` 与 ``and_`` 复合实现。
+        """Bitwise OR of two nodes, composed through ``xor`` and ``and_``.
 
         Args:
-            a: 节点编号。
-            b: 节点编号。
+            a: Node index.
+            b: Node index.
 
         Returns:
-            int: 或结果的节点编号。
+            int: Node index of the OR result.
         """
         return self.xor(self.xor(a, b), self.and_(a, b))
 
     def any(self, bits: Iterable[int]) -> int:
-        """把一组节点归约为它们的按位或。
+        """Reduce a group of nodes to their bitwise OR.
 
         Args:
-            bits: 节点编号的可迭代对象。
+            bits: Iterable of node indices.
 
         Returns:
-            int: 归约结果的节点编号；空输入返回常量 0。
+            int: Node index of the reduced result; an empty input yields constant 0.
         """
         result = 0
         for bit in bits:
@@ -189,15 +194,15 @@ class BooleanNetwork:
         return result
 
     def mux(self, select: int, yes: list[int], no: list[int]) -> list[int]:
-        """按选择位在两组等宽信号间逐位选择。
+        """Select bit by bit between two equal-width signals according to a select bit.
 
         Args:
-            select: 选择位节点编号。
-            yes: 选择位为 1 时输出的位列表。
-            no: 选择位为 0 时输出的位列表，须与 ``yes`` 同宽。
+            select: Node index of the select bit.
+            yes: Bit list to output when the select bit is 1.
+            no: Bit list to output when the select bit is 0; must match the width of ``yes``.
 
         Returns:
-            list: 逐位选择结果的节点编号列表。
+            list: Node indices of the bit-by-bit selection result.
         """
         return [
             self.xor(b, self.and_(select, self.xor(a, b))) for a, b in zip(yes, no, strict=True)
@@ -205,40 +210,41 @@ class BooleanNetwork:
 
     @staticmethod
     def const(value: int, width: int) -> list[int]:
-        """把非负整数展开为 ``width`` 位常量位列表。
+        """Expand a nonnegative integer into a ``width``-bit constant bit list.
 
         Args:
-            value: 非负整数常量。
-            width: 位宽。
+            value: The nonnegative integer constant.
+            width: Bit width.
 
         Returns:
-            list: 各位取 0 或 1，低位在前。
+            list: Each bit is 0 or 1, least significant bit first.
         """
         return [(value >> i) & 1 for i in range(width)]
 
     @staticmethod
     def resize(bits: list[int], width: int) -> list[int]:
-        """把位列表截断或高位补零到指定位宽。
+        """Truncate a bit list or zero-pad its high end to the given width.
 
         Args:
-            bits: 原位列表。
-            width: 目标位宽。
+            bits: The original bit list.
+            width: The target bit width.
 
         Returns:
-            list: 长度恰为 ``width`` 的新列表。
+            list: A new list whose length is exactly ``width``.
         """
         return (list(bits) + [0] * width)[:width]
 
     def add(self, a: list[int], b: list[int], carry: int = 0) -> tuple[list[int], int]:
-        """行波进位加法。
+        """Ripple-carry addition.
 
         Args:
-            a: 加数的位列表。
-            b: 与 ``a`` 同宽的加数位列表。
-            carry: 进入最低位的初始进位节点编号。
+            a: Bit list of one addend.
+            b: Bit list of the other addend, the same width as ``a``.
+            carry: Node index of the initial carry entering the least significant bit.
 
         Returns:
-            tuple: ``(result, carry)``，逐位和与最高位向前的进位。
+            tuple: ``(result, carry)``, the bit-by-bit sum and the carry out of the most
+            significant bit.
         """
         result = []
         for x, y in zip(a, b, strict=True):
@@ -248,62 +254,63 @@ class BooleanNetwork:
         return result, carry
 
     def neg(self, a: list[int]) -> list[int]:
-        """补码取负：按位取反后在最低位进一。
+        """Two's-complement negation: invert every bit, then add one at the least significant bit.
 
         Args:
-            a: 操作数的位列表。
+            a: Bit list of the operand.
 
         Returns:
-            list: ``-a`` 的位列表。
+            list: Bit list of ``-a``.
         """
         return self.add([self.inv(x) for x in a], [0] * len(a), 1)[0]
 
     def sub(self, a: list[int], b: list[int]) -> list[int]:
-        """减法，按 ``a + ~b + 1`` 实现。
+        """Subtraction, implemented as ``a + ~b + 1``.
 
         Args:
-            a: 被减数的位列表。
-            b: 与 ``a`` 同宽的减数位列表。
+            a: Bit list of the minuend.
+            b: Bit list of the subtrahend, the same width as ``a``.
 
         Returns:
-            list: ``a - b`` 的位列表。
+            list: Bit list of ``a - b``.
         """
         return self.add(a, [self.inv(x) for x in b], 1)[0]
 
     def lt(self, a: list[int], b: list[int]) -> int:
-        """无符号比较 ``a < b``。
+        """Unsigned comparison ``a < b``.
 
         Args:
-            a: 左操作数的位列表。
-            b: 与 ``a`` 同宽的右操作数位列表。
+            a: Bit list of the left operand.
+            b: Bit list of the right operand, the same width as ``a``.
 
         Returns:
-            int: 比较结果的节点编号，真值为 1。
+            int: Node index of the comparison result, truth value 1.
         """
         return self.inv(self.add(a, [self.inv(x) for x in b], 1)[1])
 
     def abs(self, a: list[int], signed: bool) -> list[int]:
-        """返回操作数的绝对值。
+        """Return the absolute value of the operand.
 
         Args:
-            a: 操作数的位列表。
-            signed: 为 True 时按符号位在 ``a`` 与 ``-a`` 间选择；为 False 时原样返回。
+            a: Bit list of the operand.
+            signed: When True, select between ``a`` and ``-a`` by the sign bit; when False,
+                return ``a`` unchanged.
 
         Returns:
-            list: 绝对值的位列表。
+            list: Bit list of the absolute value.
         """
         return self.mux(a[-1], self.neg(a), a) if signed else a
 
     def mul(self, a: list[int], b: list[int], width: int) -> list[int]:
-        """移位累加乘法，乘积截断到 ``width`` 位。
+        """Shift-and-accumulate multiplication, with the product truncated to ``width`` bits.
 
         Args:
-            a: 被乘数的位列表。
-            b: 乘数的位列表。
-            width: 结果位宽。
+            a: Bit list of the multiplicand.
+            b: Bit list of the multiplier.
+            width: Result bit width.
 
         Returns:
-            list: 乘积低 ``width`` 位的位列表。
+            list: Bit list of the low ``width`` bits of the product.
         """
         result = [0] * width
         for i, bit in enumerate(b[:width]):
@@ -312,16 +319,19 @@ class BooleanNetwork:
         return result
 
     def div(self, a: list[int], b: list[int]) -> list[int]:
-        """恢复余数法除法，只返回商。
+        """Restoring division, returning only the quotient.
 
-        被除数从最高位起逐位移入部分余数；余数不小于除数时减去除数并置商位。
+        The dividend bits are shifted into the partial remainder from the most
+        significant end; whenever the remainder is at least the divisor, the
+        divisor is subtracted and the quotient bit is set.
 
         Args:
-            a: 被除数的位列表。
-            b: 除数的位列表。
+            a: Bit list of the dividend.
+            b: Bit list of the divisor.
 
         Returns:
-            list: 商的位列表，位宽与 ``a`` 相同；余数被丢弃。
+            list: Bit list of the quotient, with the same width as ``a``; the remainder is
+            discarded.
         """
         size = max(len(a), len(b)) + 1
         denominator = self.resize(b, size)
@@ -335,15 +345,17 @@ class BooleanNetwork:
         return result
 
     def sqrt(self, a: list[int]) -> list[int]:
-        """逐位恢复式开方。
+        """Digit-by-digit restoring square root.
 
-        输入位数为奇数时先高位补零到偶数，被开方数按两位一组从高位移入。
+        When the input has an odd number of bits, it is first zero-padded at
+        the high end to an even count; the radicand bits then enter in
+        two-bit groups from the high end.
 
         Args:
-            a: 被开方数的位列表。
+            a: Bit list of the radicand.
 
         Returns:
-            list: 平方根的位列表，位数为补零后输入位数的一半。
+            list: Bit list of the square root, with half the padded input bit count.
         """
         a = self.resize(a, len(a) + len(a) % 2)
         n = len(a) // 2
@@ -358,13 +370,14 @@ class BooleanNetwork:
         return root[:n]
 
     def evaluate(self, **inputs: int) -> dict[str, int]:
-        """在经典侧对整张网络求值。
+        """Evaluate the whole network on the classical side.
 
         Args:
-            **inputs: 端口名到非负整数的映射，按位读入各输入端口。
+            **inputs: Mapping from port names to nonnegative integers, read bit by bit
+                into the input ports.
 
         Returns:
-            dict: 每个输出端口名到其整数求值结果。
+            dict: Each output port name mapped to its integer evaluation result.
         """
         values = [0, 1]
         for op, *args in self.nodes[2:]:
@@ -384,10 +397,11 @@ class BooleanNetwork:
         }
 
     def payload(self) -> str:
-        """把网络序列化为紧凑 JSON 字符串。
+        """Serialize the network into a compact JSON string.
 
         Returns:
-            str: 含节点、输入与输出端口的载荷，可作为缓存键或模块属性。
+            str: The payload containing nodes, inputs and output ports, usable as a cache
+            key or module attribute.
         """
         return json.dumps(
             dict(nodes=self.nodes, inputs=self.inputs, outputs=self.outputs), separators=(",", ":")
@@ -395,19 +409,22 @@ class BooleanNetwork:
 
     @classmethod
     def from_payload(cls, value: str) -> BooleanNetwork:
-        """从 JSON 载荷重建网络，并把载荷当不可信输入做完整校验。
+        """Rebuild a network from a JSON payload, validating the payload fully as
+        untrusted input.
 
-        校验覆盖常量前缀、端口命名与互斥、位宽 1..64、位引用范围、
-        顺序有向无环性质以及输入端口映射的一致性。
+        The validation covers the constant prefix, port naming and mutual
+        exclusion, bit widths in 1..64, bit reference ranges, the sequential
+        directed-acyclic property, and the consistency of the input port
+        mapping.
 
         Args:
-            value: ``payload`` 生成的 JSON 字符串。
+            value: The JSON string produced by ``payload``.
 
         Returns:
-            BooleanNetwork: 校验通过后重建的网络。
+            BooleanNetwork: The network rebuilt after the validation passes.
 
         Raises:
-            ValidationError: 载荷任一结构或一致性检查失败。
+            ValidationError: Any structural or consistency check of the payload fails.
         """
         data = json.loads(value)
         net = cls()
@@ -416,30 +433,31 @@ class BooleanNetwork:
         from oracq.infrastructure.validation import name
 
         if net.nodes[:2] != [("const", 0), ("const", 1)] or set(net.inputs) & set(net.outputs):
-            raise ValidationError("非法 Boolean 网络常量或端口")
+            raise ValidationError("Invalid Boolean network constants or ports")
         for port, bits in {**net.inputs, **net.outputs}.items():
             name(port)
             if not isinstance(bits, list) or not 1 <= len(bits) <= 64:
-                raise ValidationError("Boolean 网络端口位宽无效")
+                raise ValidationError("Invalid Boolean network port bit width")
             if any(type(v) is not int or not 0 <= v < len(net.nodes) for v in bits):
-                raise ValidationError("Boolean 网络位引用越界")
+                raise ValidationError("Boolean network bit reference out of range")
         for index, node in enumerate(net.nodes[2:], 2):
             op, *args = node
             if op == "input":
                 if len(args) != 2 or args[0] not in net.inputs or type(args[1]) is not int:
-                    raise ValidationError("Boolean 网络输入节点无效")
+                    raise ValidationError("Invalid Boolean network input node")
                 if (
                     not 0 <= args[1] < len(net.inputs[args[0]])
                     or net.inputs[args[0]][args[1]] != index
                 ):
-                    raise ValidationError("Boolean 网络输入映射不一致")
+                    raise ValidationError("Inconsistent Boolean network input mapping")
             elif op not in {"not", "and", "xor"} or len(args) != (1 if op == "not" else 2):
-                raise ValidationError("未知 Boolean 网络节点")
+                raise ValidationError("Unknown Boolean network node")
             elif any(type(v) is not int or not 0 <= v < index for v in args):
-                raise ValidationError("Boolean 网络不是顺序有向无环图")
+                raise ValidationError("The Boolean network is not a sequential directed acyclic"
+                                      " graph")
         for port, bits in net.inputs.items():
             if any(net.nodes[v] != ("input", port, i) for i, v in enumerate(bits)):
-                raise ValidationError("Boolean 网络输入端口不完整")
+                raise ValidationError("Incomplete Boolean network input port")
         return net
 
     def operation(
@@ -448,19 +466,23 @@ class BooleanNetwork:
         *,
         attributes: Mapping[str, str | int | float | bool] | None = None,
     ) -> Operation:
-        """把网络编译为 compute/copy/uncompute 形式的可逆量子操作。
+        """Compile the network into a reversible quantum operation in compute/copy/uncompute
+        form.
 
-        每个运算节点先正向写入按 64 位分组的 ``ssa_`` 前缀私有 bank
-        （``not`` 与 ``xor`` 用 X/XOR 拷贝实现，``and`` 用受控 X 实现），
-        输出位 XOR 拷贝到公开寄存器后，再发出正向计算帧的伴随以复净全部
-        bank，满足 ``zero_in_zero_out`` 工作区契约。
+        Every operation node is first computed forward into a private
+        ``ssa_``-prefixed bank grouped in 64-bit words (``not`` and ``xor``
+        via X/XOR copies, ``and`` via a controlled X); after the output bits
+        are XOR-copied into the public registers, the adjoint of the forward
+        compute frame is emitted to clean all banks, satisfying the
+        ``zero_in_zero_out`` workspace contract.
 
         Args:
-            name: 模块名；省略时由网络载荷哈希生成的 ``arith_`` 前缀名。
-            attributes: 追加的模块属性，可覆盖内置键。
+            name: Module name; when omitted, an ``arith_``-prefixed name is generated from
+                the hash of the network payload.
+            attributes: Additional module attributes, which may override the built-in keys.
 
         Returns:
-            Operation: 公开寄存器为网络的全部输入与输出端口。
+            Operation: The public registers are all input and output ports of the network.
         """
         payload = self.payload()
         name = name or "arith_" + hashlib.sha256(payload.encode()).hexdigest()[:20]
@@ -484,7 +506,8 @@ class BooleanNetwork:
         refs.update({v: banks[i // 64][i % 64] for i, v in enumerate(computed)})
 
         def copy(source: int, target: Ref) -> None:
-            """把源节点的位值 XOR 拷贝到目标视图；常量 1 经 X 门写入。"""
+            """XOR-copy the bit value of a source node into a target view; constant 1 is
+            written through an X gate."""
             if source == 1:
                 b.x(target)
             elif source != 0:
@@ -512,20 +535,24 @@ class BooleanNetwork:
 
 
 DEFAULT_FIXED_FORMAT = FixedFormat()
-"""默认定点格式：``width=8``、``fraction=3``、有符号。"""
+"""Default fixed-point format: ``width=8``, ``fraction=3``, signed."""
 
 
 @lru_cache(maxsize=256)
 def fixed_arithmetic(kind: str, fmt: FixedFormat = DEFAULT_FIXED_FORMAT) -> Operation:
-    """输出 XOR；status[0]=定义域失效，status[1]=越出字长（非精度界）。
+    """Outputs XOR; status[0] marks a domain failure and status[1] marks exceeding the
+    word width, not a precision bound.
 
     Args:
-        kind: 算术种类，取 ``add``、``sub``、``neg``、``abs``、``mul``、``div``、
-            ``reciprocal``、``sqrt``、``lt``、``eq``、``select``、``and``、``or`` 或 ``xor``。
-        fmt: 操作数的定点格式（位宽、小数位与符号性），缺省为 8 位含 3 小数位的有符号格式。
+        kind: Arithmetic kind, one of ``add``, ``sub``, ``neg``, ``abs``, ``mul``,
+            ``div``, ``reciprocal``, ``sqrt``, ``lt``, ``eq``, ``select``, ``and``,
+            ``or`` or ``xor``.
+        fmt: Fixed-point format of the operands, bit width, fraction bits and signedness;
+            defaults to the signed 8-bit format with 3 fraction bits.
 
     Returns:
-        Operation: 布尔网络合成出的可逆定点算术操作，输出寄存器为 out 与 status(2)。
+        Operation: The reversible fixed-point arithmetic operation synthesized from the
+        Boolean network, with output registers out and status(2).
     """
     n, f, signed = fmt.width, fmt.fraction, fmt.signed
     net = BooleanNetwork()
@@ -592,7 +619,7 @@ def fixed_arithmetic(kind: str, fmt: FixedFormat = DEFAULT_FIXED_FORMAT) -> Oper
         fn = {"and": net.and_, "or": net.or_, "xor": net.xor}[kind]
         out = [fn(x, y) for x, y in zip(a, cast("list[int]", b), strict=True)]
     else:
-        raise ValidationError("未知算术生成器：" + kind)
+        raise ValidationError("Unknown arithmetic generator: " + kind)
     net.outputs = {"out": out, "status": [invalid, overflow]}
     return net.operation(
         attributes={
@@ -606,10 +633,12 @@ def fixed_arithmetic(kind: str, fmt: FixedFormat = DEFAULT_FIXED_FORMAT) -> Oper
 
 
 class BooleanCppFactory:
-    """为同一个 Boolean 图生成真实 PySparQ C++ 算子；支持跨寄存器视图。"""
+    """Generates a real PySparQ C++ operator for the same Boolean graph; supports
+    cross-register views."""
 
     def __init__(self, network: BooleanNetwork, cache_dir: str) -> None:
-        """记录网络、C++ 编译缓存目录与布局到算子实例的缓存表。"""
+        """Record the network, the C++ compilation cache directory, and the cache table
+        from layout to operator instance."""
         self.network: BooleanNetwork = network
         self.cache_dir: str = str(cache_dir)
         self.classes: dict[
@@ -618,7 +647,8 @@ class BooleanCppFactory:
         ] = {}
 
     def __call__(self, context: NativeContext) -> object:
-        """按调用点的寄存器布局惰性编译并实例化 C++ 布尔算子。"""
+        """Lazily compile and instantiate the C++ Boolean operator for the register
+        layout at the call site."""
         layout = tuple(
             tuple((p.start, p.width) for p in ref.parts) for ref in context.site.arguments
         )
@@ -698,22 +728,26 @@ class BooleanCppFactory:
 def arithmetic_native_registry(
     program: Program, *, cache_dir: str = "out/native-cache"
 ) -> NativeRegistry:
-    """为程序中的算术模块构建原生算子注册表。
+    """Build a native operator registry for the arithmetic modules in a program.
 
-    扫描带 ``arithmetic_network`` 属性的模块，按属性载荷重建 Boolean 网络
-    并注册 ``BooleanCppFactory``。C++ 编译不在此处发生：PySparQ 算子在工厂
-    随具体调用布局被调用时才按需编译并缓存。
+    It scans modules carrying the ``arithmetic_network`` attribute, rebuilds
+    the Boolean network from the attribute payload and registers a
+    ``BooleanCppFactory``. C++ compilation does not happen here: the PySparQ
+    operator is compiled on demand, and cached, only when the factory is
+    invoked with a concrete call layout.
 
     Args:
-        program: 待扫描的程序。
-        cache_dir: C++ 编译产物的缓存目录。
+        program: The program to scan.
+        cache_dir: Cache directory for the C++ compilation artifacts.
 
     Returns:
-        NativeRegistry: 算术模块到原生实现的注册表；标签取 ``arithmetic_kind``
-        属性，缺省为模块名。
+        NativeRegistry: Registry mapping arithmetic modules to native implementations; the
+        label is taken from the ``arithmetic_kind`` attribute, defaulting to
+        the module name.
 
     Raises:
-        ValidationError: 模块寄存器与网络端口的名称或位宽不一致。
+        ValidationError: The module registers and the network ports mismatch in name or
+            bit width.
     """
     from oracq.infrastructure.native import NativeRegistry
 
@@ -724,7 +758,8 @@ def arithmetic_native_registry(
             network = BooleanNetwork.from_payload(cast("str", payload))
             ports = {r.name: r.type.width for r in module.registers}
             if ports != {k: len(v) for k, v in {**network.inputs, **network.outputs}.items()}:
-                raise ValidationError("原生 Boolean 网络与模块端口不匹配")
+                raise ValidationError("The native Boolean network does not match the module"
+                                      " ports")
             registry.register(
                 module,
                 BooleanCppFactory(network, cache_dir),

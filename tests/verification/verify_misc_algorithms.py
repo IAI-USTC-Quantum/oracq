@@ -1,23 +1,32 @@
-"""misc_algorithms 组的论文级数值验证。
+"""Publication-grade numerical validation of the misc_algorithms group.
 
-覆盖六个算法模块的真实后端数值实验：
-- qpca.density_matrix_exponentiation：LMR 密度矩阵指数化，迹距离对照 numpy
-  精确演化 e^{-iρt}，验证 copies 翻倍的一阶收敛标度；
-- qpca.qpca：相位估计读出 ρ 的本征值，对照 numpy eigh；
-- density：gate_purification 偏迹复原 ρ、gibbs_purification 后选约化态对照
-  numpy Gibbs 态 e^{-βH}/Z（含 error 收敛扫描）；
-- qsdp：trace_estimate_circuit 探针读数对照 numpy 迹（精确纯化与 Gibbs 近似
-  纯化两条路径）、MMW 驱动收敛性与单轮量子迭代的估计一致性；
-- dqi：syndrome 分布对照 Krawtchouk 闭式、期望满足数对照经典蛮力、抽象译码
-  器绑定一致性、Dicke 态均匀性；
-- variational：硬件高效拟设态对照逐门 numpy 预言机、QAOA 分布对照 numpy
-  精确模拟并比较最优割概率与随机基线、VQE Pauli 期望与总能量对照 numpy；
-- error_correction：三位重复码注入单错误后的逻辑幅度复原与 syndrome 值，
-  以及编码—恢复复合幺正的有效块。
+Covers real-backend numerical experiments of six algorithm modules:
+- qpca.density_matrix_exponentiation: LMR density-matrix exponentiation,
+  trace distance against the exact numpy evolution e^{-i*rho*t}, verifying
+  the first-order convergence scaling as copies double;
+- qpca.qpca: phase-estimation readout of the eigenvalues of rho, against
+  numpy eigh;
+- density: gate_purification recovering rho by partial trace,
+  gibbs_purification post-selected reduced state against the numpy Gibbs
+  state e^{-beta*H}/Z (with an error convergence sweep);
+- qsdp: trace_estimate_circuit probe readouts against the numpy trace (both
+  the exact-purification and the Gibbs-approximate-purification paths), MMW
+  driver convergence, and estimator agreement of a single quantum round;
+- dqi: syndrome distribution against the Krawtchouk closed form, expected
+  satisfied count against classical brute force, abstract-decoder binding
+  consistency, and Dicke-state uniformity;
+- variational: hardware-efficient ansatz states against a gate-by-gate numpy
+  oracle, QAOA distributions against exact numpy simulation with optimal-cut
+  probability compared to the random baseline, and VQE Pauli expectations
+  and total energy against numpy;
+- error_correction: logical amplitude recovery and syndrome values of the
+  3-bit repetition code after a single injected error, plus the effective
+  block of the encode-recover composite unitary.
 
-经典预言机全部独立（numpy/math 闭式），不复用被测实现的量子侧辅助函数。
+All classical oracles are independent (numpy/math closed forms) and do not
+reuse quantum-side helpers of the implementations under test.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_misc_algorithms.py
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_misc_algorithms.py
 """
 
 from __future__ import annotations
@@ -75,18 +84,18 @@ from oracq.algorithms.qml.qsdp import (
 from oracq.infrastructure.layout import workspace_table
 
 # ---------------------------------------------------------------------------
-# 独立经典工具（numpy 稠密线性代数与闭式公式）
+# Independent classical utilities (numpy dense linear algebra and closed forms)
 # ---------------------------------------------------------------------------
 
 SQRT2 = math.sqrt(2)
 PLUS = [1 / SQRT2, 1 / SQRT2]
-# 验证用混合态与 Hermitian 观测量
+# Mixed state and Hermitian observables used by the validation
 RHO_MIXED = ((0.75 + 0j, 0j), (0j, 0.25 + 0j))
 RHO_GENERAL = ((0.7 + 0j, 0.1 - 0.05j), (0.1 + 0.05j, 0.3 + 0j))
 PAULI_Z = ((1.0 + 0j, 0j), (0j, -1.0 + 0j))
 PAULI_X = ((0j, 1.0 + 0j), (1.0 + 0j, 0j))
 PAULI_Y = ((0j, -1.0j), (1.0j, 0j))
-# DQI 植入实例：全部 7 个非零行、n = 3，右端项由 x* = 0b101 植入
+# DQI planted instance: all 7 non-zero rows, n = 3, right-hand side planted from x* = 0b101
 PLANTED_ROWS = ((0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2))
 PLANTED_RHS = (1, 0, 1, 1, 0, 1, 0)
 
@@ -96,7 +105,7 @@ def widths_of(program):
 
 
 def full_dense(amplitudes, widths):
-    """稀疏幅度字典 → 稠密态向量（寄存器按下标顺序占据递升高位）。"""
+    """Sparse amplitude dictionary -> dense state vector (registers occupy rising high bits in index order)."""
     vector = np.zeros(1 << sum(widths), dtype=complex)
     for key, amplitude in amplitudes.items():
         index = 0
@@ -109,9 +118,9 @@ def full_dense(amplitudes, widths):
 
 
 def partial_trace_np(vector, system_width, env_width):
-    """对高位的 env 取偏迹：index = system | (env << system_width)。
+    """Partial trace over the high-position env: index = system | (env << system_width).
 
-    rho[i,j] = Σ_e v[i + e·2^s]·conj(v[j + e·2^s])，即 arr.T @ conj(arr)。
+    rho[i,j] = sum_e v[i + e*2^s]*conj(v[j + e*2^s]), i.e. arr.T @ conj(arr).
     """
     arr = np.asarray(vector, dtype=complex).reshape(1 << env_width, 1 << system_width)
     return arr.T @ arr.conj()
@@ -123,7 +132,7 @@ def trace_distance_np(rho, sigma):
 
 
 def exact_evolved(rho, time, sigma):
-    """e^{-iρt} σ e^{iρt}：numpy 特征分解的独立精确预言机。"""
+    """e^{-i*rho*t} sigma e^{i*rho*t}: an independent exact numpy oracle via eigendecomposition."""
     rho = np.asarray(rho, dtype=complex)
     sigma = np.asarray(sigma, dtype=complex)
     values, vectors = np.linalg.eigh(rho)
@@ -132,7 +141,7 @@ def exact_evolved(rho, time, sigma):
 
 
 def gibbs_np(hamiltonian, beta):
-    """numpy 独立 Gibbs 态 e^{-βH}/Z。"""
+    """Independent numpy Gibbs state e^{-beta*H}/Z."""
     values, vectors = np.linalg.eigh(np.asarray(hamiltonian, dtype=complex))
     weights = np.exp(-beta * values)
     return (vectors * weights) @ vectors.conj().T / weights.sum()
@@ -165,7 +174,7 @@ def apply_cnot(state, control, target):
 
 
 def ansatz_numpy(width, layers):
-    """硬件高效拟设的逐门 numpy 独立预言机。"""
+    """Gate-by-gate independent numpy oracle for the hardware-efficient ansatz."""
     state = np.zeros(1 << width, dtype=complex)
     state[0] = 1.0
     for layer in layers:
@@ -178,7 +187,7 @@ def ansatz_numpy(width, layers):
 
 
 def qaoa_numpy(width, edges, gammas, betas):
-    """QAOA 的 numpy 精确模拟：cost 对角相位 + mixer 逐位 e^{-iβX}。"""
+    """Exact numpy simulation of QAOA: diagonal cost phase + per-qubit mixer e^{-i*beta*X}."""
     dim = 1 << width
     state = np.ones(dim, dtype=complex) / math.sqrt(dim)
     for gamma, beta in zip(gammas, betas, strict=True):
@@ -199,12 +208,12 @@ def qaoa_numpy(width, edges, gammas, betas):
 
 
 def krawtchouk(m, weight, j):
-    """Krawtchouk 多项式 K_l(j)（math.comb 闭式，DQI 论文的分布预言机）。"""
+    """Krawtchouk polynomial K_l(j) (math.comb closed form; the distribution oracle of the DQI paper)."""
     return sum(((-1) ** t) * comb(j, t) * comb(m - j, weight - t) for t in range(weight + 1))
 
 
 def satisfied_count(rows, rhs, assignment):
-    """直接由行表/右端项统计满足数（不复用 XorSatInstance 的方法）。"""
+    """Count satisfied rows directly from the row table / right-hand side (not reusing XorSatInstance methods)."""
     return sum(
         (sum((assignment >> j) & 1 for j in row) & 1) == bit
         for row, bit in zip(rows, rhs, strict=True)
@@ -212,7 +221,7 @@ def satisfied_count(rows, rhs, assignment):
 
 
 def phase_distribution(amplitudes):
-    """qpca 程序读出：phase 是最后一个寄存器。"""
+    """qpca program readout: phase is the last register."""
     dist = {}
     for key, amplitude in amplitudes.items():
         dist[key[-1]] = dist.get(key[-1], 0.0) + abs(amplitude) ** 2
@@ -220,24 +229,24 @@ def phase_distribution(amplitudes):
 
 
 def circular_eigenvalue(dist, precision, step):
-    """相位分布的圆周均值解码（对展宽峰稳健的 λ 估计）。"""
+    """Circular-mean decoding of the phase distribution (a lambda estimate robust to broadened peaks)."""
     z = sum(p * cmath.exp(2j * math.pi * v / (1 << precision)) for v, p in dist.items())
     return -2 * math.pi * (cmath.phase(z) / (2 * math.pi)) / step
 
 
 def originir_fits(program, budget=24):
-    """OriginIR 态向量预算预判（entry 寄存器 + 工作区）。"""
+    """OriginIR state-vector budget precheck (entry registers + workspace)."""
     width = sum(r.type.width for r in program.main.registers)
     return width + workspace_table(program)[program.entry] <= budget
 
 
 # ---------------------------------------------------------------------------
-# 密度矩阵指数化（LMR）
+# Density-matrix exponentiation (LMR)
 # ---------------------------------------------------------------------------
 
 
 def verify_dm_exponentiation(report):
-    sigma0 = np.array([[1, 0], [0, 0]], dtype=complex)  # 系统初态 |0><0|
+    sigma0 = np.array([[1, 0], [0, 0]], dtype=complex)  # system initial state |0><0|
     configs = (
         ("pure", gate_state_prep(PLUS), np.array([[0.5, 0.5], [0.5, 0.5]]), 0.4, None),
         (
@@ -264,7 +273,7 @@ def verify_dm_exponentiation(report):
             ref = reference(program)
             reduced = partial_trace_np(full_dense(ref, widths), 1, env_width)
             distances.append(trace_distance_np(reduced, exact))
-            # 跨后端：pysparq RIR / 适配器与参考执行器逐振幅对拍
+            # Cross-backend: pysparq RIR / adapter vs the reference executor, amplitude by amplitude
             cross = max(cross, amplitude_error(rir_pysparq(program), ref))
             cross = max(cross, amplitude_error(adapter_pysparq(program), ref))
             if originir_fits(program):
@@ -291,8 +300,8 @@ def verify_dm_exponentiation(report):
                 "cross_backend_max_error": cross,
             },
             criterion=(
-                "copies 翻倍时迹距离近似减半（比率 < 0.65，LMR 一阶标度）"
-                "且跨后端振幅偏差 < 1e-9"
+                "trace distance roughly halves as copies double (ratio < 0.65, LMR first-order scaling)"
+                " and cross-backend amplitude deviation < 1e-9"
             ),
             passed=all(r < 0.65 for r in ratios)
             and distances[-1] > 0
@@ -301,12 +310,12 @@ def verify_dm_exponentiation(report):
 
 
 # ---------------------------------------------------------------------------
-# QPCA 本征值读出
+# QPCA eigenvalue readout
 # ---------------------------------------------------------------------------
 
 
 def verify_qpca(report):
-    # 纯态 ρ = |+><+|：系统输入 |+>（SWAP 对称本征态），读出确定
+    # Pure state rho = |+><+|: system input |+> (symmetric SWAP eigenstate), deterministic readout
     precision, step = 3, math.pi / 4
     operation = qpca(
         gate_state_prep(PLUS), precision=precision, step_time=step,
@@ -317,7 +326,7 @@ def verify_qpca(report):
     dist = phase_distribution(ref)
     mode = max(dist, key=dist.get)
     lam = eigenvalue_from_phase(mode, precision, step)
-    # 跨后端相位分布 TVD
+    # Cross-backend phase-distribution TVD
     widths = widths_of(program)
     tvd_cross = 0.0
     for runner in (rir_pysparq, adapter_pysparq):
@@ -343,14 +352,14 @@ def verify_qpca(report):
             "eigenvalue_error": abs(lam - 1.0),
             "cross_backend_tvd": tvd_cross,
         },
-        criterion="读出确定（peak ≥ 1−1e-9）、解码 λ = 1（误差 < 1e-12）、跨后端 TVD < 1e-9",
+        criterion="deterministic readout (peak >= 1-1e-9), decoded lambda = 1 (error < 1e-12), cross-backend TVD < 1e-9",
         passed=dist[mode] >= 1 - 1e-9 and abs(lam - 1.0) < 1e-12 and tvd_cross < 1e-9,
     )
 
-    # 混合态 ρ = diag(0.75, 0.25)：numpy eigh 给出本征值 [0.25, 0.75]
+    # Mixed state rho = diag(0.75, 0.25): numpy eigh gives eigenvalues [0.25, 0.75]
     eigenvalues = np.linalg.eigvalsh(np.asarray(RHO_MIXED))
     prep = gate_purification(RHO_MIXED).as_state_preparation()
-    step = 2 * math.pi / 6  # λ=0.75 时 φ=7/8 恰在 3 位栅格
+    step = 2 * math.pi / 6  # for lambda=0.75, phi=7/8 lands exactly on the 3-bit grid
     for state, target_lam, label in (([1, 0], 0.75, "primary"), ([0, 1], 0.25, "secondary")):
         assert abs(eigenvalues[1] - 0.75) < 1e-12 and abs(eigenvalues[0] - 0.25) < 1e-12
         operation = qpca(
@@ -376,7 +385,7 @@ def verify_qpca(report):
                 dist_o[index >> shift] = dist_o.get(index >> shift, 0.0) + abs(amplitude) ** 2
             tvd_cross = max(tvd_cross, tvd(dist_o, dist))
         if label == "primary":
-            # 峰位（众数）解码恰为 0.75；峰高 ≥ 0.4；圆周均值容差 0.15
+            # Peak (mode) decoding is exactly 0.75; peak height >= 0.4; circular-mean tolerance 0.15
             ok = (
                 abs(lam_mode - target_lam) < 1e-12
                 and dist[mode] >= 0.4
@@ -384,13 +393,13 @@ def verify_qpca(report):
                 and tvd_cross < 1e-9
             )
             criterion = (
-                "众数解码恰为 λ = 0.75（误差 < 1e-12）、峰高 ≥ 0.4、"
-                "圆周均值容差 0.15、跨后端 TVD < 1e-9"
+                "mode decoding is exactly lambda = 0.75 (error < 1e-12), peak height >= 0.4, "
+                "circular-mean tolerance 0.15, cross-backend TVD < 1e-9"
             )
         else:
-            # λ=0.25 不在该 Δt 的 3 位栅格上：以圆周均值对照，报告众数作信息项
+            # lambda=0.25 is not on the 3-bit grid for this dt: compare via the circular mean, report the mode as information
             ok = abs(lam_circ - target_lam) <= 0.15 and tvd_cross < 1e-9
-            criterion = "圆周均值 λ ≈ 0.25（容差 0.15，峰展宽是 LMR 一阶误差）、跨后端 TVD < 1e-9"
+            criterion = "circular-mean lambda approx 0.25 (tolerance 0.15; peak broadening is the LMR first-order error), cross-backend TVD < 1e-9"
         report.case(
             f"qpca-mixed-{label}",
             paths=["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
@@ -416,7 +425,7 @@ def verify_qpca(report):
 
 
 # ---------------------------------------------------------------------------
-# density：纯化见证与 Gibbs 态制备
+# density: purification witnesses and Gibbs-state preparation
 # ---------------------------------------------------------------------------
 
 
@@ -439,9 +448,9 @@ def verify_purification(report):
     report.case(
         "purification-partial-trace",
         paths=["reference", "rir-pysparq", "adapter-pysparq", "originir-ext"],
-        parameters={"rho": "2x2 复 Hermitian（非对角 0.1±0.05j）", "qubits": sum(widths)},
+        parameters={"rho": "2x2 complex Hermitian (off-diagonal 0.1+/-0.05j)", "qubits": sum(widths)},
         metrics={"max_element_error": max_error, "cross_backend_max_error": cross},
-        criterion="偏迹复原 ρ（矩阵元误差 < 1e-9）且跨后端 < 1e-9",
+        criterion="partial trace recovers rho (matrix-element error < 1e-9) and cross-backend < 1e-9",
         passed=max_error < 1e-9 and cross < 1e-9,
     )
 
@@ -483,12 +492,12 @@ def verify_gibbs(report):
                 "cross_backend_max_error": cross,
             },
             criterion=(
-                f"后选约化态与 numpy Gibbs 态的迹距离 ≤ {bound}"
-                "（error 为一致逼近上界口径）且跨后端 < 1e-9"
+                f"trace distance between the post-selected reduced state and the numpy Gibbs state <= {bound}"
+                " (error is the uniform-approximation upper-bound convention) and cross-backend < 1e-9"
             ),
             passed=distance <= bound and cross < 1e-9,
         )
-    # error 收敛扫描：同一 H/β，距离 ≤ error 且随 error 单调不增
+    # error convergence sweep: same H/beta, distance <= error and monotonically non-increasing in error
     hamiltonian, beta = ((1.0 + 0j, 0j), (0j, -0.5 + 0j)), 0.8
     exact = gibbs_np(hamiltonian, beta)
     errors = (0.4, 0.2, 0.1)
@@ -508,7 +517,7 @@ def verify_gibbs(report):
         paths=["reference"],
         parameters={"beta": beta, "errors": list(errors)},
         metrics={"trace_distance": [round(d, 10) for d in distances]},
-        criterion="各档迹距离 ≤ error 且随 error 单调不增（多项式截断收敛）",
+        criterion="per-level trace distance <= error and monotonically non-increasing in error (polynomial truncation converging)",
         passed=all(d <= e for d, e in zip(distances, errors, strict=True))
         and distances[1] <= distances[0]
         and distances[2] <= distances[1],
@@ -516,7 +525,7 @@ def verify_gibbs(report):
 
 
 # ---------------------------------------------------------------------------
-# qsdp：迹估计电路与 MMW 驱动
+# qsdp: trace-estimation circuits and the MMW driver
 # ---------------------------------------------------------------------------
 
 
@@ -547,17 +556,17 @@ def verify_trace_estimate(report):
     report.case(
         "trace-estimate-pauli-xyz",
         paths=["reference", "rir-pysparq", "originir-ext"],
-        parameters={"rho": "2x2 复 Hermitian", "observables": ["Z", "X", "Y"]},
+        parameters={"rho": "2x2 complex Hermitian", "observables": ["Z", "X", "Y"]},
         metrics={
             "max_error": worst,
             "estimates": {k: round(v, 12) for k, v in estimates.items()},
             "cross_backend_max_error": cross,
         },
-        criterion="Tr(P ρ) 探针估计与 numpy 迹一致（max_error < 1e-9）",
+        criterion="Tr(P rho) probe estimate matches the numpy trace (max_error < 1e-9)",
         passed=worst < 1e-9 and cross < 1e-9,
     )
 
-    # 近似纯化路径：Gibbs 纯化 + trace_from_joint 联合解码
+    # Approximate-purification path: Gibbs purification + trace_from_joint joint decoding
     hamiltonian, beta = ((1.0 + 0j, 0j), (0j, -0.5 + 0j)), 0.6
     gibbs = gibbs_purification(matrix_pauli_encoding(hamiltonian), beta, error=0.05)
     be_z = matrix_pauli_encoding(PAULI_Z)
@@ -590,7 +599,7 @@ def verify_trace_estimate(report):
             "abs_error": abs(estimate - exact),
             "cross_backend_max_error": cross,
         },
-        criterion="近似纯化的联合解码 Tr(Zρ_gibbs) 与 numpy 一致（误差 < 1e-2）",
+        criterion="joint decoding of the approximate purification matches numpy for Tr(Z rho_gibbs) (error < 1e-2)",
         passed=abs(estimate - exact) < 1e-2 and cross < 1e-9,
     )
 
@@ -602,7 +611,7 @@ def verify_mmW_driver(report):
     epsilon = 0.08
     result = qsdp_gibbs_solve(instance, epsilon=epsilon)
     rho = np.asarray(result["rho"])
-    # 独立可行性检查：PSD、迹 1、约束违反量（numpy 直算）
+    # Independent feasibility check: PSD, trace 1, constraint violations (computed directly with numpy)
     min_eig = float(np.linalg.eigvalsh(rho).min())
     trace = float(np.trace(rho).real)
     violations = [
@@ -623,8 +632,8 @@ def verify_mmW_driver(report):
             "bloch": [bloch_x, bloch_z],
         },
         criterion=(
-            "收敛且平均迭代 ρ̄ 满足 |Tr(A_i ρ̄)−b_i| ≤ ε（numpy 独立核算）、"
-            "PSD（min_eig ≥ −1e-9）、迹 1、Bloch 向量距目标 ≤ 0.12"
+            "converged and the average iterate rho-bar satisfies |Tr(A_i rho_bar) - b_i| <= epsilon (independently checked with numpy), "
+            "PSD (min_eig >= -1e-9), trace 1, Bloch vector within 0.12 of the target"
         ),
         passed=result["converged"]
         and max(violations) <= epsilon
@@ -634,7 +643,7 @@ def verify_mmW_driver(report):
         and abs(bloch_z - 0.2) <= 0.12,
     )
 
-    # 单轮量子迭代：iteration_circuits 的量子估计与经典估计器一致
+    # Single quantum round: the quantum estimates of iteration_circuits match the classical estimator
     inst = SdpInstance(((PAULI_Z, 0.2), (neg_z, -0.2)))
     weights = (0.6, 0.4)
     purification, traces = iteration_circuits(
@@ -661,7 +670,7 @@ def verify_mmW_driver(report):
         paths=["reference", "rir-pysparq"],
         parameters={"weights": list(weights), "beta": 1.0, "gibbs_error": 0.05},
         metrics={"max_estimate_diff": max(diffs), "cross_backend_max_error": cross},
-        criterion="量子迹估计与经典估计器逐约束一致（max diff < 1e-2）",
+        criterion="quantum trace estimates match the classical estimator constraint by constraint (max diff < 1e-2)",
         passed=max(diffs) < 1e-2 and cross < 1e-9,
     )
 
@@ -672,7 +681,7 @@ def verify_mmW_driver(report):
 
 
 def _dqi_distributions(program):
-    """返回 (error 分布, syndrome 分布, 跨后端 TVD)。"""
+    """Returns (error distribution, syndrome distribution, cross-backend TVD)."""
     ref = reference(program)
 
     def split(amplitudes):
@@ -707,7 +716,7 @@ def verify_dqi(report):
     m, n = instance.num_constraints, instance.num_variables
     operation = dqi(instance, bruteforce_decoder(instance, max_weight=1), weight=1)
     error_dist, syndrome_dist, cross = _dqi_distributions(operation.program())
-    # Krawtchouk 闭式期望分布（论文预言机）
+    # Krawtchouk closed-form expected distribution (the paper's oracle)
     weights = {}
     for x in range(1 << n):
         unsatisfied = m - satisfied_count(PLANTED_ROWS, PLANTED_RHS, x)
@@ -719,7 +728,7 @@ def verify_dqi(report):
     expected_satisfied = sum(
         p * satisfied_count(PLANTED_ROWS, PLANTED_RHS, x) for x, p in syndrome_dist.items()
     )
-    # 经典蛮力：最优赋值与满足数
+    # Classical brute force: best assignment and satisfied count
     brute = {
         x: satisfied_count(PLANTED_ROWS, PLANTED_RHS, x) for x in range(1 << n)
     }
@@ -745,8 +754,8 @@ def verify_dqi(report):
             "cross_backend_tvd": cross,
         },
         criterion=(
-            "syndrome 分布与 Krawtchouk 闭式 TVD < 1e-9、error 寄存器确定复净、"
-            "期望满足数 = 6.5（> 随机基线 3.5）、概率峰值即蛮力最优赋值"
+            "syndrome distribution vs the Krawtchouk closed form TVD < 1e-9, error register deterministically clean, "
+            "expected satisfied count = 6.5 (> random baseline 3.5), probability peak is the brute-force best assignment"
         ),
         passed=distribution_tvd < 1e-9
         and max_point < 1e-9
@@ -756,7 +765,7 @@ def verify_dqi(report):
         and cross < 1e-9,
     )
 
-    # 抽象译码器绑定路径与直接见证一致
+    # Abstract-decoder binding path matches the direct witness
     decoder = abstract_decoder("DqiSyndromeDecoder", n, m)
     program = dqi(instance, decoder, weight=1).program()
     bound = bind(
@@ -768,11 +777,11 @@ def verify_dqi(report):
         paths=["rir-pysparq"],
         parameters={"slot": "DqiSyndromeDecoder"},
         metrics={"bind_vs_witness_max_error": deviation},
-        criterion="bind 后的程序与直接见证逐振幅一致（< 1e-12）",
+        criterion="the bound program matches the direct witness amplitude by amplitude (< 1e-12)",
         passed=deviation < 1e-12,
     )
 
-    # Dicke 态 |D_2^5>：C(5,2)=10 个等幅分量
+    # Dicke state |D_2^5>: C(5,2)=10 equal-amplitude components
     prep = dicke_state(5, 2)
     program = prep.operation.program()
     ref = reference(program)
@@ -795,13 +804,13 @@ def verify_dqi(report):
             "amplitude_error": amp_error,
             "cross_backend_max_error": cross,
         },
-        criterion="支撑恰为 10 个权重 2 基态、等幅 1/√10（误差 < 1e-12）",
+        criterion="support is exactly the 10 weight-2 basis states, equal amplitude 1/sqrt(10) (error < 1e-12)",
         passed=len(support) == 10 and amp_error < 1e-12 and weight_ok and cross < 1e-12,
     )
 
 
 # ---------------------------------------------------------------------------
-# variational：拟设、QAOA、VQE 测量
+# variational: ansatz, QAOA, VQE measurements
 # ---------------------------------------------------------------------------
 
 
@@ -834,13 +843,13 @@ def verify_ansatz(report):
             "fidelity": fidelity,
             "cross_backend_max_error": cross,
         },
-        criterion="制备态与逐门 numpy 预言机一致（max_error < 1e-12，fidelity ≥ 1−1e-12）",
+        criterion="prepared state matches the gate-by-gate numpy oracle (max_error < 1e-12, fidelity >= 1-1e-12)",
         passed=max_error < 1e-12 and fidelity >= 1 - 1e-12 and cross < 1e-12,
     )
 
 
 def verify_qaoa(report):
-    # 单边解析锚点：γ=π/2、β=π/8 时单层即达最优割
+    # Single-edge analytic anchor: gamma=pi/2, beta=pi/8 reaches the optimal cut in one layer
     program = qaoa_maxcut(2, ((0, 1, 1.0),), (math.pi / 2,), (math.pi / 8,)).program()
     ref = reference(program)
     p_optimal = sum(abs(a) ** 2 for k, a in ref.items() if k[0] in (1, 2))
@@ -849,11 +858,11 @@ def verify_qaoa(report):
         paths=["reference"],
         parameters={"vertices": 2, "gamma": math.pi / 2, "beta": math.pi / 8},
         metrics={"p_optimal_cut": p_optimal},
-        criterion="最优割概率恰为 1（解析结果，容差 1e-9）",
+        criterion="optimal-cut probability is exactly 1 (analytic result, tolerance 1e-9)",
         passed=abs(p_optimal - 1.0) < 1e-9,
     )
 
-    # 4 顶点环 C4：numpy 预言机网格搜索选角，量子分布逐点对拍
+    # 4-vertex cycle C4: angles chosen by grid search over the numpy oracle, quantum distribution compared pointwise
     edges = ((0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0))
     best = max(
         (
@@ -888,7 +897,7 @@ def verify_qaoa(report):
         "qaoa-c4-distribution",
         paths=["reference", "originir-ext"],
         parameters={
-            "graph": "C4（4 顶点环，单位权）",
+            "graph": "C4 (4-vertex cycle, unit weights)",
             "gamma": float(gamma),
             "beta": float(beta),
             "layers": 1,
@@ -900,7 +909,7 @@ def verify_qaoa(report):
             "advantage_over_baseline": p_optimal / baseline,
             "originir_tvd": cross,
         },
-        criterion="分布与 numpy 精确模拟 TVD < 1e-12 且最优割概率 ≥ 4× 随机基线",
+        criterion="distribution vs exact numpy simulation TVD < 1e-12 and optimal-cut probability >= 4x the random baseline",
         passed=distribution_tvd < 1e-12 and p_optimal >= 4 * baseline and cross < 1e-12,
     )
 
@@ -910,7 +919,7 @@ def verify_vqe(report):
     preparation = StatePreparation.from_unitary(ansatz)
     terms = ((0.5, "ZI"), (-0.3, "IZ"), (0.7, "XX"), (0.2, "YY"), (-0.1, "ZZ"))
     circuits = vqe_measurements(preparation, terms)
-    # numpy 独立期望：先算制备态，再按 Pauli 字直积求 ⟨ψ|P|ψ⟩
+    # Independent numpy expectations: compute the prepared state first, then <psi|P|psi> per Pauli-word tensor
     psi = ansatz_numpy(2, (((0.9, 0.4), (-0.7, 1.2)),))
     paulis = {
         "I": np.eye(2),
@@ -926,7 +935,7 @@ def verify_vqe(report):
         for key, amplitude in ref.items():
             parity = (key[0] & sum(1 << b for b in bits)).bit_count() % 2
             expectation += abs(amplitude) ** 2 * (1 - 2 * parity)
-        operator = np.kron(paulis[word[1]], paulis[word[0]])  # 字首字符对应最低位
+        operator = np.kron(paulis[word[1]], paulis[word[0]])  # the word's first character is the least significant bit
         exact = float((psi.conj() @ operator @ psi).real)
         worst = max(worst, abs(expectation - exact))
         energy_measured += coefficient * expectation
@@ -941,13 +950,13 @@ def verify_vqe(report):
             "energy_exact": energy_exact,
             "energy_error": abs(energy_measured - energy_exact),
         },
-        criterion="各 Pauli 期望与 numpy 一致（< 1e-9）且加权总能量一致（< 1e-9）",
+        criterion="each Pauli expectation matches numpy (< 1e-9) and the weighted total energy agrees (< 1e-9)",
         passed=worst < 1e-9 and abs(energy_measured - energy_exact) < 1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
-# error_correction：三位重复码
+# error_correction: the 3-bit repetition code
 # ---------------------------------------------------------------------------
 
 
@@ -971,7 +980,7 @@ def _repetition_program(error_kind, position, logical):
 
 def verify_repetition(report):
     logical = (0.73, 0.29)
-    # 任意逻辑态的精确幅度（numpy 独立预言机）
+    # Exact amplitudes of an arbitrary logical state (independent numpy oracle)
     alpha = math.cos(logical[0] / 2) * np.exp(-0.5j * logical[1])
     beta = math.sin(logical[0] / 2) * np.exp(0.5j * logical[1])
     expected_syndrome = {"none": 0, "target": 3, "s0": 1, "s1": 2}
@@ -1014,11 +1023,11 @@ def verify_repetition(report):
                 "cross_backend_max_error": cross,
             },
             criterion=(
-                "注入单错误后逻辑幅度逐点复原（< 1e-12）且 syndrome 确定性等于错误位置"
+                "after a single injected error the logical amplitudes are recovered pointwise (< 1e-12) and the syndrome deterministically identifies the error position"
             ),
             passed=amp_worst < 1e-12 and syndrome_ok and cross < 1e-12,
         )
-    # 无错误复合幺正：syndrome=0 子空间上的有效块为恒等、无泄漏
+    # Error-free composite unitary: the effective block on the syndrome=0 subspace is the identity, with no leakage
     for kind in ("bit", "phase"):
         encode = repetition_encode(error=kind)
         recover = repetition_recover(error=kind)
@@ -1034,7 +1043,7 @@ def verify_repetition(report):
             paths=["originir-ext+to_matrix"],
             parameters={"error_kind": kind},
             metrics={"block_error": block_error, "leakage": leakage},
-            criterion="编码—恢复复合在 syndrome=0 输入块上恰为恒等且无泄漏（< 1e-12）",
+            criterion="the encode-recover composite is exactly the identity on the syndrome=0 input block with no leakage (< 1e-12)",
             passed=block_error < 1e-12 and leakage < 1e-12,
         )
 
@@ -1042,8 +1051,8 @@ def verify_repetition(report):
 def run():
     report = Report(
         "misc_algorithms",
-        "LMR 指数化/QPCA、纯化与 Gibbs 制备、QSDP 迹估计与 MMW、DQI、"
-        "变分电路与重复码的真实后端数值验证（经典预言机为独立 numpy/闭式）。",
+        "Real-backend numerical validation of LMR exponentiation/QPCA, purification and Gibbs preparation, QSDP trace estimation and MMW, DQI, "
+        "variational circuits, and the repetition code (classical oracles are independent numpy/closed forms).",
     )
     verify_dm_exponentiation(report)
     verify_qpca(report)

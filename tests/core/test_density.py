@@ -1,4 +1,4 @@
-"""DM input model 与 Gibbs 态制备的数值见证。"""
+"""Numerical witnesses for the DM input model and Gibbs state preparation."""
 
 import math
 import unittest
@@ -19,9 +19,9 @@ from oracq.algorithms.input_model.oracles import gate_state_prep
 
 
 def dense_state(state, width, *, signal_width=0):
-    """把 simulate 的稀疏幅度字典展开成稠密态向量（丢弃 signal != 0 分支）。
+    """Expand simulate's sparse amplitude dict into a dense state vector (dropping signal != 0 branches).
 
-    基态下标约定为 system | (environment << system_width) | (signal << (2*width))。
+    Basis-state index convention: system | (environment << system_width) | (signal << (2*width)).
     """
     size = 1 << (2 * width)
     vector = [0j] * size
@@ -66,7 +66,7 @@ class PurificationTests(unittest.TestCase):
             tuple((0.25 if i == j else 0.0) + 0j for j in range(4)) for i in range(4)
         )
         assert_matrix_close(self, reduced, expected)
-        # Schmidt 结构：仅 system == environment 的基态有幅度。
+        # Schmidt structure: only basis states with system == environment carry amplitude.
         for key, amplitude in simulate(access.operation.program()).amplitudes.items():
             if abs(amplitude) > 1e-12:
                 self.assertEqual(key[0], key[1])
@@ -94,7 +94,7 @@ class PurificationTests(unittest.TestCase):
         assert_matrix_close(self, reduced, RHO)
 
     def test_classical_tools(self):
-        # 对角 Gibbs 参考与迹距离的解析值。
+        # Analytic values for the diagonal Gibbs reference and the trace distance.
         hamiltonian = ((1.0 + 0j, 0j), (0j, -1.0 + 0j))
         rho = gibbs_state(hamiltonian, 2.0)
         z = math.exp(-2.0) + math.exp(2.0)
@@ -147,9 +147,10 @@ class GibbsTests(unittest.TestCase):
         self.assertLess(trace_distance(reduced, expected), 0.1)
 
     def test_error_convergence_decreases(self):
-        # 实测口径：error 控制多项式一致截断误差，是迹距离的上界但远不紧——
-        # 各档实测距离 5.6e-4 / 8.7e-5 / 8.7e-5（error=0.2 与 0.1 落到同一
-        # 截断度数，距离相同），因此断言单调不增而非严格下降，并要求每档 ≤ error。
+        # Measured criterion: error controls the polynomial uniform truncation error, an upper bound on
+        # the trace distance but far from tight — the measured distances per level are 5.6e-4 / 8.7e-5 /
+        # 8.7e-5 (error=0.2 and 0.1 land on the same truncation degree, giving equal distances), so the
+        # assertion is monotone non-increase rather than strict decrease, plus each level ≤ error.
         hamiltonian = ((1.0 + 0j, 0j), (0j, -0.5 + 0j))
         beta = 0.8
         errors = (0.4, 0.2, 0.1)
@@ -164,14 +165,15 @@ class GibbsTests(unittest.TestCase):
             distances.append(trace_distance(reduced, gibbs_state(hamiltonian, beta)))
         for error, distance in zip(errors, distances, strict=True):
             self.assertLessEqual(
-                distance, error, msg=f"error={error} 档迹距离 {distance} 超过上界；各档 {distances}"
+                distance, error, msg=f"error={error} level trace distance {distance} exceeds the bound; levels {distances}"
             )
-        self.assertLessEqual(distances[1], distances[0], msg=f"各档距离 {distances}")
-        self.assertLessEqual(distances[2], distances[1], msg=f"各档距离 {distances}")
+        self.assertLessEqual(distances[1], distances[0], msg=f"level distances {distances}")
+        self.assertLessEqual(distances[2], distances[1], msg=f"level distances {distances}")
 
     def test_error_bound_uniform_in_beta(self):
-        # 固定 error=0.1 扫 β：各点迹距离 ≤ error，误差不随 β 恶化到越界。
-        # 实测距离 2.7e-6 / 1.5e-5 / 1.9e-4，随 c=βα/2 增长但始终远小于 error。
+        # Fix error=0.1 and sweep β: each point's trace distance ≤ error; the error does not
+        # degrade past the bound as β grows. Measured distances 2.7e-6 / 1.5e-5 / 1.9e-4,
+        # growing with c=βα/2 but always far below error.
         hamiltonian = ((1.0 + 0j, 0j), (0j, -0.5 + 0j))
         error = 0.1
         distances = []
@@ -185,7 +187,7 @@ class GibbsTests(unittest.TestCase):
             distances.append(trace_distance(reduced, gibbs_state(hamiltonian, beta)))
         for beta, distance in zip((0.2, 0.5, 1.0), distances, strict=True):
             self.assertLessEqual(
-                distance, error, msg=f"β={beta} 迹距离 {distance} 超过 {error}；各点 {distances}"
+                distance, error, msg=f"β={beta} trace distance {distance} exceeds {error}; points {distances}"
             )
 
     def test_invalid_inputs_fail_at_generation(self):

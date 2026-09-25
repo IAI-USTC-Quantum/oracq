@@ -1,4 +1,5 @@
-"""相位估计、振幅估计与重叠测量电路；读出和统计在宿主侧完成。"""
+"""Phase estimation, amplitude estimation and overlap measurement circuits; readout
+and statistics are done on the host side."""
 
 from __future__ import annotations
 
@@ -20,23 +21,27 @@ from oracq.infrastructure.ir import Bits, ValidationError
 
 
 def phase_estimation(operation: Operation, *, precision: int = 2) -> Operation:
-    """标准量子相位估计（QPE）。
+    """Standard quantum phase estimation, QPE.
 
     Args:
-        operation: 支持受控调用的完整 Operation。应由调用方准备其输入态。
-        precision: 相位寄存器位数，范围为 1..63。
+        operation: A complete Operation supporting controlled invocation. The caller
+            must prepare its input state.
+        precision: Number of phase register bits, in the range 1..63.
 
     Returns:
-        Operation: 保留原公开寄存器，并追加 phase。对本征相位 φ，读出值近似 2**precision * φ。
+        Operation: Keeps the original public registers and appends phase. For an
+        eigenphase φ, the readout approximates 2**precision * φ.
 
     Raises:
-        ValidationError: 精度无效、输入占用 phase 名字或不支持所需受控调用。
+        ValidationError: The precision is invalid, the input occupies the phase name,
+            or the required controlled invocation is unsupported.
 
-    各次幂以 Repeat 保存；生成器不会按幂次展开门序列。"""
+    The powers are kept in a Repeat; the generator does not expand the gate
+    sequence per power."""
     positive_integer(precision, "phase_estimation.precision", maximum=63)
     registers = {r.name: r.type for r in operation.module.registers}
     if "phase" in registers:
-        raise ValidationError("被调接口占用了 phase 参数名")
+        raise ValidationError("The invoked interface already occupies the parameter name phase")
     b = Builder(
         _name("qpe", operation, precision),
         {**registers, "phase": Bits(precision)},
@@ -59,27 +64,34 @@ def hadamard_test(
     *,
     component: str = "real",
 ) -> Operation:
-    """生成复期望值的 Hadamard test 电路。
+    """Generate a Hadamard test circuit for a complex expectation value.
 
     Args:
-        unitary: 完整酉操作，或无信号且 alpha=1 的 BE。
-        preparation: 初态制备；省略时使用目标空间的零态。work 必须复净。
-        component: ``real`` 或 ``imag``，指定读取期望值的实部或虚部。
+        unitary: A complete unitary operation, or a block encoding with no signal and
+            alpha=1.
+        preparation: Initial state preparation; when omitted the zero state of the
+            target space is used. work must be cleaned.
+        component: ``real`` or ``imag``, selecting the real or imaginary part of the
+            expectation value to read out.
 
     Returns:
-        Operation: 寄存器为 target、work、probe。probe 的 Z 期望为相应的复期望分量。
+        Operation: Registers target, work and probe. The Z expectation of probe is the
+        corresponding complex expectation component.
 
-    该操作不执行测量。实际应用需要采样 probe，并在经典侧计算概率差。"""
+    This operation performs no measurement. Actual use requires sampling probe and
+    computing the probability difference on the classical side."""
     encoded = as_block_encoding(unitary)
     if encoded.signal_qubits or encoded.alpha != 1:
-        raise ValidationError("Hadamard test 当前要求无信号、alpha=1 的完整 unitary 输入")
+        raise ValidationError("The Hadamard test currently requires a full unitary input"
+                              " with no signal and alpha=1")
     prep = (
         basis_state(encoded.width)
         if preparation is None
         else checked_state_preparation(preparation)
     )
     if prep.width != encoded.width or component not in {"real", "imag"}:
-        raise ValidationError("Hadamard test 的初态宽度或分量选项无效")
+        raise ValidationError("Invalid initial state width or component option for the"
+                              " Hadamard test")
     b = Builder(
         _name("hadamard_test", encoded.operation, prep.operation, component),
         {"target": Bits(prep.width), "work": Bits(prep.work_width), "probe": Bits(1)},
@@ -101,19 +113,24 @@ def hadamard_test(
 
 
 def swap_test(first: StatePreparationProtocol, second: StatePreparationProtocol) -> Operation:
-    """生成两个纯态的重叠测量电路。
+    """Generate an overlap measurement circuit for two pure states.
 
     Args:
-        first: 第一个态的制备，要求零输入和干净工作区。
-        second: 第二个同宽态的制备，要求零输入和干净工作区。
+        first: Preparation of the first state; requires zero input and a clean
+            workspace.
+        second: Preparation of the second state of the same width; requires zero input
+            and a clean workspace.
 
     Returns:
-        Operation: 保留 left、right、两组 work 和 probe。probe 为零的概率是两态重叠模方加一后除以二。
+        Operation: Keeps left, right, both work registers and probe. The probability
+        that probe is zero equals the squared overlap modulus of the two states plus
+        one, divided by two.
 
-    两个制备只需正向调用；条件交换由算法生成。"""
+    The two preparations are only invoked forward; the conditional swap is generated
+    by the algorithm."""
     a, c = checked_state_preparation(first), checked_state_preparation(second)
     if a.width != c.width:
-        raise ValidationError("Swap test 的两个态必须同宽")
+        raise ValidationError("The two states in a swap test must have the same width")
     b = Builder(
         _name("swap_test", a.operation, c.operation),
         {
@@ -138,17 +155,20 @@ def swap_test(first: StatePreparationProtocol, second: StatePreparationProtocol)
 def amplitude_estimation(
     preparation: StatePreparationProtocol, marked: Iterable[int], *, precision: int = 3
 ) -> Operation:
-    """生成对好状态概率进行估计的 QPE 电路。
+    """Generate a QPE circuit estimating the good-state probability.
 
     Args:
-        preparation: 支持逆和受控调用的零输入态制备。
-        marked: 目标空间中好状态的整数编号集合。
-        precision: 相位寄存器位数，范围为 1..63。
+        preparation: A zero-input state preparation supporting adjoint and controlled
+            invocation.
+        marked: Set of integer indices of the good states in the target space.
+        precision: Number of phase register bits, in the range 1..63.
 
     Returns:
-        Operation: 寄存器为 target、work、phase。读取 phase 后调用 amplitude_from_phase 解码。
+        Operation: Registers target, work and phase. After reading phase, call
+        amplitude_from_phase to decode.
 
-    有限精度读出可能对应多个近似概率。采样与统计处理由宿主负责。"""
+    A finite-precision readout may correspond to several approximate probabilities.
+    Sampling and statistics are the host's responsibility."""
     from oracq.algorithms.common.search import grover_iterate
 
     prep = checked_state_preparation(preparation, adjoint=True, controlled=True)
@@ -170,14 +190,14 @@ def amplitude_estimation(
 
 
 def amplitude_from_phase(value: int, precision: int) -> float:
-    """将一个相位样本转换为好状态概率的估计。
+    """Convert one phase sample into an estimate of the good-state probability.
 
     Args:
-        value: phase 的无符号整数读出值。
-        precision: phase 的位宽。
+        value: Unsigned integer readout of phase.
+        precision: Bit width of phase.
 
     Returns:
-        float: ``sin(pi*value/2**precision)**2``，位于零和一之间。"""
+        float: ``sin(pi*value/2**precision)**2``, between zero and one."""
     positive_integer(precision, "amplitude.precision", maximum=63)
     positive_integer(value, "amplitude.phase", minimum=0, maximum=(1 << precision) - 1)
     return math.sin(math.pi * value / (1 << precision)) ** 2

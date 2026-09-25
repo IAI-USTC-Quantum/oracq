@@ -1,4 +1,4 @@
-"""对阶段产物使用真实 UnifiedQuantum 解析器；不运行大规模状态向量。"""
+"""Consume the stage artifacts with the real UnifiedQuantum parser; no large state-vector runs."""
 
 import json
 from pathlib import Path

@@ -1,4 +1,4 @@
-"有限多项式演化 PDE 的不可变表示与 Python 构造面。"
+"Immutable representation and Python construction surface of finite polynomial evolution PDEs."
 
 from __future__ import annotations
 
@@ -16,24 +16,26 @@ from oracq.infrastructure.validation import name as check_name
 def derivative_add(
     derivative: Sequence[tuple[str, int]], axis: str, order: int
 ) -> tuple[tuple[str, int], ...]:
-    """返回在指定轴上累加导数阶数后的新导数说明。
+    """Return a new derivative specification with the order accumulated on the given axis.
 
-    同轴阶数相加，零阶条目被去除，结果按轴名排序。
+    Orders on the same axis are added, zero-order entries are removed, and the
+    result is sorted by axis name.
 
     Args:
-        derivative: 现有的 ``(axis, order)`` 二元组序列。
-        axis: 空间轴名，须是合法标识符。
-        order: 追加的导数阶数，必须为非负整数。
+        derivative: Existing sequence of ``(axis, order)`` pairs.
+        axis: Spatial axis name, must be a valid identifier.
+        order: Derivative order to append, must be a non-negative integer.
 
     Returns:
-        tuple: 按轴名排序、不含零阶条目的二元组元组。
+        tuple: Tuple of pairs sorted by axis name without zero-order entries.
 
     Raises:
-        ValidationError: 轴名非法或阶数不是非负整数。
+        ValidationError: The axis name is invalid or the order is not a
+            non-negative integer.
     """
     check_name(axis)
     if type(order) is not int or order < 0:
-        raise ValidationError("空间导数阶数必须为非负整数")
+        raise ValidationError("spatial derivative order must be a non-negative integer")
     values = dict(derivative)
     values[axis] = values.get(axis, 0) + order
     return tuple(sorted((a, n) for a, n in values.items() if n))
@@ -41,11 +43,13 @@ def derivative_add(
 
 @dataclass(frozen=True)
 class Atom:
-    """按名字引用一个未知场或已知系数的多项式原子，附带已作用的空间导数说明。
+    """Polynomial atom referencing an unknown field or known coefficient by name, carrying the applied spatial derivative specification.
 
     Attributes:
-        name: 场或已知系数的名字，须是合法标识符。
-        derivative: ``(axis, order)`` 二元组序列，按轴累计的空间导数阶。
+        name: Name of the field or known coefficient, must be a valid
+            identifier.
+        derivative: Sequence of ``(axis, order)`` pairs, the accumulated
+            spatial derivative orders per axis.
     """
     name: str
     derivative: tuple[tuple[str, int], ...] = ()
@@ -53,13 +57,15 @@ class Atom:
 
 @dataclass(frozen=True)
 class Monomial:
-    """多项式单项式：系数乘以未知场原子与已知系数原子的乘积，可再施加外层导数。
+    """Polynomial monomial: a coefficient times the product of unknown-field atoms and known-coefficient atoms, optionally under an outer derivative.
 
     Attributes:
-        coefficient: 复数系数。
-        fields: 参与乘积的未知场原子。
-        known: 参与乘积的已知系数原子，如强迫数据。
-        outer_derivative: 作用在完整单项式上的外层空间导数说明。
+        coefficient: Complex coefficient.
+        fields: Unknown-field atoms participating in the product.
+        known: Known-coefficient atoms participating in the product, such as
+            forcing data.
+        outer_derivative: Outer spatial derivative specification applied to the
+            complete monomial.
     """
     coefficient: complex = 1.0
     fields: tuple[Atom, ...] = ()
@@ -69,42 +75,44 @@ class Monomial:
 
 @dataclass(frozen=True)
 class Expr:
-    """未知场的有限多项式表达式，各项按加法意义求和。
+    """Finite polynomial expression of unknown fields, with terms summed additively.
 
-    支持与 ``Expr`` 或数值常量做加减乘、除以非零数值常量、非负整数幂，
-    以及用 ``d`` 施加空间导数。
+    Supports addition, subtraction, and multiplication with ``Expr`` or numeric
+    constants, division by a non-zero numeric constant, non-negative integer
+    powers, and applying spatial derivatives with ``d``.
 
     Attributes:
-        terms: 单项式元组。
+        terms: Tuple of monomials.
     """
     terms: tuple[Monomial, ...]
 
     def __add__(self, other: Expr | float | complex) -> Expr:
-        """返回与 ``other`` 之和的规范化 ``Expr``。"""
+        """Return the normalized ``Expr`` of the sum with ``other``."""
         return Expr(self.terms + expression(other).terms).normalized()
 
     __radd__ = __add__
 
     def __neg__(self) -> Expr:
-        """返回各项系数取反后的 ``Expr``。"""
+        """Return the ``Expr`` with every coefficient negated."""
         return Expr(tuple(replace(t, coefficient=-t.coefficient) for t in self.terms))
 
     def __sub__(self, other: Expr | float | complex) -> Expr:
-        """返回减去 ``other`` 后的规范化 ``Expr``。"""
+        """Return the normalized ``Expr`` after subtracting ``other``."""
         return self + -expression(other)
 
     def __rsub__(self, other: Expr | float | complex) -> Expr:
-        """返回 ``other`` 减去 ``self`` 后的规范化 ``Expr``。"""
+        """Return the normalized ``Expr`` of ``other`` minus ``self``."""
         return expression(other) + -self
 
     def __mul__(self, other: Expr | float | complex) -> Expr:
-        """返回两个表达式的多项式乘积并规范化。"""
+        """Return the normalized polynomial product of two expressions."""
         other = expression(other)
         terms: list[Monomial] = []
         for a in self.terms:
             for b in other.terms:
                 if a.outer_derivative or b.outer_derivative:
-                    # 数值缩放可交换到导数外；未知场乘以已收缩的导数项不在本规则内。
+                    # Numeric scaling commutes out of the derivative; an unknown field
+                    # multiplied by an already-contracted derivative term is outside this rule.
                     if not b.fields and not b.known and not b.outer_derivative:
                         terms.append(replace(a, coefficient=a.coefficient * b.coefficient))
                         continue
@@ -112,7 +120,7 @@ class Expr:
                         terms.append(replace(b, coefficient=a.coefficient * b.coefficient))
                         continue
                     raise ValidationError(
-                        "带外导数的多项式项不能直接成为乘积因子；请写成规则内的字段导数乘积"
+                        "a polynomial term with an outer derivative cannot directly become a product factor; write it as a product of field derivatives within the rules"
                     )
                 terms.append(
                     Monomial(a.coefficient * b.coefficient, a.fields + b.fields, a.known + b.known)
@@ -122,40 +130,45 @@ class Expr:
     __rmul__ = __mul__
 
     def __truediv__(self, value: float | complex) -> Expr:
-        """返回除以非零数值常量后的 ``Expr``。"""
+        """Return the ``Expr`` after division by a non-zero numeric constant."""
         if not isinstance(value, Number) or value == 0:
-            raise ValidationError("PDE 只允许除以非零数值常量，未知场分母不在多项式规则内")
+            raise ValidationError("a PDE only allows division by a non-zero numeric constant; unknown-field denominators are outside the polynomial rules")
         return self * (1 / value)
 
     def __rtruediv__(self, value: float | complex) -> Never:
-        """未知场作分母不在多项式 PDE 规则内，总是抛出 ``ValidationError``。"""
-        raise ValidationError("未知场分母不在多项式 PDE 规则内")
+        """An unknown field in the denominator is outside the polynomial PDE rules; always raises ``ValidationError``."""
+        raise ValidationError("unknown-field denominators are outside the polynomial PDE rules")
 
     def __pow__(self, power: int) -> Expr:
-        """返回表达式的非负整数次幂。"""
+        """Return the expression raised to a non-negative integer power."""
         if type(power) is not int or power < 0:
-            raise ValidationError("PDE 多项式幂必须是非负整数")
+            raise ValidationError("PDE polynomial powers must be non-negative integers")
         result = expression(1)
         for _ in range(power):
             result = result * self
         return result
 
     def d(self, axis: str, order: int = 1) -> Expr:
-        """对表达式的每个单项式施加空间导数。
+        """Apply a spatial derivative to every monomial of the expression.
 
-        只含单个未知场原子或只含单个已知系数原子且无外导数的单项式，导数直接
-        累加到该原子上；其余单项式把导数记入外层导数，保留算子作用语义而不
-        改写成字段导数乘积。
+        For monomials containing exactly one unknown-field atom or exactly one
+        known-coefficient atom and no outer derivative, the derivative
+        accumulates directly on that atom; all other monomials record the
+        derivative in the outer derivative, preserving operator-action
+        semantics instead of rewriting into a product of field derivatives.
 
         Args:
-            axis: 空间轴名，须是合法标识符。
-            order: 导数阶数，必须为非负整数，默认为 1。
+            axis: Spatial axis name, must be a valid identifier.
+            order: Derivative order, must be a non-negative integer; defaults
+                to 1.
 
         Returns:
-            Expr: 施加导数后的新表达式；自身不变。
+            Expr: New expression with the derivative applied; self is
+            unchanged.
 
         Raises:
-            ValidationError: 轴名非法或阶数不是非负整数。
+            ValidationError: The axis name is invalid or the order is not a
+                non-negative integer.
         """
         result: list[Monomial] = []
         for term in self.terms:
@@ -188,13 +201,14 @@ class Expr:
         return Expr(tuple(result))
 
     def normalized(self) -> Expr:
-        """合并同结构单项式并去除零系数项，返回规范化后的新表达式。
+        """Merge structurally identical monomials and drop zero-coefficient terms, returning the normalized new expression.
 
-        以 ``(fields, known, outer_derivative)`` 为键累加系数，按键的 ``repr``
-        字符串排序，丢弃系数为零的项。
+        Coefficients are accumulated keyed by ``(fields, known,
+        outer_derivative)``, sorted by the ``repr`` string of the key, and
+        zero-coefficient terms are discarded.
 
         Returns:
-            Expr: 规范化后的新表达式；自身不变。
+            Expr: The normalized new expression; self is unchanged.
         """
         terms: dict[
             tuple[tuple[Atom, ...], tuple[Atom, ...], tuple[tuple[str, int], ...]], complex
@@ -212,56 +226,60 @@ class Expr:
 
 
 def expression(value: Expr | float | complex) -> Expr:
-    """把 ``value`` 归一为 ``Expr``：数值常量包装为常量表达式，``Expr`` 原样返回。
+    """Normalize ``value`` to an ``Expr``: numeric constants are wrapped as constant expressions and an ``Expr`` is returned unchanged.
 
-    零数值对应不含任何单项式的空表达式。
+    The numeric zero maps to the empty expression containing no monomials.
 
     Args:
-        value: ``Expr`` 实例或数值常量。
+        value: An ``Expr`` instance or a numeric constant.
 
     Returns:
-        Expr: 与 ``value`` 等价的常量 ``Expr``，或 ``value`` 本身。
+        Expr: A constant ``Expr`` equivalent to ``value``, or ``value``
+        itself.
 
     Raises:
-        ValidationError: ``value`` 既不是 ``Expr`` 也不是数值，或数值非有限。
+        ValidationError: ``value`` is neither an ``Expr`` nor a number, or the
+            number is not finite.
     """
     if isinstance(value, Expr):
         return value
     if isinstance(value, Number):
         value = complex(value)
         if not math.isfinite(value.real) or not math.isfinite(value.imag):
-            raise ValidationError("PDE 系数必须有限")
+            raise ValidationError("PDE coefficients must be finite")
         return Expr(()) if value == 0 else Expr((Monomial(value),))
-    raise ValidationError("需要 PDE 表达式或数值常量")
+    raise ValidationError("a PDE expression or numeric constant is required")
 
 
 def Field(name: str) -> Expr:
-    """构造引用指定未知场的单位 ``Expr``。
+    """Build the unit ``Expr`` referencing the given unknown field.
 
     Args:
-        name: 未知场名，须是合法标识符。
+        name: Unknown field name, must be a valid identifier.
 
     Returns:
-        Expr: 只含一个无导数未知场原子的表达式。
+        Expr: Expression containing only one derivative-free unknown-field
+        atom.
 
     Raises:
-        ValidationError: 名字非法。
+        ValidationError: The name is invalid.
     """
     check_name(name)
     return Expr((Monomial(fields=(Atom(name),)),))
 
 
 def Known(name: str) -> Expr:
-    """构造引用指定已知系数（如强迫数据）的单位 ``Expr``。
+    """Build the unit ``Expr`` referencing the given known coefficient, such as forcing data.
 
     Args:
-        name: 已知系数名，须是合法标识符。
+        name: Known coefficient name, must be a valid identifier.
 
     Returns:
-        Expr: 只含一个无导数已知系数原子的表达式。
+        Expr: Expression containing only one derivative-free known-coefficient
+        atom.
 
     Raises:
-        ValidationError: 名字非法。
+        ValidationError: The name is invalid.
     """
     check_name(name)
     return Expr((Monomial(known=(Atom(name),)),))
@@ -269,11 +287,11 @@ def Known(name: str) -> Expr:
 
 @dataclass(frozen=True)
 class EquationTerm:
-    """PDE 方程组中的一项：一个单项式对指定输出分量的贡献。
+    """One term of the PDE system: the contribution of a monomial to a given output component.
 
     Attributes:
-        output: 该项贡献到的未知场名字。
-        monomial: 单项式内容。
+        output: Name of the unknown field this term contributes to.
+        monomial: The monomial content.
     """
     output: str
     monomial: Monomial
@@ -281,12 +299,15 @@ class EquationTerm:
 
 @dataclass(frozen=True)
 class OperatorPort:
-    """线性化端口：把同类方程项归组为一个待绑定的算子。
+    """Linearization port: groups same-class equation terms into one operator awaiting binding.
 
     Attributes:
-        name: 端口名；线性端口为 ``L``，强迫端口为 ``F``，非线性端口形如 ``B_0``。
-        arity: 端口输入重数；线性为 1，强迫为 0，非线性为对应单项式的未知场原子个数。
-        terms: 归入该端口的方程项。
+        name: Port name; ``L`` for the linear port, ``F`` for the forcing
+            port, and ``B_0``-style names for nonlinear ports.
+        arity: Number of port inputs; 1 for linear, 0 for forcing, and for
+            nonlinear the count of unknown-field atoms in the corresponding
+            monomial.
+        terms: Equation terms assigned to this port.
     """
     name: str
     arity: int
@@ -295,17 +316,19 @@ class OperatorPort:
 
 @dataclass(frozen=True)
 class PolynomialPDE:
-    """一阶自治时间演化多项式 PDE 系统的不可变表示（PDE 0.1）。
+    """Immutable representation of a first-order autonomous time-evolution polynomial PDE system (PDE 0.1).
 
-    右端拆分为已知线性映射，即 ``u' = f + L u + sum_tau B_tau(u, ..., u)``。
-    一般经由 ``from_equations`` 构造，或用 ``loads`` 从 JSON 重建。
+    The right-hand side is split into known linear maps, i.e.
+    ``u' = f + L u + sum_tau B_tau(u, ..., u)``. Usually constructed via
+    ``from_equations``, or rebuilt from JSON with ``loads``.
 
     Attributes:
-        fields: 全部未知场名，非空且不得重复。
-        axes: 全部空间轴名，不得重复。
-        terms: 全部方程项；每项的 ``output`` 必须在 ``fields`` 中声明。
-        label: 标识该 PDE 的标签字符串。
-        version: 表示版本，当前为 ``"0.1"``。
+        fields: All unknown field names, non-empty and without duplicates.
+        axes: All spatial axis names, without duplicates.
+        terms: All equation terms; each term's ``output`` must be declared in
+            ``fields``.
+        label: Label string identifying this PDE.
+        version: Representation version, currently ``"0.1"``.
     """
     fields: tuple[str, ...]
     axes: tuple[str, ...]
@@ -321,21 +344,25 @@ class PolynomialPDE:
         axes: Sequence[str] = ("x",),
         label: str = "polynomial_pde",
     ) -> PolynomialPDE:
-        """从方程右端字典构造并校验 PDE。
+        """Construct and validate a PDE from a dictionary of equation right-hand sides.
 
-        每个右端经 ``expression`` 转为 ``Expr``，用 ``normalized`` 合并同类项后
-        冻结为方程项集合。
+        Each right-hand side is converted to an ``Expr`` by ``expression`` and
+        frozen into the equation-term set after merging like terms with
+        ``normalized``.
 
         Args:
-            equations: 从输出分量名到右端表达式的映射；右端可为 ``Expr`` 或数值常量。
-            axes: 空间轴名序列，默认为 ``("x",)``。
-            label: PDE 标签，默认为 ``"polynomial_pde"``。
+            equations: Mapping from output component name to right-hand-side
+                expression; a right-hand side may be an ``Expr`` or a numeric
+                constant.
+            axes: Sequence of spatial axis names, defaulting to ``("x",)``.
+            label: PDE label, defaulting to ``"polynomial_pde"``.
 
         Returns:
-            PolynomialPDE: 已通过 ``validate`` 的不可变实例。
+            PolynomialPDE: Immutable instance that has passed ``validate``.
 
         Raises:
-            ValidationError: 名字、表达式或拆分后的结构不符合 PDE 规则。
+            ValidationError: A name, an expression, or the structure after
+                splitting violates the PDE rules.
         """
         result = cls(
             tuple(equations),
@@ -350,44 +377,47 @@ class PolynomialPDE:
         return result.validate()
 
     def validate(self) -> PolynomialPDE:
-        """校验 PDE 表示的结构、语义与不可变性。
+        """Validate the structure, semantics, and immutability of the PDE representation.
 
-        检查标签与版本、字段非空且不重复、各方程项输出分量已声明、系数有限、
-        未知场原子均已声明，以及全部导数说明不可变、轴已声明且阶数为正整数。
+        Checks the label and version, that the fields are non-empty and
+        duplicate-free, that each equation term's output component is
+        declared, that coefficients are finite, that all unknown-field atoms
+        are declared, and that every derivative specification is immutable with
+        declared axes and positive integer orders.
 
         Returns:
-            PolynomialPDE: 返回自身，便于链式构造。
+            PolynomialPDE: Returns self for chained construction.
 
         Raises:
-            ValidationError: 任一检查不通过。
+            ValidationError: Any check fails.
         """
         if not isinstance(self.label, str):
-            raise ValidationError("PDE label 必须为字符串")
+            raise ValidationError("the PDE label must be a string")
         if (
             self.version != "0.1"
             or not self.fields
             or len(set(self.fields)) != len(self.fields)
             or len(set(self.axes)) != len(self.axes)
         ):
-            raise ValidationError("PDE 字段/空间轴/版本无效")
+            raise ValidationError("invalid PDE fields, spatial axes, or version")
         if any(type(x) is not tuple for x in (self.fields, self.axes, self.terms)):
-            raise ValidationError("PDE 表示必须不可变")
+            raise ValidationError("the PDE representation must be immutable")
         for key in (*self.fields, *self.axes):
             check_name(key)
         for term in self.terms:
             if term.output not in self.fields:
-                raise ValidationError("PDE 输出分量未声明")
+                raise ValidationError("undeclared PDE output component")
             m = term.monomial
             if any(type(value) is not tuple for value in (m.fields, m.known, m.outer_derivative)):
-                raise ValidationError("PDE 单项式必须不可变")
+                raise ValidationError("PDE monomials must be immutable")
             if not math.isfinite(m.coefficient.real) or not math.isfinite(m.coefficient.imag):
-                raise ValidationError("PDE 系数必须有限")
+                raise ValidationError("PDE coefficients must be finite")
             for atom in m.fields:
                 if atom.name not in self.fields:
-                    raise ValidationError("PDE 未知字段：" + atom.name)
+                    raise ValidationError("undeclared PDE unknown field: " + atom.name)
             for atom in (*m.fields, *m.known):
                 if type(atom.derivative) is not tuple:
-                    raise ValidationError("PDE 导数说明必须不可变")
+                    raise ValidationError("PDE derivative specifications must be immutable")
             for atom in m.known:
                 check_name(atom.name)
             for derivative in (m.outer_derivative, *(a.derivative for a in (*m.fields, *m.known))):
@@ -395,27 +425,30 @@ class PolynomialPDE:
                     axis not in self.axes or type(order) is not int or order < 1
                     for axis, order in derivative
                 ):
-                    raise ValidationError("PDE 空间导数无效")
+                    raise ValidationError("invalid PDE spatial derivative")
         return self
 
     @property
     def degree(self) -> int:
-        """所有方程项中未知场原子个数的最大值，即推导使用的非线性次数。
+        """Maximum count of unknown-field atoms over all equation terms, i.e. the nonlinear degree used by the derivation.
 
-        强迫项计 0，线性项计 1；没有任何项时返回 0。
+        Forcing terms count 0 and linear terms count 1; returns 0 when there
+        are no terms at all.
         """
         return max((len(t.monomial.fields) for t in self.terms), default=0)
 
     @property
     def ports(self) -> tuple[OperatorPort, ...]:
-        """把方程项归组为线性化端口。
+        """Group equation terms into linearization ports.
 
-        恰含一个未知场原子的项归入线性端口 ``L``；不含未知场原子的项归入强迫
-        端口 ``F``；含两个及以上未知场原子的项各成一个多线性端口 ``B_i``，
-        ``i`` 为该项在 ``terms`` 中的序号。
+        Terms with exactly one unknown-field atom go to the linear port ``L``;
+        terms with none go to the forcing port ``F``; each term with two or
+        more unknown-field atoms forms its own multilinear port ``B_i``, with
+        ``i`` the term's index in ``terms``.
 
         Returns:
-            tuple[OperatorPort, ...]: 依次为 ``L``、``F`` 和各 ``B_i``，仅包含存在对应项的端口。
+            tuple[OperatorPort, ...]: ``L``, ``F``, then each ``B_i``, in
+            order, including only ports with corresponding terms.
         """
         linear = tuple(t for t in self.terms if len(t.monomial.fields) == 1)
         forcing = tuple(t for t in self.terms if not t.monomial.fields)
@@ -432,15 +465,17 @@ class PolynomialPDE:
         return tuple(result)
 
     def dumps(self) -> str:
-        """先执行 ``validate``，再把 PDE 序列化为符合 PDE 0.1 格式的 JSON 文本。
+        """Run ``validate`` first, then serialize the PDE to JSON text following the PDE 0.1 format.
 
-        复系数以 ``[实部, 虚部]`` 数组表示；键排序、两格缩进，文本以换行结尾。
+        Complex coefficients are written as ``[real part, imaginary part]``
+        arrays; keys are sorted, indentation is two spaces, and the text ends
+        with a newline.
 
         Returns:
-            str: JSON 文本。
+            str: JSON text.
 
         Raises:
-            ValidationError: 表示未通过 ``validate``。
+            ValidationError: The representation fails ``validate``.
         """
         self.validate()
         data: dict[str, object] = {
@@ -461,44 +496,46 @@ class PolynomialPDE:
 
     @classmethod
     def loads(cls, text: str) -> PolynomialPDE:
-        """从 JSON 文本重建 PDE。
+        """Rebuild a PDE from JSON text.
 
-        严格检查顶层与各项的键集合，复系数按 ``[实部, 虚部]`` 读回，重建结果
-        返回前先经 ``validate``。
+        Key sets at the top level and of each item are strictly checked,
+        complex coefficients are read back as ``[real part, imaginary part]``,
+        and the rebuilt result passes ``validate`` before being returned.
 
         Args:
-            text: ``dumps`` 产生的 JSON 文本。
+            text: JSON text produced by ``dumps``.
 
         Returns:
-            PolynomialPDE: 重建并通过校验的实例。
+            PolynomialPDE: Rebuilt and validated instance.
 
         Raises:
-            ValidationError: JSON 无效、包含未知字段或重建结果未通过校验。
+            ValidationError: The JSON is invalid, contains unknown fields, or
+                the rebuilt result fails validation.
         """
         try:
             data = json.loads(text)
             if not isinstance(data, dict) or any(
                 type(data.get(key)) is not list for key in ("fields", "axes", "terms")
             ):
-                raise ValidationError("PDE 字段/空间轴/项必须为 JSON 数组")
+                raise ValidationError("PDE fields, spatial axes, and terms must be JSON arrays")
             if set(data) != {"version", "label", "fields", "axes", "terms"}:
-                raise ValidationError("未知 PDE 字段")
+                raise ValidationError("unknown PDE field")
 
             def atom(raw: Mapping[str, object]) -> Atom:
-                """从 JSON 对象重建单个 ``Atom``，字段非法时抛出 ``ValidationError``。"""
+                """Rebuild a single ``Atom`` from a JSON object, raising ``ValidationError`` on invalid fields."""
                 if set(raw) != {"name", "derivative"} or type(raw["derivative"]) is not list:
-                    raise ValidationError("未知或无效 PDE atom 字段")
+                    raise ValidationError("unknown or invalid PDE atom field")
                 return Atom(cast(str, raw["name"]), tuple(tuple(d) for d in raw["derivative"]))
 
             terms: list[EquationTerm] = []
             for item in data["terms"]:
                 if set(item) != {"output", "monomial"}:
-                    raise ValidationError("未知 PDE 项字段")
+                    raise ValidationError("unknown PDE term field")
                 raw = item["monomial"]
                 if set(raw) != {"coefficient", "fields", "known", "outer_derivative"} or any(
                     type(raw[key]) is not list for key in raw
                 ):
-                    raise ValidationError("未知或无效 PDE 单项式字段")
+                    raise ValidationError("unknown or invalid PDE monomial field")
                 terms.append(
                     EquationTerm(
                         item["output"],
@@ -518,4 +555,4 @@ class PolynomialPDE:
                 data["version"],
             ).validate()
         except (KeyError, TypeError, ValueError) as exc:
-            raise ValidationError("无效 PDE JSON：" + str(exc)) from exc
+            raise ValidationError("invalid PDE JSON: " + str(exc)) from exc

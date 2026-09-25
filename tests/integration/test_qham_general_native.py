@@ -1,4 +1,4 @@
-"""一般 QHAM 的真实寄存器执行和模块化后端描述见证。"""
+"""Real register execution and modular backend-description witnesses for general QHAM."""
 
 import math
 import unittest

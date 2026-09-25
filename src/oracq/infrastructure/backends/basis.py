@@ -1,4 +1,4 @@
-"在 OriginIR DEF 边界内降低门集；模块调用和 QRAM 声明保持不展开。"
+"Lower the gate set within OriginIR DEF boundaries; module calls and QRAM declarations remain unexpanded."
 
 from __future__ import annotations
 
@@ -12,38 +12,41 @@ _PI = math.pi
 
 
 def export_toffoli_u3_cz(program: Program) -> OriginIRArtifact:
-    """导出 Toffoli+U3+CZ 门集上的 OriginIR-ext 网表。
+    """Export an OriginIR-ext netlist over the Toffoli+U3+CZ gate set.
 
-    等价于 ``lower_toffoli_u3_cz(export_originir(program))``；模块调用和
-    QRAM 声明保持不展开。
+    Equivalent to ``lower_toffoli_u3_cz(export_originir(program))``; module
+    calls and QRAM declarations remain unexpanded.
 
     Args:
-        program: 待编译的封闭 RIR 程序。
+        program: The closed RIR program to compile.
 
     Returns:
-        OriginIRArtifact: 降低后的网表，``workspace_qubits`` 含新增的
-        ``pb_work`` 辅助比特编号。
+        OriginIRArtifact: The lowered netlist; ``workspace_qubits`` includes the newly added
+        ``pb_work`` ancilla bit indices.
     """
     return lower_toffoli_u3_cz(export_originir(program))
 
 
 def lower_toffoli_u3_cz(artifact: OriginIRArtifact) -> OriginIRArtifact:
-    """把 OriginIR-ext 网表中的门降低到 Toffoli、U3 与 CZ。
+    """Lower the gates of an OriginIR-ext netlist to Toffoli, U3 and CZ.
 
-    X 型多控门（含 CNOT，SWAP 展开为三次交换）按 ``mcx`` 配方用 Toffoli
-    梯子实现，受控单比特门按 ``controlled_u3`` 配方实现，两者共享按最大
-    控制数分配的 ``pb_work`` 辅助比特池；池位追加进 ``QINIT``、``DEF``
-    形参与 ``m_`` 调用行。``DAGGER``、QRAM 与 ``CREG`` 行原样保留。
+    Multi-controlled X-type gates (CNOT included, SWAP expanded into three
+    swaps) are implemented with a Toffoli ladder per the ``mcx`` recipe,
+    and controlled single-qubit gates per the ``controlled_u3`` recipe;
+    both share the ``pb_work`` ancilla pool allocated by the maximum
+    control count; pool bits are appended to ``QINIT``, ``DEF`` formals and
+    ``m_`` call lines. ``DAGGER``, QRAM and ``CREG`` lines are kept
+    verbatim.
 
     Args:
-        artifact: ``export_originir`` 产出的 OriginIR-ext 网表。
+        artifact: The OriginIR-ext netlist produced by ``export_originir``.
 
     Returns:
-        OriginIRArtifact: 降低后的网表；``workspace_qubits`` 追加新增的
-        辅助比特编号，``registers`` 与 ``resources`` 原样透传。
+        OriginIRArtifact: The lowered netlist; ``workspace_qubits`` appends the newly added
+        ancilla bit indices, while ``registers`` and ``resources`` pass through unchanged.
 
     Raises:
-        ValidationError: 遇到参数表不支持的目标门。
+        ValidationError: A target gate unsupported by the parameter table was encountered.
     """
     lines = artifact.text.splitlines()
     maximum = 0
@@ -61,23 +64,23 @@ def lower_toffoli_u3_cz(artifact: OriginIRArtifact) -> OriginIRArtifact:
     result, inside = [], False
 
     def u3(t: str, theta: float, phi: float, lam: float) -> str:
-        """发射单比特 ``U3`` 门文本行。"""
+        """Emit one single-qubit ``U3`` gate text line."""
         return f"U3 {t}, ({float(theta)!r}, {float(phi)!r}, {float(lam)!r})"
 
     def h(t: str) -> str:
-        """发射 ``H`` 门的 ``U3`` 等价文本行。"""
+        """Emit the ``U3``-equivalent text line of the ``H`` gate."""
         return u3(t, _PI / 2, 0, _PI)
 
     def phase(t: str, angle: float) -> str:
-        """发射相位旋转门的 ``U3`` 等价文本行。"""
+        """Emit the ``U3``-equivalent text line of a phase rotation gate."""
         return u3(t, 0, 0, angle)
 
     def cx(c: str, t: str) -> list[str]:
-        """用 H 环绕 CZ 实现 ``CNOT``。"""
+        """Implement ``CNOT`` with an H-sandwiched CZ."""
         return [h(t), f"CZ {c}, {t}", h(t)]
 
     def mcx(controls: list[str], target: str) -> list[str]:
-        """用 Toffoli 梯子（含 ``pb_work`` 辅助比特池）实现多控 X。"""
+        """Implement multi-controlled X with a Toffoli ladder, using the ``pb_work`` ancilla pool."""
         n = len(controls)
         if n == 0:
             return [u3(target, _PI, 0, _PI)]
@@ -99,7 +102,7 @@ def lower_toffoli_u3_cz(artifact: OriginIRArtifact) -> OriginIRArtifact:
         lam: float,
         global_angle: float = 0,
     ) -> list[str]:
-        """用 Toffoli 梯子加相位分解实现受控 ``U3``。"""
+        """Implement a controlled ``U3`` with a Toffoli ladder plus phase decomposition."""
         if not controls:
             output = [u3(target, theta, phi, lam)]
             if global_angle:
@@ -181,7 +184,7 @@ def lower_toffoli_u3_cz(artifact: OriginIRArtifact) -> OriginIRArtifact:
                 "RZ": (0, 0, angle, -angle / 2),
             }
             if gate not in parameters:
-                raise ValidationError("不支持的目标门集 lowering 输入：" + gate)
+                raise ValidationError("unsupported target gate set lowering input: " + gate)
             result += controlled_u3(controls, bits[0], *parameters[gate])
     return OriginIRArtifact(
         "\n".join(result) + "\n",

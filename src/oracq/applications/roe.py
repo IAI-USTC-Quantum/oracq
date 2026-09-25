@@ -1,4 +1,4 @@
-"一维 Euler frozen-Roe 矩阵元的可逆算术生成；物理/定点正确性待核验。"
+"Reversible arithmetic generation of one-dimensional Euler frozen-Roe matrix elements; physical and fixed-point correctness pending verification."
 
 from __future__ import annotations
 
@@ -13,74 +13,74 @@ from oracq.infrastructure.ir import Adjoint, Bits, Ref
 
 @dataclass(frozen=True)
 class Word:
-    """定点算术表达式中的字，运算符重载后委托给所属生成器执行。
+    """A word in fixed-point arithmetic expressions; overloaded operators delegate to the owning builder.
 
     Attributes:
-        algebra: 生成该字的 ``ArithmeticBuilder``，负责实际生成算术节点。
-        ref: 承载该值的寄存器引用。
+        algebra: The ``ArithmeticBuilder`` that produced this word and emits the actual arithmetic nodes.
+        ref: The register reference carrying the value.
     """
 
     algebra: ArithmeticBuilder
     ref: Ref
 
     def __add__(self, other: float | Word) -> Word:
-        """生成两字相加的算术节点。"""
+        """Emit an arithmetic node adding two words."""
         return self.algebra.calc("add", self, other)
 
     def __radd__(self, other: float | Word) -> Word:
-        """反射加法，委托给 ``self + other``。"""
+        """Reflected addition, delegated to ``self + other``."""
         return self + other
 
     def __sub__(self, other: float | Word) -> Word:
-        """生成两字相减的算术节点。"""
+        """Emit an arithmetic node subtracting two words."""
         return self.algebra.calc("sub", self, other)
 
     def __rsub__(self, other: float | Word) -> Word:
-        """反射减法，返回左操作数减去 ``self`` 的字。"""
+        """Reflected subtraction, returning the word for left operand minus ``self``."""
         return self.algebra.word(other) - self
 
     def __mul__(self, other: float | Word) -> Word:
-        """生成两字相乘的算术节点。"""
+        """Emit an arithmetic node multiplying two words."""
         return self.algebra.calc("mul", self, other)
 
     def __rmul__(self, other: float | Word) -> Word:
-        """反射乘法，委托给 ``self * other``。"""
+        """Reflected multiplication, delegated to ``self * other``."""
         return self * other
 
     def __truediv__(self, other: float | Word) -> Word:
-        """生成两字相除的算术节点。"""
+        """Emit an arithmetic node dividing two words."""
         return self.algebra.calc("div", self, other)
 
     def __neg__(self) -> Word:
-        """生成对该字取负的算术节点。"""
+        """Emit an arithmetic node negating this word."""
         return self.algebra.calc("neg", self)
 
     def sqrt(self) -> Word:
-        """生成对该字求平方根的算术节点，返回承载结果的字。
+        """Emit an arithmetic node taking the square root of this word and return the word carrying the result.
 
         Returns:
-            Word: 承载平方根结果的新算术字。
+            Word: The new arithmetic word carrying the square root result.
         """
         return self.algebra.calc("sqrt", self)
 
     def abs(self) -> Word:
-        """生成对该字求绝对值的算术节点，返回承载结果的字。
+        """Emit an arithmetic node taking the absolute value of this word and return the word carrying the result.
 
         Returns:
-            Word: 承载绝对值结果的新算术字。
+            Word: The new arithmetic word carrying the absolute value result.
         """
         return self.algebra.calc("abs", self)
 
 
 class ArithmeticBuilder:
-    """宿主侧表达式生成器，结束时只留下模块调用/门和私有寄存器。"""
+    """Host-side expression builder; on finish only module calls or gates and private registers remain."""
 
     def __init__(self, builder: Builder, fmt: FixedFormat) -> None:
-        """初始化生成器并记录宿主指令流的起点。
+        """Initialize the builder and record the start of the host instruction stream.
 
         Args:
-            builder: 宿主指令构造器，算术节点发射到其中。
-            fmt: 定点算术使用的定点格式。
+            builder: The host instruction builder that arithmetic nodes are emitted into.
+            fmt: The fixed-point format used by the fixed-point arithmetic.
         """
         self.b: Builder = builder
         self.fmt: FixedFormat = fmt
@@ -90,13 +90,13 @@ class ArithmeticBuilder:
         self.start: int = len(builder._frames[0])
 
     def local(self, width: int | None = None) -> Ref:
-        """分配一个新的私有寄存器，用于存放中间值或常量。
+        """Allocate a new private register for intermediate values or constants.
 
         Args:
-            width: 位宽；省略时使用当前定点格式的字宽。
+            width: Bit width; defaults to the word width of the current fixed-point format.
 
         Returns:
-            新分配的寄存器引用，名字为 ``v_`` 加自增编号。
+            The newly allocated register reference, named ``v_`` plus an incrementing counter.
         """
         self.count += 1
         return self.b.local(
@@ -104,16 +104,18 @@ class ArithmeticBuilder:
         )
 
     def word(self, value: Word | Ref | float) -> Word:
-        """把各类输入统一包装成 ``Word``。
+        """Wrap various inputs into a ``Word`` uniformly.
 
-        ``Word`` 原样返回；带 ``parts`` 属性的寄存器引用直接包装；数值按当前
-        定点格式编码，相同编码的常量只物化一次并复用同一寄存器。
+        A ``Word`` is returned as-is; a register reference with a ``parts``
+        attribute is wrapped directly; numeric values are encoded in the current
+        fixed-point format, and constants with the same encoding are materialized
+        once and share one register.
 
         Args:
-            value: ``Word``、寄存器引用或可按定点格式编码的数值。
+            value: A ``Word``, a register reference, or a numeric value encodable in the fixed-point format.
 
         Returns:
-            Word: 与输入等价的算术字。
+            Word: The arithmetic word equivalent to the input.
         """
         if isinstance(value, Word):
             return value
@@ -129,19 +131,21 @@ class ArithmeticBuilder:
         return self.constants[raw]
 
     def calc(self, kind: str, *args: Word | Ref | float, select: Ref | None = None) -> Word:
-        """生成一个定点算术运算节点并返回其输出字。
+        """Emit one fixed-point arithmetic node and return its output word.
 
-        同一寄存器被重复用作操作数时，先用 XOR 复制到新寄存器、调用结束后
-        再还原，以支持平方等自身参与运算的情形；节点的状态寄存器记入
-        ``flags``，由 ``finish`` 统一汇总。
+        When the same register is reused as an operand, it is first copied with
+        XOR into a fresh register and restored after the call, supporting cases
+        such as squaring where a value participates in its own operation; the
+        node status register is recorded in ``flags`` and aggregated by
+        ``finish``.
 
         Args:
-            kind: 运算类型名，如 ``add``、``mul``、``sqrt``。
-            *args: 操作数，可为 ``Word``、寄存器或数值。
-            select: ``select`` 运算的控制位，其他运算不使用。
+            kind: Operation type name, e.g. ``add``, ``mul``, ``sqrt``.
+            *args: Operands; each may be a ``Word``, a register, or a numeric value.
+            select: The control bit for the ``select`` operation; unused by other operations.
 
         Returns:
-            Word: 承载运算结果的字。
+            Word: The word carrying the operation result.
         """
         op = fixed_arithmetic(kind, self.fmt)
         refs: list[Ref] = []
@@ -160,34 +164,34 @@ class ArithmeticBuilder:
         kwargs.update(out=out, status=status)
         if select is not None:
             kwargs["select"] = select
-        self.b.call(op, **kwargs)  # type: ignore[arg-type]  # 动态关键字分发：mypy 无法排除 resources 形参
+        self.b.call(op, **kwargs)  # type: ignore[arg-type]  # dynamic keyword dispatch: mypy cannot rule out the resources parameter
         for source, clone in reversed(copied):
             self.b.xor(source, clone)
         self.flags.append(status)
         return Word(self, out)
 
     def choose(self, bit: Ref, yes: Word | Ref | float, no: Word | Ref | float) -> Word:
-        """按单个控制位在两个字之间选择，位值 1 取 ``yes``、0 取 ``no``。
+        """Select between two words by a single control bit: value 1 picks ``yes`` and 0 picks ``no``.
 
         Args:
-            bit: 一位控制寄存器视图。
-            yes: 控制位为 1 时选中的字、寄存器或数值。
-            no: 控制位为 0 时选中的字、寄存器或数值。
+            bit: A one-bit control register view.
+            yes: The word, register or numeric value selected when the control bit is 1.
+            no: The word, register or numeric value selected when the control bit is 0.
 
         Returns:
-            Word: 承载所选值的算术字。
+            Word: The arithmetic word carrying the selected value.
         """
         return self.calc("select", yes, no, select=bit)
 
     def choose3(self, index: Ref, values: Sequence[Word | Ref | float]) -> Word:
-        """用两位索引在三个候选字中选择。
+        """Select among three candidate words with a two-bit index.
 
         Args:
-            index: 两位控制位序列，低位在前。
-            values: 三个候选字，依次对应索引 0..2。
+            index: The two-bit control sequence, least significant bit first.
+            values: The three candidate words, corresponding to indices 0..2 in order.
 
         Returns:
-            Word: 被选中的字；索引为 3 时结果为零。
+            Word: The selected word; the result is zero when the index is 3.
         """
         low = self.choose(index[0], values[1], values[0])
         high = self.choose(index[0], 0, values[2])
@@ -196,24 +200,25 @@ class ArithmeticBuilder:
     def finish(
         self, outputs: Iterable[tuple[Ref, Word | Ref | float]], status: Ref
     ) -> Operation:
-        """收尾并返回最终操作。
+        """Finalize and return the resulting operation.
 
-        每个输出字 XOR 进对应目标寄存器；各算术节点的状态位按位 OR 写入
-        ``status``；构造期间发出的正向指令以 ``Adjoint`` 反向重放，消除全部
-        中间值。
+        Each output word is XORed into its target register; the status bits of
+        the arithmetic nodes are bitwise-ORed into ``status``; the forward
+        instructions emitted during construction are replayed in reverse via
+        ``Adjoint``, erasing all intermediate values.
 
         Args:
-            outputs: 目标寄存器与结果字的配对序列。
-            status: 接收聚合状态的两位寄存器。
+            outputs: Pairs of target register and result word.
+            status: The two-bit register receiving the aggregated status.
 
         Returns:
-            Operation: 生成的完整操作。
+            Operation: The complete generated operation.
         """
         outputs = [(target, self.word(word)) for target, word in outputs]
         forward = tuple(self.b._frames[0][self.start :])
         for target, word in cast(list[tuple[Ref, Word]], outputs):
             self.b.xor(word.ref, target)
-        # 输出状态为各算术节点状态的 OR，不以 XOR 抵消重复错误。
+        # The output status is the OR of the arithmetic node statuses; XOR would not cancel duplicated errors.
         if self.flags:
             net = BooleanNetwork()
             all_flags = [net.input("f_" + str(i), 2) for i in range(len(self.flags))]
@@ -222,7 +227,7 @@ class ArithmeticBuilder:
             self.b.call(
                 op,
                 status=status,
-                # 动态关键字分发：mypy 无法排除 resources 形参
+                # dynamic keyword dispatch: mypy cannot rule out the resources parameter
                 **{"f_" + str(i): flag for i, flag in enumerate(self.flags)},  # type: ignore[arg-type]
             )
         self.b.emit(Adjoint(forward))
@@ -235,16 +240,16 @@ def roe_face(
     gamma: float = 1.4,
     entropy_delta: float = 0.125,
 ) -> Operation:
-    """普通 Python Roe 函数自动编译，保留现有六个场量及行列输入 ABI。
+    """Automatic compilation of a plain Python Roe function, keeping the existing six-field plus row and column input ABI.
 
     Args:
-        fmt: 场量与通量使用的定点格式；省略时使用 ``FixedFormat(10, 5)``。
-        gamma: 比热比。
-        entropy_delta: Harten 熵修正阈值。
+        fmt: The fixed-point format for field values and fluxes; defaults to ``FixedFormat(10, 5)``.
+        gamma: Ratio of specific heats.
+        entropy_delta: Harten entropy fix threshold.
 
     Returns:
-        Operation: 由 ``frozen_roe_face`` 按定点算术自动编译出的可逆界面
-        通量计算模块。
+        Operation: The reversible face-flux computation module auto-compiled from
+        ``frozen_roe_face`` with fixed-point arithmetic.
     """
     from dataclasses import replace
 
@@ -263,7 +268,7 @@ def roe_face(
         constants={"gamma": gamma, "entropy_delta": entropy_delta},
         output_names=("left", "right"),
     )
-    # CompiledFunction.operation 在 infrastructure 侧标注为 object；此处按运行时结构收窄。
+    # CompiledFunction.operation is annotated as object on the infrastructure side; narrowed here by its runtime structure.
     attrs = dict(cast(Operation, compiled.operation).module.attributes)
     attrs.update(
         algorithm="frozen_roe_1d_euler",

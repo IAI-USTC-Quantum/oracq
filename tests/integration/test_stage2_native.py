@@ -1,4 +1,4 @@
-"""第二阶段真实编译/执行冒烟；不验证 Roe 或微分方程的数值精度。"""
+"""Stage-2 real compilation/execution smoke tests; the numerical accuracy of Roe schemes or differential equations is not validated."""
 
 import math
 import unittest

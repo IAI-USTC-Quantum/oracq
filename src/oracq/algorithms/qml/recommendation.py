@@ -1,12 +1,16 @@
-"""Kerenidis-Prakash 量子推荐系统（arXiv:1603.08675）：QSVE + 阈值投影 + 采样。
+"""Kerenidis-Prakash quantum recommendation system (arXiv:1603.08675): QSVE plus threshold projection plus sampling.
 
-数据面是 QMatrix 的 sample-and-query 结构（algorithms/qdata.py）。按论文
-Lemma 5.3 构造 W = U·V，其中 U = Ũ R₁ Ũ⁻¹、V = Ṽ R₀ Ṽ⁻¹：Ũ 由行树把
-(i, 0) 映到 (i, 行 i 的归一化向量)，Ṽ 由行范数根树把 (0, j) 映到
-(用户分布 Ã, j)，R₀/R₁ 是对行/条目寄存器零基矢的反射。对 W 做相位估计
-得到 θ，满足 cos(θ_i/2) = σ_i/‖A‖_F；逐相位字估计 σ̂ 并按阈值翻转 flag
-（§5.3 Alg 2 的确定性投影版），逆相位估计后测 (flag, item)：flag=1 分支的
-条目寄存器分布即推荐采样分布（§6）。
+The data plane is QMatrix's sample-and-query structure
+(algorithms/qdata.py). Following Lemma 5.3 of the paper, build W = U·V with
+U = Ũ R₁ Ũ⁻¹ and V = Ṽ R₀ Ṽ⁻¹: Ũ maps (i, 0) to (i, the normalized vector
+of row i) via the row tree, Ṽ maps (0, j) to (the user distribution Ã, j)
+via the row-norm root tree, and R₀/R₁ are reflections about the zero basis
+states of the row/item registers. Phase estimation on W yields θ satisfying
+cos(θ_i/2) = σ_i/‖A‖_F; σ̂ is estimated per phase word and the flag is
+flipped by threshold (the deterministic projection version of §5.3 Alg 2),
+and after inverse phase estimation (flag, item) is measured: the item
+register distribution on the flag=1 branch is exactly the recommendation
+sampling distribution (§6).
 """
 
 from __future__ import annotations
@@ -23,26 +27,27 @@ from oracq.infrastructure.ir import QRAM, Bits, Ref, ValidationError
 
 
 def sigma_from_phase(value: int, precision: int, frobenius: float) -> float:
-    """相位读数 t → 奇异值估计 σ̂ = ‖A‖_F 乘 cos(π t/2^precision) 的绝对值。
+    """Phase readout t → singular value estimate σ̂ = ‖A‖_F times the absolute value of cos(π t/2^precision).
 
-    W 的特征值成对出现 e^{±iθ}（同一 σ 的两个旋转方向），镜像相位
-    2^precision−t 必须映射到同一奇异值，因此取绝对值。
+    The eigenvalues of W come in pairs e^{±iθ} (the two rotation directions of
+    the same σ), and the mirror phase 2^precision−t must map to the same
+    singular value, hence the absolute value.
 
     Args:
-        value: 相位寄存器读数，取 0..2^precision−1 的整数。
-        precision: 相位寄存器位数。
-        frobenius: 矩阵的 Frobenius 范数 ‖A‖_F。
+        value: Phase register readout, an integer in 0..2^precision−1.
+        precision: Number of phase register bits.
+        frobenius: Frobenius norm ‖A‖_F of the matrix.
 
     Returns:
-        float: 奇异值估计 σ̂。
+        float: Singular value estimate σ̂.
     """
     if not 0 <= value < 1 << precision:
-        raise ValidationError("相位读数越界")
+        raise ValidationError("the phase readout is out of range")
     return frobenius * abs(math.cos(math.pi * value / (1 << precision)))
 
 
 def _reflect_zero(builder: Builder, register: Ref) -> None:
-    """对零基矢的反射（2 倍投影减恒等）：X 全翻 + 多控 Z + X 全翻；单比特即 Z。"""
+    """Reflection about the zero basis state (twice the projector minus the identity): flip all with X, multi-controlled Z, flip all with X; for a single bit this is just Z."""
     if register.width == 1:
         builder.z(register)
         return
@@ -56,7 +61,7 @@ def _reflect_zero(builder: Builder, register: Ref) -> None:
 
 @dataclass(frozen=True)
 class KPRecommendationConfig:
-    """precision 为相位寄存器位数；sigma 为奇异值阈值，缺省取 0.5·‖A‖_F。"""
+    """precision is the number of phase register bits; sigma is the singular value threshold, defaulting to 0.5·‖A‖_F."""
 
     precision: int = 4
     sigma: float | None = None
@@ -64,16 +69,18 @@ class KPRecommendationConfig:
 
 @dataclass(frozen=True)
 class RecommendationResult:
-    """KP 推荐采样电路及其读出契约。
+    """KP recommendation sampling circuit and its readout contract.
 
     Attributes:
-        operation: 推荐采样电路；寄存器 row、item、phase、flag，QRAM 资源为
-            row_angles 与 root_angles。
-        matrix: 构造电路所用的 QMatrix 输入。
-        user: 目标用户编号。
-        precision: 相位寄存器位数。
-        sigma: 实际采用的奇异值阈值；config 未指定时取 0.5·frobenius。
-        frobenius: 矩阵的 Frobenius 范数，sigma_from_phase 解码时使用。
+        operation: Recommendation sampling circuit; registers row, item,
+            phase, and flag, with QRAM resources row_angles and root_angles.
+        matrix: The QMatrix input used to build the circuit.
+        user: Target user index.
+        precision: Number of phase register bits.
+        sigma: Singular value threshold actually applied; 0.5·frobenius when
+            config leaves it unspecified.
+        frobenius: Frobenius norm of the matrix, used when decoding with
+            sigma_from_phase.
     """
 
     operation: Operation
@@ -84,23 +91,27 @@ class RecommendationResult:
     frobenius: float
 
     def memories(self) -> dict[str, dict[int, int]]:
-        """提取电路所需两座 QRAM 角度库的初值。
+        """Extract the initial values of the two QRAM angle banks required by the circuit.
 
         Returns:
-            dict: 键为 row_angles（行树）与 root_angles（行范数根树），值为
-            地址到角度字的映射，供执行入口绑定电路声明的 QRAM 资源。"""
+            dict: Keys row_angles (the row tree) and root_angles (the
+            row-norm root tree); values map addresses to angle words, for the
+            execution entry point to bind the QRAM resources declared by the
+            circuit."""
         snapshot = self.matrix.snapshot()
         return {"row_angles": snapshot["row_angles"], "root_angles": snapshot["root_angles"]}
 
     def readout(self, state: RegisterState) -> tuple[float, dict[int, float]]:
-        """把模拟/执行结果折算为 (成功概率, 条件推荐分布)。
+        """Reduce a simulation or execution result to (success probability, conditional recommendation distribution).
 
         Args:
-            state: 寄存器级模拟或执行得到的振幅态。
+            state: Amplitude state obtained from register-level simulation or
+                execution.
 
         Returns:
-            tuple[float, dict[int, float]]: flag=1 分支的总概率与该分支上
-            各条目的条件推荐分布。
+            tuple[float, dict[int, float]]: The total probability of the
+            flag=1 branch and the conditional recommendation distribution
+            over items on that branch.
         """
         registers = self.operation.module.registers
         index = {r.name: i for i, r in enumerate(registers)}
@@ -117,7 +128,7 @@ class RecommendationResult:
 
 
 def _walk_unitary(matrix: QMatrix) -> Operation:
-    """W = Ũ R₁ Ũ⁻¹ · Ṽ R₀ Ṽ⁻¹；寄存器 row/item，资源与 QMatrix bank 同名。"""
+    """W = Ũ R₁ Ũ⁻¹ · Ṽ R₀ Ṽ⁻¹; registers row/item, resources share names with the QMatrix banks."""
     r, c, aw = matrix.rows, matrix.cols, matrix.angle_width
     b = Builder(
         _name("kp_walk", matrix.rows, matrix.cols, matrix.angle_width),
@@ -133,13 +144,13 @@ def _walk_unitary(matrix: QMatrix) -> Operation:
     def sandwich(
         prep: Operation, register: Ref, work: Ref, resource: dict[str, str]
     ) -> None:
-        """prep 共轭的零基矢反射：伴随先行，反射居中，正向收尾。"""
+        """Zero-basis reflection conjugated by prep: adjoint first, reflection in the middle, forward call to finish."""
         with b.adjoint():
             b.call(prep, row=b["row"], item=b["item"], work=work, resources=resource)
         _reflect_zero(b, register)
         b.call(prep, row=b["row"], item=b["item"], work=work, resources=resource)
 
-    # 先 V = Ṽ R₀ Ṽ⁻¹，后 U = Ũ R₁ Ũ⁻¹；算符乘积 U·V。
+    # First V = Ṽ R₀ Ṽ⁻¹, then U = Ũ R₁ Ũ⁻¹; the operator product is U·V.
     sandwich(amp, b["row"], amp_work, {"root_angles": "root_angles"})
     sandwich(row, b["item"], row_work, {"row_angles": "row_angles"})
     return b.finish()
@@ -148,27 +159,31 @@ def _walk_unitary(matrix: QMatrix) -> Operation:
 def kp_recommendation(
     matrix: QMatrix, user: int, config: KPRecommendationConfig | None = None
 ) -> RecommendationResult:
-    """对用户 user 生成推荐采样电路；返回含读出契约的 RecommendationResult。
+    """Generate the recommendation sampling circuit for user user; returns a RecommendationResult carrying the readout contract.
 
     Args:
-        matrix: sample-and-query 结构的推荐矩阵输入模型。
-        user: 目标用户编号，取 0..行数−1。
-        config: 相位位数与奇异值阈值配置；缺省 4 位相位、阈值 0.5·‖A‖_F。
+        matrix: Recommendation matrix input model with the sample-and-query
+            structure.
+        user: Target user index, in 0..number of rows − 1.
+        config: Phase bit count and singular value threshold configuration;
+            defaults to 4 phase bits and threshold 0.5·‖A‖_F.
 
     Returns:
-        RecommendationResult: 含推荐采样电路、QRAM 角度库初值与读出契约的结果。
+        RecommendationResult: Result containing the recommendation sampling
+        circuit, the initial QRAM angle bank values, and the readout
+        contract.
     """
     config = config or KPRecommendationConfig()
     if not isinstance(matrix, QMatrix):
-        raise ValidationError("kp_recommendation 需要 QMatrix 输入")
+        raise ValidationError("kp_recommendation requires a QMatrix input")
     if not 1 <= config.precision <= 12:
-        raise ValidationError("推荐相位寄存器位数必须为 1..12")
+        raise ValidationError("the recommendation phase register width must be between 1 and 12")
     r, c, aw = matrix.rows, matrix.cols, matrix.angle_width
     sigma = config.sigma
     if sigma is None:
         sigma = 0.5 * matrix.frobenius
     if not 0 < sigma <= matrix.frobenius:
-        raise ValidationError("奇异值阈值必须处于 (0, ‖A‖_F]")
+        raise ValidationError("the singular value threshold must be positive and at most the Frobenius norm")
     walk = _walk_unitary(matrix)
     qpe = phase_estimation(walk, precision=config.precision)
     prep = matrix.row_state_prep(user)

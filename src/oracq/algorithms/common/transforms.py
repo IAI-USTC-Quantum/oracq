@@ -1,4 +1,4 @@
-"""qubitization、显式 QSVT 相位序列和 oblivious amplification 的组装。"""
+"""Assembly of qubitization, explicit QSVT phase sequences and oblivious amplification."""
 
 from __future__ import annotations
 
@@ -12,17 +12,18 @@ from oracq.infrastructure.ir import Bits
 
 
 def qubitization_walk(a: BlockEncoding) -> Operation:
-    """组装块编码 ``a`` 的 qubitization walk 操作。
+    """Assemble the qubitization walk operation of a block encoding ``a``.
 
-    先正向调用 ``a``，再对 signal 做关于零子空间的正反射，得到
-    ``(2 P_0 - I) U`` 形式的 walk 算子；寄存器沿用 ``a`` 的 target 与
-    signal 签名。
+    It first invokes ``a`` forward, then applies the positive reflection of
+    the signal about the zero subspace, yielding a walk operator of the form
+    ``(2 P_0 - I) U``; the registers follow the target and signal signature
+    of ``a``.
 
     Args:
-        a: 输入 ``BlockEncoding``。
+        a: The input ``BlockEncoding``.
 
     Returns:
-        Operation: 保留对 ``a`` 的模块调用的 walk 操作。
+        Operation: Walk operation that keeps the module call to ``a``.
     """
     b = Builder(
         _name("qubitization_walk", a.operation),
@@ -36,19 +37,22 @@ def qubitization_walk(a: BlockEncoding) -> Operation:
 
 
 def qsvt_sequence(a: BlockEncoding, phases: Iterable[float]) -> Operation:
-    """按显式相位序列对块编码 ``a`` 组装 QSVT 线路。
+    """Assemble a QSVT circuit for a block encoding ``a`` from an explicit phase
+    sequence.
 
-    相位按时间顺序排列（``phases[0]`` 最先作用），``len(phases)`` 个相位
-    伴随 ``len(phases) - 1`` 次 ``a`` 调用，正向与逆向交替；每个相位由
-    全局相位与 signal 零子空间上的受控相位合成。相位约定与 ``qsvt``
-    模块的相位合成一致。
+    The phases are ordered in time, ``phases[0]`` acting first; ``len(phases)``
+    phases accompany ``len(phases) - 1`` calls to ``a``, alternating forward
+    and inverse; each phase is composed from a global phase and a controlled
+    phase on the zero subspace of signal. The phase convention matches the
+    phase synthesis of the ``qsvt`` module.
 
     Args:
-        a: 输入 ``BlockEncoding``。
-        phases: 弧度相位序列，元素可为任何可转 ``float`` 的值。
+        a: The input ``BlockEncoding``.
+        phases: Phase sequence in radians; elements may be any value convertible to
+            ``float``.
 
     Returns:
-        Operation: 对 ``a`` 的调用保留为模块调用的 QSVT 操作。
+        Operation: QSVT operation whose calls to ``a`` are kept as module calls.
     """
     phases = tuple(float(p) for p in phases)
     b = Builder(
@@ -74,17 +78,18 @@ def qsvt_sequence(a: BlockEncoding, phases: Iterable[float]) -> Operation:
 
 
 def oblivious_amplification(a: BlockEncoding, iterations: int = 1) -> Operation:
-    """对块编码 ``a`` 组装 oblivious amplitude amplification。
+    """Assemble oblivious amplitude amplification for a block encoding ``a``.
 
-    先正向调用 ``a``；随后每轮依次执行 signal 零反射、逆向调用 ``a``、
-    再次零反射和正向调用，用于放大零信号投影分量。
+    It first invokes ``a`` forward; each round then performs the zero
+    reflection of signal, the inverse call to ``a``, another zero reflection
+    and the forward call, amplifying the zero-signal projected component.
 
     Args:
-        a: 输入 ``BlockEncoding``。
-        iterations: 放大轮数，默认为一轮。
+        a: The input ``BlockEncoding``.
+        iterations: Number of amplification rounds, one by default.
 
     Returns:
-        Operation: 迭代以 RIR ``Repeat`` 保留的操作。
+        Operation: Operation whose iterations are kept in an RIR ``Repeat``.
     """
     b = Builder(
         _name("oaa", a.operation, iterations),

@@ -1,22 +1,33 @@
-"""数学函数廊与 frozen Roe 面的论文级数值验证。
+"""Publication-grade numerical validation of the math-function gallery and the frozen Roe face.
 
-覆盖 examples/math_functions.py 的 5 个函数（pressure / roe_speed / phase_response /
-guarded_reciprocal / polynomial）与 applications/roe_formulas.py 的 frozen_roe_face，
-全部经 oracq.compile_function 编译为定点可逆模块后在真实后端上执行：
+Covers the 5 functions of examples/math_functions.py (pressure / roe_speed /
+phase_response / guarded_reciprocal / polynomial) and the frozen_roe_face of
+applications/roe_formulas.py; all are compiled via oracq.compile_function into
+fixed-point reversible modules and executed on real backends:
 
-- rir-pysparq（PySparQ 原生 RIR 解释器）为主力路径，叠加态一次穷举输入域；
-- reference / adapter-pysparq 在代表性程序上做振幅级三方对拍；
-- OriginIR-ext 态向量路径因编译函数工作区远超 24 量子比特预算而不适用
-  （workspace_table 实测 10^2–10^3 比特，各 case 的 parameters 记录实测值）。
+- rir-pysparq (the PySparQ native RIR interpreter) is the primary path; a
+  superposition run exhausts the input domain at once;
+- reference / adapter-pysparq provide amplitude-level three-way cross-checks
+  on representative programs;
+- the OriginIR-ext state-vector path is not applicable because the workspace
+  of compiled functions far exceeds the 24-qubit budget (workspace_table
+  measures 10^2-10^3 bits; each case's parameters record the measured value).
 
-oracle 独立性：期望值由本脚本内用 float64（math/cmath）按数学定义独立转写的公式
-给出，不导入被测实现；phase_response 另把模块属性 math_approximation 中的
-Chebyshev 系数作为"实现参考"、真函数作为"方法参考"，实现误差与方法误差分开报告。
-status 旗标语义（位 0 = 定义域失效、位 1 = 值域/字长越界）逐分支核对。
+Oracle independence: expected values come from formulas independently
+transcribed in this script from their mathematical definitions using float64
+(math/cmath), without importing the implementation under test;
+phase_response additionally treats the Chebyshev coefficients in the module
+attribute math_approximation as the "implementation reference" and the true
+function as the "method reference", reporting implementation error and method
+error separately. The status flag semantics (bit 0 = domain failure, bit 1 =
+range/word-length overflow) are checked branch by branch.
 
-运行：PYTHONPATH=src <含 pysparq+uniqc 的 python> tests/verification/verify_mathfunc.py
-环境变量 VERIFY_WORKERS 控制并行进程数（默认 10；本组门级仿真单分支最重约 2.5 s，
-靠多进程把总墙钟压进 5 分钟）。所有执行均为叠加态穷举，不做逐基态循环。
+Run: PYTHONPATH=src <python with pysparq+uniqc> tests/verification/verify_mathfunc.py
+The environment variable VERIFY_WORKERS controls the number of parallel
+processes (default 10; the heaviest gate-level simulation of a single branch
+in this group takes about 2.5 s, and multiprocessing keeps the total wall
+clock under 5 minutes). All executions are superposition-exhaustive; no
+per-basis-state loops are used.
 """
 
 from __future__ import annotations
@@ -38,18 +49,21 @@ from harness import (
 )
 
 if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))  # 使 worker 进程可导入 examples/ 下的被测函数
+    sys.path.insert(0, str(ROOT))  # lets worker processes import the functions under test from examples/
 
 from oracq import Builder, FixedFormat
 from oracq.infrastructure.mathfunc import Index, MathConfig, compile_function
 
 FMTS = {"6.2": (6, 2), "8.3": (8, 3)}
 
-# phase_response 的 Chebyshev 阶数：默认 degree=6 的核门数对门级仿真过重，取
-# degree=3 控制预算；方法误差（多项式 vs 真函数）单独报告，不混入实现误差。
+# Chebyshev degree for phase_response: the kernel gate count of the default
+# degree=6 is too heavy for gate-level simulation, so degree=3 is used to keep
+# the budget; the method error (polynomial vs true function) is reported
+# separately and never mixed into the implementation error.
 PHASE_DEGREE = 3
 
-# 各函数量化容差（单位：量子），按截断算子（mul/div/sqrt/核求值）数量与传播放宽。
+# Quantization tolerance per function (unit: quanta), relaxed according to the
+# number of truncating operators (mul/div/sqrt/kernel evaluation) and propagation.
 TOLERANCE = {
     "polynomial": 0.0,
     "guarded_reciprocal": 1.0,
@@ -60,7 +74,8 @@ TOLERANCE = {
 }
 
 # ---------------------------------------------------------------------------
-# 被测函数的编译规格（worker 进程内按需编译；编译确定且廉价）
+# Compilation specs of the functions under test (compiled on demand inside worker
+# processes; compilation is deterministic and cheap)
 # ---------------------------------------------------------------------------
 
 
@@ -105,7 +120,7 @@ def _compile(fn_key, fmt):
 
 
 def _workspace(fn_key, fmt):
-    """编译程序的工作区峰值（locals 叠调用链最大值），用于 OriginIR 预算说明。"""
+    """Workspace peak of the compiled program (max over locals stacked along the call chain), used for the OriginIR budget note."""
     from oracq.infrastructure.layout import workspace_table
 
     program = _compile(fn_key, fmt).program()
@@ -113,11 +128,11 @@ def _workspace(fn_key, fmt):
 
 
 # ---------------------------------------------------------------------------
-# 独立 float64 oracle（按数学定义独立转写）
-# 返回 (期望输出|None, 参考输出|None, 期望 status|None)：
-#   期望输出 None —— 该分支不比对数值（已旗标或灰区）；
-#   期望 status：位 0 = 定义域失效，位 1 = 值域/字长越界；None = 阈值灰区不比对；
-#   参考输出仅 phase_response 使用（真函数值，用于方法误差）。
+# Independent float64 oracle (independently transcribed from the mathematical definitions)
+# Returns (expected output|None, reference output|None, expected status|None):
+#   expected output None -- that branch skips the numeric comparison (flagged or gray zone);
+#   expected status: bit 0 = domain failure, bit 1 = range/word-length overflow; None = threshold gray zone, not compared;
+#   reference output used only by phase_response (true function value, for the method error).
 # ---------------------------------------------------------------------------
 
 
@@ -126,14 +141,15 @@ def _limit(fmt):
 
 
 def _quantize(fmt, value):
-    """生成期常量的定点编码-解码往返（encode 向零截断）。"""
+    """Fixed-point encode-decode round trip of a generation-time constant (encode truncates toward zero)."""
     return fmt.decode(fmt.encode(value))
 
 
 class _Fx:
-    """fixed_arithmetic 的逐比特仿真（raw 整数域）：
-    mul/div/sqrt 幅度向零截断，add/sub 模 wrap，status 位 0 = 定义域、位 1 = 越界，
-    select 只传播被选中分支的旗标。值用 (raw, flag) 二元组沿路径携带。"""
+    """Bit-by-bit simulation of fixed_arithmetic on the raw integer domain:
+    mul/div/sqrt truncate magnitudes toward zero, add/sub wrap modulo the word,
+    status bit 0 = domain, bit 1 = overflow; select propagates only the chosen
+    branch's flag. Values travel along paths as (raw, flag) tuples."""
 
     def __init__(self, fmt):
         self.w, self.f = fmt.width, fmt.fraction
@@ -145,11 +161,11 @@ class _Fx:
         return raw - (1 << self.w) if raw & self.sign else raw
 
     def const(self, x):
-        # 与 fmt.encode 一致：int() 向零截断后取模；此处常量均在字长范围内
+        # Consistent with fmt.encode: int() truncates toward zero then wraps; constants here all fit the word length
         return self.wrap(int(x * (1 << self.f))), 0
 
     def input(self, x):
-        # 网格值（decode 过的输入）回 raw；浮点往返精确
+        # Grid values (decoded inputs) back to raw; the float round trip is exact
         return int(round(x * (1 << self.f))), 0
 
     def _ovf(self, mag):
@@ -201,11 +217,11 @@ class _Fx:
         return self.wrap(mag), fa | self._ovf(mag)
 
     def ge(self, a, b):
-        # 布尔比较（电路为 lt 取反；比较本身无旗标）
+        # Boolean comparison (the circuit computes lt and inverts; the comparison itself carries no flag)
         return (1 if a[0] >= b[0] else 0), a[1] | b[1]
 
     def select(self, test, yes, no):
-        # 两分支都被计算，但被选中分支的（值, 旗标）才传播
+        # Both branches are computed, but only the chosen branch's (value, flag) propagates
         chosen = yes if test[0] else no
         return chosen[0], test[1] | chosen[1]
 
@@ -214,7 +230,7 @@ class _Fx:
 
 
 def oracle_polynomial(v, fmt):
-    # 截断链精确仿真：x*x 幅度向零截断至量子网格，加法无截断；溢出按字长判定。
+    # Exact simulation of the truncation chain: the x*x magnitude truncates toward zero onto the quantum grid, addition has no truncation; overflow judged by word length.
     x = v["x"]
     q = 1.0 / (1 << fmt.fraction)
     xx = math.trunc(x * x / q) * q
@@ -227,18 +243,18 @@ def oracle_polynomial(v, fmt):
 def oracle_guarded_reciprocal(v, fmt):
     x = v["x"]
     if x == 0:
-        return {"out": 0.0}, None, 0  # 守护分支吸收奇点，未选分支除零被掩码
+        return {"out": 0.0}, None, 0  # the guard branch absorbs the singularity; the unselected branch's division by zero is masked
     val = 1.0 / x
     flag = 2 if abs(val) >= _limit(fmt) else 0
     return ({"out": val} if flag == 0 else None), None, flag
 
 
 def oracle_pressure(v, fmt):
-    # 截断链精确仿真（与 polynomial 同法）：div/mul 幅度向零截断一个量子，add/sub
-    # 无截断；gamma-1 经前端常量折叠为 0.4 再编码（6.2 → 0.25，8.3 → 0.375）。
+    # Exact simulation of the truncation chain (same method as polynomial): div/mul truncate the magnitude by one quantum,
+    # add/sub do not truncate; gamma-1 is front-end constant-folded to 0.4 before encoding (6.2 -> 0.25, 8.3 -> 0.375).
     rho, m, e = v["rho"], v["momentum"], v["energy"]
     if rho == 0:
-        return None, None, 1  # 除零 → 位 0
+        return None, None, 1  # division by zero -> bit 0
     q = 1.0 / (1 << fmt.fraction)
 
     def trunc(x):
@@ -265,18 +281,18 @@ def oracle_pressure(v, fmt):
 
 
 def oracle_roe_speed(v, fmt):
-    # _Fx 逐比特仿真：sqrt 为 isqrt(raw<<f)，mul/div 向零截断，旗标语义同电路。
+    # _Fx bit-by-bit simulation: sqrt is isqrt(raw<<f), mul/div truncate toward zero, flag semantics as in the circuit.
     F = _Fx(fmt)
     rl, rr = v["rho_l"], v["rho_r"]
     if rl <= 0 or rr <= 0:
-        return None, None, 1  # rho<0 平方根定义域 / rho=0 除零（电路同置位 0）
+        return None, None, 1  # rho<0 sqrt domain / rho=0 division by zero (the circuit also sets bit 0)
     left = F.sqrt(F.input(rl))
     right = F.sqrt(F.input(rr))
     b = F.div(F.mul(left, F.input(v["momentum_l"])), F.input(rl))
     d = F.div(F.mul(right, F.input(v["momentum_r"])), F.input(rr))
     val = F.div(F.add(b, d), F.add(left, right))
     status = val[1]
-    # 方法参考：float64 原式（含 sqrt 精确值）
+    # Method reference: the float64 original formula (with exact sqrt values)
     lw, rw = math.sqrt(rl), math.sqrt(rr)
     exact = (lw * v["momentum_l"] / rl + rw * v["momentum_r"] / rr) / (lw + rw)
     return ({"out": F.decode(val)} if status == 0 else None), {"out": exact}, status
@@ -294,8 +310,8 @@ def _entropy_abs(lam, delta):
 
 
 def _roe_face_formula(v, consts):
-    """Roe 面公式主体；consts = (g1, gm, gm3, tmg, delta) 分别为
-    (gamma-1, gamma, gamma-3, 3-gamma, entropy_delta) 的取值。"""
+    """Main body of the Roe face formula; consts = (g1, gm, gm3, tmg, delta) are the
+    values of (gamma-1, gamma, gamma-3, 3-gamma, entropy_delta)."""
     g1, gm, gm3, tmg, delta = consts
     rl, ml, el = v["rho_l"], v["m_l"], v["e_l"]
     rr, mr, er = v["rho_r"], v["m_r"], v["e_r"]
@@ -358,24 +374,26 @@ def _roe_face_outputs(parts, consts):
 
 
 def _roe_face_vm(v, fmt):
-    """frozen_roe_face 的 _Fx 逐比特仿真；按 roe_formulas.py 源码顺序转写。
+    """_Fx bit-by-bit simulation of frozen_roe_face, transcribed in the source order of roe_formulas.py.
 
-    旗标语义的两大要点（对照 lowering.py / numeric.py）：
-    - helper 调用把**全部参数**的 status 与模块内 status 合并（combined），
-      因此 pick3/euler_entry 等 helper 的未选中参数分支旗标不被掩码；
-    - helper 形参（gamma、delta）在 helper 模块内是动态输入，不参与前端常量折叠
-      （如 euler_entry 内 3-gamma = 3-1.25 = 1.75，而非折叠值 1.5）。
-    返回 (left, right, flag)。"""
+    Two key points of the flag semantics (against lowering.py / numeric.py):
+    - a helper call merges the status of **all arguments** into the module's
+      internal status (combined), so flags of unselected argument branches of
+      helpers like pick3/euler_entry are not masked;
+    - helper formal parameters (gamma, delta) are dynamic inputs inside the
+      helper module and do not participate in front-end constant folding
+      (e.g. 3-gamma = 3-1.25 = 1.75 inside euler_entry, not the folded 1.5).
+    Returns (left, right, flag)."""
     F = _Fx(fmt)
     rl, ml, el = (F.input(v[k]) for k in ("rho_l", "m_l", "e_l"))
     rr, mr, er = (F.input(v[k]) for k in ("rho_r", "m_r", "e_r"))
     row, col = v["row"], v["col"]
     half = F.const(0.5)
-    gm = F.const(1.4)  # gamma 作为 helper 实参被物化为常量寄存器
-    g1 = F.const(0.4)  # 顶层函数体内 gamma-1 经前端折叠后编码
+    gm = F.const(1.4)  # gamma materialized as a constant register for the helper argument
+    g1 = F.const(0.4)  # gamma-1 folded by the front end inside the top-level function body, then encoded
 
     def primitive(rho, m, e):
-        gm1 = F.sub(gm, F.const(1.0))  # helper 内动态计算 gamma-1
+        gm1 = F.sub(gm, F.const(1.0))  # gamma-1 computed dynamically inside the helper
         u = F.div(m, rho)
         p = F.mul(gm1, F.sub(e, F.mul(F.mul(half, m), u)))
         h = F.div(F.add(e, p), rho)
@@ -392,7 +410,7 @@ def _roe_face_vm(v, fmt):
             F.add(F.mul(lam, lam), F.mul(delta, delta)), F.mul(F.const(2.0), delta)
         )
         rest = F.select(F.ge(value, delta), value, smooth)
-        # `delta <= 0` ⟺ `0 >= delta`；6.2 下 delta raw = 0 → 恒取 value 分支
+        # `delta <= 0` is equivalent to `0 >= delta`; under 6.2, delta raw = 0 -> the value branch is always taken
         out = F.select(F.ge(F.const(0.0), delta), value, rest)
         return out[0], lam[1] | delta[1] | out[1]
 
@@ -461,7 +479,7 @@ def _roe_face_vm(v, fmt):
 
 def oracle_frozen_roe_face(v, fmt):
     if v["rho_l"] <= 0 or v["rho_r"] <= 0:
-        return None, None, 1  # rho<0 平方根定义域 / rho=0 除零
+        return None, None, 1  # rho<0 sqrt domain / rho=0 division by zero
     left, right, flag = _roe_face_vm(v, fmt)
     if flag != 0:
         return None, None, flag
@@ -475,13 +493,14 @@ def oracle_frozen_roe_face(v, fmt):
             (0.4, 1.4, -1.6, 1.6, 0.125),
         )[0]
     except (ValueError, ZeroDivisionError):
-        exact = None  # 精确常量公式在该点奇异（如 c2≤0），方法误差点不计
+        exact = None  # the exact-constant formula is singular at this point (e.g. c2<=0); the method-error point is skipped
     return outputs, exact, 0
 
 
 def _kernel_fx(F, coeffs, kind, a):
-    """初等核模块的 _Fx 仿真：区间常量经编码截断，Clenshaw 递推按 numeric.py 的
-    乘加顺序逐比特复现；越出区间置位 1（对照模块属性 math_approximation 的系数）。"""
+    """_Fx simulation of an elementary kernel module: interval constants are encode-truncated, and the Clenshaw recursion
+    reproduces the multiply-add order of numeric.py bit by bit; leaving the interval sets bit 1 (against the coefficients
+    of the module attribute math_approximation)."""
     (lo, hi), cs = coeffs[kind]
     t = F.mul(F.sub(a, F.const((lo + hi) / 2)), F.const(1 / ((hi - lo) / 2)))
     nxt = F.const(0.0)
@@ -497,11 +516,11 @@ def _kernel_fx(F, coeffs, kind, a):
 
 
 def _phase_vm(v, fmt, coeffs):
-    """phase_response 的 _Fx 逐比特仿真（含三个初等核）。"""
+    """_Fx bit-by-bit simulation of phase_response (three elementary kernels included)."""
     F = _Fx(fmt)
     x = F.input(v["x"])
     y = F.input(v["y"])
-    # w = e^{i z}：1j·z = (−y, x)（乘 0/1 精确）
+    # w = e^{i z}: 1j*z = (-y, x) (multiplication by 0/1 is exact)
     mag = _kernel_fx(F, coeffs, "exp", F.sub(F.const(0.0), y))
     wre = F.mul(mag, _kernel_fx(F, coeffs, "cos", x))
     wim = F.mul(mag, _kernel_fx(F, coeffs, "sin", x))
@@ -515,7 +534,7 @@ def _phase_vm(v, fmt, coeffs):
 
 
 def make_phase_oracle(coeffs):
-    """phase_response oracle：_Fx 仿真（实现参考，对照系数配方）+ 真函数（方法参考）。"""
+    """phase_response oracle: _Fx simulation (implementation reference, against the coefficient recipe) + the true function (method reference)."""
 
     def oracle(v, fmt):
         ore, oim, flag = _phase_vm(v, fmt, coeffs)
@@ -538,12 +557,12 @@ def _phase_coefficients(fmt):
                 data = json.loads(value)
                 coeffs[data["function"]] = (tuple(data["interval"]), tuple(data["coefficients"]))
     if set(coeffs) != {"exp", "sin", "cos"}:
-        raise AssertionError(f"phase_response 核系数缺失：{sorted(coeffs)}")
+        raise AssertionError(f"phase_response kernel coefficients missing: {sorted(coeffs)}")
     return coeffs
 
 
 # ---------------------------------------------------------------------------
-# 执行 worker（顶层函数，可 pickled；每个任务 = 一次后端执行）
+# Execution workers (top-level functions, picklable; each task = one backend execution)
 # ---------------------------------------------------------------------------
 
 
@@ -569,15 +588,16 @@ def execute(task):
     ]
     kwargs = {"max_states": task["max_states"]}
     if task.get("max_steps"):
-        # reference/adapter 的静态展开估计（受控区按位宽加权）高于实际事件数，
-        # phase/roe_face 的静态估计约 1.2e6/2.5e6，默认 1e6 预算不足，故显式放宽。
+        # The reference/adapter static expansion estimate (controlled regions weighted by bit width) exceeds the actual
+        # event count; the static estimates for phase/roe_face are about 1.2e6/2.5e6, above the default 1e6 budget, so
+        # it is explicitly relaxed here.
         kwargs["max_steps"] = task["max_steps"]
     state = runner(program, **kwargs)
     return task["task"], nbits, {k: complex(v) for k, v in state.items()}
 
 
 # ---------------------------------------------------------------------------
-# 任务清单
+# Task list
 # ---------------------------------------------------------------------------
 
 
@@ -603,14 +623,14 @@ def build_tasks():
     def add(name, fn, fmt_key, sweeps, fixed, path="rir", max_steps=None):
         tasks.append(_task(name, fn, fmt_key, sweeps, fixed, path, max_steps))
 
-    # polynomial / guarded_reciprocal：单输入全域穷举（64 / 256 分支）+ 三方对拍
+    # polynomial / guarded_reciprocal: full-domain sweep on the single input (64 / 256 branches) + three-way cross-check
     for fn in ("polynomial", "guarded_reciprocal"):
         add(f"{fn}-full-6.2", fn, "6.2", {"x": list(range(6))}, {})
         add(f"{fn}-full-8.3", fn, "8.3", {"x": list(range(8))}, {})
         add(f"{fn}-cross-ref", fn, "6.2", {"x": list(range(6))}, {}, "reference")
         add(f"{fn}-cross-adp", fn, "6.2", {"x": list(range(6))}, {}, "adapter")
 
-    # pressure：三轴纤维穷举 + 低位联合立方体（4×4×4）
+    # pressure: three-axis fiber sweeps + low-bit joint cube (4x4x4)
     pressure_fix = {
         "rho": ({"momentum": e62(0.5), "energy": e62(2.5)}, {"momentum": e83(0.5), "energy": e83(2.5)}),
         "momentum": ({"rho": e62(1.0), "energy": e62(2.5)}, {"rho": e83(1.0), "energy": e83(2.5)}),
@@ -627,7 +647,7 @@ def build_tasks():
     add("pressure-cross-ref", "pressure", "6.2", cube, base62, "reference")
     add("pressure-cross-adp", "pressure", "6.2", cube, base62, "adapter")
 
-    # roe_speed：四轴纤维穷举 + 联合立方体（2^4）
+    # roe_speed: four-axis fiber sweeps + joint cube (2^4)
     roe_fix62 = {"rho_l": e62(1.0), "momentum_l": e62(0.5), "rho_r": e62(1.5), "momentum_r": e62(-0.25)}
     roe_fix83 = {"rho_l": e83(1.0), "momentum_l": e83(0.5), "rho_r": e83(1.5), "momentum_r": e83(-0.25)}
     for axis in ("rho_l", "momentum_l", "rho_r", "momentum_r"):
@@ -643,7 +663,7 @@ def build_tasks():
     add("roe_speed-cross-ref", "roe_speed", "6.2", rs_cube, rs_base62, "reference")
     add("roe_speed-cross-adp", "roe_speed", "6.2", rs_cube, rs_base62, "adapter")
 
-    # phase_response：实/虚轴纤维穷举 + 奇异线 y=1（6.2）+ 联合立方体（4×4）
+    # phase_response: real/imaginary-axis fiber sweeps + singular line y=1 (6.2) + joint cube (4x4)
     add("phase-fiber-re-6.2", "phase_response", "6.2", {"z_real": list(range(6))}, {"z_imag": e62(0.5)})
     add("phase-fiber-im-6.2", "phase_response", "6.2", {"z_imag": list(range(6))}, {"z_real": e62(0.5)})
     add("phase-fiber-sg-6.2", "phase_response", "6.2", {"z_real": list(range(6))}, {"z_imag": e62(1.0)})
@@ -657,7 +677,7 @@ def build_tasks():
     add("phase-cross-ref", "phase_response", "6.2", ph_cube, ph_base62, "reference", 8_000_000)
     add("phase-cross-adp", "phase_response", "6.2", ph_cube, ph_base62, "adapter", 8_000_000)
 
-    # frozen_roe_face：Index 全域联合（row×col 16 组）+ 六实轴全幅值网格纤维
+    # frozen_roe_face: Index full joint (row x col, 16 groups) + six real-axis full-magnitude grid fibers
     roe_face_fix62 = {
         "rho_l": e62(1.0), "m_l": e62(0.5), "e_l": e62(2.5),
         "rho_r": e62(1.5), "m_r": e62(-0.25), "e_r": e62(3.0), "row": 1, "col": 2,
@@ -670,18 +690,18 @@ def build_tasks():
     idx_fix83 = {k: v for k, v in roe_face_fix83.items() if k not in ("row", "col")}
     add("roe-face-index-6.2", "frozen_roe_face", "6.2", {"row": [0, 1], "col": [0, 1]}, idx_fix62)
     add("roe-face-index-8.3", "frozen_roe_face", "8.3", {"row": [0, 1], "col": [0, 1]}, idx_fix83)
-    # 跨后端对拍用 8 分支缩小版（reference/adapter 较慢）
+    # Reduced 8-branch version for the cross-backend check (reference/adapter are slower)
     add("roe-face-cross-rir", "frozen_roe_face", "6.2", {"row": [0, 1], "col": [0]}, idx_fix62)
     add("roe-face-cross-ref", "frozen_roe_face", "6.2", {"row": [0, 1], "col": [0]}, idx_fix62, "reference", 8_000_000)
     add("roe-face-cross-adp", "frozen_roe_face", "6.2", {"row": [0, 1], "col": [0]}, idx_fix62, "adapter", 8_000_000)
     for axis in ("rho_l", "m_l", "e_l", "rho_r", "m_r", "e_r"):
         f62 = {k: v for k, v in roe_face_fix62.items() if k != axis}
         f83 = {k: v for k, v in roe_face_fix83.items() if k != axis}
-        # 全幅值均匀网格：6.2 扫 bits[2..6)（步长 1.0），8.3 扫 bits[4..8)（步长 2.0）
+        # Full-magnitude uniform grid: 6.2 sweeps bits[2..6) (step 1.0), 8.3 sweeps bits[4..8) (step 2.0)
         add(f"roe-face-fiber-{axis}-6.2", "frozen_roe_face", "6.2", {axis: [2, 3, 4, 5]}, f62)
         add(f"roe-face-fiber-{axis}-8.3", "frozen_roe_face", "8.3", {axis: [4, 5, 6, 7]}, f83)
 
-    # 基态确定性抽点（单基态 → 单基态，输入保持、输出符合参考）
+    # Basis-state determinism spot checks (single basis state -> single basis state, inputs preserved, outputs match the reference)
     basis_points = {
         "polynomial": {"x": e62(1.5)},
         "guarded_reciprocal": {"x": e62(0.5)},
@@ -699,7 +719,7 @@ def build_tasks():
 
 
 # ---------------------------------------------------------------------------
-# 结果评估
+# Result evaluation
 # ---------------------------------------------------------------------------
 
 
@@ -735,7 +755,7 @@ def _register_names(fn, fmt):
 
 
 class Sweep:
-    """单 case 的逐分支累积评估：误差、旗标一致性、叠加均匀性、方法误差。"""
+    """Per-branch accumulating evaluation for a single case: errors, flag consistency, superposition uniformity, method error."""
 
     def __init__(self, fn, fmt, tolerance_quanta):
         self.fn, self.fmt = fn, fmt
@@ -754,7 +774,7 @@ class Sweep:
 
     def absorb(self, state, names, nbits, oracle):
         if len(state) != 1 << nbits:
-            raise AssertionError(f"{self.fn}: 分支数 {len(state)} ≠ 2^{nbits}")
+            raise AssertionError(f"{self.fn}: branch count {len(state)} != 2^{nbits}")
         self.branches += len(state)
         uniform = 2.0 ** (-nbits / 2)
         for basis, amplitude in state.items():
@@ -827,9 +847,9 @@ SIMPLE_ORACLES = {
 def run():
     report = Report(
         "mathfunc",
-        "数学函数廊（5 函数）与 frozen Roe 面在 FixedFormat(6,2)/(8,3) 下的叠加穷举"
-        "数值验证；rir-pysparq 主路径 + reference/adapter 对拍；实现/方法误差分离，"
-        "status 定义域语义逐分支核对。",
+        "Superposition-exhaustive numerical validation of the math-function gallery (5 functions) and the frozen Roe face "
+        "under FixedFormat(6,2)/(8,3); rir-pysparq primary path + reference/adapter cross-checks; implementation/method "
+        "errors separated, status domain semantics checked branch by branch.",
     )
     tasks = build_tasks()
     workers = int(os.environ.get("VERIFY_WORKERS", "10"))
@@ -838,7 +858,7 @@ def run():
         for name, nbits, state in pool.map(execute, tasks):
             results[name] = (nbits, state)
 
-    # 各编译函数的工作区峰值（说明 OriginIR-ext 24 比特预算为何不适用的实测值）
+    # Workspace peak of each compiled function (measured values explaining why the 24-bit OriginIR-ext budget does not apply)
     workspaces = {
         f"{fn}/{fmt_key}": _workspace(fn, FixedFormat(*FMTS[fmt_key]))
         for fn in TOLERANCE
@@ -860,7 +880,7 @@ def run():
                 "format": fmt_key,
                 "sweeps": len(task_names),
                 "workspace_qubits": workspaces[f"{fn}/{fmt_key}"],
-                "originir_ext": "不适用：工作区远超 24 比特预算",
+                "originir_ext": "not applicable: workspace far exceeds the 24-bit budget",
                 **(extra or {}),
             },
             metrics=sweep.metrics(),
@@ -889,26 +909,26 @@ def run():
                 **(extra or {}),
             },
             metrics={"max_pairwise_deviation": deviation},
-            criterion="同一叠加程序三路径振幅两两一致（< 1e-9）",
+            criterion="the same superposition program agrees pairwise across the three paths (< 1e-9)",
             passed=deviation < 1e-9,
         )
 
-    # --- 单输入函数：全域穷举 ---
+    # --- Single-input functions: full-domain sweep ---
     for fmt_key, bits in (("6.2", 6), ("8.3", 8)):
         sweep_case(
             f"polynomial-exhaustive-{fmt_key}",
             "polynomial",
             fmt_key,
             [f"polynomial-full-{fmt_key}"],
-            f"无旗标分支与截断链参考逐比特一致（max_error == 0）；"
-            f"旗标集合与值域越界参考完全一致（misflagged == 0）；2^{bits} 分支均匀",
+            f"unflagged branches agree bit by bit with the truncation-chain reference (max_error == 0); "
+            f"the flag set fully matches the range-overflow reference (misflagged == 0); 2^{bits} uniform branches",
         )
         sweep_case(
             f"guarded-reciprocal-exhaustive-{fmt_key}",
             "guarded_reciprocal",
             fmt_key,
             [f"guarded_reciprocal-full-{fmt_key}"],
-            f"全域无旗标（守护分支吸收 x=0 奇点）；max_error ≤ 1 量子；2^{bits} 分支均匀",
+            f"no flags over the whole domain (the guard branch absorbs the x=0 singularity); max_error <= 1 quantum; 2^{bits} uniform branches",
         )
 
     # --- pressure ---
@@ -918,15 +938,15 @@ def run():
             "pressure",
             fmt_key,
             [f"pressure-fiber-{axis}-{fmt_key}" for axis in ("rho", "momentum", "energy")],
-            "三轴逐轴穷举：与截断链参考逐比特一致（max_error == 0）；rho=0 定义域旗标（位 0）"
-            "与越界旗标（位 1）逐分支符合参考（misflagged == 0）",
+            "three per-axis sweeps: agrees bit by bit with the truncation-chain reference (max_error == 0); the rho=0 domain flag (bit 0)"
+            " and the overflow flag (bit 1) match the reference branch by branch (misflagged == 0)",
         )
         sweep_case(
             f"pressure-joint-cube-{fmt_key}",
             "pressure",
             fmt_key,
             [f"pressure-cube-{fmt_key}"],
-            "4×4×4 联合立方体：max_error == 0；misflagged == 0",
+            "4x4x4 joint cube: max_error == 0; misflagged == 0",
         )
 
     # --- roe_speed ---
@@ -936,17 +956,17 @@ def run():
             "roe_speed",
             fmt_key,
             [f"roe_speed-fiber-{axis}-{fmt_key}" for axis in ("rho_l", "momentum_l", "rho_r", "momentum_r")],
-            "四轴逐轴穷举：与定点语义仿真逐比特一致（max_error == 0）；rho≤0 定义域旗标逐分支符合参考",
+            "four per-axis sweeps: agrees bit by bit with the fixed-point semantics simulation (max_error == 0); rho<=0 domain flags match the reference branch by branch",
         )
         sweep_case(
             f"roe-speed-joint-cube-{fmt_key}",
             "roe_speed",
             fmt_key,
             [f"roe_speed-cube-{fmt_key}"],
-            "2^4 联合立方体：max_error == 0；misflagged == 0",
+            "2^4 joint cube: max_error == 0; misflagged == 0",
         )
 
-    # --- phase_response（复函数，按实/虚部分开评估）---
+    # --- phase_response (complex function, real/imaginary parts evaluated separately) ---
     phase_oracle = make_phase_oracle(_phase_coefficients(FixedFormat(6, 2)))
     for fmt_key in FMTS:
         fiber_names = (
@@ -959,8 +979,8 @@ def run():
             "phase_response",
             fmt_key,
             fiber_names,
-            "实/虚轴穷举（6.2 含奇异线 y=1）：与核配方 _Fx 仿真逐比特一致（max_error == 0，"
-            "对照 math_approximation Chebyshev 系数）；核区间越界与 z=±i 定义域旗标逐分支符合",
+            "real/imaginary-axis sweeps (6.2 includes the singular line y=1): agrees bit by bit with the kernel-recipe _Fx simulation "
+            "(max_error == 0, against the math_approximation Chebyshev coefficients); kernel-interval overflow and z=+/-i domain flags match branch by branch",
             oracle=phase_oracle,
             extra={"degree": PHASE_DEGREE, "singular_line": fmt_key == "6.2"},
         )
@@ -969,12 +989,12 @@ def run():
             "phase_response",
             fmt_key,
             [f"phase-cube-{fmt_key}"],
-            "4×4 联合立方体：max_error == 0；misflagged == 0",
+            "4x4 joint cube: max_error == 0; misflagged == 0",
             oracle=phase_oracle,
             extra={"degree": PHASE_DEGREE},
         )
 
-    # 核方法误差（纯经典稠密网格；系数取自模块属性，不跑后端）
+    # Kernel method error (purely classical dense grid; coefficients taken from the module attribute, no backend run)
     coeffs = _phase_coefficients(FixedFormat(6, 2))
     method = {}
     for kind, fn_ref in (("exp", math.exp), ("sin", math.sin), ("cos", math.cos)):
@@ -997,10 +1017,10 @@ def run():
         parameters={
             "degree": PHASE_DEGREE,
             "intervals": {k: list(v[0]) for k, v in coeffs.items()},
-            "note": "方法误差为 Chebyshev 阶数固有近似误差，信息性指标，不计入实现判据",
+            "note": "the method error is the inherent approximation error of the Chebyshev degree; an informative metric excluded from the implementation criterion",
         },
         metrics={k: round(v, 8) for k, v in method.items()},
-        criterion="信息性：报告 degree=3 系数在 4001 点稠密网格上与真函数的最大偏差",
+        criterion="informative: reports the maximum deviation of the degree=3 coefficients from the true function on a 4001-point dense grid",
         passed=True,
     )
 
@@ -1011,7 +1031,7 @@ def run():
             "frozen_roe_face",
             fmt_key,
             [f"roe-face-index-{fmt_key}"],
-            "row×col 全 16 组（含越界索引 3 → 0.0）：max_error == 0；misflagged == 0",
+            "all 16 row x col groups (out-of-range index 3 -> 0.0 included): max_error == 0; misflagged == 0",
             extra={"physical_state": "(1.0,0.5,2.5)/(1.5,-0.25,3.0)", "outputs": ["left", "right"]},
         )
         sweep_case(
@@ -1019,11 +1039,11 @@ def run():
             "frozen_roe_face",
             fmt_key,
             [f"roe-face-fiber-{axis}-{fmt_key}" for axis in ("rho_l", "m_l", "e_l", "rho_r", "m_r", "e_r")],
-            "六实轴全幅值 16 点网格：max_error == 0；rho≤0 / c2≤0 定义域旗标逐分支符合参考",
-            extra={"grid": "全幅值均匀网格（6.2 步长 1.0，8.3 步长 2.0）"},
+            "six real-axis full-magnitude 16-point grids: max_error == 0; rho<=0 / c2<=0 domain flags match the reference branch by branch",
+            extra={"grid": "full-magnitude uniform grid (6.2 step 1.0, 8.3 step 2.0)"},
         )
 
-    # --- 跨后端三方对拍 ---
+    # --- Three-way cross-backend check ---
     cross_case(
         "cross-backend-polynomial-6.2", "polynomial", "6.2",
         "polynomial-full-6.2", "polynomial-cross-ref", "polynomial-cross-adp",
@@ -1047,10 +1067,10 @@ def run():
     cross_case(
         "cross-backend-roe-face-index-6.2", "frozen_roe_face", "6.2",
         "roe-face-cross-rir", "roe-face-cross-ref", "roe-face-cross-adp",
-        extra={"sweeps": "row 2 bit × col 1 bit（8 分支缩小版）"},
+        extra={"sweeps": "row 2 bit x col 1 bit (reduced 8-branch version)"},
     )
 
-    # --- 基态确定性抽点 ---
+    # --- Basis-state determinism spot checks ---
     basis_metrics = {}
     basis_failures = 0
     phase_oracle_b = phase_oracle
@@ -1085,9 +1105,9 @@ def run():
     report.case(
         "basis-determinism-6.2",
         paths=["rir-pysparq"],
-        parameters={"points": {fn: "物理代表点" for fn in TOLERANCE}, "format": "6.2"},
+        parameters={"points": {fn: "physical representative point" for fn in TOLERANCE}, "format": "6.2"},
         metrics=basis_metrics,
-        criterion="单基态输入 → 单基态输出（|振幅|=1，输入保持），输出与参考误差在容差内，旗标一致",
+        criterion="single basis-state input -> single basis-state output (|amplitude| = 1, inputs preserved), output within tolerance of the reference, flags consistent",
         passed=basis_failures == 0,
     )
 

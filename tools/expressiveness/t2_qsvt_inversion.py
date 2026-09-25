@@ -1,15 +1,17 @@
-"""oracq 侧 T2：QSVT 2×2 矩阵求逆方向（A=[[1,-1/3],[-1/3,1]], |b>=[1,0]）。
+"""oracq side of T2: QSVT 2×2 matrix-inversion direction (A=[[1,-1/3],[-1/3,1]], |b>=[1,0]).
 
-规格与判定阈值见 ~/projects/oracq-dev/benchmarks/t2/SPEC.md。
-独立可运行：
+The specification and pass thresholds are in ~/projects/oracq-dev/benchmarks/t2/SPEC.md.
+Standalone run:
 
     cd ~/projects/qcfd-dev/oracq && \
     PYTHONPATH=src ~/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python \
     tools/expressiveness/t2_qsvt_inversion.py
 
-组装路径为主仓文档化原语（tests/verification/verify_fourier.py 同款）：
-matrix_pauli_encoding（α = Pauli 1-范数 = 4/3 = ‖A‖）+ qsp_phases（J-多项式求逆相位，
-虚部补全同 qsvt_matrix_inversion）+ qsvt_sequence，参考执行器读零信号块。
+The assembly path uses documented primitives of the main repository (same as
+tests/verification/verify_fourier.py):
+matrix_pauli_encoding (α = Pauli 1-norm = 4/3 = ‖A‖) + qsp_phases (J-polynomial
+inversion phases, imaginary completion same as qsvt_matrix_inversion) +
+qsvt_sequence, and the reference executor reads out the zero-signal block.
 """
 
 import math

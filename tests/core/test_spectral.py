@@ -1,4 +1,4 @@
-"""谱原语的语义验证：傅里叶相位、稀疏谱块编码与谱态制备对照 DFT 参考。"""
+"""Semantic validation of spectral primitives: Fourier phases, sparse spectral block encodings, and spectral state preparation against a DFT reference."""
 
 import cmath
 import math
@@ -17,7 +17,7 @@ from oracq.algorithms.input_model.spectral import (
 
 
 def applied_state(operation, initial):
-    """把指定寄存器置为经典初值后调用 operation，返回参考执行器的振幅。"""
+    """Set the given registers to classical initial values, call operation, and return the reference executor's amplitudes."""
     b = Builder("column_probe", {r.name: r.type for r in operation.module.registers})
     for key, value in initial.items():
         for bit in range(b[key].width):

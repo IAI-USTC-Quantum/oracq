@@ -1,4 +1,4 @@
-"""QRAM 指针式读写（qmem）的语义测试：寻址、多维视图、随机写与台账。"""
+"""Semantic tests for QRAM pointer-style read/write (qmem): addressing, multi-dimensional views, coherent stores, and the ledger."""
 
 import json
 import unittest
@@ -142,14 +142,14 @@ class MultiDimensionalTests(unittest.TestCase):
 
     def test_shape_validation(self):
         b = Builder("shape", {"out": UInt(4)}, {"rom": QRAM(4, 4)})
-        with self.assertRaisesRegex(ValidationError, "地址空间"):
+        with self.assertRaisesRegex(ValidationError, "address space"):
             QMem(b, "rom", shape=(5, 5))
         mem = QMem(b, "rom", shape=(4, 4))
-        with self.assertRaisesRegex(ValidationError, "越界"):
+        with self.assertRaisesRegex(ValidationError, "index out of bounds"):
             mem[4]
-        with self.assertRaisesRegex(ValidationError, "维量子下标宽度"):
+        with self.assertRaisesRegex(ValidationError, "quantum index width exceeds the dimension length"):
             mem[b["out"]]
-        with self.assertRaisesRegex(ValidationError, "没有声明"):
+        with self.assertRaisesRegex(ValidationError, "has not declared the QRAM resource"):
             QMem(b, "missing")
 
 
@@ -177,7 +177,7 @@ class StoreTests(unittest.TestCase):
         mem = QMem(b, "ram")
         b.h(b["a"])
         mem[b["a"]].store(b["v"])
-        with self.assertRaisesRegex(ValidationError, "确定基矢"):
+        with self.assertRaisesRegex(ValidationError, "definite basis state"):
             simulate(b.finish().program(), {"ram": [0, 0, 0, 0]})
 
     def test_store_rejected_inside_control_and_adjoint(self):
@@ -187,7 +187,7 @@ class StoreTests(unittest.TestCase):
             context = b.control(b["c"]) if block == "control" else b.adjoint()
             with context:
                 mem[b["a"]].store(b["v"])
-            with self.assertRaisesRegex(ValidationError, "非酉副作用"):
+            with self.assertRaisesRegex(ValidationError, "non-unitary side effect"):
                 b.finish()
 
     def test_store_capability_blocks_controlled_call(self):

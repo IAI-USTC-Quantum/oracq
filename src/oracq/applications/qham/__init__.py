@@ -1,11 +1,11 @@
-"QHAM 的 PDE 表达式、推导和空间离散化支持。"
+"PDE expressions, derivation, and spatial discretization support for QHAM."
 
 from importlib import import_module
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    # 仅静态检查可见的真实类型；运行时仍走下方 _EXPORTS 惰性导入。
-    # 冗余别名（X as X）标记为显式再导出，供 ruff F401 识别。
+    # Real types visible only to static checking; runtime still goes through the lazy _EXPORTS imports below.
+    # Redundant aliases (X as X) mark explicit re-exports for ruff F401 to recognize.
     from oracq.algorithms.input_model.qham import (
         PortBinding as PortBinding,
     )
@@ -99,7 +99,7 @@ __all__ = list(_EXPORTS)
 
 
 def __getattr__(name: str) -> object:
-    """惰性导入 ``_EXPORTS`` 表中的成员并缓存到模块全局。"""
+    """Lazily import members listed in ``_EXPORTS`` and cache them in module globals."""
     if name not in _EXPORTS:
         raise AttributeError(name)
     module, member = _EXPORTS[name]

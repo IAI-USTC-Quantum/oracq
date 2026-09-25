@@ -1,4 +1,4 @@
-"""重建纯函数编译案例；量子实现与 MIR 一并导出到 out/。"""
+"""Rebuild the pure-function compilation cases; export the quantum implementations and MIR to out/ as well."""
 
 import json
 from pathlib import Path
