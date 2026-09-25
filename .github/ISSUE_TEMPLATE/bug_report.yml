@@ -1,0 +1,42 @@
+name: Bug report
+description: Report something that behaves incorrectly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the incorrect behavior, including any traceback.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: A small self-contained Python snippet that reproduces the issue.
+      placeholder: |
+        from oracq import Bits, Builder
+
+        b = Builder("demo", {"q": Bits(2)})
+        ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: oracq version
+      placeholder: "0.8.0"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that helps diagnose the issue (backend used, OS, etc.).

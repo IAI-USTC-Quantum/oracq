@@ -7,8 +7,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # 与 python-ci.yml 相同的镜像策略；发布凭据来自仓库 secrets：
-    # PREVIEW_API_BASE / PREVIEW_API_KEY（与本机 html-previewer 配置一致）
+    # Same mirror strategy as python-ci.yml; publishing credentials come from
+    # repository secrets PREVIEW_API_BASE / PREVIEW_API_KEY (matching the
+    # local html-previewer deployment).
     env:
       PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
       UV_DEFAULT_INDEX: https://mirrors.aliyun.com/pypi/simple/
@@ -21,11 +22,12 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install uv==0.12.1
       - run: uv sync --frozen --extra docs
-      - name: Build docs HTML (warnings as errors)
-        run: uv run --frozen python -m sphinx -W --keep-going -b html docs out/docs/html
+      - name: Build Chinese docs HTML (warnings as errors)
+        run: uv run --frozen python -m sphinx -W --keep-going -b html docs/zh out/docs/zh
       - name: Publish preview
-        # 分支名中的 / 替换为 -，保证 topic 是合法的 URL 标签；
-        # 同名 topic 原地更新，预览 30 天未更新自动过期
+        # Slashes in the branch name become dashes so the topic is a valid
+        # URL label; a topic with the same name is updated in place and the
+        # preview expires automatically after 30 days without updates.
         run: |
           TOPIC="oracq-docs-$(echo "${{ github.ref_name }}" | tr '/' '-')"
-          uv run --frozen --with html-previewer==0.1.1 preview-publish out/docs/html "$TOPIC" 30
+          uv run --frozen --with html-previewer==0.1.1 preview-publish out/docs/zh "$TOPIC" 30

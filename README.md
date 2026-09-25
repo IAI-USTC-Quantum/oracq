@@ -1,28 +1,38 @@
 # oracq
 
-oracq 是面向量子算法研究者的科学计算算法实现框架。用 Python 按访问模型编写可组合算法，生成保留模块结构的寄存器级中间表示（RIR）；保存尚未实现的 oracle，比较门网络、QRAM 和可逆算术等实现，完成绑定后进行数值验证和资源分析。
+**English** · [简体中文](README.zh-CN.md)
 
-当前包版本为 **0.8.0**，RIR 格式为 **0.3**（[规范全文](docs/reference/rir.md)）。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
+oracq is a scientific-computing algorithm implementation framework for quantum
+algorithm researchers. Composable algorithms are written in Python against
+access models and compiled to a register-level intermediate representation
+(RIR) that preserves module structure; oracle placeholders stay unimplemented
+until you compare gate-network, QRAM, and reversible-arithmetic candidates,
+bind them, and proceed to numerical validation and resource analysis.
 
-## 核心概念速览
+The current package version is **0.8.0** and the RIR format is **0.3**
+([full specification](docs/reference/rir.md)). Algorithms declare inputs and
+outputs through plain Python protocols; no language-level type-system
+extension is required.
 
-| 概念 | 一句话 | 手册 / 规范 | API 参考 |
+## Core concepts at a glance
+
+| Concept | One-liner | Manual / spec | API reference |
 |---|---|---|---|
-| RIR | 寄存器级中间表示；模块调用与 Repeat 结构保留到文本形式 | [RIR 0.3 规范](docs/reference/rir.md) | [ir](docs/api/infrastructure/ir.rst) |
-| 构造器 | `Builder`/`Operation` 三段式生成模块与程序 | [核心概念](docs/manual/concepts.md#模块与未完成的实现) | [builder](docs/api/infrastructure/builder.rst) |
-| 寄存器与视图 | bits/uint/qubit 解释、切片与重解释，下标 0 是最低位 | [核心概念](docs/manual/concepts.md#寄存器与视图) | [ir](docs/api/infrastructure/ir.rst) |
-| 开放 oracle 与绑定 | 先声明后绑定：能力合取、候选实现比较、QRAM 捕获 | [绑定教程](docs/tutorials/oracle-binding.md) | [linking](docs/api/infrastructure/linking.rst) |
-| 算法契约 | 可检查的输入协议、能力规格与验收报告 | [契约](docs/manual/contracts.md) | [contracts](docs/api/algorithms/input_model/contracts.rst) |
-| 结构验证 | 生成期校验位宽、重叠与结构约束 | [核心概念](docs/manual/concepts.md) | [validation](docs/api/infrastructure/validation.rst) |
-| 序列化 | RIR 默认 YAML，JSON 可选，两种文本逐字段一致 | [RIR 规范](docs/reference/rir.md) | [serialization](docs/api/infrastructure/serialization.rst) |
-| 执行与读出 | 寄存器参考执行器与宿主读出 | [后端](docs/manual/backends.md) | [execution](docs/api/infrastructure/execution.rst)、[readout](docs/api/infrastructure/readout.rst) |
-| QMem | QRAM 资源的指针式读写与多维视图 | [QMem](docs/manual/qmem.md) | [qmem](docs/api/infrastructure/qmem.rst) |
-| QRAM 数据文件 | `*.qram.yaml` 内存定义的加载与写出 | [QRAM 内存](docs/reference/qram-memory.md) | [qram_schema](docs/api/infrastructure/qram_schema.rst) |
-| 数学函数前端 | Python 可调用编译为可逆线路 | [数学函数](docs/manual/math-functions.md) | [mathfunc](docs/api/infrastructure/mathfunc.rst) |
-| 资源估计 | T / 旋转 / QRAM 访问的计数模型与开放分析 | [资源估计](docs/manual/resource-estimation.md) | [estimate](docs/api/infrastructure/estimate.rst) |
-| 后端导出 | OriginIR-ext、严格网表、PySparQ、quantikz | [后端](docs/manual/backends.md) | [backends](docs/api/infrastructure/backends/originir.rst) |
+| RIR | Register-level IR; module calls and Repeat structures survive to the text form | [RIR 0.3 spec](docs/reference/rir.md) | [ir](docs/api/infrastructure/ir.rst) |
+| Builder | `Builder`/`Operation` three-stage generation of modules and programs | [Core concepts](docs/manual/concepts.md#modules-and-oracle-placeholders) | [builder](docs/api/infrastructure/builder.rst) |
+| Registers and views | bits/uint/qubit interpretations, slicing, reinterpretation; index 0 is the least significant bit | [Core concepts](docs/manual/concepts.md#registers-and-views) | [ir](docs/api/infrastructure/ir.rst) |
+| Open oracles and binding | Declare first, bind later: capability conjunction, candidate comparison, QRAM capture | [Binding tutorial](docs/tutorials/oracle-binding.md) | [linking](docs/api/infrastructure/linking.rst) |
+| Algorithm contracts | Checkable input protocols, capability specifications, and acceptance reports | [Contracts](docs/manual/contracts.md) | [contracts](docs/api/algorithms/input_model/contracts.rst) |
+| Structural validation | Generation-time checks of bit widths, overlaps, and structural constraints | [Core concepts](docs/manual/concepts.md) | [validation](docs/api/infrastructure/validation.rst) |
+| Serialization | RIR defaults to YAML with optional JSON; both text forms agree field by field | [RIR spec](docs/reference/rir.md) | [serialization](docs/api/infrastructure/serialization.rst) |
+| Execution and readout | Register reference executor and host readout | [Backends](docs/manual/backends.md) | [execution](docs/api/infrastructure/execution.rst), [readout](docs/api/infrastructure/readout.rst) |
+| QMem | Pointer-style reads/writes and multidimensional views over QRAM resources | [QMem](docs/manual/qmem.md) | [qmem](docs/api/infrastructure/qmem.rst) |
+| QRAM data files | Loading and writing `*.qram.yaml` memory definitions | [QRAM memory](docs/reference/qram-memory.md) | [qram_schema](docs/api/infrastructure/qram_schema.rst) |
+| Math-function frontend | Python callables compiled into reversible circuits | [Math functions](docs/manual/math-functions.md) | [mathfunc](docs/api/infrastructure/mathfunc.rst) |
+| Resource estimation | Counting models and open analysis for T gates / rotations / QRAM accesses | [Resource estimation](docs/manual/resource-estimation.md) | [estimate](docs/api/infrastructure/estimate.rst) |
+| Backend export | OriginIR-ext, strict netlist, PySparQ, quantikz | [Backends](docs/manual/backends.md) | [backends](docs/api/infrastructure/backends/originir.rst) |
 
-## 一个最小程序
+## A minimal program
 
 ```python
 from oracq import Bits, Builder, export_originir, simulate
@@ -36,86 +46,113 @@ print(simulate(program).amplitudes)
 print(export_originir(program).text)
 ```
 
-结果在 `00` 与 `11` 上具有相等幅度。模块调用和 Repeat 在 RIR 与 YAML/JSON 文本中保留，不在生成阶段展开。
+The result has equal amplitudes on `00` and `11`. Module calls and Repeat
+structures are preserved in RIR and in the YAML/JSON text forms; they are not
+expanded during generation.
 
-本例用到的 API：[`Builder`](docs/api/infrastructure/builder.rst) · [`Bits`](docs/api/infrastructure/ir.rst) · [`simulate`](docs/api/infrastructure/execution.rst) · [`export_originir`](docs/api/infrastructure/backends/originir.rst)。逐步讲解见教程[第一个寄存器程序](docs/tutorials/first-program.md)。
+APIs used in this example: [`Builder`](docs/api/infrastructure/builder.rst) ·
+[`Bits`](docs/api/infrastructure/ir.rst) ·
+[`simulate`](docs/api/infrastructure/execution.rst) ·
+[`export_originir`](docs/api/infrastructure/backends/originir.rst).
+For a step-by-step walkthrough see the
+[first register program](docs/tutorials/first-program.md) tutorial.
 
-## 典型工作流
+## Typical workflow
 
-| 步骤 | 入口 | 深入阅读 |
+| Step | Entry point | Further reading |
 |---|---|---|
-| 1. 声明开放 oracle | [`declare`](docs/api/algorithms/input_model/oracles.rst)、能力与规格 | [算法契约](docs/manual/contracts.md) |
-| 2. 构造程序 | [`Builder`](docs/api/infrastructure/builder.rst) 组合模块调用 | [教程：第一个程序](docs/tutorials/first-program.md) |
-| 3. 结构验证 | [`validate`](docs/api/infrastructure/validation.rst) | [核心概念](docs/manual/concepts.md) |
-| 4. 绑定实现 | [`bind`](docs/api/infrastructure/linking.rst)、`bind_with_report` 比较候选 | [教程：替换 oracle](docs/tutorials/oracle-binding.md)、[算法研究教程](docs/tutorials/algorithm-research.md) |
-| 5. 导出 / 执行 / 估计 | [`export_originir`](docs/api/infrastructure/backends/originir.rst)、[`simulate`](docs/api/infrastructure/execution.rst)、[`estimate_resources`](docs/api/infrastructure/estimate.rst) | [后端](docs/manual/backends.md)、[资源估计](docs/manual/resource-estimation.md) |
+| 1. Declare open oracles | [`declare`](docs/api/algorithms/input_model/oracles.rst), capabilities and specs | [Algorithm contracts](docs/manual/contracts.md) |
+| 2. Build the program | [`Builder`](docs/api/infrastructure/builder.rst) composing module calls | [Tutorial: first program](docs/tutorials/first-program.md) |
+| 3. Validate structure | [`validate`](docs/api/infrastructure/validation.rst) | [Core concepts](docs/manual/concepts.md) |
+| 4. Bind implementations | [`bind`](docs/api/infrastructure/linking.rst); `bind_with_report` compares candidates | [Tutorial: replacing oracles](docs/tutorials/oracle-binding.md), [algorithm-research tutorial](docs/tutorials/algorithm-research.md) |
+| 5. Export / execute / estimate | [`export_originir`](docs/api/infrastructure/backends/originir.rst), [`simulate`](docs/api/infrastructure/execution.rst), [`estimate_resources`](docs/api/infrastructure/estimate.rst) | [Backends](docs/manual/backends.md), [resource estimation](docs/manual/resource-estimation.md) |
 
-## 算法库
+## Algorithm library
 
-算法库按用途组织为十个子包，完整清单与选型指引见[算法目录](docs/manual/algorithms/index.md)，每个算法一页手册（接口、实现要点、验证方案与已知缺口）。各类代表：
+The algorithm library is organized into ten subpackages by purpose; the
+complete catalog with selection guidance is the
+[algorithm index](docs/manual/algorithms/index.md), with one manual page per
+algorithm (interface, implementation notes, validation approach, and known
+gaps). Representatives per category:
 
-| 类别 | 代表算法页 |
+| Category | Representative algorithm pages |
 |---|---|
-| 查询与搜索 | [Grover 搜索](docs/manual/algorithms/grover.md)、[振幅估计](docs/manual/algorithms/qae.md)、[量子计数](docs/manual/algorithms/quantum-counting.md) |
-| 基础查询算法 | [Deutsch–Jozsa](docs/manual/algorithms/deutsch-jozsa.md)、[Simon](docs/manual/algorithms/simon.md)、[Bernstein–Vazirani](docs/manual/algorithms/bernstein-vazirani.md) |
-| Fourier 与算术 | [QFT](docs/manual/algorithms/qft.md)、[Fourier 加法](docs/manual/algorithms/fourier-addition.md)、[求阶](docs/manual/algorithms/order-finding.md) |
-| Hamiltonian 演化 | [Trotter](docs/manual/algorithms/trotter.md)、[QSP 相位合成](docs/manual/algorithms/qsp-phase-synthesis.md)、[QSVT HamSim](docs/manual/algorithms/qsvt-hamiltonian-simulation.md) |
-| 估计与测试 | [QPE](docs/manual/algorithms/qpe.md)、[Hadamard test](docs/manual/algorithms/hadamard-test.md)、[Swap test](docs/manual/algorithms/swap-test.md) |
-| 量子线性系统 | [Costa 行走](docs/manual/algorithms/costa-walk.md)、[CKS](docs/manual/algorithms/cks.md)、[VTAA-CKS](docs/manual/algorithms/vtaa-cks.md) |
-| QODE / QPDE | [Schrödingerization](docs/manual/algorithms/schrodingerization.md)、[LCHS](docs/manual/algorithms/lchs.md)、[Carleman](docs/manual/algorithms/carleman.md) |
-| 变分与优化 | [VQE](docs/manual/algorithms/vqe.md)、[QAOA MaxCut](docs/manual/algorithms/qaoa-maxcut.md)、[DQI](docs/manual/algorithms/dqi.md) |
-| 量子行走 | [coined walk](docs/manual/algorithms/coined-cycle-walk.md)、[Szegedy](docs/manual/algorithms/szegedy-walk.md)、[MNRS](docs/manual/algorithms/mnrs-search.md) |
-| 量子机器学习 | [QPCA](docs/manual/algorithms/qpca.md)、[QCNN](docs/manual/algorithms/qcnn.md)、[KP 推荐系统](docs/manual/algorithms/recommendation.md) |
-| 数据加载与输入模型 | [态制备](docs/manual/algorithms/state-preparation.md)、[XOR 数据库](docs/manual/algorithms/xor-database.md)、[Select-Swap QROM](docs/manual/algorithms/select-swap.md) |
-| 量子纠错 | [重复码](docs/manual/algorithms/repetition-codes.md) |
+| Query and search | [Grover search](docs/manual/algorithms/grover.md), [amplitude estimation](docs/manual/algorithms/qae.md), [quantum counting](docs/manual/algorithms/quantum-counting.md) |
+| Basic query algorithms | [Deutsch–Jozsa](docs/manual/algorithms/deutsch-jozsa.md), [Simon](docs/manual/algorithms/simon.md), [Bernstein–Vazirani](docs/manual/algorithms/bernstein-vazirani.md) |
+| Fourier and arithmetic | [QFT](docs/manual/algorithms/qft.md), [Fourier addition](docs/manual/algorithms/fourier-addition.md), [order finding](docs/manual/algorithms/order-finding.md) |
+| Hamiltonian evolution | [Trotter](docs/manual/algorithms/trotter.md), [QSP phase synthesis](docs/manual/algorithms/qsp-phase-synthesis.md), [QSVT HamSim](docs/manual/algorithms/qsvt-hamiltonian-simulation.md) |
+| Estimation and testing | [QPE](docs/manual/algorithms/qpe.md), [Hadamard test](docs/manual/algorithms/hadamard-test.md), [Swap test](docs/manual/algorithms/swap-test.md) |
+| Quantum linear systems | [Costa walk](docs/manual/algorithms/costa-walk.md), [CKS](docs/manual/algorithms/cks.md), [VTAA-CKS](docs/manual/algorithms/vtaa-cks.md) |
+| QODE / QPDE | [Schrödingerization](docs/manual/algorithms/schrodingerization.md), [LCHS](docs/manual/algorithms/lchs.md), [Carleman](docs/manual/algorithms/carleman.md) |
+| Variational and optimization | [VQE](docs/manual/algorithms/vqe.md), [QAOA MaxCut](docs/manual/algorithms/qaoa-maxcut.md), [DQI](docs/manual/algorithms/dqi.md) |
+| Quantum walks | [coined walk](docs/manual/algorithms/coined-cycle-walk.md), [Szegedy](docs/manual/algorithms/szegedy-walk.md), [MNRS](docs/manual/algorithms/mnrs-search.md) |
+| Quantum machine learning | [QPCA](docs/manual/algorithms/qpca.md), [QCNN](docs/manual/algorithms/qcnn.md), KP recommendation ([API](docs/api/algorithms/qml/recommendation.rst); manual page pending) |
+| Data loading and input models | [state preparation](docs/manual/algorithms/state-preparation.md), [XOR database](docs/manual/algorithms/xor-database.md), [Select-Swap QROM](docs/manual/algorithms/select-swap.md) |
+| Quantum error correction | [repetition codes](docs/manual/algorithms/repetition-codes.md) |
 
-## 输入模型与算子
+## Input models and operators
 
-算法通过五类访问模型消费输入，彼此可组合：
+Algorithms consume inputs through five composable access-model families:
 
-- 算子包装与基本组合（`identity`/`product`/`scale`/LCU）：[手册](docs/manual/operators.md)、[API](docs/api/algorithms/input_model/operators.rst)；块编码代数见 [block_encoding](docs/api/algorithms/input_model/block_encoding.rst)。
-- Oracle 范式（XorDatabase、StatePreparation、StateOracle、SparseAccess）：[API](docs/api/algorithms/input_model/oracles.rst)。
-- 量子数据结构 QVector/QMatrix：[手册](docs/manual/qdata.md)、[API](docs/api/algorithms/input_model/qdata.rst)。
-- 密度矩阵与 Gibbs 态、谱与低秩分解：[density](docs/api/algorithms/input_model/density.rst)、[spectral](docs/api/algorithms/input_model/spectral.rst)、[lowrank](docs/api/algorithms/input_model/lowrank.rst)。
+- Operator wrappers and basic composition (`identity`/`product`/`scale`/LCU): [manual](docs/manual/operators.md), [API](docs/api/algorithms/input_model/operators.rst); block-encoding algebra in [block_encoding](docs/api/algorithms/input_model/block_encoding.rst).
+- Oracle paradigms (XorDatabase, StatePreparation, StateOracle, SparseAccess): [API](docs/api/algorithms/input_model/oracles.rst).
+- Quantum data structures QVector/QMatrix: [manual](docs/manual/qdata.md), [API](docs/api/algorithms/input_model/qdata.rst).
+- Density matrices and Gibbs states, spectral and low-rank decompositions: [density](docs/api/algorithms/input_model/density.rst), [spectral](docs/api/algorithms/input_model/spectral.rst), [lowrank](docs/api/algorithms/input_model/lowrank.rst).
 
-## 应用层
+## Applications
 
-- **QFVM**（量子流体求解）：[手册](docs/manual/qfvm.md)、[API](docs/api/applications/qfvm.rst)、输入模型审阅[规范](docs/reference/qfvm-input-models.md)。
-- **QHAM**（PDE → HAM → QHAM 流程）：[手册](docs/manual/qham.md)、[推导规范](docs/reference/qham-derivation.md)、[API](docs/api/applications/qham/linearization.rst)、[教程](docs/tutorials/qham.md)。
-- **Roe 矩阵元**：[roe](docs/api/applications/roe.rst)、[roe_formulas](docs/api/applications/roe_formulas.rst)。
-- **案例目录**：22 个参考工作负载（[catalog](docs/api/applications/catalog.rst)）与展示生成器（[gallery](docs/api/applications/gallery.rst)、[教程](docs/tutorials/gallery.md)）。
+- **QFVM** (quantum fluid solving): [manual](docs/manual/qfvm.md), [API](docs/api/applications/qfvm.rst), input-model review [spec](docs/reference/qfvm-input-models.md).
+- **QHAM** (PDE → HAM → QHAM pipeline): [manual](docs/manual/qham.md), [derivation spec](docs/reference/qham-derivation.md), [API](docs/api/applications/qham/linearization.rst), [tutorial](docs/tutorials/qham.md).
+- **Roe matrix elements**: [roe](docs/api/applications/roe.rst), [roe_formulas](docs/api/applications/roe_formulas.rst).
+- **Case catalog**: 22 reference workloads ([catalog](docs/api/applications/catalog.rst)) and the gallery generator ([gallery](docs/api/applications/gallery.rst), [tutorial](docs/tutorials/gallery.md)).
 
-## 文档地图
+## Documentation map
 
-按角色选择阅读路径：
+Pick a reading path by role:
 
-- **上手**：[第一个程序](docs/tutorials/first-program.md) → [核心概念](docs/manual/concepts.md) → [替换 oracle](docs/tutorials/oracle-binding.md)。
-- **算法研究**：[算法研究教程](docs/tutorials/algorithm-research.md) → [算法目录](docs/manual/algorithms/index.md) → [验证覆盖矩阵](docs/development/validation-coverage.md)，适用边界见[验证与适用范围](docs/manual/limits.md)。
-- **微分方程应用**：[教程](docs/tutorials/differential-equations.md) → [手册](docs/manual/differential-equations.md) → [QHAM 手册](docs/manual/qham.md)。
-- **后端工程**：[后端手册](docs/manual/backends.md) → [兼容性审阅](docs/reference/backend-compatibility.md) → [基础设施 API](docs/api/infrastructure/index.rst)。
-- **语言与规范**：[RIR 规范](docs/reference/rir.md)、[生成层边界](docs/reference/language.md)、[开放 IR](docs/reference/open-ir.md)、[QRAM 内存格式](docs/reference/qram-memory.md)、[数学 IR](docs/reference/math-ir.md)。
+- **Getting started**: [first program](docs/tutorials/first-program.md) → [core concepts](docs/manual/concepts.md) → [replacing oracles](docs/tutorials/oracle-binding.md).
+- **Algorithm research**: [algorithm-research tutorial](docs/tutorials/algorithm-research.md) → [algorithm index](docs/manual/algorithms/index.md) → [validation coverage matrix](docs/development/validation-coverage.md); applicability boundaries in [validation and scope](docs/manual/limits.md).
+- **Differential-equation applications**: [tutorial](docs/tutorials/differential-equations.md) → [manual](docs/manual/differential-equations.md) → [QHAM manual](docs/manual/qham.md).
+- **Backend engineering**: [backend manual](docs/manual/backends.md) → [compatibility review](docs/reference/backend-compatibility.md) → [infrastructure API](docs/api/infrastructure/index.rst).
+- **Language and specs**: [RIR spec](docs/reference/rir.md), [generation-layer boundary](docs/reference/language.md), [open IR](docs/reference/open-ir.md), [QRAM memory format](docs/reference/qram-memory.md), [math IR](docs/reference/math-ir.md).
 
-## 安装 · 构建 · 检查
+## Install · build · check
 
 ```bash
 uv sync --locked --extra dev --extra docs
-uv run sphinx-build -W --keep-going -b html docs out/docs/html
-uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
+uv run python tools/build_docs.py --lang all
 ```
 
-打开 `out/docs/html/index.html` 浏览生成站点。算法展示与工程检查：
+This builds both language trees (warnings are errors): English to
+`out/docs/en/html` and Chinese to `out/docs/zh/html`, plus doctest runs. Open
+`out/docs/en/html/index.html` to browse the generated site. Algorithm
+gallery and engineering checks:
 
 ```bash
 uv run python examples/algorithm_gallery.py
 uv run python tools/check_project.py --docs
 ```
 
-算法展示目录生成 22 个小实例的 RIR、OriginIR-ext 和读出说明。完整原生检查要求另一个已安装 `pysparq` 与 `uniqc` 的环境：
+The algorithm gallery generates RIR, OriginIR-ext, and readout notes for 22
+small examples. The full native check requires a separate environment with
+`pysparq` and `uniqc` installed:
 
 ```bash
 PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 ```
 
-语言核心只依赖 PyYAML 做文本序列化。可选后端在执行入口导入；生成产物、环境和构建文件均不提交。开发流程见 [CONTRIBUTING.md](CONTRIBUTING.md) 与[文档编写规范](docs/development/writing-docs.md)；源码分类与迁移说明见[架构](docs/manual/architecture.md)与[导入路径](docs/manual/compatibility.md)。
+The language core depends only on PyYAML for text serialization. Optional
+backends are imported at their execution entry points; generated artifacts,
+environments, and build files are never committed. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and the
+[documentation style guide](docs/development/writing-docs.md); source-tree
+classification and migration notes are in [architecture](docs/manual/architecture.md)
+and [import paths](docs/manual/compatibility.md). Documentation is also
+maintained in Chinese: see [README.zh-CN.md](README.zh-CN.md).
 
-QLSS/QODE/QHAM 等高级算法仍有数值精度、成功通道或收敛性待核验项（逐项状态见[验证覆盖矩阵](docs/development/validation-coverage.md)）。通用 QSP-HamSim 内核尚需提供；当前模乘采用有限规模置换合成，VQE/QAOA 的经典优化器由应用选择。
+Advanced algorithms such as QLS/QODE/QHAM still have pending verification
+items on numerical accuracy, success channels, or convergence (per-item status
+in the [validation coverage matrix](docs/development/validation-coverage.md)).
+A general-purpose QSP-HamSim kernel is still to be provided; the current
+modular multiplication uses finite-size permutation synthesis, and classical
+optimizers for VQE/QAOA are chosen by the application.

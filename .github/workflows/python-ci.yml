@@ -11,13 +11,6 @@ jobs:
     strategy:
       matrix:
         python: ['3.11', '3.12', '3.13']
-    # The runner reaches PyPI slowly, so pip and uv both use the Aliyun mirror;
-    # the lock file is based on pypi.org, so --locked would fail its
-    # consistency check against the mirror default index — install with
-    # --frozen instead.
-    env:
-      PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
-      UV_DEFAULT_INDEX: https://mirrors.aliyun.com/pypi/simple/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
