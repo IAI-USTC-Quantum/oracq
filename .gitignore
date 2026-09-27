@@ -9,3 +9,4 @@ dist/
 out/
 .zcode/
 .zcodeignore
+/backend-revisions.json
