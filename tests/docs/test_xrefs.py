@@ -7,9 +7,10 @@ directly: ``{obj}`` targets must be importable, relative links and
 literalinclude directives must point at existing files, relative-link anchors
 must exist in the target page's headings (MyST does not warn on missing
 anchors), algorithm entry pages must link symmetrically, and each page's
-"source" line must point at an existing path. Both language trees are
-validated; ``.html`` targets are cross-language switcher links checked against
-their ``.md`` twins.
+"source" line must point at an existing path. Algorithm pages must additionally
+be registered in exactly one genre hub under ``algorithms/groups/``. Both
+language trees are validated; ``.html`` targets are cross-language switcher
+links checked against their ``.md`` twins.
 """
 
 import importlib
@@ -30,6 +31,7 @@ FENCE = re.compile(r"```.*?```", re.DOTALL)
 SRC_PATH = re.compile(r"^- (?:源码：|Source:)\s.*?`((?:src|tools|examples|tests)/[^`]+)`", re.MULTILINE)
 HEADING = re.compile(r"^(#{1,4})\s+(.+?)\s*#*\s*$", re.MULTILINE)
 SLUG_CLEAN = re.compile(r"[^\w\u4e00-\u9fff\-]")
+TOCTREE_BLOCK = re.compile(r"```\{toctree\}\n(.*?)```", re.DOTALL)
 EXTERNAL = ("http://", "https://", "mailto:")
 
 
@@ -176,6 +178,34 @@ class XrefTargetTests(unittest.TestCase):
                 if not (REPO / ref).exists():
                     errors.append(f"{path.relative_to(REPO)}: {ref}")
         self.assertEqual(errors, [])
+
+    def test_algorithm_pages_grouped_in_hubs(self):
+        """The algorithm catalog no longer collects pages with a ``:glob:``
+        toctree; each page must be registered in exactly one genre hub under
+        ``algorithms/groups/`` or it silently stays out of the navigation."""
+        for pages in (DOCS / "manual" / "algorithms", DOCS / "zh" / "manual" / "algorithms"):
+            listed: dict[str, str] = {}
+            errors = []
+            for hub in sorted((pages / "groups").glob("*.md")):
+                for block in TOCTREE_BLOCK.findall(hub.read_text(encoding="utf-8")):
+                    for line in block.splitlines():
+                        entry = line.strip()
+                        if not entry or entry.startswith(":"):
+                            continue
+                        if not entry.startswith("../"):
+                            errors.append(f"{hub.relative_to(REPO)}: unexpected toctree entry {entry!r}")
+                            continue
+                        name = entry[3:]
+                        if name == "index" or not (pages / f"{name}.md").exists():
+                            errors.append(f"{hub.relative_to(REPO)}: {entry} does not name an algorithm page")
+                        elif name in listed:
+                            errors.append(f"{hub.relative_to(REPO)}: {name} already listed in {listed[name]}.md")
+                        else:
+                            listed[name] = hub.stem
+            for page in sorted(pages.glob("*.md")):
+                if page.stem != "index" and page.stem not in listed:
+                    errors.append(f"{page.relative_to(REPO)}: not registered in any genre hub")
+            self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

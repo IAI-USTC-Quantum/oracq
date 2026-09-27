@@ -19,6 +19,7 @@ reference is generated directly from the current source.
 :caption: Manuals
 
 manual/index
+manual/algorithms/index
 reference/index
 api/index
 ```

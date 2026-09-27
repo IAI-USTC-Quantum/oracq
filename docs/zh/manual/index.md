@@ -14,7 +14,6 @@ operators
 qmem
 qdata
 contracts
-algorithms/index
 differential-equations
 math-functions
 qfvm

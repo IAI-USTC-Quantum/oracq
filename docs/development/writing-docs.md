@@ -8,7 +8,8 @@ Chinese mirror with the identical layout lives under `docs/zh/`: every page
 keeps the same relative path in both trees, and a page edited on one side must
 be synchronized on the other. The API pages are generated into both trees
 (`docs/api` and `docs/zh/api`); the algorithm manual pages are currently
-Chinese-only (68 pages under `docs/zh/manual/algorithms/`) with an English
+Chinese-only (67 pages under `docs/zh/manual/algorithms/`, organized into
+genre hubs under `algorithms/groups/`) with an English
 index placeholder at `manual/algorithms/index.md`.
 
 Documentation splits into manuals and tutorials. Manuals explain stable rules,
@@ -151,13 +152,16 @@ checks.
 
 ## Algorithm pages
 
-Each algorithm gets one page under `docs/zh/manual/algorithms/`, collected
-automatically by the glob toctree in that directory's `index.md`; writing a
-new page requires no change to `index.md`. File names are kebab-case (e.g.
+Each algorithm gets one page under `docs/zh/manual/algorithms/`, organized by
+genre into hub pages under `docs/zh/manual/algorithms/groups/`; the catalog
+sits at the top level of the site navigation, links the thirteen genre hubs in
+an explicit toctree, and each hub lists its members. A new page must be
+registered in its genre hub or it stays out of the navigation (enforced by
+`tests/docs/test_xrefs.py`). File names are kebab-case (e.g.
 `qsvt-matrix-inversion.md`), matching the entry function or the algorithm's
-English name. These pages are currently Chinese-only (68 pages); the English
-tree carries a placeholder index at `docs/manual/algorithms/index.md` that
-links into the Chinese catalog until the translations land.
+English name. These pages are currently Chinese-only; the English tree carries
+a placeholder index at `docs/manual/algorithms/index.md` that links into the
+Chinese catalog until the translations land.
 
 Directly under the page's first line, a one-line blockquote records the
 category and owning module
@@ -187,7 +191,8 @@ fixed sections:
    `docs/api/algorithms/`, confirm the actual file name before linking), and
    `../../development/validation-coverage.md`.
 
-Maintenance agreement: adding an algorithm must add its page at the same time
+Maintenance agreement: adding an algorithm must add its page — registered in
+its genre hub — at the same time
 and synchronize `validation-coverage.md` and `algorithm-coverage.md`; the
 category, stage, gaps, and evidence locations described by the three must
 agree.

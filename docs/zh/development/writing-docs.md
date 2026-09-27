@@ -53,7 +53,7 @@ API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必�
 
 ## 算法页面
 
-`docs/manual/algorithms/` 下每个算法一页，由 `index.md` 的 glob toctree 自动收录；写新页不需要改 `index.md`。文件名用 kebab-case（如 `qsvt-matrix-inversion.md`），与入口函数或算法英文名对应。
+`docs/manual/algorithms/` 下每个算法一页，按门类组织到 `docs/manual/algorithms/groups/` 下的十三个门类页中；算法目录挂在站点导航顶层，与完整文档并列，目录页用显式 toctree 链接门类页，每个门类页再列出成员。写新页必须登记到所属门类页的 toctree，否则不会出现在导航中（`tests/docs/test_xrefs.py` 会检查）。文件名用 kebab-case（如 `qsvt-matrix-inversion.md`），与入口函数或算法英文名对应。
 
 页面首行下方用一行引用注明类别与所属模块（`> 类别 Cn · 模块 oracq.algorithms.<module> · 阶段 Vn`），类别与阶段取值必须与 `validation-coverage.md` 一致。正文固定六节：
 
@@ -64,4 +64,4 @@ API 通过 autodoc 导入实际源码，不使用 mock 导入。可选后端必�
 5. **已知缺口与计划阶段**：与 `validation-coverage.md` 缺口列一致。
 6. **相关链接**：源码模块、API 参考页（`docs/api/algorithms/` 下，先确认实际文件名再链接）、`../../development/validation-coverage.md`。
 
-维护约定：新增算法必须同时新增本页，并同步 `validation-coverage.md` 与 `algorithm-coverage.md`；三者描述的类别、阶段、缺口与证据位置必须一致。
+维护约定：新增算法必须同时新增本页并登记到所属门类页，同步 `validation-coverage.md` 与 `algorithm-coverage.md`；三者描述的类别、阶段、缺口与证据位置必须一致。

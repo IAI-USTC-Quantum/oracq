@@ -11,6 +11,7 @@ oracq 用 Python 组织量子算法，并生成可保存、可组合的寄存器
 :caption: 完整文档
 
 manual/index
+manual/algorithms/index
 reference/index
 api/index
 ```

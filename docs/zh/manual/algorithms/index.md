@@ -2,7 +2,7 @@
 
 <a href="../../../en/manual/algorithms/index.html">English</a> · **简体中文**
 
-算法库按用途组织为十个子包：`input_model`（输入模型与数据访问）、`common`（通用原语）、`qlss`（线性系统）、`qnlss`（非线性系统）、`qode`（常微分方程）、`qpde`（偏微分方程）、`qml`（量子机器学习）、`optimization`（量子优化与变分方法）、`basics`（基础示例算法）与 `qec`（量子纠错）。下表给出入口文件、已实现的内容以及使用时需要留意的边界。API 参考列出了完整签名。
+算法库按用途组织为十个子包：`input_model`（输入模型与数据访问）、`common`（通用原语）、`qlss`（线性系统）、`qnlss`（非线性系统）、`qode`（常微分方程）、`qpde`（偏微分方程）、`qml`（量子机器学习）、`optimization`（量子优化与变分方法）、`basics`（基础示例算法）与 `qec`（量子纠错）。下表给出入口文件、已实现的内容以及使用时需要留意的边界。API 参考列出了完整签名；算法页面按门类分组，见下方导航。
 
 | 子包 | 文件 | 实现与范围 |
 |---|---|---|
@@ -78,14 +78,25 @@ Fourier 加法采用 [Draper 的 QFT 加法构造](https://arxiv.org/abs/quant-p
 
 ## 算法页面
 
-每个算法一页，说明接口、输入模型、实现要点与验证证据的位置。页面按文件名排序；每页首行下方注明类别（C1–C6 或应用层）与所属模块，类别定义见[验证计划](../../development/validation-plan.md)。
+每个算法一页，说明接口、输入模型、实现要点与验证证据的位置。算法页按门类组织为十三个分组，从数据加载与输入模型开始，到应用与基础设施结束；每页首行下方注明类别（C1–C6 或应用层）与所属模块，类别定义见[验证计划](../../development/validation-plan.md)。
 
 ```{toctree}
 :maxdepth: 1
-:caption: 算法页面
-:glob:
+:caption: 算法门类
 
-*
+groups/input-models
+groups/basics
+groups/search
+groups/fourier-arithmetic
+groups/estimation
+groups/hamiltonian-evolution
+groups/qlss
+groups/differential-equations
+groups/optimization
+groups/walks
+groups/qml
+groups/qec
+groups/applications
 ```
 
 ## 数值验证
