@@ -12,6 +12,7 @@ Algorithms API
    common/hamiltonian
    common/integration
    common/prepare_select
+   common/qsp_pyqsp
    common/qsvt
    common/search
    common/spectral_synthesis

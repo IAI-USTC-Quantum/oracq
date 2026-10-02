@@ -106,6 +106,30 @@ class GappedPhaseEstimationTests(unittest.TestCase):
         small = simulate(gpe1.program(), initial={"target": 1}).amplitudes
         self.assertGreater(sum(abs(v) ** 2 for k, v in small.items() if k[1] != 0), 0.1)
 
+    def test_replacement_synthesizer_threading(self):
+        # A replacement synthesizer is threaded into the GPE markers; the pinned-completion
+        # delegate reproduces the default decision response pointwise.
+        from oracq.algorithms.common.qsvt import qsp_phases
+
+        problem = diagonal_problem([1.0, 0.5])
+        block, _ = problem.block_input()
+        a = block.encoding
+        x_edge = block.spectrum.norm_upper / a.alpha
+        delegate = lambda coeffs, imag=None: qsp_phases(coeffs, imag)  # noqa: E731
+        default, degree = gpe_fire_phases(x_edge, x_edge, 0.005, 40)
+        custom, custom_degree = gpe_fire_phases(x_edge, x_edge, 0.005, 40, synthesizer=delegate)
+        self.assertEqual(custom_degree, degree)
+        for x in (0.0, x_edge / 2, x_edge):
+            self.assertAlmostEqual(
+                abs(qsp_response(x, custom)), abs(qsp_response(x, default)), delta=1e-6
+            )
+        # The synthesized content enters the module name, keeping realizations content-addressed.
+        gpe_default = gapped_phase_estimation(a, x_edge, x_edge, epsilon=0.005)
+        gpe_custom = gapped_phase_estimation(a, x_edge, x_edge, epsilon=0.005, synthesizer=delegate)
+        self.assertEqual(
+            dict(gpe_default.module.attributes), dict(gpe_custom.module.attributes)
+        )
+
     def test_gpe_rejects_tight_geometry(self):
         problem = diagonal_problem([1.0, 0.5])
         block, _ = problem.block_input()

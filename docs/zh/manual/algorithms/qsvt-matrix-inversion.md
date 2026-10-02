@@ -38,11 +38,11 @@ API 入口：{obj}`qsvt_matrix_inversion <oracq.algorithms.common.qsvt.qsvt_matr
 
 ## 实现要点
 
-度数由 $\kappa$ 与 `error` 闭式推出：$b = \max\!\bigl(1,\ \lceil \log(1/\varepsilon) / -\log(1 - 1/\kappa^2) \rceil\bigr)$，$\kappa = 1$ 时 $b = 1$；所需度数超过合成上限 40 时抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`，调用方需放宽 `error`。
+度数由 $\kappa$ 与 `error` 闭式推出：$b = \max\!\bigl(1,\ \lceil \log(1/\varepsilon) / -\log(1 - 1/\kappa^2) \rceil\bigr)$，$\kappa = 1$ 时 $b = 1$；所需度数超过合成上限 40 且未提供替换合成器时抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`，调用方需放宽 `error` 或经 `synthesizer` 参数接入外部合成器（如 `qsp_pyqsp.PyqspSynthesizer`）。注意越过度数守卫不等于越过表示极限：系数级管线在度数约 40 以上失真（见 [QSP 相位合成](qsp-phase-synthesis.md) 的数值边界），高度数目标应在 Chebyshev 基下构造。
 
 目标多项式 $f$ 端点未饱和（$|f(\pm 1)| < 1$），必须借助非零虚部补全 $h$ 才能合成相位（见模块 docstring 的可实现条件）。合成后用 $(U_\Phi + U_{-\Phi})/2$ 的 LCU 组合提取实部——$-Φ$ 恰好实现共轭多项式 $\bar{P}$——所得块编码即 $f(A/\alpha)$。相位合成采用补多项式求根加逐层剥离（layer stripping），每次合成后经 {obj}`qsp_response <oracq.algorithms.common.qsvt.qsp_response>` 往返自检，病态输入直接拒绝。
 
-适用边界：输入必须是块编码而非稀疏 oracle 或 QRAM；矩阵未先块编码时需先经 `block_encoding.py` / `sparse.py` / `lowrank.py` 等适配。合成度数受 40 上限约束，$\kappa$ 大且 `error` 小的组合会在生成期报错而非静默降级。
+适用边界：输入必须是块编码而非稀疏 oracle 或 QRAM；矩阵未先块编码时需先经 `block_encoding.py` / `sparse.py` / `lowrank.py` 等适配。默认路线的合成度数受 40 上限约束，$\kappa$ 大且 `error` 小的组合会在生成期报错而非静默降级；接入替换合成器后系数级表示极限仍在，超限输入由往返守卫显式拒绝（κ=8、error=1e-2 的 585 次目标即为一例，相位级达标路线见 `tools/expressiveness/t1_qsp_phases.py`）。
 
 ## 验证方案
 

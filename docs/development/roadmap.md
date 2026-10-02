@@ -12,6 +12,10 @@ oracq repository, preserving existing uncommitted changes.
 | R2 | Sphinx + MyST + API documentation; manuals separated from tutorials, historical records archived | Done |
 | R3 | Oracle queries, Fourier arithmetic, search and amplitude amplification, estimation, variational algorithms, quantum walks, number theory, simple error correction | Done |
 | R4 | Mathematical witnesses for new algorithms, regression of old cases, real-backend validation, strict documentation builds, packaging and migration acceptance | Done |
+| S1 | Review-driven revision: architecture-paradigm conventions document, replaceable QSP phase synthesizer, paper text and bibliography updates | In progress |
+
+The S1 conventions are recorded in
+[architecture-paradigm](architecture-paradigm.md).
 
 Algorithm files are named by purpose: oracle_algorithms.py, fourier.py,
 search.py, estimation.py, variational.py, walks.py, number_theory.py,

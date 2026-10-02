@@ -10,6 +10,9 @@
 | R2 | Sphinx + MyST + API 文档；完整文档与教程分开，历史记录归档 | 已完成 |
 | R3 | oracle 查询、Fourier 算术、搜索与振幅放大、估计、变分算法、量子行走、数论、简单纠错 | 已完成 |
 | R4 | 新算法数学见证、旧案例回归、真实后端验证、严格文档构建、打包与迁移验收 | 已完成 |
+| S1 | 审稿驱动的修订：架构范式约定文档、可替换 QSP 相位合成器、论文文本与文献更新 | 进行中 |
+
+S1 的约定记录在[架构范式与接口约定](architecture-paradigm.md)。
 
 算法文件按用途命名：oracle_algorithms.py、fourier.py、search.py、estimation.py、variational.py、walks.py、number_theory.py、error_correction.py，以及现有的 hamiltonian.py、qlss.py、lchs.py、schrodingerization.py、cbmd.py、carleman.py、qham.py。
 

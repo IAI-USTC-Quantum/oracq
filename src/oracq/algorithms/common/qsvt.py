@@ -29,6 +29,13 @@ is capped at 40, and every synthesis is followed by a round-trip self-check
 with qsp_response that raises ValidationError beyond the limits. For degrees
 within a few tens and well-separated complementary-polynomial roots, the
 round-trip error is typically on the order of 1e-9.
+
+The synthesis step is a replaceable component: ``qsp_phases`` and its upstream
+consumers accept an optional ``PhaseSynthesizer``. The bundled route above
+remains the default and keeps its degree guard; a replacement synthesizer is
+not degree-guarded, but its output is held to the same convention by the
+round-trip self-check — exactly against P = f + i·h when an imaginary
+completion is pinned, and against Re p = f with a free completion otherwise.
 """
 
 from __future__ import annotations
@@ -36,7 +43,7 @@ from __future__ import annotations
 import cmath
 import math
 from collections.abc import Iterable, Iterator, Sequence
-from typing import cast
+from typing import Protocol, cast
 
 from oracq.algorithms.common.transforms import qsvt_sequence
 from oracq.algorithms.input_model.contracts import require_instance
@@ -45,6 +52,7 @@ from oracq.algorithms.input_model.oracles import annotate
 from oracq.infrastructure.ir import ValidationError
 
 __all__ = [
+    "PhaseSynthesizer",
     "eigenstate_filter",
     "fixed_point_search",
     "fixed_point_search_phases",
@@ -229,6 +237,58 @@ def qsp_response(x: float, phases: Iterable[float]) -> complex:
     return m00
 
 
+class PhaseSynthesizer(Protocol):
+    """Callable contract for a replaceable QSP phase synthesis component.
+
+    A synthesizer receives the ascending real coefficients of the real target
+    f (constant term first) and, when the imaginary completion is pinned, the
+    ascending real coefficients of h; it returns the phase sequence in time
+    order (first element acting first), with length d + 1 for a degree-d
+    target, in the reflection convention of ``qsp_response``.
+
+    Two conformance modes are distinguished by the ``imag`` argument:
+
+    - Pinned completion (``imag`` given): the realized top-left block must
+      equal P = f + i·h exactly. The bundled root-finding route supports
+      this mode; a synthesizer that cannot honor a pinned completion must
+      raise ValidationError instead of returning an approximate answer.
+    - Free completion (``imag=None``): only the real part is pinned,
+      Re p = f; the synthesizer is free to choose any complementary
+      imaginary part that keeps the pair realizable. This is the mode the
+      library's consumers rely on, since the real-part extraction LCU makes
+      the complementary part irrelevant to them.
+
+    Regardless of mode, ``qsp_phases`` validates the returned sequence
+    against the required target on a Chebyshev grid before returning it.
+    """
+
+    def __call__(
+        self, coeffs: Sequence[float], imag: Sequence[float] | None = None
+    ) -> tuple[float, ...]:
+        """Synthesize a time-ordered phase sequence for the target polynomial."""
+        ...
+
+
+def _call_synthesizer(
+    synthesizer: PhaseSynthesizer,
+    f: Sequence[float],
+    imag: Sequence[float] | None,
+    d: int,
+) -> tuple[float, ...]:
+    """Invoke a phase synthesizer and validate the shape and finiteness of its output."""
+    raw = tuple(synthesizer(tuple(f), None if imag is None else tuple(imag)))
+    phases: list[float] = []
+    for p in raw:
+        z = complex(p)
+        if not math.isfinite(z.real) or abs(z.imag) > 1e-9 or not math.isfinite(z.imag):
+            raise ValidationError("The phase synthesizer returned a non-real or non-finite phase")
+        phases.append(z.real)
+    if len(phases) != d + 1:
+        raise ValidationError(f"The phase synthesizer returned {len(phases)} phases for a"
+                              f" degree-{d} target; expected {d + 1}")
+    return tuple(phases)
+
+
 def _check_real_poly(coeffs: Iterable[float | complex], label: str) -> tuple[float, ...]:
     """Validate finite real coefficients and tighten them into a ``float`` tuple."""
     values: list[float] = []
@@ -392,7 +452,12 @@ def _strip(
     return tuple(reversed(phases))
 
 
-def qsp_phases(coeffs: Iterable[float], imag: Iterable[float] | None = None) -> tuple[float, ...]:
+def qsp_phases(
+    coeffs: Iterable[float],
+    imag: Iterable[float] | None = None,
+    *,
+    synthesizer: PhaseSynthesizer | None = None,
+) -> tuple[float, ...]:
     """Synthesize a QSP phase sequence from a real-coefficient target polynomial, in
     time order with length d+1.
 
@@ -405,16 +470,25 @@ def qsp_phases(coeffs: Iterable[float], imag: Iterable[float] | None = None) -> 
     Omitting imag means a purely real target, which then requires
     ``|f(±1)| = 1``.
 
+    By default the bundled route — complementary-polynomial root finding plus
+    layer stripping, guarded by the degree limit _MAX_DEGREE — produces the
+    phases. A replacement ``synthesizer`` following the PhaseSynthesizer
+    contract is not degree-guarded; its output is validated against the target
+    by the same round-trip self-check. With a synthesizer and ``imag=None``
+    the completion is free: the endpoint-saturation and complementary-polynomial
+    checks do not apply, and the self-check pins only the real part, Re p = f.
+
     Args:
         coeffs: Ascending real coefficients of the target real part f, constant term first.
         imag: Ascending real coefficients of the imaginary completion h; omit for a purely real target.
+        synthesizer: Optional replacement for the bundled synthesis route.
 
     Returns:
         tuple[float, ...]: QSP phase sequence in time order, with length equal to the target degree plus one.
     """
     f = _check_real_poly(coeffs, "target polynomial")
     d = _deg(f)
-    if d > _MAX_DEGREE:
+    if synthesizer is None and d > _MAX_DEGREE:
         raise ValidationError(f"Target polynomial degree exceeds the synthesis limit {_MAX_DEGREE}")
     if d == 0:
         if abs(abs(f[0]) - 1.0) > 1e-9:
@@ -430,29 +504,40 @@ def qsp_phases(coeffs: Iterable[float], imag: Iterable[float] | None = None) -> 
     if _sup_norm(f) > 1.0 + 1e-6 and imag is None:
         raise ValidationError("The target polynomial exceeds the upper bound 1 on the interval"
                               " from −1 to 1")
-    bound = max(abs(complex(_eval(f, x), _eval(h, x))) for x in _grid())
-    if bound > 1.0 + 1e-6:
-        raise ValidationError("P = f + i·h leaves the unit disk on the interval from −1 to 1")
-    sat = max(abs(_eval(f, 1.0).real ** 2 + _eval(h, 1.0).real ** 2 - 1.0),
-              abs(_eval(f, -1.0).real ** 2 + _eval(h, -1.0).real ** 2 - 1.0))
-    if sat > 1e-6:
-        raise ValidationError("Endpoints are not saturated: f and h must satisfy the saturation"
-                              " identity at x = 1 and x = -1; provide an imaginary completion")
-    dpoly = _trim(_sub((1.0,), _add(_mul(f, f), _mul(h, h))))
-    rpoly = _div_1mx2(dpoly)
-    if min((_eval(rpoly, x).real for x in _grid()), default=0.0) < -1e-9:
-        raise ValidationError("The complementary polynomial R takes negative values on the"
-                              " interval from −1 to 1, so no spectral decomposition exists")
-    q = _q_from_roots(rpoly, d)
-    if q is None:
-        raise ValidationError("The parity of the complementary polynomial spectral factor"
-                              " contradicts the degree requirement")
-    ppoly = _add(f, tuple(1j * v for v in h))
-    phases = _strip(ppoly, q, d)
-    err = max(abs(qsp_response(x, phases) - _eval(ppoly, x)) for x in _grid(512))
+    if synthesizer is not None and imag is None:
+        # Free-completion mode: only the real part is pinned; the complementary
+        # polynomial is the synthesizer's choice, so the saturation and
+        # spectral-decomposition checks do not apply.
+        phases = _call_synthesizer(synthesizer, f, None, d)
+        err = max(abs(qsp_response(x, phases).real - _eval(f, x).real) for x in _grid(512))
+    else:
+        bound = max(abs(complex(_eval(f, x), _eval(h, x))) for x in _grid())
+        if bound > 1.0 + 1e-6:
+            raise ValidationError("P = f + i·h leaves the unit disk on the interval from −1 to 1")
+        sat = max(abs(_eval(f, 1.0).real ** 2 + _eval(h, 1.0).real ** 2 - 1.0),
+                  abs(_eval(f, -1.0).real ** 2 + _eval(h, -1.0).real ** 2 - 1.0))
+        if sat > 1e-6:
+            raise ValidationError("Endpoints are not saturated: f and h must satisfy the saturation"
+                                  " identity at x = 1 and x = -1; provide an imaginary completion")
+        dpoly = _trim(_sub((1.0,), _add(_mul(f, f), _mul(h, h))))
+        rpoly = _div_1mx2(dpoly)
+        if min((_eval(rpoly, x).real for x in _grid()), default=0.0) < -1e-9:
+            raise ValidationError("The complementary polynomial R takes negative values on the"
+                                  " interval from −1 to 1, so no spectral decomposition exists")
+        ppoly = _add(f, tuple(1j * v for v in h))
+        if synthesizer is None:
+            q = _q_from_roots(rpoly, d)
+            if q is None:
+                raise ValidationError("The parity of the complementary polynomial spectral factor"
+                                      " contradicts the degree requirement")
+            phases = _strip(ppoly, q, d)
+        else:
+            phases = _call_synthesizer(synthesizer, f, h, d)
+        err = max(abs(qsp_response(x, phases) - _eval(ppoly, x)) for x in _grid(512))
     if err > _STRIP_TOL:
         raise ValidationError(f"Phase synthesis round-trip self-check failed with error {err:.2e}:"
-                              " degree too high or ill-conditioned complementary polynomial")
+                              " degree too high, ill-conditioned complementary polynomial, or"
+                              " numerically unreliable coefficient evaluation")
     return phases
 
 
@@ -491,9 +576,20 @@ def _finish(be: BlockEncoding, algorithm: str, **attributes: float) -> BlockEnco
 
 
 def _synthesize_with_imag(
-    f: Sequence[float], imag_candidates: Iterable[Iterable[float]], label: str
+    f: Sequence[float],
+    imag_candidates: Iterable[Iterable[float]],
+    label: str,
+    *,
+    synthesizer: PhaseSynthesizer | None = None,
 ) -> tuple[float, ...]:
-    """Try the imaginary completion candidates in turn; raise ValidationError when all fail."""
+    """Try the imaginary completion candidates in turn; raise ValidationError when all fail.
+
+    With a replacement synthesizer the completion is free: the candidates are
+    scaffolding for the bundled route only, and the synthesizer is asked to pin
+    the real part with a completion of its own choice.
+    """
+    if synthesizer is not None:
+        return qsp_phases(f, synthesizer=synthesizer)
     for h in imag_candidates:
         try:
             return qsp_phases(f, imag=h)
@@ -508,7 +604,13 @@ def _synthesize_with_imag(
 # ---------------------------------------------------------------------------
 
 
-def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05) -> BlockEncoding:
+def qsvt_matrix_inversion(
+    a: BlockEncoding,
+    kappa: float,
+    *,
+    error: float = 0.05,
+    synthesizer: PhaseSynthesizer | None = None,
+) -> BlockEncoding:
     """QSVT block encoding approximating A⁻¹, a scaling of the odd extension polynomial
     J_b(x) = (1−(1−x²)^b)/x.
 
@@ -522,6 +624,8 @@ def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05
         a: Block encoding of the matrix A to invert.
         kappa: Condition number κ, a finite number not less than 1.
         error: Relative approximation error, in (0,1).
+        synthesizer: Optional replacement for the bundled QSP phase synthesis route;
+            when given, the bundled route's degree limit does not apply.
 
     Returns:
         BlockEncoding: Matrix inversion block encoding whose zero-signal block approximates
@@ -537,7 +641,7 @@ def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05
     else:
         b = max(1, math.ceil(math.log(1 / error) / -math.log(1 - 1 / kappa**2)))
     d = 2 * b - 1
-    if d > _MAX_DEGREE:
+    if d > _MAX_DEGREE and synthesizer is None:
         raise ValidationError(f"κ={kappa} requires degree {d} which exceeds the synthesis limit"
                               f" {_MAX_DEGREE}; please relax error")
     f = tuple(
@@ -550,7 +654,9 @@ def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05
     c_scale = 1.0 / (3.0 * norm)
     f = cast("tuple[float, ...]", _scale(c_scale, f))
     sat = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
-    phases = _synthesize_with_imag(f, [(0.0, sat)], "matrix inversion polynomial")
+    phases = _synthesize_with_imag(
+        f, [(0.0, sat)], "matrix inversion polynomial", synthesizer=synthesizer
+    )
     be = _real_qsvt_be(a, phases)
     return _finish(
         be,
@@ -563,7 +669,12 @@ def qsvt_matrix_inversion(a: BlockEncoding, kappa: float, *, error: float = 0.05
 
 
 def eigenstate_filter(
-    a: BlockEncoding, gap: float, degree: int, *, center: float = 0.0
+    a: BlockEncoding,
+    gap: float,
+    degree: int,
+    *,
+    center: float = 0.0,
+    synthesizer: PhaseSynthesizer | None = None,
 ) -> BlockEncoding:
     """Eigenstate filtering: a peaked polynomial block encoding that suppresses the
     block below 1/T_d(r) outside ``|x−center| ≤ gap``.
@@ -579,6 +690,8 @@ def eigenstate_filter(
         gap: Filter half-width Δ, in (0,1); spectral components within Δ of the center are kept.
         degree: Chebyshev filter degree, a positive integer; the actual synthesis degree is twice it.
         center: Spectral position of the filter center, in (−1,1); 0 shifts no spectrum.
+        synthesizer: Optional replacement for the bundled QSP phase synthesis route;
+            when given, the bundled route's degree limit does not apply.
 
     Returns:
         BlockEncoding: Peaked filter block encoding, with the suppression attribute 1/T_d(r).
@@ -589,7 +702,7 @@ def eigenstate_filter(
     if type(degree) is not int or degree < 1:
         raise ValidationError("The Chebyshev degree must be a positive integer")
     d2 = 2 * degree
-    if d2 > _MAX_DEGREE:
+    if d2 > _MAX_DEGREE and synthesizer is None:
         raise ValidationError(f"The synthesis degree {d2} exceeds the limit {_MAX_DEGREE}")
     shifted = a
     if center != 0.0:
@@ -606,7 +719,9 @@ def eigenstate_filter(
         t0, t1 = t1, _sub(_scale(2.0, _mul(u, t1)), t0)
     f = cast("tuple[float, ...]", _scale(1.0 / norm_d, t1 if degree >= 1 else t0))
     sat = math.sqrt(max(0.0, 1.0 - _eval(f, 1.0).real ** 2))
-    phases = _synthesize_with_imag(f, [(0.0, 0.0, sat)], "eigenstate filter polynomial")
+    phases = _synthesize_with_imag(
+        f, [(0.0, 0.0, sat)], "eigenstate filter polynomial", synthesizer=synthesizer
+    )
     be = _real_qsvt_be(shifted, phases)
     return _finish(
         be,
@@ -631,10 +746,13 @@ def _bessel_j(n: int, x: float) -> float:
     return total
 
 
-def _jacobi_anger(t: float, error: float) -> tuple[tuple[float, ...], tuple[float, ...], int]:
+def _jacobi_anger(
+    t: float, error: float, cap: int | None = _MAX_DEGREE
+) -> tuple[tuple[float, ...], tuple[float, ...], int]:
     """Jacobi–Anger truncation of e^{itx}: returns the even-branch cos coefficients, the
     odd-branch sin coefficients, and the truncation degree K."""
-    kmax = min(_MAX_DEGREE, int(math.ceil(abs(t))) + 8 * int(math.ceil(math.log10(4 / error))) + 8)
+    bound = int(math.ceil(abs(t))) + 8 * int(math.ceil(math.log10(4 / error))) + 8
+    kmax = bound if cap is None else min(cap, bound)
     js = [_bessel_j(k, abs(t)) for k in range(kmax + 2)]
     suffix = [0.0] * (kmax + 3)
     for j in range(kmax + 1, -1, -1):
@@ -657,7 +775,11 @@ def _jacobi_anger(t: float, error: float) -> tuple[tuple[float, ...], tuple[floa
 
 
 def qsvt_hamiltonian_simulation(
-    a: BlockEncoding, t: float, *, error: float = 0.01
+    a: BlockEncoding,
+    t: float,
+    *,
+    error: float = 0.01,
+    synthesizer: PhaseSynthesizer | None = None,
 ) -> BlockEncoding:
     """QSVT block encoding of e^{itA/α}: the Jacobi–Anger even and odd branches are
     synthesized separately and then combined by an LCU.
@@ -673,6 +795,8 @@ def qsvt_hamiltonian_simulation(
         a: Block encoding of the evolution generator A.
         t: Evolution time, a nonzero finite real number.
         error: Jacobi–Anger truncation and synthesis error, in (0,1).
+        synthesizer: Optional replacement for the bundled QSP phase synthesis route;
+            when given, the bundled route's truncation degree cap does not apply.
 
     Returns:
         BlockEncoding: Block encoding whose zero-signal block approximates e^{itA/α}/sim_scale.
@@ -682,7 +806,7 @@ def qsvt_hamiltonian_simulation(
         raise ValidationError("The evolution time t must be a nonzero finite real number")
     if not (0 < error < 1):
         raise ValidationError("The approximation error must lie strictly between 0 and 1")
-    fc, fs, k = _jacobi_anger(t, error)
+    fc, fs, k = _jacobi_anger(t, error, None if synthesizer is not None else _MAX_DEGREE)
     s = 1.5 * max(_sup_norm(fc), _sup_norm(fs), 1e-3)
     fc, fs = (
         cast("tuple[float, ...]", _scale(1.0 / s, fc)),
@@ -708,8 +832,12 @@ def qsvt_hamiltonian_simulation(
         for m in range(0, (ds - 1) // 2 + 1):
             yield tuple(a1 * (1.0 if i == 2 * m + 1 else 0.0) for i in range(ds + 1))
 
-    phases_c = _synthesize_with_imag(fc, cos_imags(), "Hamiltonian simulation cos branch")
-    phases_s = _synthesize_with_imag(fs, sin_imags(), "Hamiltonian simulation sin branch")
+    phases_c = _synthesize_with_imag(
+        fc, cos_imags(), "Hamiltonian simulation cos branch", synthesizer=synthesizer
+    )
+    phases_s = _synthesize_with_imag(
+        fs, sin_imags(), "Hamiltonian simulation sin branch", synthesizer=synthesizer
+    )
     uc = _real_qsvt_be(a, phases_c)
     us = _real_qsvt_be(a, phases_s)
     be = linear_combination(1.0, uc, 1j, us)
@@ -723,7 +851,12 @@ def qsvt_hamiltonian_simulation(
     )
 
 
-def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
+def fixed_point_search_phases(
+    delta: float,
+    degree: int,
+    *,
+    synthesizer: PhaseSynthesizer | None = None,
+) -> tuple[float, ...]:
     """Phase sequence for Yoder–Low–Chuang fixed-point amplitude amplification, in time
     order with length degree+1.
 
@@ -736,10 +869,17 @@ def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
     we have P_S ≥ 1 − δ², and the threshold decreases monotonically in L
     toward 0, the fixed-point property.
 
+    With a replacement synthesizer the closed-form stripping is skipped; the
+    synthesizer receives the real and imaginary parts of P separately
+    (pinned-completion mode) and must reproduce P exactly, so the realized
+    success probability remains exactly P_S.
+
     Args:
         delta: Failure probability bound δ, in (0,1).
         degree: Amplification degree L, the number of block-encoding calls, a positive odd
-            integer not exceeding half the synthesis limit.
+            integer; the bundled route limits it to half the synthesis limit.
+        synthesizer: Optional replacement for the bundled synthesis route; when given,
+            the bundled route's degree limit does not apply.
 
     Returns:
         tuple[float, ...]: Phase sequence in time order, with length degree+1.
@@ -749,7 +889,7 @@ def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
     if type(degree) is not int or degree < 1 or degree % 2 == 0:
         raise ValidationError("The fixed-point search degree, the number of block-encoding calls,"
                               " must be a positive odd integer")
-    if degree > _MAX_DEGREE // 2:
+    if degree > _MAX_DEGREE // 2 and synthesizer is None:
         raise ValidationError(f"The fixed-point search degree exceeds the limit"
                               f" {_MAX_DEGREE // 2}")
     L = degree
@@ -796,17 +936,31 @@ def fixed_point_search_phases(delta: float, degree: int) -> tuple[float, ...]:
     for fct in factors:
         ppoly = _mul(ppoly, fct)
     ppoly = _trim(_scale(abs(qpoly[-1]), ppoly))
-    phases = _strip(ppoly, qpoly, L)
-    err = max(
-        abs(abs(qsp_response(x, phases)) ** 2 - (1.0 - (1 - x * x) * _eval(qpoly, x) ** 2))
-        for x in _grid(512)
-    )
+    if synthesizer is None:
+        phases = _strip(ppoly, qpoly, L)
+        err = max(
+            abs(abs(qsp_response(x, phases)) ** 2 - (1.0 - (1 - x * x) * _eval(qpoly, x) ** 2))
+            for x in _grid(512)
+        )
+    else:
+        # Pinned-completion mode: the YLC target P is generally complex, so its real and
+        # imaginary parts are handed to the synthesizer separately.
+        target_re = tuple(complex(v).real for v in ppoly)
+        target_im = tuple(complex(v).imag for v in ppoly)
+        phases = _call_synthesizer(synthesizer, target_re, target_im, L)
+        err = max(abs(qsp_response(x, phases) - _eval(ppoly, x)) for x in _grid(512))
     if err > _STRIP_TOL:
         raise ValidationError(f"Fixed-point search phase self-check failed with error {err:.2e}")
     return phases
 
 
-def fixed_point_search(a: BlockEncoding, delta: float, degree: int) -> BlockEncoding:
+def fixed_point_search(
+    a: BlockEncoding,
+    delta: float,
+    degree: int,
+    *,
+    synthesizer: PhaseSynthesizer | None = None,
+) -> BlockEncoding:
     """QSVT assembly for fixed-point amplitude amplification: applies the phase sequence
     from fixed_point_search_phases to a block encoding.
 
@@ -818,12 +972,13 @@ def fixed_point_search(a: BlockEncoding, delta: float, degree: int) -> BlockEnco
         a: The block encoding to amplify.
         delta: Failure probability bound δ, in (0,1).
         degree: Amplification degree, the number of block-encoding calls, a positive odd integer.
+        synthesizer: Optional replacement for the bundled QSP phase synthesis route.
 
     Returns:
         BlockEncoding: Fixed-point amplification block encoding whose zero-signal block is P(A/α).
     """
     require_instance(a, BlockEncoding, "fixed_point_search.a")
-    phases = fixed_point_search_phases(delta, degree)
+    phases = fixed_point_search_phases(delta, degree, synthesizer=synthesizer)
     L = degree
     gamma = 1.0 / math.cosh(math.acosh(1.0 / delta) / L)
     be = _wrap_qsvt_be(a, phases)

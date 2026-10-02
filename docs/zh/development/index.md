@@ -8,6 +8,8 @@
 :maxdepth: 1
 
 contributing
+architecture-paradigm
+framework-survey
 writing-docs
 translation-glossary
 roadmap

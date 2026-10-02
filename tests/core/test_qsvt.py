@@ -5,7 +5,7 @@ import math
 import random
 import unittest
 
-from oracq import ValidationError, simulate
+from oracq import ValidationError, dumps, simulate
 from oracq.algorithms.common.qsvt import (
     eigenstate_filter,
     fixed_point_search,
@@ -93,6 +93,129 @@ class PhaseSynthesisTests(unittest.TestCase):
             qsp_phases((0.0, 1.0 + 1.0j))
         with self.assertRaises(ValidationError):  # imaginary-part parity mismatch
             qsp_phases((0.0, 0.5), imag=(0.5,))
+
+
+class PhaseSynthesizerTests(unittest.TestCase):
+    """Replaceable phase synthesizers: injection, the convention guard, and the degree-guard bypass."""
+
+    @staticmethod
+    def toy_chebyshev(coeffs, imag=None):
+        # Reflection-convention phases realizing T_n exactly, mapped from the all-zero
+        # sequence of the Wx (rotation) convention: reverse, subtract pi/4 from the two
+        # end phases and pi/2 from the middle ones, then add n*pi/2 to the first-applied
+        # phase so that p = e^{i n pi/2} i^{-n} T_n = T_n.
+        n = len(tuple(coeffs)) - 1
+        phases = [-math.pi / 2] * (n + 1)
+        phases[0] = -math.pi / 4 + n * math.pi / 2
+        phases[n] = -math.pi / 4
+        return tuple(phases)
+
+    @staticmethod
+    def bundled_style(coeffs, imag=None):
+        """A free-completion synthesizer rebuilt from the bundled route's own scaffolding."""
+        if imag is not None:
+            return qsp_phases(coeffs, imag)
+        f = tuple(coeffs)
+        v = 0.0
+        for c in reversed(f):  # Horner at x = 1, matching the library's evaluation order
+            v += c
+        sat = math.sqrt(max(0.0, 1.0 - v * v))
+        h = (0.0, sat) if (len(f) - 1) % 2 else (0.0, 0.0, sat)
+        return qsp_phases(f, imag=h)
+
+    def test_injected_synthesizer_realizes_chebyshev(self):
+        for n in (3, 5):
+            phases = qsp_phases(chebyshev_t(n), synthesizer=self.toy_chebyshev)
+            self.assertEqual(len(phases), n + 1)
+            for i in range(21):
+                x = -0.99 + 1.98 * i / 20
+                self.assertAlmostEqual(
+                    qsp_response(x, phases).real, peval(chebyshev_t(n), x), delta=1e-12
+                )
+
+    def test_degree_guard_bypassed_with_synthesizer(self):
+        # The degree limit guards the bundled numerics only: with a synthesizer the guard
+        # does not fire and the call reaches the synthesizer (a well-conditioned target is
+        # used so the coefficient-domain input checks still pass at degree 41).
+        calls = []
+
+        def recorder(coeffs, imag=None):
+            calls.append(len(tuple(coeffs)) - 1)
+            raise ValidationError("sentinel: synthesizer reached")
+
+        with self.assertRaisesRegex(ValidationError, "sentinel"):
+            qsp_phases((0.0,) * 41 + (0.5,), synthesizer=recorder)
+        self.assertEqual(calls, [41])
+        with self.assertRaisesRegex(ValidationError, "synthesis limit"):
+            qsp_phases((0.0,) * 41 + (0.5,))  # the bundled route stays degree-guarded
+
+    def test_roundtrip_guard_rejects_wrong_phases(self):
+        with self.assertRaisesRegex(ValidationError, "round-trip"):
+            qsp_phases(chebyshev_t(3), synthesizer=lambda coeffs, imag=None: (0.1,) * 4)
+
+    def test_synthesizer_output_shape_checked(self):
+        with self.assertRaisesRegex(ValidationError, "expected 4"):
+            qsp_phases(chebyshev_t(3), synthesizer=lambda coeffs, imag=None: (0.0, 0.0))
+        with self.assertRaisesRegex(ValidationError, "non-real or non-finite"):
+            qsp_phases(
+                chebyshev_t(3),
+                synthesizer=lambda coeffs, imag=None: (0.0, float("nan"), 0.0, 0.0),
+            )
+
+    def test_pinned_completion_mode_is_exact(self):
+        # With imag given, the synthesizer must honor p = f + i·h exactly, not just Re p = f.
+        target, completion = (0.0, 0.5), (0.0, math.sqrt(0.75))
+
+        def shifted(coeffs, imag=None):
+            phases = qsp_phases(coeffs, imag)
+            return (phases[0] + 0.3,) + phases[1:]
+
+        with self.assertRaisesRegex(ValidationError, "round-trip"):
+            qsp_phases(target, imag=completion, synthesizer=shifted)
+        phases = qsp_phases(
+            target, imag=completion, synthesizer=lambda c, imag=None: qsp_phases(c, imag)
+        )
+        x = 0.37
+        self.assertAlmostEqual(
+            qsp_response(x, phases), complex(0.5, math.sqrt(0.75)) * x, delta=1e-9
+        )
+
+    def test_upstream_threading_matches_default_bitwise(self):
+        # A synthesizer reproducing the bundled scaffolding yields byte-identical programs.
+        be = matrix_pauli_encoding([[0.6, -0.2], [-0.2, 0.6]])
+        default = qsvt_matrix_inversion(be, 2.0, error=0.15)
+        custom = qsvt_matrix_inversion(be, 2.0, error=0.15, synthesizer=self.bundled_style)
+        self.assertEqual(
+            dumps(default.operation.program()), dumps(custom.operation.program())
+        )
+        be2 = matrix_pauli_encoding([[0.05, 0.0], [0.0, 0.5]])
+        default_f = eigenstate_filter(be2, 0.2, 8, center=0.1)
+        custom_f = eigenstate_filter(be2, 0.2, 8, center=0.1, synthesizer=self.bundled_style)
+        self.assertEqual(
+            dumps(default_f.operation.program()), dumps(custom_f.operation.program())
+        )
+
+    def test_fixed_point_search_with_synthesizer(self):
+        default = fixed_point_search_phases(0.4, 5)
+        custom = fixed_point_search_phases(
+            0.4, 5, synthesizer=lambda coeffs, imag=None: qsp_phases(coeffs, imag)
+        )
+        self.assertEqual(len(custom), 6)
+        for i in range(1, 41):
+            x = i / 41
+            self.assertAlmostEqual(
+                abs(qsp_response(x, custom)) ** 2,
+                abs(qsp_response(x, default)) ** 2,
+                delta=1e-6,
+            )
+
+    def test_kappa8_inversion_boundary_is_explicit(self):
+        # The retained boundary: kappa=8 at error=1e-2 requires the degree-585 polynomial,
+        # which the bundled route rejects by its degree guard (and the monomial-coefficient
+        # pipeline itself loses reliability around degree 40, independently of synthesis).
+        be = matrix_pauli_encoding([[0.6, -0.2], [-0.2, 0.6]])
+        with self.assertRaisesRegex(ValidationError, "synthesis limit"):
+            qsvt_matrix_inversion(be, 8.0, error=1e-2)
 
 
 class TransformWitnessTests(unittest.TestCase):

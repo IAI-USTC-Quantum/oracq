@@ -1,23 +1,40 @@
 """oracq side of T2: QSVT 2×2 matrix-inversion direction (A=[[1,-1/3],[-1/3,1]], |b>=[1,0]).
 
-The specification and pass thresholds are in ~/projects/oracq-dev/benchmarks/t2/SPEC.md.
-Standalone run:
+Pass threshold: the direction error of the recovered zero-signal block against
+A⁻¹b/‖A⁻¹b‖, at most 1e-2 (the fixture recorded in the paper's discussion
+section).
 
-    cd ~/projects/qcfd-dev/oracq && \
-    PYTHONPATH=src ~/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python \
-    tools/expressiveness/t2_qsvt_inversion.py
+Standalone run (the pyqsp route needs the optional ``pyqsp`` extra):
+
+    cd oracq && uv run --extra pyqsp python tools/expressiveness/t2_qsvt_inversion.py
 
 The assembly path uses documented primitives of the main repository (same as
 tests/verification/verify_fourier.py):
-matrix_pauli_encoding (α = Pauli 1-norm = 4/3 = ‖A‖) + qsp_phases (J-polynomial
-inversion phases, imaginary completion same as qsvt_matrix_inversion) +
+matrix_pauli_encoding (α = Pauli 1-norm = 4/3 = ‖A‖) + phase synthesis +
 qsvt_sequence, and the reference executor reads out the zero-signal block.
+
+Two synthesis routes are measured:
+
+- bundled: qsp_phases' root-finding + layer-stripping route, degree-guarded at 40;
+  the spec degree 585 is rejected and the tool reports the maximum feasible b.
+- pyqsp: the replaceable-synthesizer route through
+  oracq.algorithms.common.qsp_pyqsp, with the target c·J_b constructed in the
+  Chebyshev basis. The completion is then free, so the zero-signal block carries
+  Re p = c·J_b(A/α) plus an imaginary part chosen by the synthesizer; the
+  direction metric is computed from the real part, as before.
 """
 
+import importlib.util
 import math
+import sys
 from importlib.metadata import version
+from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # sibling tool module, not a package
+
+from t1_qsp_phases import synthesize_pyqsp
 
 import oracq
 from oracq import simulate
@@ -59,6 +76,24 @@ def run(b):
     return float(np.linalg.norm(direction - exact_dir)), block_err, be.alpha
 
 
+def run_pyqsp(b):
+    """The pyqsp route: Chebyshev-native phases at the spec degree, applied to the same BE."""
+    phases, scale = synthesize_pyqsp(b)
+    be = matrix_pauli_encoding(A.tolist())
+    amps = simulate(qsvt_sequence(be, phases).program()).amplitudes
+    v = np.array([complex(amps[(0, 0)]), complex(amps[(1, 0)])])
+    scaled = A / be.alpha
+    # Reference for the pinned real part: c·J_b(A/α) B by exact eigendecomposition.
+    w, vecs = np.linalg.eigh(scaled)
+    g = scale * np.where(np.abs(w) < 1e-8, b * w, (1.0 - (1.0 - w**2) ** b) / w)
+    expected_re = vecs @ (g * (vecs.T @ B))
+    block_err = float(np.abs(v.real - expected_re).max())
+    direction = v.real / np.linalg.norm(v.real)
+    exact = np.linalg.inv(A) @ B
+    exact_dir = exact / np.linalg.norm(exact)
+    return float(np.linalg.norm(direction - exact_dir)), block_err, be.alpha, len(phases)
+
+
 def main():
     print(f"oracq {version('oracq')} ({oracq.__file__})")
     b_spec = math.ceil(math.log(1.0 / EPS) / -math.log(1.0 - 1.0 / KAPPA**2))
@@ -77,10 +112,19 @@ def main():
                 break
         print(f"max feasible b={b} (degree {2 * b - 1})")
     dir_err, block_err, alpha = run(b)
-    print(f"block_encoding_alpha={alpha:.6f} phases={2 * b}")
-    print(f"zero_block_vs_poly_err={block_err:.3e}")
-    print(f"direction_err={dir_err:.3e} (threshold {THRESHOLD})")
-    print("status:", "ok" if dir_err <= THRESHOLD else "failed")
+    print(f"[bundled] block_encoding_alpha={alpha:.6f} phases={2 * b}")
+    print(f"[bundled] zero_block_vs_poly_err={block_err:.3e}")
+    print(f"[bundled] direction_err={dir_err:.3e} (threshold {THRESHOLD})")
+    print("[bundled] status:", "ok" if dir_err <= THRESHOLD else "failed")
+
+    if importlib.util.find_spec("pyqsp") is None:
+        print("[pyqsp] skipped: the optional pyqsp extra is not installed")
+        return
+    dir_err, block_err, alpha, n_phases = run_pyqsp(b_spec)
+    print(f"[pyqsp] block_encoding_alpha={alpha:.6f} phases={n_phases}")
+    print(f"[pyqsp] zero_block_re_vs_poly_err={block_err:.3e}")
+    print(f"[pyqsp] direction_err={dir_err:.3e} (threshold {THRESHOLD})")
+    print("[pyqsp] status:", "ok" if dir_err <= THRESHOLD else "failed")
 
 
 if __name__ == "__main__":

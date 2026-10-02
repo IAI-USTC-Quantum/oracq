@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from oracq.algorithms.common.arithmetic import BooleanNetwork
-from oracq.algorithms.common.qsvt import fixed_point_search_phases, qsp_response
+from oracq.algorithms.common.qsvt import PhaseSynthesizer, fixed_point_search_phases, qsp_response
 from oracq.algorithms.common.transforms import qsvt_sequence
 from oracq.algorithms.input_model.block_encoding import reflect_zero
 from oracq.algorithms.input_model.contracts import (
@@ -50,9 +50,40 @@ from oracq.infrastructure.builder import Builder, Operation
 from oracq.infrastructure.ir import Bits, ValidationError, fuse
 
 
+def _search_fire_phases(
+    threshold: float,
+    x_edge: float,
+    epsilon: float,
+    degree_cap: int,
+    synthesizer: PhaseSynthesizer | None,
+) -> tuple[tuple[float, ...], int]:
+    """Search odd degrees upward until the GPE fire grid validation passes."""
+    fire_grid = [threshold + (x_edge - threshold) * i / 16.0 for i in range(17)]
+    for degree in range(3, degree_cap + 1, 2):
+        try:
+            phases = fixed_point_search_phases(epsilon, degree, synthesizer=synthesizer)
+        except ValidationError:
+            continue
+        if min(abs(qsp_response(x, phases)) for x in fire_grid) >= 1 - epsilon:
+            return phases, degree
+    raise ValidationError("The GPE decision polynomial degree exceeded the cap; increase phi or lower the kappa declaration")
+
+
 @lru_cache(maxsize=64)
+def _gpe_fire_phases_cached(
+    threshold: float, x_edge: float, epsilon: float, degree_cap: int
+) -> tuple[tuple[float, ...], int]:
+    """Cached default-route search; replacement synthesizers bypass the cache (callables are not content-hashable)."""
+    return _search_fire_phases(threshold, x_edge, epsilon, degree_cap, None)
+
+
 def gpe_fire_phases(
-    threshold: float, x_edge: float, epsilon: float, degree_cap: int = 40
+    threshold: float,
+    x_edge: float,
+    epsilon: float,
+    degree_cap: int = 40,
+    *,
+    synthesizer: PhaseSynthesizer | None = None,
 ) -> tuple[tuple[float, ...], int]:
     """GPE fire decision phases: YLC fixed-point polynomial with ``|P| >= 1-epsilon`` when ``|x| >= threshold``.
 
@@ -65,6 +96,8 @@ def gpe_fire_phases(
         x_edge: Right end of the validation grid, in [threshold, 1].
         epsilon: Hard bound on the decision response, in (0,1).
         degree_cap: Search cap for the decision polynomial degree; odd degrees from 3 upward are searched.
+        synthesizer: Optional replacement for the bundled YLC phase synthesis route
+            (pinned-completion mode; the exact P_S identity still applies).
 
     Returns:
         tuple[tuple[float, ...], int]: The grid-validated QSP phase sequence and the actual degree.
@@ -74,15 +107,9 @@ def gpe_fire_phases(
     finite_real(epsilon, "gpe_fire.epsilon", minimum=0, strict=True)
     if not 0 < threshold <= x_edge <= 1 or not 0 < epsilon < 1:
         raise ValidationError("Invalid GPE decision geometry or precision")
-    fire_grid = [threshold + (x_edge - threshold) * i / 16.0 for i in range(17)]
-    for degree in range(3, degree_cap + 1, 2):
-        try:
-            phases = fixed_point_search_phases(epsilon, degree)
-        except ValidationError:
-            continue
-        if min(abs(qsp_response(x, phases)) for x in fire_grid) >= 1 - epsilon:
-            return phases, degree
-    raise ValidationError("The GPE decision polynomial degree exceeded the cap; increase phi or lower the kappa declaration")
+    if synthesizer is None:
+        return _gpe_fire_phases_cached(threshold, x_edge, epsilon, degree_cap)
+    return _search_fire_phases(threshold, x_edge, epsilon, degree_cap, synthesizer)
 
 
 @lru_cache(maxsize=64)
@@ -108,6 +135,7 @@ def gapped_phase_estimation(
     *,
     epsilon: float = 0.02,
     degree_cap: int = 40,
+    synthesizer: PhaseSynthesizer | None = None,
 ) -> Operation:
     """GPE of CKS Lemma 22 (deterministic QSP route, Low–Su arXiv:2410.18178 Prop 23).
 
@@ -124,15 +152,21 @@ def gapped_phase_estimation(
         x_edge: Spectral upper bound divided by alpha; right end of the validation grid.
         epsilon: Hard bound on the fire-side decision response.
         degree_cap: Cap on the decision polynomial degree.
+        synthesizer: Optional replacement for the bundled YLC phase synthesis route.
 
     Returns:
         Operation: Registers target/signal/decision; decision=1 means stopping in this band.
     """
     a = as_block_encoding(a)
-    phases, degree = gpe_fire_phases(threshold, x_edge, epsilon, degree_cap)
+    phases, degree = gpe_fire_phases(threshold, x_edge, epsilon, degree_cap, synthesizer=synthesizer)
     marker = qsvt_sequence(a, phases)
+    # A replacement synthesizer can produce different phases at the same degree; include the
+    # phase content in the module name so distinct realizations stay content-addressed.
+    name_values: tuple[object, ...] = (a.operation, threshold, x_edge, epsilon, degree)
+    if synthesizer is not None:
+        name_values += (tuple(phases),)
     b = Builder(
-        _name("vtaa_gpe", a.operation, threshold, x_edge, epsilon, degree),
+        _name("vtaa_gpe", *name_values),
         {
             "target": Bits(a.width),
             "signal": Bits(a.signal_qubits),
@@ -314,12 +348,19 @@ def tunable_rounds(
     )
 
 
-def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOracle:
+def vtaa_cks(
+    system: SparseSystem,
+    config: VTAAConfig | None = None,
+    *,
+    synthesizer: PhaseSynthesizer | None = None,
+) -> StateOracle:
     """CKS §5 VTAA solve kernel; takes a SparseSystem and returns the solution StateOracle.
 
     Args:
         system: Sparse Hermitian linear system; must carry Hermitian and spectral bound declarations.
         config: VTAA configuration; defaults to the default configuration.
+        synthesizer: Optional replacement for the bundled QSP phase synthesis route used by
+            the GPE decision markers.
 
     Returns:
         StateOracle: The solution state oracle output by the variable-time amplification cascade, with correctness marked pending.
@@ -359,6 +400,7 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
             x_edge,
             epsilon=config.marker_epsilon,
             degree_cap=config.degree_cap,
+            synthesizer=synthesizer,
         )
         for threshold, _, _ in bands
     )
@@ -387,8 +429,12 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
         resources = resources_for(("gpe", gpes[step - 1]))
         if not uncompute:
             resources.update(resources_for(("inverse", inverses[step - 1])))
+        # With a replacement synthesizer the GPE content enters the module name.
+        step_names: tuple[object, ...] = (a.operation, system.rhs.operation, step, coefficients, config)
+        if synthesizer is not None:
+            step_names += (gpes[step - 1],)
         b = Builder(
-            _name(kind, a.operation, system.rhs.operation, step, coefficients, config),
+            _name(kind, *step_names),
             registers,
             resources,
             attributes={
@@ -525,8 +571,11 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
         chain = [("run", amplified)]
     erase_ops = tuple(build_step(step, uncompute=True) for step in range(1, steps + 1))
 
+    top_names: tuple[object, ...] = (a.operation, system.rhs.operation, config)
+    if synthesizer is not None:
+        top_names += tuple(gpes)
     top = Builder(
-        _name("vtaa_cks", a.operation, system.rhs.operation, config),
+        _name("vtaa_cks", *top_names),
         {"target": Bits(a.width), "signal": Bits(steps + 1 + signal_width)},
         resources_for(
             ("run", amplified), *((f"erase{s}", op) for s, op in enumerate(erase_ops, 1))
@@ -584,15 +633,21 @@ def vtaa_cks(system: SparseSystem, config: VTAAConfig | None = None) -> StateOra
     )
 
 
-def make_vtaa_cks_qlss(config: VTAAConfig | None = None) -> QLSSProtocol:
+def make_vtaa_cks_qlss(
+    config: VTAAConfig | None = None,
+    *,
+    synthesizer: PhaseSynthesizer | None = None,
+) -> QLSSProtocol:
     """CKS §5 VTAA solve protocol; the input model is the same sparse access as cks_chebyshev.
 
     Args:
         config: VTAA configuration; defaults to the default configuration.
+        synthesizer: Optional replacement for the bundled QSP phase synthesis route used by
+            the GPE decision markers.
 
     Returns:
         QLSSProtocol: The VTAA solve protocol under the sparse input model.
     """
     config = VTAAConfig() if config is None else config
     require_instance(config, VTAAConfig, "make_vtaa_cks_qlss.config")
-    return QLSSProtocol("vtaa_cks", "sparse", lambda system: vtaa_cks(system, config))
+    return QLSSProtocol("vtaa_cks", "sparse", lambda system: vtaa_cks(system, config, synthesizer=synthesizer))

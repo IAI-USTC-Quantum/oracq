@@ -34,6 +34,7 @@ from typing import cast
 
 from oracq.algorithms.common.qsvt import (
     _MAX_DEGREE,
+    PhaseSynthesizer,
     _chebyshev_t,
     _eval,
     _real_qsvt_be,
@@ -651,16 +652,18 @@ def _bessel_i(n: int, x: float) -> float:
 
 
 def _gibbs_branches(
-    c: float, error: float
+    c: float, error: float, cap: int | None = _MAX_DEGREE
 ) -> tuple[tuple[float, ...], tuple[float, ...], int, int]:
     """Even/odd Chebyshev truncations of g(x) = e^{−c(x+1)}: e^{−c}cosh(cx) and −e^{−c}sinh(cx).
 
     The truncation tail of each branch is controlled by 2e^{−c}·Σ_{k>d} I_k(c)
     ≤ error/8, so the total uniform error is at most error/4; returns
     (even-branch ascending coefficients, odd-branch ascending coefficients,
-    even-branch degree, odd-branch degree).
+    even-branch degree, odd-branch degree). ``cap`` bounds the searched
+    truncation degree (None lifts the bundled synthesis limit).
     """
-    kmax = min(_MAX_DEGREE, int(math.ceil(c)) + 8 * int(math.ceil(math.log10(8 / error))) + 8)
+    bound = int(math.ceil(c)) + 8 * int(math.ceil(math.log10(8 / error))) + 8
+    kmax = bound if cap is None else min(cap, bound)
     ivals = [_bessel_i(k, c) for k in range(kmax + 2)]
     suffix = [0.0] * (kmax + 3)
     for j in range(kmax + 1, -1, -1):
@@ -711,7 +714,11 @@ def _odd_imag_candidates(f: Sequence[float]) -> Iterator[tuple[float, ...]]:
 
 
 def gibbs_purification(
-    hamiltonian: BlockEncoding, beta: float, *, error: float = 0.01
+    hamiltonian: BlockEncoding,
+    beta: float,
+    *,
+    error: float = 0.01,
+    synthesizer: PhaseSynthesizer | None = None,
 ) -> ApproximatePurification:
     """Approximate purification preparation of the Gibbs state ρ = e^{−βH}/Z (QSVT purification route).
 
@@ -740,6 +747,8 @@ def gibbs_purification(
         hamiltonian: Block encoding of H, with spectrum contained in [−α,α] (α = be_alpha).
         beta: Inverse temperature, a nonnegative finite real number; 0 degenerates to the maximally mixed purification.
         error: Polynomial uniform approximation error, with range (0,1).
+        synthesizer: Optional replacement for the bundled QSP phase synthesis route;
+            when given, the bundled route's truncation degree cap does not apply.
 
     Returns:
         ApproximatePurification: The approximate purification view whose reduced
@@ -773,14 +782,20 @@ def gibbs_purification(
             )
         )
     c = float(beta) * hamiltonian.alpha / 2.0
-    g_even, g_odd, d_even, d_odd = _gibbs_branches(c, error)
+    g_even, g_odd, d_even, d_odd = _gibbs_branches(
+        c, error, None if synthesizer is not None else _MAX_DEGREE
+    )
     s = 1.5 * max(_sup_norm(g_even), _sup_norm(g_odd), 1e-3)
     f_even, f_odd = (
         cast("tuple[float, ...]", _scale(1.0 / s, g_even)),
         cast("tuple[float, ...]", _scale(1.0 / s, g_odd)),
     )
-    phases_even = _synthesize_with_imag(f_even, _even_imag_candidates(f_even), "Gibbs even branch")
-    phases_odd = _synthesize_with_imag(f_odd, _odd_imag_candidates(f_odd), "Gibbs odd branch")
+    phases_even = _synthesize_with_imag(
+        f_even, _even_imag_candidates(f_even), "Gibbs even branch", synthesizer=synthesizer
+    )
+    phases_odd = _synthesize_with_imag(
+        f_odd, _odd_imag_candidates(f_odd), "Gibbs odd branch", synthesizer=synthesizer
+    )
     be_even = _real_qsvt_be(hamiltonian, phases_even)
     be_odd = _real_qsvt_be(hamiltonian, phases_odd)
     gibbs_be = linear_combination(1.0, be_even, 1.0, be_odd)
