@@ -91,7 +91,7 @@ print(export_originir(program).text)
 - **QFVM**（量子流体求解）：[手册](docs/zh/manual/qfvm.md)、[API](docs/api/applications/qfvm.rst)、输入模型审阅[规范](docs/zh/reference/qfvm-input-models.md)。
 - **QHAM**（PDE → HAM → QHAM 流程）：[手册](docs/zh/manual/qham.md)、[推导规范](docs/zh/reference/qham-derivation.md)、[API](docs/api/applications/qham/linearization.rst)、[教程](docs/zh/tutorials/qham.md)。
 - **Roe 矩阵元**：[roe](docs/api/applications/roe.rst)、[roe_formulas](docs/api/applications/roe_formulas.rst)。
-- **案例目录**：22 个参考工作负载（[catalog](docs/api/applications/catalog.rst)）与展示生成器（[gallery](docs/api/applications/gallery.rst)、[教程](docs/zh/tutorials/gallery.md)）。
+- **案例目录**：33 个参考工作负载（[catalog](docs/api/applications/catalog.rst)）与展示生成器（[gallery](docs/api/applications/gallery.rst)、[教程](docs/zh/tutorials/gallery.md)）。
 
 ## 文档地图
 
@@ -110,7 +110,7 @@ uv sync --locked --extra dev --extra docs
 uv run python tools/build_docs.py --lang all
 ```
 
-构建双语两个语言树（warning 视为错误）：英文输出到 `out/docs/en/html`，中文输出到 `out/docs/zh/html`，并执行 doctest。打开 `out/docs/zh/html/index.html` 浏览中文站点。算法展示与工程检查：
+构建双语两个语言树（warning 视为错误）：HTML 英文输出到 `out/docs/en`、中文输出到 `out/docs/zh`，doctest 产物在 `out/docs-doctest/{en,zh}`。打开 `out/docs/zh/index.html` 浏览中文站点。算法展示与工程检查：
 
 ```bash
 uv run python examples/algorithm_gallery.py
@@ -123,6 +123,6 @@ uv run python tools/check_project.py --docs
 PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 ```
 
-语言核心只依赖 PyYAML 做文本序列化。可选后端在执行入口导入；生成产物、环境和构建文件均不提交。开发流程见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) 与[文档编写规范](docs/zh/development/writing-docs.md)；源码分类与迁移说明见[架构](docs/zh/manual/architecture.md)与[导入路径](docs/zh/manual/compatibility.md)。
+语言核心要求 Python 3.11 及以上，运行期只依赖 PyYAML 做文本序列化；可选 `pyqsp` extra（`uv sync --extra pyqsp`）安装 pyqsp，用于可替换的 QSP 相位合成适配器。可选后端在执行入口导入；生成产物、环境和构建文件均不提交。开发流程见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) 与[文档编写规范](docs/zh/development/writing-docs.md)；源码分类与迁移说明见[架构](docs/zh/manual/architecture.md)与[导入路径](docs/zh/manual/compatibility.md)。
 
 QLSS/QODE/QHAM 等高级算法仍有数值精度、成功通道或收敛性待核验项（逐项状态见[验证覆盖矩阵](docs/zh/development/validation-coverage.md)）。通用 QSP-HamSim 内核尚需提供；当前模乘采用有限规模置换合成，VQE/QAOA 的经典优化器由应用选择。

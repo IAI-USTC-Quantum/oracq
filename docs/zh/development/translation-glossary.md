@@ -145,6 +145,85 @@ Punctuation: replace 、with `,`; replace full-width ：，（） with ASCII
 | 网表 | netlist |
 | 逐步讲解 | step-by-step walkthrough |
 
+## Algorithm manual pages
+
+Terms collected during the English translation pass of the per-algorithm
+manual pages; they apply to every future revision of those pages.
+
+| Chinese | English |
+|---|---|
+| 见证 / 见证技术 | witness / witnessing technique |
+| 判定准则 | acceptance criteria |
+| 复净 | uncompute (restore to clean zero) |
+| 工作区 | workspace |
+| 泄漏 | leakage |
+| 基态 | basis state |
+| 幺正 / 幺正性 | unitary / unitarity |
+| 好子空间 / 好状态 | good subspace / good state |
+| 命中概率 | hit probability |
+| 点估计 | point estimate |
+| 幅值 | magnitude |
+| 旗标 | flag (success flag / failure flag) |
+| 后选 / 后置选择 | postselection |
+| 偏迹 | partial trace |
+| 迹距离 | trace distance |
+| 纯化 / 纯化访问 | purification / purification access |
+| 层析 | tomography |
+| 首达时间 | hitting time |
+| 辅助比特 | ancilla qubits |
+| 相位反冲 / 相位踢回 | phase kickback |
+| 均匀叠加 | uniform superposition |
+| 真值表 | truth table |
+| 补零 | zero-padded |
+| 小端序 | little-endian |
+| 补码 / 二补码 | two's complement |
+| 连分数 / 互素 | continued fraction / coprime |
+| 带恢复余数的除法 | restoring division |
+| 厄米 / 自伴 / 半正定 | Hermitian / self-adjoint / positive semidefinite |
+| 病态 | ill-conditioned |
+| 收敛性扫描 | convergence sweep |
+| 回归钉 / 钉住 | regression pin / pinned |
+| 夹具 | fixture |
+| 论文级数值实验 | paper-grade numerical experiments |
+| 复现命令 | reproduction command |
+| 产物 | artifacts |
+| 展示目录 / 展示实例 | gallery / gallery instance |
+| 门类（算法分组） | family (algorithm grouping; "category" is reserved for 类别 C1–C6) |
+| 收缩 / 收缩因子 | contraction / contraction factor |
+| 闭式 | closed form |
+| 总变差 | total variation (distance) |
+| 一元迭代 | unary iteration |
+| 幅度转导 | amplitude transduction |
+| 零信号块 / 零信号幅度 | zero-signal block / zero-signal amplitude |
+| 通带 / 阻带 / 过渡带 | passband / stopband / transition band |
+| 补多项式 | complementary polynomial |
+| 度数守卫 | degree guard |
+| 时间正序 | in time order |
+| 反射约定 | reflection convention |
+| 强迫 / 强迫向量 | forcing / forcing vector |
+| 谱横坐标 | spectral abscissa |
+| 有限体积离散 | finite-volume discretization |
+| 求积 / 留数 | quadrature / residue |
+| 轮廓分解 | contour decomposition |
+| 提升（Carleman） | lift |
+| 静默降级 | silently degrade |
+| 逐点 | pointwise |
+| 校验子 | syndrome |
+| 译码器 / 译码半径 | decoder / decoding radius |
+| 植入实例 | planted instance |
+| 拟设 | ansatz |
+| Pauli 字 | Pauli word |
+| 生成元 / 闭包（HAM） | generator / closure (of a HAM) |
+| 同伦参数 | homotopy parameter |
+| 单元 / 界面（有限体积） | cell / interface (finite volume) |
+| 守恒量 / 残差 | conserved quantities / residual |
+| 栅格 / 栅格点 | grid / grid point |
+| 圆周均值 | circular mean |
+| 邻居表 | neighbor table |
+| 平稳态 | stationary state |
+| 时钟位 | clock bit |
+| 行走算子 | walk operator |
+
 ## Exception message style
 
 Exception messages and CLI help become plain English sentences:

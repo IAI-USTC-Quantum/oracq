@@ -7,6 +7,7 @@ Domain Applications API
    catalog
    flow_data
    gallery
+   legacy
    oracle_study
    qfvm
    qfvm_qmem

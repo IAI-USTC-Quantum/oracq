@@ -25,3 +25,6 @@ algorithm-coverage
 
 `docs/archive/` stores historical plans, stage reports, and old guides. They
 take no part in this site's build and are not entry points to the current API.
+The archive lives in the English tree only, is written in Chinese, and pages
+that cite archive records link to the files in the repository instead of the
+built site.

@@ -1,7 +1,7 @@
 oracq 包总览
 ==================
 
-根包 ``oracq`` 汇总导出公开 API（共 104 个名字）。
+根包 ``oracq`` 汇总导出公开 API（共 143 个名字）。
 名字按定义模块分组；模块标题链接到对应 API 页，成员链接到模块页内的完整说明。
 
 基础设施 API
@@ -59,7 +59,7 @@ oracq 包总览
     ``oracq.infrastructure.qmem`` —— :obj:`QMem <oracq.infrastructure.qmem.QMem>`、:obj:`QPtr <oracq.infrastructure.qmem.QPtr>`
 
 :doc:`QRAM YAML 内存格式 <infrastructure/qram_schema>`
-    ``oracq.infrastructure.qram_schema`` —— :obj:`dump_qram_yaml <oracq.infrastructure.qram_schema.dump_qram_yaml>`、:obj:`load_qram_yaml <oracq.infrastructure.qram_schema.load_qram_yaml>`
+    ``oracq.infrastructure.qram_schema`` —— :obj:`dump_qram_yaml <oracq.infrastructure.qram_schema.dump_qram_yaml>`、:obj:`load_qram_yaml <oracq.infrastructure.qram_schema.load_qram_yaml>`、:obj:`RegisteredQRAM <oracq.infrastructure.qram_schema.RegisteredQRAM>`、:obj:`register_qram <oracq.infrastructure.qram_schema.register_qram>`
 
 :doc:`RIR 序列化 <infrastructure/serialization>`
     ``oracq.infrastructure.serialization`` —— :obj:`dumps <oracq.infrastructure.serialization.dumps>`、:obj:`loads <oracq.infrastructure.serialization.loads>`
@@ -76,11 +76,20 @@ oracq 包总览
 :doc:`算法契约与报告 <algorithms/input_model/contracts>`
     ``oracq.algorithms.input_model.contracts`` —— :obj:`AlgorithmContract <oracq.algorithms.input_model.contracts.AlgorithmContract>`、:obj:`ResolvedInputs <oracq.algorithms.input_model.contracts.ResolvedInputs>`、:obj:`ContractError <oracq.algorithms.input_model.contracts.ContractError>`、:obj:`ContractIssue <oracq.algorithms.input_model.contracts.ContractIssue>`、:obj:`ContractReport <oracq.algorithms.input_model.contracts.ContractReport>`、:obj:`InputRequirement <oracq.algorithms.input_model.contracts.InputRequirement>`、:obj:`OracleCapabilities <oracq.algorithms.input_model.contracts.OracleCapabilities>`、:obj:`OracleSpec <oracq.algorithms.input_model.contracts.OracleSpec>`、:obj:`ProtocolContract <oracq.algorithms.input_model.contracts.ProtocolContract>`、:obj:`describe_oracle <oracq.algorithms.input_model.contracts.describe_oracle>`、:obj:`requires <oracq.algorithms.input_model.contracts.requires>`
 
+:doc:`initial <algorithms/input_model/initial>`
+    ``oracq.algorithms.input_model.initial`` —— :obj:`ArrayInput <oracq.algorithms.input_model.initial.ArrayInput>`、:obj:`InitialInput <oracq.algorithms.input_model.initial.InitialInput>`、:obj:`OracleInput <oracq.algorithms.input_model.initial.OracleInput>`、:obj:`PreparedInitial <oracq.algorithms.input_model.initial.PreparedInitial>`、:obj:`QRAMInput <oracq.algorithms.input_model.initial.QRAMInput>`、:obj:`QRAMInputConfig <oracq.algorithms.input_model.initial.QRAMInputConfig>`、:obj:`UniformInput <oracq.algorithms.input_model.initial.UniformInput>`
+
+:doc:`QODE 组装接口 <algorithms/input_model/ode>`
+    ``oracq.algorithms.input_model.ode`` —— :obj:`GeneratorInput <oracq.algorithms.input_model.ode.GeneratorInput>`、:obj:`MatrixInput <oracq.algorithms.input_model.ode.MatrixInput>`、:obj:`ODELayout <oracq.algorithms.input_model.ode.ODELayout>`、:obj:`ODEProblem <oracq.algorithms.input_model.ode.ODEProblem>`、:obj:`OracleGeneratorInput <oracq.algorithms.input_model.ode.OracleGeneratorInput>`、:obj:`PreparedGenerator <oracq.algorithms.input_model.ode.PreparedGenerator>`、:obj:`QRAMMatrixConfig <oracq.algorithms.input_model.ode.QRAMMatrixConfig>`、:obj:`QRAMMatrixInput <oracq.algorithms.input_model.ode.QRAMMatrixInput>`
+
 :doc:`算子包装与基本组合 <algorithms/input_model/operators>`
     ``oracq.algorithms.input_model.operators`` —— :obj:`BlockEncoding <oracq.algorithms.input_model.operators.BlockEncoding>`、:obj:`Generator <oracq.algorithms.input_model.operators.Generator>`、:obj:`block_encoding <oracq.algorithms.input_model.operators.block_encoding>`、:obj:`identity <oracq.algorithms.input_model.operators.identity>`、:obj:`linear_combination <oracq.algorithms.input_model.operators.linear_combination>`、:obj:`pauli_x <oracq.algorithms.input_model.operators.pauli_x>`、:obj:`product <oracq.algorithms.input_model.operators.product>`、:obj:`scale <oracq.algorithms.input_model.operators.scale>`、:obj:`zero <oracq.algorithms.input_model.operators.zero>`
 
 :doc:`Oracle 声明与实现 <algorithms/input_model/oracles>`
     ``oracq.algorithms.input_model.oracles`` —— :obj:`declare <oracq.algorithms.input_model.oracles.declare>`
+
+:doc:`PDE 模型与适配 <algorithms/input_model/pde>`
+    ``oracq.algorithms.input_model.pde`` —— :obj:`InitialLayout <oracq.algorithms.input_model.pde.InitialLayout>`、:obj:`PDEGrid <oracq.algorithms.input_model.pde.PDEGrid>`、:obj:`PDEProblem <oracq.algorithms.input_model.pde.PDEProblem>`、:obj:`UniformGrid1D <oracq.algorithms.input_model.pde.UniformGrid1D>`、:obj:`UnstructuredGrid <oracq.algorithms.input_model.pde.UnstructuredGrid>`、:obj:`UnstructuredGridConfig <oracq.algorithms.input_model.pde.UnstructuredGridConfig>`
 
 :doc:`量子数据结构（qsample 与 sample-and-query） <algorithms/input_model/qdata>`
     ``oracq.algorithms.input_model.qdata`` —— :obj:`QMatrix <oracq.algorithms.input_model.qdata.QMatrix>`、:obj:`QVector <oracq.algorithms.input_model.qdata.QVector>`
@@ -93,3 +102,9 @@ oracq 包总览
 
 :doc:`QODE 组装接口 <algorithms/qode/ode>`
     ``oracq.algorithms.qode.ode`` —— :obj:`QODESolver <oracq.algorithms.qode.ode.QODESolver>`、:obj:`QODEProblem <oracq.algorithms.qode.ode.QODEProblem>`、:obj:`QODEProtocol <oracq.algorithms.qode.ode.QODEProtocol>`
+
+:doc:`solver <algorithms/qode/solver>`
+    ``oracq.algorithms.qode.solver`` —— :obj:`LinearODEMethod <oracq.algorithms.qode.solver.LinearODEMethod>`、:obj:`ODECircuit <oracq.algorithms.qode.solver.ODECircuit>`、:obj:`ODEConfig <oracq.algorithms.qode.solver.ODEConfig>`、:obj:`ODEMethod <oracq.algorithms.qode.solver.ODEMethod>`、:obj:`ODEResult <oracq.algorithms.qode.solver.ODEResult>`、:obj:`ODESolveInstance <oracq.algorithms.qode.solver.ODESolveInstance>`、:obj:`PreparedODE <oracq.algorithms.qode.solver.PreparedODE>`、:obj:`qode_solve <oracq.algorithms.qode.solver.qode_solve>`
+
+:doc:`solver <algorithms/qpde/solver>`
+    ``oracq.algorithms.qpde.solver`` —— :obj:`PDECircuit <oracq.algorithms.qpde.solver.PDECircuit>`、:obj:`PDEMethod <oracq.algorithms.qpde.solver.PDEMethod>`、:obj:`PDEResult <oracq.algorithms.qpde.solver.PDEResult>`、:obj:`PDESolveInstance <oracq.algorithms.qpde.solver.PDESolveInstance>`、:obj:`PreparedPDE <oracq.algorithms.qpde.solver.PreparedPDE>`、:obj:`QHAMConfig <oracq.algorithms.qpde.solver.QHAMConfig>`、:obj:`QHAMMethod <oracq.algorithms.qpde.solver.QHAMMethod>`、:obj:`qpde_solve <oracq.algorithms.qpde.solver.qpde_solve>`

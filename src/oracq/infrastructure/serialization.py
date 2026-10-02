@@ -106,6 +106,7 @@ class _StrictLoader(yaml.SafeLoader):
     """
 
     def construct_mapping(self, node: Node, deep: bool = False) -> dict[object, object]:
+        """Build a mapping, rejecting unhashable and duplicate keys."""
         if not isinstance(node, MappingNode):
             raise ConstructorError(
                 None, None, f"expected a mapping node, got {type(node).__name__}", node.start_mark
@@ -128,9 +129,11 @@ class _CanonicalDumper(yaml.SafeDumper):
     """Canonical YAML dumper: disables anchors and aliases, indents nested sequences relative to their owning key."""
 
     def ignore_aliases(self, data: object) -> bool:
+        """Disable YAML anchors and aliases entirely."""
         return True
 
     def increase_indent(self, flow: bool = False, indentless: bool = True) -> None:
+        """Indent nested sequences under their owning mapping key."""
         super().increase_indent(flow, indentless=False)
 
 

@@ -114,7 +114,7 @@ PYTHONPATH=src .venv/bin/python tools/build_math_functions.py
 
 --inputs takes a JSON type mapping such as '{"z":"complex"}' or '{"row":{"index":2},"x":"real"}'. Unsupported source statements raise {obj}`FunctionCompileError <oracq.infrastructure.mathfunc.frontend.FunctionCompileError>`; this is not a tool that can compile arbitrary Python programs.
 
-out/math-functions/ contains pressure, roe_speed, phase_response, guarded_reciprocal, polynomial, the automatic Roe face, and the wired-up QFVM — seven groups of artifacts. See the [implementation board](../development/contributing.md) and the [validation records](../archive/function-compiler-validation.json).
+out/math-functions/ contains pressure, roe_speed, phase_response, guarded_reciprocal, polynomial, the automatic Roe face, and the wired-up QFVM — seven groups of artifacts. See the [implementation board](../development/contributing.md) and the [validation records](https://github.com/IAI-USTC-Quantum/oracq/blob/main/docs/archive/function-compiler-validation.json).
 
 Mathematical accuracy, complicated branch cuts, Roe numerical results, and resource optimization are still to be verified. Existing tests cover compilation, typing, reversible updates, module reuse, and real-backend consumption.
 

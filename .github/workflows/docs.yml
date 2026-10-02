@@ -24,8 +24,8 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install uv==0.12.1
       - run: uv sync --frozen --extra docs
-      - name: Build bilingual docs (warnings as errors)
-        run: uv run --frozen python tools/build_docs.py --lang all --builder html
+      - name: Build bilingual docs (html + doctest, warnings as errors)
+        run: uv run --frozen python tools/build_docs.py --lang all
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

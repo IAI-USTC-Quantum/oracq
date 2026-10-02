@@ -2,9 +2,10 @@
 
 **English** · <a href="../../zh/manual/installation.html">简体中文</a>
 
-The language core requires Python 3.11 or newer and has no third-party runtime
-dependencies. Quantum simulators and documentation tooling are installed
-separately.
+The language core requires Python 3.11 or newer and depends only on PyYAML for
+text serialization. Quantum simulators and documentation tooling are installed
+separately. The optional `pyqsp` extra (`uv sync --extra pyqsp`) installs
+pyqsp for the replaceable QSP phase-synthesis adapter.
 
 Set up a development environment in the repository directory:
 
@@ -44,11 +45,13 @@ ready see [Command line](cli.md).
 ## Building the documentation
 
 ```bash
-uv run sphinx-build -W --keep-going -b html docs out/docs/html
-uv run sphinx-build -W --keep-going -b doctest docs out/docs/doctest
+uv run python tools/build_docs.py --lang all
 ```
 
-Open `out/docs/html/index.html` to browse this site. A failed HTML build or a
-failed tutorial assertion both return a non-zero exit code. For build
-configuration and writing conventions (including the cross-linking rules) see
-[Writing documentation](../development/writing-docs.md).
+This runs the HTML and doctest builders for both language trees with warnings
+as errors: English HTML to `out/docs/en`, Chinese HTML to `out/docs/zh`, and
+doctest output to `out/docs-doctest/{en,zh}`. Open `out/docs/en/index.html` to
+browse this site; the Chinese mirror starts at `out/docs/zh/index.html`. A
+failed HTML build or a failed tutorial assertion both return a non-zero exit
+code. For build configuration and writing conventions (including the
+cross-linking rules) see [Writing documentation](../development/writing-docs.md).

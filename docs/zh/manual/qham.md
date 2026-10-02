@@ -255,7 +255,7 @@ PYTHONPATH=src .venv/bin/python tools/build_general_qham.py
 
 这些是对应 PDE 家族的构造案例，不声称逐项复现论文图中的参数和边界条件。五组都使用结构化端口，不物化全局矩阵。独立的 HAM 递推、张量链式法则与生成的线性作用之间，见证残差约为 1e-16 或更小。它们检验的是代数生成，不是原始 PDE 的收敛误差。m=1 无强迫还与此前特例的实际 BE 角块做了回归。
 
-真实 PySparQ 已执行多分量非线性端口、含强迫的二阶生成元和完整的小型 QHAM→有限 Taylor QODE→物理输出链；实际 OriginIR 解析器消费了组合描述。Schrödingerization 和经过显式耗散移位的 CBMD 也已完成输入组装。证据见 [验证记录](../../archive/qham-general-validation.json)。
+真实 PySparQ 已执行多分量非线性端口、含强迫的二阶生成元和完整的小型 QHAM→有限 Taylor QODE→物理输出链；实际 OriginIR 解析器消费了组合描述。Schrödingerization 和经过显式耗散移位的 CBMD 也已完成输入组装。证据见 [验证记录](https://github.com/IAI-USTC-Quantum/oracq/blob/main/docs/archive/qham-general-validation.json)。
 
 仍未完成：自动选择收敛的 h/m、HAM/PDE 收敛认证、时间依赖 QODE 适配、IQHAM 外层重启、完整范数/幅度估计和大规模性能认证。显式 BE lowering 会枚举块耦合，成本可随 m 组合增长；惰性 plan 和逐行算法为更高效 oracle 留出边界，但不能据此声称已经达到论文的查询复杂度。当前 BE 的单个 target/work 包装还受 64 位限制，超出时需保持开放或扩展该接口。
 

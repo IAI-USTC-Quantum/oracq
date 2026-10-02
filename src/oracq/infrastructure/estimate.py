@@ -444,6 +444,7 @@ class _Cost:
     calls: Counter[OracleCall] = field(default_factory=Counter)
 
     def add(self, other: _Cost, factor: int = 1, resources: dict[str, str] | None = None) -> None:
+        """Accumulate ``other`` scaled by ``factor``; ``resources`` renames targets along a call edge."""
         mapping = resources or {}
         for atom, count in other.atoms.items():
             self.atoms[atom] += count * factor

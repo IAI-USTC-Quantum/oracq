@@ -18,9 +18,11 @@ uv run python tools/check_project.py --docs
 完整原生验收需要真实后端解释器：
 
 ```bash
-PATH="$PWD/out/toolchain:$PATH" uv run python tools/check_project.py --docs \
-  --backend-python ../QECC.Lang/.venv/bin/python
+uv run python tools/check_project.py --docs \
+  --backend-python /path/to/backend/python
 ```
+
+后端解释器须已安装 `pysparq` 与 `uniqc`——例如相邻 `../QECC.Lang` 检出的虚拟环境，或自行准备的任何环境；本仓库不创建也不管理该环境。
 
 修改 RIR 必须同步规范、Schema、序列化和语义测试。算法自己的 Python 协议不需要修改 RIR。详情见[开发与验收](docs/zh/development/contributing.md)和[文档写作](docs/zh/development/writing-docs.md)。
 

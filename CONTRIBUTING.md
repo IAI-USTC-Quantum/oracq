@@ -22,9 +22,14 @@ uv run python tools/check_project.py --docs
 Full native acceptance requires a real-backend interpreter:
 
 ```bash
-PATH="$PWD/out/toolchain:$PATH" uv run python tools/check_project.py --docs \
-  --backend-python ../QECC.Lang/.venv/bin/python
+uv run python tools/check_project.py --docs \
+  --backend-python /path/to/backend/python
 ```
+
+The backend interpreter must have `pysparq` and `uniqc` installed — for
+example the virtualenv of a sibling `../QECC.Lang` checkout, or any
+environment you prepare for this purpose. The repository does not create or
+manage that environment.
 
 Changing RIR requires updating the specification, the JSON Schema, the
 serializers, and the semantic tests in lockstep. Python protocols owned by an

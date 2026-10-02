@@ -15,6 +15,7 @@
    common/qsp_pyqsp
    common/qsvt
    common/search
+   common/solve
    common/spectral_synthesis
    common/state_preparation
    common/transforms
@@ -24,10 +25,13 @@
    input_model/data_loading
    input_model/density
    input_model/graph_walks
+   input_model/initial
    input_model/interfaces
    input_model/lowrank
+   input_model/ode
    input_model/operators
    input_model/oracles
+   input_model/pde
    input_model/qdata
    input_model/qham
    input_model/sparse
@@ -47,8 +51,11 @@
    qnlss/newton
    qode/cbmd
    qode/lchs
+   qode/legacy
    qode/ode
    qode/ode_models
    qode/schrodingerization
    qode/sde
+   qode/solver
    qpde/pde
+   qpde/solver

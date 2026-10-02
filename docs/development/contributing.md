@@ -32,15 +32,18 @@ physical scales should each be checked separately.
 ```bash
 uv sync --locked --extra dev --extra docs
 uv run python tools/check_project.py --docs
-PATH="$PWD/out/toolchain:$PATH" uv run python tools/check_project.py --docs \
-  --backend-python ../QECC.Lang/.venv/bin/python
+uv run python tools/check_project.py --docs \
+  --backend-python /path/to/backend/python
 uv build --out-dir out/release
 ```
 
 The first check command needs no external quantum simulator. The second adds
 real-backend tests; it fails when the backend is missing — skips are not
-accepted in place of acceptance. The CI configuration runs the core,
-documentation, and build checks; full native acceptance requires the
+accepted in place of acceptance. The backend interpreter must have `pysparq`
+and `uniqc` installed (for example the virtualenv of a sibling `../QECC.Lang`
+checkout, or any environment you prepare for this purpose); the repository
+does not create or manage that environment. The CI configuration runs the
+core, documentation, and build checks; full native acceptance requires the
 corresponding environment.
 
 Generated results, environments, and build files all go into the ignored

@@ -5,8 +5,10 @@ Two language trees are generated: ``docs/api`` (English titles) and
 ``docs/zh/api`` (Chinese titles). Both document the same modules; page bodies
 come from the English docstrings in the source.
 
-Legacy import paths are kept for compatibility only and never appear in the
-API documentation.
+Legacy import paths are compatibility surfaces only, with one exception: the
+two modules that hold live implementations behind compatibility names
+(``oracq.applications.legacy`` and ``oracq.algorithms.qode.legacy``) are
+listed in ``LIVE_LEGACY`` and keep generated pages.
 """
 
 import argparse
@@ -14,6 +16,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+LIVE_LEGACY = ("oracq.applications.legacy", "oracq.algorithms.qode.legacy")
 TITLES = {
     "oracle_algorithms": "Oracle query algorithms",
     "fourier": "Fourier transforms and arithmetic",
@@ -96,6 +99,7 @@ TITLES = {
     "stencils": "Structured finite-difference ports",
     "report": "QHAM derivation report",
     "examples": "QHAM PDE examples",
+    "legacy": "Legacy compatibility entry points",
 }
 TITLES_ZH = {
     "oracle_algorithms": "Oracle 查询算法",
@@ -179,6 +183,7 @@ TITLES_ZH = {
     "stencils": "结构化差分端口",
     "report": "QHAM 推导报告",
     "examples": "QHAM PDE 示例",
+    "legacy": "旧版兼容入口",
 }
 GROUPS = ("infrastructure", "algorithms", "applications")
 GROUP_TITLES = {
@@ -205,8 +210,11 @@ STRINGS = {
         "dash": "—",
         "api_title": "API Reference",
         "api_intro": (
-            "API pages are generated from the canonical source paths. Legacy paths "
-            "are kept for import compatibility only and are not listed twice."
+            "API pages are generated from the canonical source paths. Two "
+            "legacy modules hold live implementations behind compatibility "
+            "names — oracq.applications.legacy and oracq.algorithms.qode.legacy "
+            "— and therefore keep generated pages; pure re-export shims such "
+            "as oracq.qham are not listed twice."
         ),
     },
     "zh": {
@@ -220,7 +228,7 @@ STRINGS = {
         "joiner": "、",
         "dash": "——",
         "api_title": "API 参考",
-        "api_intro": "API 从规范源码路径生成。旧路径只保留导入兼容，不重复列出。",
+        "api_intro": "API 从规范源码路径生成。两个旧路径模块在兼容名之下持有活跃实现——oracq.applications.legacy 与 oracq.algorithms.qode.legacy——因此保留生成的页面；oracq.qham 这类纯转发层不重复列出。",
     },
 }
 
@@ -289,12 +297,16 @@ def generate_language(docs: Path, lang: str) -> int:
     for group in GROUPS:
         pages = []
         for source in sorted((ROOT / "src/oracq" / group).rglob("*.py")):
-            if source.name.startswith("_") or source.stem == "legacy":
-                if source.name != "__init__.py" or source.parent.name != "mathfunc":
-                    continue
             relative = source.relative_to(ROOT / "src/oracq").with_suffix("")
             parts = relative.parts[:-1] if source.name == "__init__.py" else relative.parts
             module = "oracq." + ".".join(parts)
+            if module in LIVE_LEGACY:
+                pass
+            elif source.stem == "legacy":
+                continue
+            elif source.name.startswith("_"):
+                if source.name != "__init__.py" or source.parent.name != "mathfunc":
+                    continue
             target = docs.joinpath(*parts).with_suffix(".rst")
             target.parent.mkdir(parents=True, exist_ok=True)
             title = titles.get(parts[-1], parts[-1])

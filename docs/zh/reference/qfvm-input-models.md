@@ -209,7 +209,7 @@ PYTHONPATH=src .venv/bin/python tools/build_qlss_comparison.py
 PYTHONPATH=src python -m unittest discover -s tests/integration -p test_qfvm_input_models.py -v
 ```
 
-out/qlss-audit/ 分别保存两种路线的开放/闭合 RIR、模块化 OriginIR、严格门集描述、内存快照和范数探针。核心见证包括负元素 BE、Chebyshev 角块、alpha 参数换算、标量系统物理范数恢复、逐层 QRAM 查询和局部更新；真实 PySparQ 检查了位置 oracle 的完整置换/逆以及非零 data 上的填充元素 XOR。详情见 [验收记录](../../archive/qfvm-qlss-validation.json)。
+out/qlss-audit/ 分别保存两种路线的开放/闭合 RIR、模块化 OriginIR、严格门集描述、内存快照和范数探针。核心见证包括负元素 BE、Chebyshev 角块、alpha 参数换算、标量系统物理范数恢复、逐层 QRAM 查询和局部更新；真实 PySparQ 检查了位置 oracle 的完整置换/逆以及非零 data 上的填充元素 XOR。详情见 [验收记录](https://github.com/IAI-USTC-Quantum/oracq/blob/main/docs/archive/qfvm-qlss-validation.json)。
 
 CKS 基础实现为论文 §4 的 Chebyshev/LCU 路线；第 5 节的 VTAA 变时层已由 `algorithms/vtaa_cks.py` 单独实现（QSP 判决时钟、分频带逆 LCU、Ambainis 嵌套放大），其频带多项式精度与放大日程仍是 prototype 声明，尚未进入 QFVM 目录。Costa 仍是既有 general-walk/filtering 原型，其初始 walker 状态、最终成功通道和整体求解精度需要进一步核验。示例的 order=2、steps=1 用于展示范式，没有对应的求解精度承诺。当前也没有完整的量子 tomography、幅度估计和数值 CFD 闭环。
 

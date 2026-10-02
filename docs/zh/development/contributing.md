@@ -19,11 +19,11 @@ RIR、验证、序列化、执行和后端代码放在 `infrastructure`。量子
 ```bash
 uv sync --locked --extra dev --extra docs
 uv run python tools/check_project.py --docs
-PATH="$PWD/out/toolchain:$PATH" uv run python tools/check_project.py --docs \
-  --backend-python ../QECC.Lang/.venv/bin/python
+uv run python tools/check_project.py --docs \
+  --backend-python /path/to/backend/python
 uv build --out-dir out/release
 ```
 
-第一条检查命令不需要外部量子模拟器。第二条增加真实后端测试，后端缺失时会失败，不以 skip 代替验收。CI 配置执行核心、文档与构建检查；完整原生验收需要相应环境。
+第一条检查命令不需要外部量子模拟器。第二条增加真实后端测试，后端缺失时会失败，不以 skip 代替验收。后端解释器须已安装 `pysparq` 与 `uniqc`（例如相邻 `../QECC.Lang` 检出的虚拟环境，或自行准备的任何环境），本仓库不创建也不管理该环境。CI 配置执行核心、文档与构建检查；完整原生验收需要相应环境。
 
 生成结果、环境和构建文件都写入被忽略的 `out/` 或现有构建目录。提交使用 Conventional Commits；没有用户授权不执行 commit 或 push。

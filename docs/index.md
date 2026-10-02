@@ -43,5 +43,4 @@ search, estimation, and Hamiltonian evolution to QLSS, QODE, QFVM, and QHAM.
 Maturity varies per implementation; check
 [applicability and validation status](manual/limits.md) before choosing an
 algorithm. The Chinese mirror of this site lives under
-<a href="../zh/index.html">zh/</a>; algorithm manual pages are currently Chinese-only there
-while their English translations are in progress.
+<a href="../zh/index.html">zh/</a>.

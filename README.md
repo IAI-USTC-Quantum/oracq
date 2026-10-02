@@ -25,7 +25,7 @@ extension is required.
 | Concept | One-liner | Manual / spec | API reference |
 |---|---|---|---|
 | RIR | Register-level IR; module calls and Repeat structures survive to the text form | [RIR 0.1 spec](docs/reference/rir.md) | [ir](docs/api/infrastructure/ir.rst) |
-| Builder | `Builder`/`Operation` three-stage generation of modules and programs | [Core concepts](docs/manual/concepts.md#modules-and-oracle-placeholders) | [builder](docs/api/infrastructure/builder.rst) |
+| Builder | `Builder`/`Operation` three-stage generation of modules and programs | [Core concepts](docs/manual/concepts.md#modules-and-unfinished-implementations) | [builder](docs/api/infrastructure/builder.rst) |
 | Registers and views | bits/uint/qubit interpretations, slicing, reinterpretation; index 0 is the least significant bit | [Core concepts](docs/manual/concepts.md#registers-and-views) | [ir](docs/api/infrastructure/ir.rst) |
 | Open oracles and binding | Declare first, bind later: capability conjunction, candidate comparison, QRAM capture | [Binding tutorial](docs/tutorials/oracle-binding.md) | [linking](docs/api/infrastructure/linking.rst) |
 | Algorithm contracts | Checkable input protocols, capability specifications, and acceptance reports | [Contracts](docs/manual/contracts.md) | [contracts](docs/api/algorithms/input_model/contracts.rst) |
@@ -110,7 +110,7 @@ Algorithms consume inputs through five composable access-model families:
 - **QFVM** (quantum fluid solving): [manual](docs/manual/qfvm.md), [API](docs/api/applications/qfvm.rst), input-model review [spec](docs/reference/qfvm-input-models.md).
 - **QHAM** (PDE → HAM → QHAM pipeline): [manual](docs/manual/qham.md), [derivation spec](docs/reference/qham-derivation.md), [API](docs/api/applications/qham/linearization.rst), [tutorial](docs/tutorials/qham.md).
 - **Roe matrix elements**: [roe](docs/api/applications/roe.rst), [roe_formulas](docs/api/applications/roe_formulas.rst).
-- **Case catalog**: 22 reference workloads ([catalog](docs/api/applications/catalog.rst)) and the gallery generator ([gallery](docs/api/applications/gallery.rst), [tutorial](docs/tutorials/gallery.md)).
+- **Case catalog**: 33 reference workloads ([catalog](docs/api/applications/catalog.rst)) and the gallery generator ([gallery](docs/api/applications/gallery.rst), [tutorial](docs/tutorials/gallery.md)).
 
 ## Documentation map
 
@@ -129,9 +129,10 @@ uv sync --locked --extra dev --extra docs
 uv run python tools/build_docs.py --lang all
 ```
 
-This builds both language trees (warnings are errors): English to
-`out/docs/en/html` and Chinese to `out/docs/zh/html`, plus doctest runs. Open
-`out/docs/en/html/index.html` to browse the generated site. Algorithm
+This builds both language trees (warnings are errors): English HTML to
+`out/docs/en` and Chinese HTML to `out/docs/zh`, plus doctest runs whose output
+goes to `out/docs-doctest/{en,zh}`. Open `out/docs/en/index.html` to browse
+the generated site. Algorithm
 gallery and engineering checks:
 
 ```bash
@@ -147,7 +148,9 @@ small examples. The full native check requires a separate environment with
 PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 ```
 
-The language core depends only on PyYAML for text serialization. Optional
+The language core requires Python 3.11 or newer and depends only on PyYAML for
+text serialization. The optional `pyqsp` extra (`uv sync --extra pyqsp`)
+installs pyqsp for the replaceable QSP phase-synthesis adapter. Optional
 backends are imported at their execution entry points; generated artifacts,
 environments, and build files are never committed. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and the
@@ -156,7 +159,7 @@ classification and migration notes are in [architecture](docs/manual/architectur
 and [import paths](docs/manual/compatibility.md). Documentation is also
 maintained in Chinese: see [README.zh-CN.md](README.zh-CN.md).
 
-Advanced algorithms such as QLS/QODE/QHAM still have pending verification
+Advanced algorithms such as QLSS/QODE/QHAM still have pending verification
 items on numerical accuracy, success channels, or convergence (per-item status
 in the [validation coverage matrix](docs/development/validation-coverage.md)).
 A general-purpose QSP-HamSim kernel is still to be provided; the current

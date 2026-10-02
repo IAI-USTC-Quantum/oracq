@@ -114,7 +114,7 @@ PYTHONPATH=src .venv/bin/python tools/build_math_functions.py
 
 --inputs 接收 JSON 类型映射，例如 '{"z":"complex"}' 或 '{"row":{"index":2},"x":"real"}'。不支持的源语句会给出 {obj}`FunctionCompileError <oracq.infrastructure.mathfunc.frontend.FunctionCompileError>`；这不是可以编译任意 Python 程序的工具。
 
-out/math-functions/ 包含 pressure、roe_speed、phase_response、guarded_reciprocal、polynomial、自动 Roe face 与接入后的 QFVM，共七组产物。见 [实施面板](../development/contributing.md) 与 [验证记录](../../archive/function-compiler-validation.json)。
+out/math-functions/ 包含 pressure、roe_speed、phase_response、guarded_reciprocal、polynomial、自动 Roe face 与接入后的 QFVM，共七组产物。见 [实施面板](../development/contributing.md) 与 [验证记录](https://github.com/IAI-USTC-Quantum/oracq/blob/main/docs/archive/function-compiler-validation.json)。
 
 数学精度、复杂分支切线、Roe 数值结果和资源优化仍待核验。现有测试覆盖编译、类型、可逆更新、模块复用和真实后端消费。
 

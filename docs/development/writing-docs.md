@@ -7,10 +7,9 @@ The documentation is bilingual. The English pages under
 Chinese mirror with the identical layout lives under `docs/zh/`: every page
 keeps the same relative path in both trees, and a page edited on one side must
 be synchronized on the other. The API pages are generated into both trees
-(`docs/api` and `docs/zh/api`); the algorithm manual pages are currently
-Chinese-only (67 pages under `docs/zh/manual/algorithms/`, organized into
-genre hubs under `algorithms/groups/`) with an English
-index placeholder at `manual/algorithms/index.md`.
+(`docs/api` and `docs/zh/api`); the per-algorithm manual pages (67 pages under
+`manual/algorithms/`, organized into genre hubs under `algorithms/groups/`)
+are mirrored page for page in both languages.
 
 Documentation splits into manuals and tutorials. Manuals explain stable rules,
 interfaces, and limitations; a tutorial centers on one concrete task and gives
@@ -131,8 +130,10 @@ package-overview page that links to each module page grouped by defining
 module; after adding a root export name or adjusting `__all__`, rerun the
 generator the same way. The `TITLES` and `TITLES_ZH` tables inside the
 generator maintain each module's page title per language; remember to add an
-entry for a new module. Legacy import paths are kept for compatibility only
-and never appear in the API documentation.
+entry for a new module. Of the legacy import paths, the compatibility modules
+that hold live implementations (`oracq.applications.legacy`,
+`oracq.algorithms.qode.legacy`) keep dedicated API pages; pure re-export
+shims are not listed twice.
 
 The API pages import the actual source through autodoc, with no mock imports.
 Optional backends must keep being imported at the execution entry points, so
@@ -152,16 +153,14 @@ checks.
 
 ## Algorithm pages
 
-Each algorithm gets one page under `docs/zh/manual/algorithms/`, organized by
-genre into hub pages under `docs/zh/manual/algorithms/groups/`; the catalog
-sits at the top level of the site navigation, links the thirteen genre hubs in
-an explicit toctree, and each hub lists its members. A new page must be
-registered in its genre hub or it stays out of the navigation (enforced by
-`tests/docs/test_xrefs.py`). File names are kebab-case (e.g.
-`qsvt-matrix-inversion.md`), matching the entry function or the algorithm's
-English name. These pages are currently Chinese-only; the English tree carries
-a placeholder index at `docs/manual/algorithms/index.md` that links into the
-Chinese catalog until the translations land.
+Each algorithm gets one page under `docs/manual/algorithms/` (mirrored at
+`docs/zh/manual/algorithms/`), organized by genre into hub pages under
+`algorithms/groups/`; the catalog sits at the top level of the site
+navigation, links the thirteen genre hubs in an explicit toctree, and each hub
+lists its members. A new page must be registered in its genre hub or it stays
+out of the navigation (enforced by `tests/docs/test_xrefs.py`). File names are
+kebab-case (e.g. `qsvt-matrix-inversion.md`), matching the entry function or
+the algorithm's English name; both language trees must carry the page.
 
 Directly under the page's first line, a one-line blockquote records the
 category and owning module
