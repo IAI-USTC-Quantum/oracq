@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass, replace
 
-from oracq.algorithms.common.arithmetic import BooleanNetwork
 from oracq.algorithms.input_model.block_encoding import lcu, matrix_pauli_encoding
 from oracq.algorithms.input_model.operators import (
     BlockEncoding,
@@ -492,19 +492,23 @@ def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePrepara
             offset = plan.offset(block, dimension)
             b.add_const(b["target"].reinterpret("uint"), offset)
         intervals.append((offset, offset + dimension**rank, branch))
-    # The blocks have disjoint support; recompute the selector label from the address intervals.
-    net = BooleanNetwork()
-    address = net.input("address", width)
-    outputs = [0] * selector_width
+    # Decompose each disjoint interval into aligned binary prefixes. Selector
+    # uncomputation then uses address controls directly instead of allocating
+    # a full comparator network's workspace at every backend execution.
     for lo, hi, branch in intervals:
-        inside = net.inv(net.lt(address, net.const(lo, width)))
-        if hi < (1 << width):
-            inside = net.and_(inside, net.lt(address, net.const(hi, width)))
-        for bit in range(selector_width):
-            if (branch >> bit) & 1:
-                outputs[bit] = net.xor(outputs[bit], inside)
-    net.outputs = {"selector": outputs}
-    b.call(net.operation(), address=b["target"], selector=selector)
+        if branch == 0:
+            continue
+        while lo < hi:
+            size = lo & -lo if lo else 1 << ((hi - lo).bit_length() - 1)
+            while size > hi - lo:
+                size >>= 1
+            free_bits = size.bit_length() - 1
+            context = b.control(b["target"][free_bits:], lo >> free_bits) if free_bits < width else nullcontext()
+            with context:
+                for bit in range(selector_width):
+                    if (branch >> bit) & 1:
+                        b.x(selector[bit])
+            lo += size
     return StatePreparation(
         annotate(b.finish(), "state_prep_isometry", zero_input=True, clean_work=True)
     ), log_norm

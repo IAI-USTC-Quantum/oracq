@@ -276,5 +276,5 @@ def run_pysparq_rir(
         import pysparq as ps
     except ImportError as exc:
         raise ValidationError("PySparQ RIR execution requires an environment with pysparq installed") from exc
-    result = ps.run_rir(dumps(program), memories, max_steps=max_steps, max_states=max_states)
+    result = ps.run_rir(dumps(program, format="json"), memories, max_steps=max_steps, max_states=max_states)
     return RegisterState(program.main.registers, dict(result.amplitudes))

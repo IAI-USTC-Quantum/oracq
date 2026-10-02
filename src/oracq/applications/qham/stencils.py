@@ -5,6 +5,7 @@ from __future__ import annotations
 import cmath
 import math
 from collections.abc import Callable, Sequence
+from functools import partial
 
 from oracq.algorithms.input_model.block_encoding import lcu
 from oracq.algorithms.input_model.operators import (
@@ -16,6 +17,7 @@ from oracq.algorithms.input_model.operators import (
     zero,
 )
 from oracq.algorithms.input_model.oracles import (
+    StatePreparation,
     abstract_database,
     annotate,
     diagonal_block_encoding,
@@ -234,6 +236,7 @@ def term_encoding(
     *,
     max_coefficient_words: int = 4096,
     coefficient_encoder: Callable[..., BlockEncoding] = coefficient_encoding,
+    derivative_encoder: Callable[[tuple[tuple[str, int], ...]], BlockEncoding] | None = None,
 ) -> BlockEncoding:
     """Build the multilinear block encoding of the structured difference port for a single PDE equation term.
 
@@ -257,6 +260,8 @@ def term_encoding(
         coefficient_encoder: Encoding function for the coefficient diagonal
             multiplier, with the same contract as ``coefficient_encoding``
             (e.g. ``qram_coefficient_encoding``).
+        derivative_encoder: Optional spatial derivative adapter, allowing a
+            custom grid representation instead of periodic structured shifts.
 
     Returns:
         BlockEncoding: Rectangular block encoding whose target width is
@@ -278,8 +283,15 @@ def term_encoding(
     width = max(1, arity) * n
     if width > 64:
         raise ValidationError("a single multilinear port exceeds the current BE target packing width")
-    derivatives = [derivative_encoding(discretization.grid, a.derivative) for a in monomial.fields]
-    outer = derivative_encoding(discretization.grid, monomial.outer_derivative)
+    if derivative_encoder is None:
+        if not isinstance(discretization.grid, Grid):
+            raise ValidationError("this grid requires an explicit quantum derivative encoder")
+        grid = discretization.grid
+        derivative_encoder = partial(derivative_encoding, grid)
+    derivatives = [derivative_encoder(a.derivative) for a in monomial.fields]
+    outer = derivative_encoder(monomial.outer_derivative)
+    if any(op.width != ns for op in [*derivatives, outer]):
+        raise ValidationError("the derivative encoding target width must match the grid")
     coefficient = coefficient_encoder(discretization, monomial, max_words=max_coefficient_words)
     operands = [(f"d{i}", op.operation) for i, op in enumerate(derivatives)]
     operands += [("coefficient", coefficient.operation), ("outer", outer.operation)]
@@ -370,30 +382,49 @@ def term_encoding(
 
 def structured_fd_bindings(
     discretization: Discretization,
-    initial: Sequence[complex],
+    initial: Sequence[complex] | StatePreparation,
     *,
     max_coefficient_words: int = 4096,
     coefficient_encoder: Callable[..., BlockEncoding] = coefficient_encoding,
+    derivative_encoder: Callable[[tuple[tuple[str, int], ...]], BlockEncoding] | None = None,
+    initial_norm: float | None = None,
 ) -> QHAMBindings:
     """Base matrices are generated from shifts and contractions, without materializing N^r x N^r port matrices.
 
     Args:
         discretization: The ``Discretization`` providing the grid, component
             layout, and known data.
-        initial: Initial vector of length ``discretization.dimension``; when
-            its norm is zero the first basis vector is prepared instead.
+        initial: Initial vector of length ``discretization.dimension`` or an
+            existing physical preparation oracle. A zero vector uses the
+            first basis vector as its normalized preparation.
         max_coefficient_words: Address budget passed to the coefficient
             encoder.
         coefficient_encoder: Encoding function for the coefficient diagonal
             multiplier, with the same contract as ``coefficient_encoding``
             (e.g. ``qram_coefficient_encoding``).
+        derivative_encoder: Optional quantum spatial derivative adapter for
+            the chosen grid representation.
+        initial_norm: Explicit physical norm required with an oracle initial
+            input; sample arrays retain their computed norm.
 
     Returns:
         QHAMBindings: QHAM binding set with each port bound to a shifted-LCU
         block encoding, including the initial-state preparation and norm.
     """
-    if len(initial) != discretization.dimension:
+    if isinstance(initial, StatePreparation):
+        if initial.width != discretization.width or initial_norm is None:
+            raise ValidationError("an initial oracle requires the physical state width and an explicit norm")
+        norm = float(initial_norm)
+        if not math.isfinite(norm) or norm < 0:
+            raise ValidationError("the physical initial norm must be finite and nonnegative")
+        prep = initial
+    elif len(initial) != discretization.dimension:
         raise ValidationError("initial values require the full register layout")
+    else:
+        if any(not math.isfinite(complex(v).real) or not math.isfinite(complex(v).imag) for v in initial):
+            raise ValidationError("initial values must be finite")
+        norm = math.sqrt(sum(abs(v) ** 2 for v in initial))
+        prep = gate_state_prep(initial if norm else [1.0] + [0.0] * (discretization.dimension - 1))
     ports: list[tuple[str, PortBinding]] = []
     for port in discretization.pde.ports:
         encoded = lcu(
@@ -405,16 +436,11 @@ def structured_fd_bindings(
                         term,
                         max_coefficient_words=max_coefficient_words,
                         coefficient_encoder=coefficient_encoder,
+                        derivative_encoder=derivative_encoder,
                     ),
                 )
                 for term in port.terms
             ]
         )
         ports.append((port.name, PortBinding(encoded, port.arity)))
-    norm = math.sqrt(sum(abs(v) ** 2 for v in initial))
-    prep = (
-        gate_state_prep(initial)
-        if norm
-        else gate_state_prep([1.0] + [0.0] * (discretization.dimension - 1))
-    )
     return QHAMBindings(discretization.width, tuple(ports), prep, norm)

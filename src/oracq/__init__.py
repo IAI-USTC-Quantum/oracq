@@ -18,6 +18,16 @@ from oracq.algorithms.input_model.contracts import (
     describe_oracle,
     requires,
 )
+from oracq.algorithms.input_model.ode import (
+    GeneratorInput,
+    MatrixInput,
+    ODELayout,
+    ODEProblem,
+    OracleGeneratorInput,
+    PreparedGenerator,
+    QRAMMatrixConfig,
+    QRAMMatrixInput,
+)
 from oracq.algorithms.input_model.operators import (
     BlockEncoding,
     Generator,
@@ -30,6 +40,21 @@ from oracq.algorithms.input_model.operators import (
     zero,
 )
 from oracq.algorithms.input_model.oracles import declare
+from oracq.algorithms.input_model.pde import (
+    ArrayInput,
+    InitialInput,
+    InitialLayout,
+    OracleInput,
+    PDEGrid,
+    PDEProblem,
+    PreparedInitial,
+    QRAMInput,
+    QRAMInputConfig,
+    UniformGrid1D,
+    UniformInput,
+    UnstructuredGrid,
+    UnstructuredGridConfig,
+)
 from oracq.algorithms.input_model.qdata import QMatrix, QVector
 from oracq.algorithms.qlss.qlss import (
     BlockSystem,
@@ -47,6 +72,26 @@ from oracq.algorithms.qml.recommendation import (
     sigma_from_phase,
 )
 from oracq.algorithms.qode.ode import QODEProblem, QODEProtocol, QODESolver
+from oracq.algorithms.qode.solver import (
+    LinearODEMethod,
+    ODECircuit,
+    ODEConfig,
+    ODEMethod,
+    ODEResult,
+    ODESolveInstance,
+    PreparedODE,
+    qode_solve,
+)
+from oracq.algorithms.qpde.solver import (
+    PDECircuit,
+    PDEMethod,
+    PDEResult,
+    PDESolveInstance,
+    PreparedPDE,
+    QHAMConfig,
+    QHAMMethod,
+    qpde_solve,
+)
 from oracq.infrastructure.backends import (
     OriginIRArtifact,
     StrictArtifact,
@@ -111,7 +156,12 @@ from oracq.infrastructure.mathfunc import (
 )
 from oracq.infrastructure.native import DynamicCppFactory, NativeRegistry
 from oracq.infrastructure.qmem import QMem, QPtr
-from oracq.infrastructure.qram_schema import dump_qram_yaml, load_qram_yaml
+from oracq.infrastructure.qram_schema import (
+    RegisteredQRAM,
+    dump_qram_yaml,
+    load_qram_yaml,
+    register_qram,
+)
 from oracq.infrastructure.serialization import dumps, loads
 from oracq.infrastructure.validation import validate
 
@@ -234,6 +284,18 @@ __all__ += [
 ]
 
 __all__ += ["requires"]
+
+__all__ += [
+    "GeneratorInput", "LinearODEMethod", "MatrixInput", "ODECircuit", "ODEConfig",
+    "ODELayout", "ODEMethod", "ODEProblem", "ODEResult", "ODESolveInstance",
+    "OracleGeneratorInput", "PreparedGenerator", "PreparedODE", "QRAMMatrixConfig",
+    "QRAMMatrixInput", "qode_solve",
+    "ArrayInput", "InitialInput", "InitialLayout", "OracleInput", "PDECircuit",
+    "PDEGrid", "PDEMethod", "PDEProblem", "PDEResult", "PDESolveInstance",
+    "PreparedInitial", "PreparedPDE", "QHAMConfig", "QHAMMethod", "QRAMInput",
+    "QRAMInputConfig", "RegisteredQRAM", "UniformGrid1D", "UniformInput",
+    "UnstructuredGrid", "UnstructuredGridConfig", "qpde_solve", "register_qram",
+]
 
 
 _install_compatibility()

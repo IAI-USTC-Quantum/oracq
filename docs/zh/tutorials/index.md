@@ -14,6 +14,8 @@ search-and-estimation
 hamiltonian
 differential-equations
 qham
+pde-instances
+ode-instances
 scientific-workflows
 gallery
 ```

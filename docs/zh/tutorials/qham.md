@@ -26,6 +26,9 @@ assert any(port.arity == 2 for port in pde.ports)
 
 量子组装入口 {obj}`qham_input_model <oracq.algorithms.input_model.qham.qham_input_model>` 生成 QODE 所需的提升算子和初态。此后可以替换线性求解方法，并选择表示 HAM 各阶之和的物理输出通道。
 
+使用缓存的 `prepare()` / 检查 / 执行流程，并独立替换网格和初态 oracle，
+见[组合 PDE 输入与求解实例](pde-instances.md)。
+
 运行完整示例：
 
 ```bash

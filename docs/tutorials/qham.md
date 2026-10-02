@@ -26,6 +26,9 @@ The printed results show: the PDE decomposes into one linear port `L` and one se
 
 The quantum assembly entry point {obj}`qham_input_model <oracq.algorithms.input_model.qham.qham_input_model>` produces the lifted operator and the initial state required by QODE. From there the linear solution method can be replaced, and a physical output channel representing the sum of the HAM orders can be chosen.
 
+For a cached `prepare()` / inspect / execute workflow with independently
+replaceable grids and initial oracles, see [Composing PDE inputs and solve instances](pde-instances.md).
+
 Run the complete example:
 
 ```bash

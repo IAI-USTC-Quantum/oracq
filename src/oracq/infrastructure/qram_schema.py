@@ -4,12 +4,93 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
 from oracq.infrastructure.execution import check_memory
-from oracq.infrastructure.ir import Program, ValidationError
+from oracq.infrastructure.ir import QRAM, Bits, Program, ValidationError
+from oracq.infrastructure.validation import name as identifier
+
+if TYPE_CHECKING:
+    from oracq.algorithms.input_model.oracles import XorDatabase
+
+
+@dataclass(frozen=True)
+class RegisteredQRAM:
+    """An immutable host-side memory snapshot, separate from its RIR declaration.
+
+    Registration allocates no native backend object. Unspecified cells contain
+    zero, and ``snapshot`` returns a fresh mapping suitable for execution.
+    """
+
+    name: str
+    address_length: int
+    word_length: int
+    cells: tuple[tuple[int, int], ...]
+
+    def __post_init__(self) -> None:
+        identifier(self.name)
+        _require_width(self.address_length, "address_length")
+        _require_width(self.word_length, "word_length")
+        if len(dict(self.cells)) != len(self.cells) or any(
+            type(a) is not int or not 0 <= a < 1 << self.address_length
+            or type(v) is not int or not 0 <= v < 1 << self.word_length
+            for a, v in self.cells
+        ):
+            raise ValidationError("registered QRAM cells must have unique in-range addresses and unsigned words")
+        object.__setattr__(self, "cells", tuple(sorted((a, v) for a, v in self.cells if v)))
+
+    @property
+    def type(self) -> QRAM:
+        """RIR resource type, retaining both declared bit widths."""
+        return QRAM(self.address_length, self.word_length)
+
+    def snapshot(self) -> dict[int, int]:
+        """Copy the registered words; missing addresses read as zero."""
+        return dict(self.cells)
+
+    def database(self) -> XorDatabase:
+        """Build an XOR query oracle with this bank's resource name."""
+        from oracq.algorithms.input_model.oracles import XorDatabase, annotate
+        from oracq.infrastructure.builder import Builder
+
+        b = Builder(
+            "query_" + self.name,
+            {"address": Bits(self.address_length), "data": Bits(self.word_length)},
+            {self.name: self.type},
+        )
+        b.qram(self.name, b["address"], b["data"])
+        return XorDatabase(annotate(b.finish(), "database_xor", implementation="qram"))
+
+
+def register_qram(
+    data: Sequence[int] | Mapping[int, int],
+    address_length: int,
+    word_length: int,
+    *,
+    name: str | None = None,
+) -> RegisteredQRAM:
+    """Snapshot unsigned QRAM words without creating a backend dependency.
+
+    A sequence uses its indices as addresses; a mapping may be sparse. The
+    default name is derived from the widths and contents. Explicit names must
+    identify the same contents when multiple inputs share a bank.
+    """
+    _require_width(address_length, "address_length")
+    _require_width(word_length, "word_length")
+    items = data.items() if isinstance(data, Mapping) else enumerate(data)
+    cells = tuple(items)
+    # Validate before sorting so invalid mixed-type addresses produce the same
+    # domain error as invalid integer addresses.
+    bank = RegisteredQRAM(name or "registered_qram", address_length, word_length, cells)
+    cells = tuple(sorted((a, v) for a, v in bank.cells if v))
+    if name is None:
+        digest = sha256(repr((address_length, word_length, cells)).encode()).hexdigest()[:16]
+        name = "qram_" + digest
+    return RegisteredQRAM(name, address_length, word_length, cells)
 
 # Supported data types; files store source data types, and loading uniformly encodes them as unsigned words.
 QRAM_DATA_TYPES = ("uint", "sint", "fixedpoint")

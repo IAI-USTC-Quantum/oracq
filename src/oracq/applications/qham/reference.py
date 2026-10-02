@@ -7,10 +7,36 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
 from functools import lru_cache
+from typing import Protocol
 
 from oracq.applications.qham.linearization import QHAMPlan, compositions
 from oracq.applications.qham.pde import Atom, Monomial, OperatorPort, PolynomialPDE
 from oracq.infrastructure.ir import ValidationError
+
+
+class SpatialGrid(Protocol):
+    """Grid access needed by polynomial PDE discretization.
+
+    A grid defines discrete derivative rows; coordinates alone do not specify
+    a discretization. Quantum implementations may supply their own encodings.
+    """
+
+    @property
+    def axes(self) -> tuple[str, ...]:
+        """Names of the spatial axes, in index order."""
+
+    @property
+    def size(self) -> int:
+        """Total number of grid samples across all axes."""
+
+    @property
+    def spatial_width(self) -> int:
+        """Address width in qubits of the padded spatial coordinate."""
+
+    def derivative_row(
+        self, derivative: tuple[tuple[str, int], ...], row: int
+    ) -> tuple[tuple[int, float], ...]:
+        """Return the sparse finite-difference row of one derivative at one sample."""
 
 
 @lru_cache(maxsize=32)
@@ -273,7 +299,7 @@ class Discretization:
     def __init__(
         self,
         pde: PolynomialPDE,
-        grid: Grid,
+        grid: SpatialGrid,
         known: Mapping[str, Sequence[complex]] | None = None,
     ) -> None:
         """Bind the PDE, grid, and known data, and initialize the derived widths and caches."""
@@ -281,7 +307,7 @@ class Discretization:
         if tuple(pde.axes) != tuple(grid.axes):
             raise ValidationError("the PDE and the grid have different spatial axes")
         self.pde: PolynomialPDE = pde
-        self.grid: Grid = grid
+        self.grid: SpatialGrid = grid
         self.component_width: int = (len(pde.fields) - 1).bit_length()
         self.width: int = grid.spatial_width + self.component_width
         self.dimension: int = 1 << self.width
