@@ -1,4 +1,4 @@
-# oracq
+# OracQ
 
 **English** · [简体中文](README.zh-CN.md)
 
@@ -8,12 +8,19 @@
 [![Python](https://img.shields.io/pypi/pyversions/oracq.svg)](https://pypi.org/project/oracq/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
 
-oracq is a scientific-computing algorithm implementation framework for quantum
-algorithm researchers. Composable algorithms are written in Python against
-access models and compiled to a register-level intermediate representation
-(RIR) that preserves module structure; oracle placeholders stay unimplemented
-until you compare gate-network, QRAM, and reversible-arithmetic candidates,
-bind them, and proceed to numerical validation and resource analysis.
+**An embedded quantum language for oracle-based scientific computing.**
+
+OracQ (**ORAC**ular **Q**uantum) is embedded in Python and designed for
+quantum algorithm researchers. Composable algorithms are written against
+declared access models and compiled to a register-level intermediate
+representation (RIR) that preserves module structure and unimplemented
+oracle slots. Open programs can be validated, saved, and restored before
+choosing compatible gate-network, QRAM, or reversible-arithmetic
+implementations. A separate binding pass attaches these realizations,
+allowing the same stored algorithm to be compared across implementations
+through numerical validation and resource analysis.
+
+The Python package, import name, and command-line entry point are `oracq`.
 
 The current package version is **0.1.0** and the RIR format is **0.1**
 ([full specification](docs/reference/rir.md)). Algorithms declare inputs and

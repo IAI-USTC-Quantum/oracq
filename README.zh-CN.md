@@ -1,4 +1,4 @@
-# oracq
+# OracQ
 
 [English](README.md) · **简体中文**
 
@@ -8,7 +8,11 @@
 [![Python](https://img.shields.io/pypi/pyversions/oracq.svg)](https://pypi.org/project/oracq/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
 
-oracq 是面向量子算法研究者的科学计算算法实现框架。用 Python 按访问模型编写可组合算法，生成保留模块结构的寄存器级中间表示（RIR）；保存尚未实现的 oracle，比较门网络、QRAM 和可逆算术等实现，完成绑定后进行数值验证和资源分析。
+**面向科学计算、以 oracle 为核心的 Python 嵌入式量子语言。**
+
+OracQ（**ORAC**ular **Q**uantum）面向量子算法研究者，以 Python 为编写环境。按声明的访问模型编写可组合算法，生成保留模块结构和尚未实现的 oracle 接口的寄存器级中间表示（RIR）。开放程序可以先验证、保存和恢复，再选择兼容的门网络、QRAM 或可逆算术实现。独立的绑定步骤连接这些具体实现，支持对同一个已保存算法的不同实现进行数值验证和资源分析。
+
+Python 包名、导入名和命令行入口均为 `oracq`。
 
 当前包版本为 **0.1.0**，RIR 格式为 **0.1**（[规范全文](docs/zh/reference/rir.md)）。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
 
