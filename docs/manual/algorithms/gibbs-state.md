@@ -1,6 +1,6 @@
 # Gibbs State Preparation
 
-**English** · <a href="../../../zh/manual/algorithms/gibbs-state.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/gibbs-state.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.input_model.density`](../../api/algorithms/input_model/density.rst) · Stage V1
 

@@ -1,6 +1,6 @@
 # QSVT 矩阵求逆（QSVT Matrix Inversion）
 
-<a href="../../../en/manual/algorithms/qsvt-matrix-inversion.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/qsvt-matrix-inversion.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · 阶段 V2
 

@@ -1,6 +1,6 @@
 # 安装与环境
 
-<a href="../../en/manual/installation.html">English</a> · **简体中文**
+<a href="../../manual/installation.html">English</a> · **简体中文**
 
 语言核心要求 Python 3.11 或更高版本，运行期仅依赖 PyYAML 做文本序列化。量子模拟器和文档工具单独安装。可选 `pyqsp` extra（`uv sync --extra pyqsp`）安装 pyqsp，用于可替换的 QSP 相位合成适配器。
 
@@ -35,4 +35,4 @@ PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 uv run python tools/build_docs.py --lang all
 ```
 
-该命令以 warning 视为错误的方式运行两种语言树的 HTML 与 doctest 构建：英文 HTML 输出到 `out/docs/en`，中文 HTML 输出到 `out/docs/zh`，doctest 产物在 `out/docs-doctest/{en,zh}`。打开 `out/docs/zh/index.html` 即可浏览中文站点，英文站点从 `out/docs/en/index.html` 进入。HTML 构建失败或教程断言失败都会返回非零退出码。构建配置与写作规范（含交叉链接约定）见[编写文档](../development/writing-docs.md)。
+该命令以 warning 视为错误的方式运行两种语言树的 HTML 与 doctest 构建：英文 HTML 输出到 `out/docs`（即发布站点根目录），中文 HTML 输出到 `out/docs/zh`，doctest 产物在 `out/docs-doctest/{en,zh}`。打开 `out/docs/index.html` 即可浏览英文站点，中文站点从 `out/docs/zh/index.html` 进入。HTML 构建失败或教程断言失败都会返回非零退出码。构建配置与写作规范（含交叉链接约定）见[编写文档](../development/writing-docs.md)。

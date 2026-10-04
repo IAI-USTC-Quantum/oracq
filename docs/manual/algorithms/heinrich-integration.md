@@ -1,6 +1,6 @@
 # Heinrich Quantum Integration
 
-**English** · <a href="../../../zh/manual/algorithms/heinrich-integration.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/heinrich-integration.html">简体中文</a>
 
 > Category C3 · Module [`oracq.algorithms.common.integration`](../../api/algorithms/common/integration.rst) · Stage V1
 

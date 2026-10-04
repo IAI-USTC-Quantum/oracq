@@ -1,6 +1,6 @@
 # 周期格点硬币行走（Coined Cycle Walk）
 
-<a href="../../../en/manual/algorithms/coined-cycle-walk.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/coined-cycle-walk.html">English</a> · **简体中文**
 
 > 类别 C1 · 模块 [`oracq.algorithms.common.walks`](../../api/algorithms/common/walks.rst) · 阶段 V1
 

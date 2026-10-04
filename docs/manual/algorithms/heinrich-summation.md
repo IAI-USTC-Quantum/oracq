@@ -1,6 +1,6 @@
 # Heinrich Quantum Summation
 
-**English** · <a href="../../../zh/manual/algorithms/heinrich-summation.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/heinrich-summation.html">简体中文</a>
 
 > Category C3 · Module [`oracq.algorithms.common.integration`](../../api/algorithms/common/integration.rst) · Stage V1
 

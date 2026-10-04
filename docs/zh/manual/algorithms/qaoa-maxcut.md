@@ -1,6 +1,6 @@
 # MaxCut QAOA（QAOA for MaxCut）
 
-<a href="../../../en/manual/algorithms/qaoa-maxcut.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/qaoa-maxcut.html">English</a> · **简体中文**
 
 > 类别 C4 · 模块 [`oracq.algorithms.optimization.variational`](../../api/algorithms/optimization/variational.rst) · 阶段 V3
 

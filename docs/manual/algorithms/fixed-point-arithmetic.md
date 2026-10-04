@@ -1,6 +1,6 @@
 # Fixed-Point Arithmetic
 
-**English** · <a href="../../../zh/manual/algorithms/fixed-point-arithmetic.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/fixed-point-arithmetic.html">简体中文</a>
 
 > Category C1 · Module [`oracq.algorithms.common.arithmetic`](../../api/algorithms/common/arithmetic.rst) · Stage V1
 

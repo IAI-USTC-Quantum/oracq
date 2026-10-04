@@ -1,6 +1,6 @@
 # Import path migration
 
-**English** · <a href="../../zh/manual/compatibility.html">简体中文</a>
+**English** · <a href="../zh/manual/compatibility.html">简体中文</a>
 
 Release 0.8 moved the implementations into directories organized by
 responsibility. The common exports of the root package remain available; old

@@ -1,6 +1,6 @@
 # PREPARE–SELECT Decomposition
 
-**English** · <a href="../../../zh/manual/algorithms/prepare-select.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/prepare-select.html">简体中文</a>
 
 > Category C5/C1 · Module [`oracq.algorithms.common.prepare_select`](../../api/algorithms/common/prepare_select.rst) · Stage V4
 

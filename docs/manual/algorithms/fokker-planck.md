@@ -1,6 +1,6 @@
 # Fokker–Planck Input Model
 
-**English** · <a href="../../../zh/manual/algorithms/fokker-planck.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/fokker-planck.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.qode.sde`](../../api/algorithms/qode/sde.rst) · Stage V3
 

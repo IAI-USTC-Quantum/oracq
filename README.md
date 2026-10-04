@@ -137,9 +137,9 @@ uv run python tools/build_docs.py --lang all
 ```
 
 This builds both language trees (warnings are errors): English HTML to
-`out/docs/en` and Chinese HTML to `out/docs/zh`, plus doctest runs whose output
-goes to `out/docs-doctest/{en,zh}`. Open `out/docs/en/index.html` to browse
-the generated site. Algorithm
+`out/docs` (the published site root) and Chinese HTML to `out/docs/zh`, plus
+doctest runs whose output goes to `out/docs-doctest/{en,zh}`. Open
+`out/docs/index.html` to browse the generated site. Algorithm
 gallery and engineering checks:
 
 ```bash

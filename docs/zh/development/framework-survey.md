@@ -1,6 +1,6 @@
 # 框架调研笔记（第一阶段）
 
-<a href="../../en/development/framework-survey.html">English</a> · **简体中文**
+<a href="../../development/framework-survey.html">English</a> · **简体中文**
 
 为审稿驱动的修订收集的工作笔记。每节末尾给出一句话结论，论文修改时不再需要回头查证。以下全部为 2026-10-02 收集的文档与论文层面证据，未做任何基准实测。"文档中未找到"指截至该日在公开文档（Qualtran 另含仓库目录结构）中未见，不涉及未发布代码。
 

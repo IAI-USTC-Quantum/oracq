@@ -1,6 +1,6 @@
 # Hamiltonian Simulation Protocol
 
-**English** · <a href="../../../zh/manual/algorithms/hamiltonian-simulation.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/hamiltonian-simulation.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.common.hamiltonian`](../../api/algorithms/common/hamiltonian.rst) · Stage V2
 

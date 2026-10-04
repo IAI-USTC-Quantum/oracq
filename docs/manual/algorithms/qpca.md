@@ -1,6 +1,6 @@
 # Quantum Principal Component Analysis
 
-**English** · <a href="../../../zh/manual/algorithms/qpca.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qpca.html">简体中文</a>
 
 > Category C3 · Module [`oracq.algorithms.qml.qpca`](../../api/algorithms/qml/qpca.rst) · Stage V1
 

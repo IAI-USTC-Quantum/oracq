@@ -1,6 +1,6 @@
 # QSVT Matrix Inversion
 
-**English** · <a href="../../../zh/manual/algorithms/qsvt-matrix-inversion.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qsvt-matrix-inversion.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · Stage V2
 

@@ -1,6 +1,6 @@
 # 普通数学函数自动生成可逆量子模块
 
-<a href="../../en/manual/math-functions.html">English</a> · **简体中文**
+<a href="../../manual/math-functions.html">English</a> · **简体中文**
 
 先编写纯 Python 数学函数，再调用 {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` 生成可逆量子模块。函数仍可用于经典计算；量子侧由编译器处理临时寄存器、别名复制、结果 XOR 和反算。[QFVM](qfvm.md) 的 Roe face 已采用这条路径。
 

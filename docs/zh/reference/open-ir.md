@@ -1,6 +1,6 @@
 # 开放声明、能力与绑定
 
-<a href="../../en/reference/open-ir.html">English</a> · **简体中文**
+<a href="../../reference/open-ir.html">English</a> · **简体中文**
 
 本章定义 RIR 0.1 中开放声明的行为。算法协议与契约视角的背景见手册[算法自己的约定：从一个 gate 开始](../manual/contracts.md)。
 

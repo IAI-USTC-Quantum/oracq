@@ -1,6 +1,6 @@
 # 组合线性 ODE 输入与求解实例
 
-<a href="../../en/tutorials/ode-instances.html">English</a> · **简体中文**
+<a href="../../tutorials/ode-instances.html">English</a> · **简体中文**
 
 `ODEProblem` 描述自治齐次系统 `u' = G u`、物理初值和终止时间。
 `qode_solve` 选择算法，返回尚未准备的实例。与 [PDE 求解实例](pde-instances.md)

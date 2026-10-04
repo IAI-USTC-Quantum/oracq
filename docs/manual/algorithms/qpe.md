@@ -1,6 +1,6 @@
 # Quantum Phase Estimation
 
-**English** · <a href="../../../zh/manual/algorithms/qpe.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qpe.html">简体中文</a>
 
 > Category C3 · Module [`oracq.algorithms.common.estimation`](../../api/algorithms/common/estimation.rst) · Stage V2
 

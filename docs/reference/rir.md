@@ -1,6 +1,6 @@
 # RIR: the modular register-level intermediate representation
 
-**English** · <a href="../../zh/reference/rir.html">简体中文</a>
+**English** · <a href="../zh/reference/rir.html">简体中文</a>
 
 This specification defines RIR 0.1. Detailed rules for open declarations, capabilities, and binding are in [the open IR](open-ir.md); for an introduction to working with registers and views in the Python generation layer see the manual chapter [Operations, registers, and the generation process](../manual/concepts.md#registers-and-views).
 

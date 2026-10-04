@@ -1,6 +1,6 @@
 # 量子计数（Quantum Counting）
 
-<a href="../../../en/manual/algorithms/quantum-counting.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/quantum-counting.html">English</a> · **简体中文**
 
 > 类别 C3 · 模块 [`oracq.algorithms.common.estimation`](../../api/algorithms/common/estimation.rst) · 阶段 V2
 

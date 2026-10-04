@@ -1,6 +1,6 @@
 # Linear Combination of Hamiltonian Simulations
 
-**English** · <a href="../../../zh/manual/algorithms/lchs.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/lchs.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.qode.lchs`](../../api/algorithms/qode/lchs.rst) · Stage V2
 

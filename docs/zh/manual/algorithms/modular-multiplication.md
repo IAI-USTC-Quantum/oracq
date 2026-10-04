@@ -1,6 +1,6 @@
 # 模乘置换（Modular Multiplication）
 
-<a href="../../../en/manual/algorithms/modular-multiplication.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/modular-multiplication.html">English</a> · **简体中文**
 
 > 类别 C1 · 模块 [`oracq.algorithms.basics.number_theory`](../../api/algorithms/basics/number_theory.rst) · 阶段 —
 

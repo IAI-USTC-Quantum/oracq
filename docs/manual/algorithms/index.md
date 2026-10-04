@@ -1,6 +1,6 @@
 # Algorithm catalog
 
-**English** · <a href="../../../zh/manual/algorithms/index.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/index.html">简体中文</a>
 
 The algorithm library is organized into ten subpackages by purpose: `input_model` (input models and data access), `common` (shared primitives), `qlss` (linear systems), `qnlss` (nonlinear systems), `qode` (ordinary differential equations), `qpde` (partial differential equations), `qml` (quantum machine learning), `optimization` (quantum optimization and variational methods), `basics` (basic example algorithms), and `qec` (quantum error correction). The table below lists the entry files, what is implemented, and the boundaries to keep in mind when using them. The API reference lists the full signatures; the per-algorithm pages are grouped by family — see the navigation below.
 

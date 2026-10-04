@@ -1,6 +1,6 @@
 # Composing PDE inputs and solve instances
 
-**English** · <a href="../../zh/tutorials/pde-instances.html">简体中文</a>
+**English** · <a href="../zh/tutorials/pde-instances.html">简体中文</a>
 
 `PDEProblem` describes an equation, a grid, physical initial data, and the final
 time. `qpde_solve` selects a method; `prepare()` checks its input requirements

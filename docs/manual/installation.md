@@ -1,6 +1,6 @@
 # Installation and environment
 
-**English** · <a href="../../zh/manual/installation.html">简体中文</a>
+**English** · <a href="../zh/manual/installation.html">简体中文</a>
 
 The language core requires Python 3.11 or newer and depends only on PyYAML for
 text serialization. Quantum simulators and documentation tooling are installed
@@ -49,9 +49,10 @@ uv run python tools/build_docs.py --lang all
 ```
 
 This runs the HTML and doctest builders for both language trees with warnings
-as errors: English HTML to `out/docs/en`, Chinese HTML to `out/docs/zh`, and
-doctest output to `out/docs-doctest/{en,zh}`. Open `out/docs/en/index.html` to
-browse this site; the Chinese mirror starts at `out/docs/zh/index.html`. A
+as errors: English HTML to `out/docs` (the published site root), Chinese HTML
+to `out/docs/zh`, and doctest output to `out/docs-doctest/{en,zh}`. Open
+`out/docs/index.html` to browse this site; the Chinese mirror starts at
+`out/docs/zh/index.html`. A
 failed HTML build or a failed tutorial assertion both return a non-zero exit
 code. For build configuration and writing conventions (including the
 cross-linking rules) see [Writing documentation](../development/writing-docs.md).

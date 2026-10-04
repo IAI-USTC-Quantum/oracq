@@ -1,6 +1,6 @@
 # Grover Search
 
-**English** · <a href="../../../zh/manual/algorithms/grover.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/grover.html">简体中文</a>
 
 > Category C3 · Module [`oracq.algorithms.common.search`](../../api/algorithms/common/search.rst) · Stage V1
 

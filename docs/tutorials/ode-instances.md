@@ -1,6 +1,6 @@
 # Composing linear ODE inputs and solve instances
 
-**English** · <a href="../../zh/tutorials/ode-instances.html">简体中文</a>
+**English** · <a href="../zh/tutorials/ode-instances.html">简体中文</a>
 
 `ODEProblem` describes the autonomous homogeneous system `u' = G u`, physical
 initial values, and a final time. `qode_solve` selects a method and returns an

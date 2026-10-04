@@ -1,6 +1,6 @@
 # VTAA-CKS QLSS
 
-**English** · <a href="../../../zh/manual/algorithms/vtaa-cks.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/vtaa-cks.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.qlss.vtaa_cks`](../../api/algorithms/qlss/vtaa_cks.rst) · Stage V3
 

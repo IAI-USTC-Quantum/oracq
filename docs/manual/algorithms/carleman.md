@@ -1,6 +1,6 @@
 # Carleman Linearization
 
-**English** · <a href="../../../zh/manual/algorithms/carleman.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/carleman.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.qnlss.carleman`](../../api/algorithms/qnlss/carleman.rst) · Stage V2
 

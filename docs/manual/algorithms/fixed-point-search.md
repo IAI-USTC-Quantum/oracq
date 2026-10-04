@@ -1,6 +1,6 @@
 # Fixed-Point Search
 
-**English** · <a href="../../../zh/manual/algorithms/fixed-point-search.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/fixed-point-search.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · Stage V2
 

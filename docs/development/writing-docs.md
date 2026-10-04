@@ -1,6 +1,6 @@
 # Writing documentation
 
-**English** · <a href="../../zh/development/writing-docs.html">简体中文</a>
+**English** · <a href="../zh/development/writing-docs.html">简体中文</a>
 
 The documentation is bilingual. The English pages under
 `docs/{manual,tutorials,reference,development}/` are the primary source, and a
@@ -41,12 +41,12 @@ automatically by `tools/add_switchers.py`). Two rules:
    as a document reference and, since the other tree is outside the project,
    silently degrade to a `#...` anchor link. Raw `<a>` tags pass through to
    the built HTML unchanged.
-2. Href depths follow the DEPLOYED site layout, not the source tree. A built
-   page sits at `<site>/<lang>/<relpath>.html`, so from
-   `<site>/en/development/writing-docs.html` the Chinese twin is
-   `<a href="../../zh/development/writing-docs.html">简体中文</a>` — climb one
-   level more than the source-tree path suggests, then enter the other
-   language root.
+2. Href depths follow the DEPLOYED site layout. The English tree builds to
+   the site root and the Chinese tree to `<site>/zh/`, so from
+   `<site>/development/writing-docs.html` the Chinese twin is
+   `<a href="../zh/development/writing-docs.html">简体中文</a>`, while the
+   reverse direction climbs out of the `zh/` root:
+   `<a href="../../development/writing-docs.html">English</a>`.
 
 ## Executable tutorials
 
@@ -64,8 +64,9 @@ uv run python tools/build_docs.py --lang all --builder doctest
 ```
 
 Both language trees build through `tools/build_docs.py --lang all`: the
-English tree `docs` builds to `out/docs/en` and the Chinese tree `docs/zh`
-builds to `out/docs/zh`, each with warnings treated as errors.
+English tree `docs` builds to `out/docs` (the published site root) and the
+Chinese tree `docs/zh` builds to `out/docs/zh`, each with warnings treated as
+errors.
 
 ## Cross-linking
 

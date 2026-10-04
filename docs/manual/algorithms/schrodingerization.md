@@ -1,6 +1,6 @@
 # Schrödingerization
 
-**English** · <a href="../../../zh/manual/algorithms/schrodingerization.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/schrodingerization.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.qode.schrodingerization`](../../api/algorithms/qode/schrodingerization.rst) · Stage V2
 

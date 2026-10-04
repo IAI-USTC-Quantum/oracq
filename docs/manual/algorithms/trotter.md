@@ -1,6 +1,6 @@
 # Trotter Product-Formula Simulation
 
-**English** · <a href="../../../zh/manual/algorithms/trotter.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/trotter.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.common.hamiltonian`](../../api/algorithms/common/hamiltonian.rst) · Stage V2
 

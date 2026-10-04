@@ -1,6 +1,6 @@
 # General QHAM
 
-**English** · <a href="../../../zh/manual/algorithms/qham.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qham.html">简体中文</a>
 
 > Category C6 · Module `oracq.applications.qham` · Stage V1
 

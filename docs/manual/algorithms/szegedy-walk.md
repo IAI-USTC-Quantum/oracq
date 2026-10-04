@@ -1,6 +1,6 @@
 # Szegedy Walk
 
-**English** · <a href="../../../zh/manual/algorithms/szegedy-walk.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/szegedy-walk.html">简体中文</a>
 
 > Category C1 · Module [`oracq.algorithms.input_model.graph_walks`](../../api/algorithms/input_model/graph_walks.rst) · Stage V3
 

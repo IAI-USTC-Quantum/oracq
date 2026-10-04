@@ -1,6 +1,6 @@
 # Block Encoding Algebra
 
-**English** · <a href="../../../zh/manual/algorithms/block-encoding-algebra.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/block-encoding-algebra.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.input_model.block_encoding`](../../api/algorithms/input_model/block_encoding.rst) · Stage V1
 

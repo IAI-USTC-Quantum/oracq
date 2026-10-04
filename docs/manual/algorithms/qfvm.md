@@ -1,6 +1,6 @@
 # Quantum Finite Volume Method, QFVM
 
-**English** · <a href="../../../zh/manual/algorithms/qfvm.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qfvm.html">简体中文</a>
 
 > Category C6 · Module [`oracq.applications.qfvm`](../../api/applications/qfvm.rst) · Stage V1
 

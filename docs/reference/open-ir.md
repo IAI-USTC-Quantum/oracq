@@ -1,6 +1,6 @@
 # Open declarations, capabilities, and binding
 
-**English** · <a href="../../zh/reference/open-ir.html">简体中文</a>
+**English** · <a href="../zh/reference/open-ir.html">简体中文</a>
 
 This chapter defines the behavior of open declarations in RIR 0.1. For background from the algorithm-protocol and contract perspective see the manual chapter [Conventions owned by algorithms: starting from one gate](../manual/contracts.md).
 

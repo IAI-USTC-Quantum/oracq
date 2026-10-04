@@ -1,6 +1,6 @@
 # 架构范式与接口约定
 
-<a href="../../en/development/architecture-paradigm.html">English</a> · **简体中文**
+<a href="../../development/architecture-paradigm.html">English</a> · **简体中文**
 
 本文档是 oracq 开发范式的公开、可引用约定：分层结构、RIR 的稳定性契约、所有公共 API 必须遵守的三种变化边界，以及科学接口元数据的路线图。它只记录约定，本身不改变代码。文末给出与外部审稿意见的对应关系。
 

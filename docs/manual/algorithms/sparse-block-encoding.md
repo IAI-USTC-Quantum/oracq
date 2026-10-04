@@ -1,6 +1,6 @@
 # Sparse Matrix Block Encoding
 
-**English** · <a href="../../../zh/manual/algorithms/sparse-block-encoding.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/sparse-block-encoding.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.input_model.sparse`](../../api/algorithms/input_model/sparse.rst) · Stage V1
 

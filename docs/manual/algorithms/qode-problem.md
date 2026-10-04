@@ -1,6 +1,6 @@
 # QODE Problem and Protocol
 
-**English** · <a href="../../../zh/manual/algorithms/qode-problem.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qode-problem.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.qode.ode`](../../api/algorithms/qode/ode.rst) · Stage V2
 

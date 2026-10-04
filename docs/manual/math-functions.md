@@ -1,6 +1,6 @@
 # Automatically generating reversible quantum modules from ordinary math functions
 
-**English** · <a href="../../zh/manual/math-functions.html">简体中文</a>
+**English** · <a href="../zh/manual/math-functions.html">简体中文</a>
 
 First write a pure Python math function, then call {obj}`compile_function <oracq.infrastructure.mathfunc.compile_function>` to generate a reversible quantum module. The function remains usable for classical computation; on the quantum side the compiler handles temporary registers, alias copying, result XOR, and uncomputation. The [QFVM](qfvm.md) Roe face already uses this path.
 

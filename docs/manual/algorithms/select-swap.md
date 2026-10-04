@@ -1,6 +1,6 @@
 # Select-Swap QROM
 
-**English** · <a href="../../../zh/manual/algorithms/select-swap.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/select-swap.html">简体中文</a>
 
 > Category C5 · Module [`oracq.algorithms.input_model.data_loading`](../../api/algorithms/input_model/data_loading.rst) · Stage V4
 

@@ -1,6 +1,6 @@
 # Fourier Addition
 
-**English** · <a href="../../../zh/manual/algorithms/fourier-addition.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/fourier-addition.html">简体中文</a>
 
 > Category C1 · Module [`oracq.algorithms.common.fourier`](../../api/algorithms/common/fourier.rst) · Stage V1
 

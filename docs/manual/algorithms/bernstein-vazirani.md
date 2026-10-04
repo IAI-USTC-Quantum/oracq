@@ -1,6 +1,6 @@
 # Bernstein–Vazirani
 
-**English** · <a href="../../../zh/manual/algorithms/bernstein-vazirani.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/bernstein-vazirani.html">简体中文</a>
 
 > Category C1 · Module [`oracq.algorithms.basics.oracle_algorithms`](../../api/algorithms/basics/oracle_algorithms.rst) · Stage V1
 

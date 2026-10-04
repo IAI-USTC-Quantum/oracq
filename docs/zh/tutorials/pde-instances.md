@@ -1,6 +1,6 @@
 # 组合 PDE 输入与求解实例
 
-<a href="../../en/tutorials/pde-instances.html">English</a> · **简体中文**
+<a href="../../tutorials/pde-instances.html">English</a> · **简体中文**
 
 `PDEProblem` 描述方程、网格、物理初值和终止时间。`qpde_solve` 选择算法，
 `prepare()` 检查算法的输入要求并生成可复用的模块化 RIR 线路。

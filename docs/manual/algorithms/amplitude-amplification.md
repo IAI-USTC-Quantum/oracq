@@ -1,6 +1,6 @@
 # Amplitude Amplification
 
-**English** · <a href="../../../zh/manual/algorithms/amplitude-amplification.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/amplitude-amplification.html">简体中文</a>
 
 > Category C3 · Module [`oracq.algorithms.common.search`](../../api/algorithms/common/search.rst) · Stage V1
 

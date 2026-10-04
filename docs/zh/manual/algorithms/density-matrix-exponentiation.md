@@ -1,6 +1,6 @@
 # 密度矩阵指数化（Density Matrix Exponentiation）
 
-<a href="../../../en/manual/algorithms/density-matrix-exponentiation.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/density-matrix-exponentiation.html">English</a> · **简体中文**
 
 > 类别 C3 · 模块 [`oracq.algorithms.qml.qpca`](../../api/algorithms/qml/qpca.rst) · 阶段 V1
 

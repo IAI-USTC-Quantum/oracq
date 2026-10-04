@@ -1,6 +1,6 @@
 # Framework survey notes (stage 1)
 
-**English** · <a href="../../zh/development/framework-survey.html">简体中文</a>
+**English** · <a href="../zh/development/framework-survey.html">简体中文</a>
 
 Working notes collected for the review-driven revision. Each section ends in
 one-sentence conclusions so the paper edits never need to re-verify facts.

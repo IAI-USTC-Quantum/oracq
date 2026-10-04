@@ -1,6 +1,6 @@
 # Architecture paradigm and interface conventions
 
-**English** · <a href="../../zh/development/architecture-paradigm.html">简体中文</a>
+**English** · <a href="../zh/development/architecture-paradigm.html">简体中文</a>
 
 This document is the public, citable statement of oracq's development
 paradigm: the layered structure, the stability contract of RIR, the three

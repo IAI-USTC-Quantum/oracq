@@ -1,6 +1,6 @@
 # QSVT Phase Sequence
 
-**English** · <a href="../../../zh/manual/algorithms/qsvt-sequence.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qsvt-sequence.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.common.transforms`](../../api/algorithms/common/transforms.rst) · Stage V1
 

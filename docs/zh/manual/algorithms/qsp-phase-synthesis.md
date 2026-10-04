@@ -1,6 +1,6 @@
 # QSP 相位合成（QSP Phase Synthesis）
 
-<a href="../../../en/manual/algorithms/qsp-phase-synthesis.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/qsp-phase-synthesis.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.common.qsvt`](../../api/algorithms/common/qsvt.rst) · 阶段 V2
 

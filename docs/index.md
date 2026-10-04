@@ -1,6 +1,6 @@
 # oracq
 
-**English** · <a href="../zh/index.html">简体中文</a>
+**English** · <a href="zh/index.html">简体中文</a>
 
 oracq organizes quantum algorithms in Python and compiles them to a saveable,
 composable register-level intermediate representation (RIR). Algorithms may
@@ -43,4 +43,4 @@ search, estimation, and Hamiltonian evolution to QLSS, QODE, QFVM, and QHAM.
 Maturity varies per implementation; check
 [applicability and validation status](manual/limits.md) before choosing an
 algorithm. The Chinese mirror of this site lives under
-<a href="../zh/index.html">zh/</a>.
+<a href="zh/index.html">zh/</a>.

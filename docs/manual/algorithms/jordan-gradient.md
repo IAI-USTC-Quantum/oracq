@@ -1,6 +1,6 @@
 # Jordan Quantum Gradient Estimation
 
-**English** · <a href="../../../zh/manual/algorithms/jordan-gradient.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/jordan-gradient.html">简体中文</a>
 
 > Category C3 · Module [`oracq.algorithms.optimization.gradient`](../../api/algorithms/optimization/gradient.rst) · Stage V1
 

@@ -1,6 +1,6 @@
 # VQE Pauli Measurements
 
-**English** · <a href="../../../zh/manual/algorithms/vqe.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/vqe.html">简体中文</a>
 
 > Category C4 · Module [`oracq.algorithms.optimization.variational`](../../api/algorithms/optimization/variational.rst) · Stage V3
 

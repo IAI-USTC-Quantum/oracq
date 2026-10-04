@@ -1,6 +1,6 @@
 # Tensor Hypercontraction
 
-**English** · <a href="../../../zh/manual/algorithms/thc.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/thc.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.input_model.lowrank`](../../api/algorithms/input_model/lowrank.rst) · Stage V1
 

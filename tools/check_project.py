@@ -69,6 +69,10 @@ def main():
             ]
         )
         for lang, tree in (("en", "docs"), ("zh", "docs/zh")):
+            # The English tree builds to the published site root, matching
+            # tools/build_docs.py; the Chinese tree nests under it.
+            html_out = output / "docs" if lang == "en" else output / "docs" / lang
+            doctest_out = output / "docs-doctest" / lang
             commands.extend(
                 [
                     (
@@ -82,7 +86,7 @@ def main():
                             "-b",
                             "html",
                             tree,
-                            str(output / f"docs/{lang}"),
+                            str(html_out),
                         ],
                     ),
                     (
@@ -96,7 +100,7 @@ def main():
                             "-b",
                             "doctest",
                             tree,
-                            str(output / f"docs/{lang}-doctest"),
+                            str(doctest_out),
                         ],
                     ),
                 ]

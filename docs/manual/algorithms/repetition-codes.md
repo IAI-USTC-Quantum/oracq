@@ -1,6 +1,6 @@
 # Repetition Codes
 
-**English** · <a href="../../../zh/manual/algorithms/repetition-codes.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/repetition-codes.html">简体中文</a>
 
 > Category C1 · Module [`oracq.algorithms.qec.error_correction`](../../api/algorithms/qec/error_correction.rst) · Stage V1
 

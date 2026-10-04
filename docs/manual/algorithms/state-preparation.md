@@ -1,6 +1,6 @@
 # State Preparation
 
-**English** · <a href="../../../zh/manual/algorithms/state-preparation.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/state-preparation.html">简体中文</a>
 
 > Category C5 · Module [`oracq.algorithms.input_model.oracles`](../../api/algorithms/input_model/oracles.rst) · Stage V4
 

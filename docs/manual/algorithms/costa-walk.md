@@ -1,6 +1,6 @@
 # Costa Walk QLSS
 
-**English** · <a href="../../../zh/manual/algorithms/costa-walk.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/costa-walk.html">简体中文</a>
 
 > Category C2 · Module [`oracq.algorithms.qlss.qlss`](../../api/algorithms/qlss/qlss.rst) · Stage V3
 

@@ -1,6 +1,6 @@
 # 截断 Taylor 块编码（Truncated Taylor Block Encoding）
 
-<a href="../../../en/manual/algorithms/taylor-block-encoding.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/taylor-block-encoding.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.common.hamiltonian`](../../api/algorithms/common/hamiltonian.rst) · 阶段 V2
 

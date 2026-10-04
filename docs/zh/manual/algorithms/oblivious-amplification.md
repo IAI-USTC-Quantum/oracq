@@ -1,6 +1,6 @@
 # Oblivious 振幅放大（Oblivious Amplitude Amplification）
 
-<a href="../../../en/manual/algorithms/oblivious-amplification.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/oblivious-amplification.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.common.transforms`](../../api/algorithms/common/transforms.rst) · 阶段 V1
 

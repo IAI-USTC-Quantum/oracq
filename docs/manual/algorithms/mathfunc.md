@@ -1,6 +1,6 @@
 # Math Function Compilation
 
-**English** · <a href="../../../zh/manual/algorithms/mathfunc.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/mathfunc.html">简体中文</a>
 
 > Category C5 · Module [`oracq.infrastructure.mathfunc`](../../api/infrastructure/mathfunc.rst) · Stage V2
 

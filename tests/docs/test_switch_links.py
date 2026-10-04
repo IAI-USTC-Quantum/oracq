@@ -1,10 +1,10 @@
 """Cross-language raw anchors must resolve under the deployed site layout.
 
-Built HTML sits at <site>/<lang>/<relpath>.html with both language trees as
-siblings, so a raw <a href> from one tree to the other must climb out of the
-language root first. This test recomputes the deployed-relative path for every
-raw anchor that targets a docs-tree page and asserts the href matches —
-catching depth bugs that only show up on the published site.
+The English tree builds to the site root (<site>/<relpath>.html) and the
+Chinese tree nests under it (<site>/zh/<relpath>.html). This test recomputes
+the deployed-relative path for every raw anchor that targets a docs-tree page
+and asserts the href matches — catching depth bugs that only show up on the
+published site.
 """
 
 import posixpath
@@ -33,6 +33,23 @@ def lang_and_rel(path: Path) -> tuple[str, str]:
     return "en", "/".join(parts)
 
 
+def page_dir_of(lang: str, rel: str) -> str:
+    dirname = posixpath.dirname(rel)
+    if lang == "zh":
+        return f"/oracq/zh/{dirname}" if dirname else "/oracq/zh"
+    return f"/oracq/{dirname}" if dirname else "/oracq"
+
+
+def deployed_target_lang(target: str) -> tuple[str, str] | None:
+    """Map a normalized site-absolute target to (lang, relpath), or None when
+    it does not land inside either published tree."""
+    if target.startswith("/oracq/zh/"):
+        return "zh", target[len("/oracq/zh/"):]
+    if target.startswith("/oracq/"):
+        return "en", target[len("/oracq/"):]
+    return None
+
+
 def iter_pages():
     for path in sorted(DOCS.rglob("*.md")):
         rel = path.relative_to(REPO).as_posix()
@@ -46,25 +63,27 @@ class SwitchLinkTests(unittest.TestCase):
         errors = []
         for path in iter_pages():
             lang, rel = lang_and_rel(path)
-            dirname = posixpath.dirname(rel)
-            page_dir = f"/oracq/{lang}/{dirname}" if dirname else f"/oracq/{lang}"
+            page_dir = page_dir_of(lang, rel)
             for href in ANCHOR.findall(strip_code(path.read_text(encoding="utf-8"))):
                 if href.startswith(("http://", "https://", "mailto:", "#")):
                     continue
                 file_part, _, fragment = href.partition("#")
-                deployed_target = posixpath.normpath(posixpath.join(page_dir, file_part))
-                m = re.fullmatch(r"/oracq/(en|zh)/(.+)", deployed_target)
-                if not m or m.group(2).startswith("../"):
+                target = posixpath.normpath(posixpath.join(page_dir, file_part))
+                located = deployed_target_lang(target)
+                if located is None or located[1].startswith("../"):
                     errors.append(f"{path.relative_to(REPO)}: anchor leaves the site layout: {href}")
                     continue
-                tlang, trel = m.group(1), m.group(2)
+                tlang, trel = located
                 root = DOCS / "zh" if tlang == "zh" else DOCS
                 if trel.endswith(".html"):
                     trel = trel[: -len(".html")] + ".md"
                 if not (root / trel).is_file():
                     errors.append(f"{path.relative_to(REPO)}: deployed target has no source twin: {href}")
                     continue
-                expected = posixpath.relpath(f"/oracq/{tlang}/{m.group(2)}", page_dir) + (
+                if trel.endswith(".md"):
+                    trel = trel[: -len(".md")] + ".html"
+                deployed = f"/oracq/zh/{trel}" if tlang == "zh" else f"/oracq/{trel}"
+                expected = posixpath.relpath(deployed, page_dir) + (
                     f"#{fragment}" if fragment else ""
                 )
                 if href != expected:

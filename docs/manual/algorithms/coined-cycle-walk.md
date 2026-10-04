@@ -1,6 +1,6 @@
 # Coined Cycle Walk
 
-**English** · <a href="../../../zh/manual/algorithms/coined-cycle-walk.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/coined-cycle-walk.html">简体中文</a>
 
 > Category C1 · Module [`oracq.algorithms.common.walks`](../../api/algorithms/common/walks.rst) · Stage V1
 

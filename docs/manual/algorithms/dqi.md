@@ -1,6 +1,6 @@
 # Decoded Quantum Interferometry
 
-**English** · <a href="../../../zh/manual/algorithms/dqi.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/dqi.html">简体中文</a>
 
 > Category C4 · Module [`oracq.algorithms.optimization.dqi`](../../api/algorithms/optimization/dqi.rst) · Stage V1
 

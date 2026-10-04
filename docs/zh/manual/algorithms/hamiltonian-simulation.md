@@ -1,6 +1,6 @@
 # 哈密顿量模拟协议（Hamiltonian Simulation Protocol）
 
-<a href="../../../en/manual/algorithms/hamiltonian-simulation.html">English</a> · **简体中文**
+<a href="../../../manual/algorithms/hamiltonian-simulation.html">English</a> · **简体中文**
 
 > 类别 C2 · 模块 [`oracq.algorithms.common.hamiltonian`](../../api/algorithms/common/hamiltonian.rst) · 阶段 V2
 

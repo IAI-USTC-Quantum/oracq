@@ -1,6 +1,6 @@
 # Modular Multiplication
 
-**English** · <a href="../../../zh/manual/algorithms/modular-multiplication.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/modular-multiplication.html">简体中文</a>
 
 > Category C1 · Module [`oracq.algorithms.basics.number_theory`](../../api/algorithms/basics/number_theory.rst) · Stage —
 

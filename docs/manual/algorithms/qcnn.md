@@ -1,6 +1,6 @@
 # QCNN
 
-**English** · <a href="../../../zh/manual/algorithms/qcnn.html">简体中文</a>
+**English** · <a href="../../zh/manual/algorithms/qcnn.html">简体中文</a>
 
 > Category C4 · Module [`oracq.algorithms.qml.qcnn`](../../api/algorithms/qml/qcnn.rst) and [`oracq.algorithms.qml.qcnn_layer`](../../api/algorithms/qml/qcnn_layer.rst) · Paper arXiv:1911.01117 (ICLR 2020)
 
