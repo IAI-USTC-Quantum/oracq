@@ -59,5 +59,7 @@ python_version = "3.11"
 files = ["src", "examples"]
 
 [[tool.mypy.overrides]]
-module = ["pysparq", "pysparq.*", "uniqc.*", "pyqsp", "pyqsp.*"]
+# numpy and pyqsp are optional (extra ``pyqsp``) and absent from the CI env;
+# ignore_missing_imports is inert when a package is actually installed.
+module = ["pysparq", "pysparq.*", "uniqc.*", "pyqsp", "pyqsp.*", "numpy", "numpy.*"]
 ignore_missing_imports = true
