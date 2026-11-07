@@ -686,8 +686,14 @@ def schedule(s: float, kappa: float, power: float = 1.5) -> float:
         raise ValidationError("Invalid Costa schedule parameters")
     if kappa == 1:
         return s
-    return kappa / (kappa - 1) * (1 - (1 + s * (kappa ** (power - 1) - 1)) ** (1 / (1 - power)))
-
+    # f(1) == 1 identically for every kappa > 1, but the floating-point
+    # evaluation can round a hair above 1 for some kappa; clamp so the
+    # contractual range [0, 1] always holds. Previously-successful inputs
+    # evaluate below 1 and are unchanged.
+    return min(
+        kappa / (kappa - 1) * (1 - (1 + s * (kappa ** (power - 1) - 1)) ** (1 / (1 - power))),
+        1.0,
+    )
 
 def costa_walk(a: BlockEncoding, bprep: StatePreparation, fs: float) -> Operation:
     """Assemble the single-step operator of the Costa parameterized quantum walk.
