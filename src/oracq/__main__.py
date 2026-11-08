@@ -29,7 +29,7 @@ def main() -> None:
     """Command-line entry point: validate, inspect, canonicalize, export or execute serialized RIR per subcommand.
 
     Subcommands include validate, inspect, canonicalize, emit, run, requirements,
-    bind and compile-function; input and value errors are uniformly reported
+    bind, compile-function and gui; input and value errors are uniformly reported
     through ``parser.exit`` with exit code 2.
     """
     parser = argparse.ArgumentParser(prog="oracq")
@@ -45,9 +45,10 @@ def main() -> None:
             "bind",
             "compile-function",
             "estimate",
+            "gui",
         ],
     )
-    parser.add_argument("input", type=Path)
+    parser.add_argument("input", type=Path, nargs="?")
     parser.add_argument("-o", "--output", type=Path)
     parser.add_argument("--format", choices=["yaml", "json"], default="yaml", help="RIR output text format")
     parser.add_argument("--memory", type=Path)
@@ -64,11 +65,24 @@ def main() -> None:
     parser.add_argument("--width", type=int, default=12)
     parser.add_argument("--fraction", type=int, default=6)
     parser.add_argument("--degree", type=int, default=6)
+    parser.add_argument("--checkpoint-size", type=int, default=16,
+                        help="math MIR operations per clean region; 0 retains intermediates")
+    parser.add_argument("--port", type=int, default=0, help="local GUI port; 0 chooses a free port")
+    parser.add_argument("--no-browser", action="store_true", help="print the GUI URL without opening a browser")
     parser.add_argument("--constants", default="{}", help="JSON object of generation-time constants")
     parser.add_argument("--inputs", help="JSON object of input types")
     parser.add_argument("--mir-output", type=Path)
     args = parser.parse_args()
     try:
+        if args.command == "gui":
+            from oracq.applications.studio.server import serve
+
+            if args.input is not None:
+                raise ValueError("gui does not take an input path; edit source in the studio")
+            serve(port=args.port, open_browser=not args.no_browser)
+            return
+        if args.input is None:
+            parser.error("the input path is required for this command")
         if args.command == "compile-function":
             from oracq.algorithms.common.arithmetic import FixedFormat
             from oracq.infrastructure.mathfunc import Index, MathConfig, compile_function
@@ -89,7 +103,7 @@ def main() -> None:
                 args.input.read_text(),
                 entry=args.function,
                 fmt=FixedFormat(args.width, args.fraction),
-                config=MathConfig(degree=args.degree),
+                config=MathConfig(degree=args.degree, checkpoint_size=args.checkpoint_size),
                 constants=constants,
                 inputs=inputs,
             )
