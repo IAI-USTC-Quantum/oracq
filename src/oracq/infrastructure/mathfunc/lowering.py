@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
 from oracq.algorithms.common.arithmetic import FixedFormat
 from oracq.algorithms.input_model.operators import _name
 from oracq.infrastructure.builder import Builder, Operation
-from oracq.infrastructure.ir import Bits, Program, Ref, RegType, ValidationError
-from oracq.infrastructure.mathfunc.graph import MathProgram
+from oracq.infrastructure.ir import Adjoint, Bits, Program, Ref, RegType, ValidationError
+from oracq.infrastructure.mathfunc.graph import MathNode, MathProgram
 from oracq.infrastructure.mathfunc.numeric import MathConfig, Numeric, NumericEmitter
 
 
@@ -139,7 +140,8 @@ class Lowerer:
                 "fixed_width": self.fmt.width,
                 "fixed_fraction": self.fmt.fraction,
                 "math_config": json.dumps(
-                    {"degree": self.config.degree, "intervals": self.config.intervals}
+                    {"degree": self.config.degree, "intervals": self.config.intervals,
+                     "checkpoint_size": self.config.checkpoint_size}
                 ),
                 "update_semantics": "inputs preserved; outputs XOR; status XOR; locals zero restored",
                 "correctness": "pending",
@@ -161,26 +163,26 @@ class Lowerer:
         values: dict[int, Numeric] = {}
         called: dict[tuple[str, tuple[int, ...]], list[Numeric]] = {}
 
-        def value(index: int) -> Numeric:
-            """Recursively evaluate the named node on demand and cache its circuit representation."""
-            if index in values:
-                return values[index]
-            node = graph.nodes[index]
-            args = [value(i) for i in node.args]
+        def emit_node(
+            node: MathNode, args: list[Numeric], emitter: NumericEmitter,
+            parameter_values: dict[str, Numeric],
+            call_cache: dict[tuple[str, tuple[int, ...]], list[Numeric]],
+        ) -> Numeric:
+            """Emit one MIR node with unchanged numeric and path-status semantics."""
             if node.op == "input":
-                result = parameters[node.data[0]]
+                result = parameter_values[node.data[0]]
             elif node.op == "const":
-                result = e.constant(
+                result = emitter.constant(
                     complex(*node.data) if node.kind == "complex" else node.data[0], node.kind
                 )
             elif node.op in {"neg", "not", "real", "imag", "conj", "abs"}:
-                result = e.unary(node.op, args[0])
+                result = emitter.unary(node.op, args[0])
             elif node.op == "select":
-                result = e.choose(*args)
+                result = emitter.choose(*args)
             elif node.op == "complex":
-                result = e.complex(*args)
+                result = emitter.complex(*args)
             elif node.op == "intrinsic":
-                result = e.intrinsic(node.data[0], args, node.kind)
+                result = emitter.intrinsic(node.data[0], args, node.kind)
             elif node.op == "pow":
                 exponent = graph.nodes[node.args[1]]
                 if (
@@ -188,14 +190,14 @@ class Lowerer:
                     and exponent.kind == "real"
                     and int(exponent.data[0]) == exponent.data[0]
                 ):
-                    result = e.integer_power(args[0], int(exponent.data[0]))
+                    result = emitter.integer_power(args[0], int(exponent.data[0]))
                 else:
-                    logarithm = e.intrinsic("log", args[:1], node.kind)
-                    result = e.intrinsic("exp", [e.binary("mul", args[1], logarithm)], node.kind)
+                    logarithm = emitter.intrinsic("log", args[:1], node.kind)
+                    result = emitter.intrinsic("exp", [emitter.binary("mul", args[1], logarithm)], node.kind)
             elif node.op == "call":
                 callee, output = node.data
                 callkey = (callee, node.args)
-                if callkey not in called:
+                if callkey not in call_cache:
                     child = self.lower(callee)
                     child_graph = self.program.function_map[callee]
                     actual: dict[str, Ref] = {}
@@ -204,20 +206,140 @@ class Lowerer:
                             raise ValidationError("helper input type expansion mismatch")
                         actual.update(zip(names_, arg.parts, strict=True))
                     returned: list[tuple[str, tuple[Ref, ...]]] = []
-                    flag = e.local(2)
+                    flag = emitter.local(2)
                     for (_, names_), ret in zip(
                         child.output_layout, child_graph.returns, strict=True
                     ):
                         kind = child_graph.nodes[ret].kind
-                        refs = tuple(e.local(1 if kind == "bool" else None) for _ in names_)
+                        refs = tuple(emitter.local(1 if kind == "bool" else None) for _ in names_)
                         actual.update(zip(names_, refs, strict=True))
                         returned.append((kind, refs))
-                    e.invoke(child.operation, {**actual, "status": flag})
-                    combined = e.flags(*(a.status for a in args), flag)
-                    called[callkey] = [Numeric(kind, refs, combined) for kind, refs in returned]
-                result = called[callkey][output]
+                    emitter.invoke(child.operation, {**actual, "status": flag})
+                    combined = emitter.flags(*(a.status for a in args), flag)
+                    call_cache[callkey] = [Numeric(kind, refs, combined) for kind, refs in returned]
+                result = call_cache[callkey][output]
             else:
-                result = e.binary(node.op, *args)
+                result = emitter.binary(node.op, *args)
+            return result
+
+        reachable: set[int] = set()
+        pending = list(graph.returns)
+        while pending:
+            current = pending.pop()
+            if current not in reachable:
+                reachable.add(current)
+                pending.extend(graph.nodes[current].args)
+        computational = [i for i in sorted(reachable) if graph.nodes[i].op not in {"input", "const"}]
+        size = self.config.checkpoint_size
+        checkpointed = size > 0 and len(computational) > size
+        consumers = Counter(operand for current in reachable for operand in graph.nodes[current].args)
+        consumers.update(graph.returns)
+        cuts = {current for current in computational if consumers[current] > 1}
+        cuts.update(current for current in graph.returns if current in computational)
+        costs: dict[int, int] = {}
+        for current in computational:
+            children = {operand for operand in graph.nodes[current].args if operand in costs and operand not in cuts}
+            cost = 1 + sum(costs[operand] for operand in children)
+            # Preserve shared values, but inline single-use expressions until
+            # the region budget would be exceeded. This avoids artificial
+            # checkpoints at every fixed SSA index boundary.
+            for operand in sorted(children, key=lambda item: costs[item], reverse=True):
+                if cost <= max(1, size):
+                    break
+                cuts.add(operand)
+                cost -= costs[operand]
+            costs[current] = cost
+
+        def region(index: int) -> Numeric:
+            """Compute one region, copying only its result and path status out.
+
+            Boundary status words are explicit read-only inputs. In particular,
+            they are not indiscriminately ORed at the call site: a select must
+            still mask errors in its unselected branch.
+            """
+            boundary: set[int] = set()
+            visited: set[int] = set()
+
+            def visit(current: int) -> None:
+                if current in visited:
+                    return
+                visited.add(current)
+                node = graph.nodes[current]
+                if node.op == "input" or (current != index and current in cuts):
+                    boundary.add(current)
+                    return
+                for operand in node.args:
+                    visit(operand)
+
+            outputs_in_region = [index]
+            for output in outputs_in_region:
+                visit(output)
+            arguments = {current: value(current) for current in sorted(boundary)}
+            register_types: dict[str, RegType] = {}
+            for current, argument in arguments.items():
+                for part, ref in enumerate(argument.parts):
+                    register_types[f"arg_{current}_{part}"] = ref.type
+                register_types[f"flag_{current}"] = Bits(2)
+            out_layouts = {output: ports(f"out_{output}", graph.nodes[output].kind, self.fmt)
+                           for output in outputs_in_region}
+            for output, out_ports in out_layouts.items():
+                register_types.update(out_ports)
+                register_types[f"status_{output}"] = Bits(2)
+            rb = Builder(
+                _name("math_region", key, tuple(outputs_in_region), tuple(arguments), self.fmt, self.config),
+                register_types,
+                attributes={"workspace_contract": "zero_in_zero_out",
+                            "math_checkpoint": index, "math_checkpoint_size": size},
+            )
+            re = NumericEmitter(rb, self.fmt, self.config)
+            region_values = {
+                current: Numeric(argument.kind,
+                    tuple(rb[f"arg_{current}_{part}"] for part in range(len(argument.parts))),
+                    rb[f"flag_{current}"])
+                for current, argument in arguments.items()
+            }
+            region_calls: dict[tuple[str, tuple[int, ...]], list[Numeric]] = {}
+
+            def local_value(current: int) -> Numeric:
+                if current not in region_values:
+                    node = graph.nodes[current]
+                    region_values[current] = emit_node(
+                        node, [local_value(operand) for operand in node.args], re, {}, region_calls,
+                    )
+                return region_values[current]
+
+            results = {output: local_value(output) for output in outputs_in_region}
+            forward = tuple(rb._frames[0])
+            for output, result in results.items():
+                for (name, _), ref in zip(out_layouts[output], result.parts, strict=True):
+                    rb.xor(ref, rb[name])
+                rb.xor(result.status, rb[f"status_{output}"])
+            rb.emit(Adjoint(forward))
+            operation = rb.finish()
+            actual = {f"arg_{current}_{part}": ref
+                      for current, argument in arguments.items()
+                      for part, ref in enumerate(argument.parts)}
+            actual.update({f"flag_{current}": argument.status for current, argument in arguments.items()})
+            saved: dict[int, Numeric] = {}
+            for output, out_ports in out_layouts.items():
+                outputs = tuple(e.local(type_.width) for _, type_ in out_ports)
+                flag = e.local(2)
+                actual.update({name: ref for (name, _), ref in zip(out_ports, outputs, strict=True)})
+                actual[f"status_{output}"] = flag
+                saved[output] = Numeric(graph.nodes[output].kind, outputs, flag)
+            e.invoke(operation, actual)
+            values.update(saved)
+            return values[index]
+
+        def value(index: int) -> Numeric:
+            """Cache region boundaries, or retain the reference SSA computation."""
+            if index in values:
+                return values[index]
+            node = graph.nodes[index]
+            if checkpointed and node.op not in {"input", "const"}:
+                result = region(index)
+            else:
+                result = emit_node(node, [value(i) for i in node.args], e, parameters, called)
             values[index] = result
             return result
 

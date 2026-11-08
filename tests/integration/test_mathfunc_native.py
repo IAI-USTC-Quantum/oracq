@@ -14,6 +14,25 @@ from oracq.infrastructure.mathfunc import MathConfig, compile_function
 
 
 class MathFunctionNativeTests(unittest.TestCase):
+    def test_checkpoint_gate_execution_without_native_shortcuts(self):
+        source = "def f(x):\n a=x+1\n b=a*a\n c=b+1\n d=c*c\n return d if x==0 else -c"
+        before = compile_function(source, fmt=FixedFormat(3, 1), config=MathConfig(checkpoint_size=0))
+        after = compile_function(source, fmt=before.fmt, config=MathConfig(checkpoint_size=2))
+
+        def prepare(operation):
+            b = Builder("checkpoint_native_gates", {r.name: r.type for r in operation.module.registers})
+            b.h(b["x"][:2])
+            b.x(b["out"][1])
+            b.x(b["status"][1])
+            b.call(operation, **{r.name: b[r.name] for r in operation.module.registers})
+            return b.finish().program()
+
+        expected = simulate(prepare(before.operation))
+        actual = run_pysparq(prepare(after.operation))
+        self.assertEqual(set(actual.amplitudes), set(expected.amplitudes))
+        for key, amplitude in actual.amplitudes.items():
+            self.assertAlmostEqual(amplitude, expected.amplitudes[key], places=11)
+
     def run_compiled(self, source, fmt, initial, **options):
         result = compile_function(source, fmt=fmt, **options)
         op = result.operation

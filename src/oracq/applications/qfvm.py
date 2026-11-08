@@ -631,10 +631,12 @@ def qfvm_sparse_access(
         },
     )
     selected = b.local("selected_geometry", Bits(inputs.geometry_width))
+    # Every query restores these scratch registers before the next rank.
+    # Keep only the selected geometry, rather than nine private scratch banks.
+    slot = b.local("geometry_query_slot", Bits(4))
+    geom = b.local("geometry_query_data", Bits(inputs.geometry_width))
+    match = b.local("geometry_query_match", Bits(1))
     for rank in range(9):
-        slot = b.local("slot_" + str(rank), Bits(4))
-        geom = b.local("geometry_" + str(rank), Bits(inputs.geometry_width))
-        match = b.local("match_" + str(rank), Bits(1))
         for bit in range(4):
             if (rank >> bit) & 1:
                 b.x(slot[bit])
@@ -646,6 +648,9 @@ def qfvm_sparse_access(
             b.x(selected[inputs.geometry_width - 1])
         b.call(compare_words(n), a=b["row"], b=geom[:n], flag=match)
         invoke(b, geometry, "geometry", address=fuse(b["column"], slot), data=geom)
+        for bit in range(4):
+            if (rank >> bit) & 1:
+                b.x(slot[bit])
     _, _, source, row, col, band, valid = _geometry_refs(selected, inputs)
     value = b.local("computed_value", Bits(inputs.fmt.width))
     status = b.local("arithmetic_status", Bits(2))

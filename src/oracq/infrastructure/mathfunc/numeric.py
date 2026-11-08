@@ -45,6 +45,8 @@ class MathConfig:
         degree: Chebyshev polynomial degree, in the range 1..32.
         intervals: Each entry is (function name, lower bound, upper bound), overriding the approximation interval of the named math kernel;
             kernels not listed use the default interval from BOUNDS.
+        checkpoint_size: Maximum number of MIR operations in one clean region;
+            0 retains all intermediates for reference comparisons.
 
     Raises:
         ValidationError: The degree is outside 1..32, or an interval references an unknown function, is duplicated, contains non-finite values, or has a lower bound not below the upper bound.
@@ -52,11 +54,14 @@ class MathConfig:
 
     degree: int = 6
     intervals: tuple[tuple[str, float, float], ...] = ()
+    checkpoint_size: int = 16
 
     def __post_init__(self) -> None:
         """Validate the polynomial degree range and the approximation interval override table."""
         if type(self.degree) is not int or not 1 <= self.degree <= 32:
             raise ValidationError("math kernel polynomial degree must be between 1 and 32")
+        if type(self.checkpoint_size) is not int or not 0 <= self.checkpoint_size <= 1024:
+            raise ValidationError("math checkpoint_size must be between 0 and 1024")
         seen: set[str] = set()
         for kind, lo, hi in self.intervals:
             if (

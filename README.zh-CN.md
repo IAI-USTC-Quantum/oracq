@@ -14,7 +14,7 @@ OracQ（**ORAC**ular **Q**uantum）面向量子算法研究者，以 Python 为�
 
 Python 包名、导入名和命令行入口均为 `oracq`。
 
-当前包版本为 **0.1.1**，RIR 格式为 **0.1**（[规范全文](docs/zh/reference/rir.md)）。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
+当前包版本为 **0.1.2**，RIR 格式为 **0.1**（[规范全文](docs/zh/reference/rir.md)）。算法通过普通 Python 协议定义输入和输出，不要求扩展语言类型系统。
 
 ## 核心概念速览
 
