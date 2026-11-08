@@ -359,7 +359,11 @@ class NumericEmitter:
         Returns:
             Numeric: Comparisons yield bool, the rest real; the status merges the operand statuses with the newly produced flag bits.
         """
-        all_args = {name: value.parts[0] for name, value in zip(("a", "b"), values, strict=False)}
+        operands = values
+        if kind == "mul" and len(values) == 2 and values[0].parts == values[1].parts:
+            kind = "square"
+            operands = values[:1]
+        all_args = {name: value.parts[0] for name, value in zip(("a", "b"), operands, strict=False)}
         constants = tuple(
             (name, self.constant_words[ref])
             for name, ref in all_args.items() if ref in self.constant_words

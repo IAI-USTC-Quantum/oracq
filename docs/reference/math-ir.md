@@ -34,6 +34,40 @@ MIR expresses function structure; the generation configuration comprises FixedFo
 
 Lowering uses the existing Boolean circuits for fixed-point add/subtract/multiply/divide/square-root and the like. Non-polynomial real functions use sampled Chebyshev coefficients with the Clenshaw recursion; the sample count is decided by the order, is independent of the number of input bit patterns, and never generates a truth table of the whole function. Complex functions decompose into real kernels and algebraic relations.
 
+When both real multiplication operands refer to the same word, lowering uses
+a unary square circuit. Diagonal bit products reuse the input bit, and each
+off-diagonal pair appears once at the next higher weight. This preserves the
+generic multiplication's toward-zero fixed-point result, modular output and
+overflow status, including the most-negative input. It changes neither the
+word format nor the approximation degree. Different input words still use
+ordinary multiplication, even if their runtime values happen to coincide.
+
+For `def f(x): return x*x` with `checkpoint_size=0`, actual strict backend
+layouts and logical gate ledgers compare as follows against main commit
+`15a82e816b75e59bce2f2bf149aac6ae76927d4e`. Each pair uses the same signed
+word format; qubits include backend scratch. This is a compiler-unit result,
+not an end-to-end application speedup or a numerical-accuracy certificate.
+
+| Width / fraction | Before qubits | Square qubits | Before Toffoli | Square Toffoli |
+| --- | ---: | ---: | ---: | ---: |
+| 8 / 3 | 297 | 157 | 828 | 402 |
+| 16 / 8 | 1098 | 616 | 3224 | 1694 |
+| 32 / 16 | 4242 | 2496 | 12632 | 6974 |
+
+```python
+from oracq import export_strict, estimate_resources
+from oracq.algorithms.common.arithmetic import FixedFormat
+from oracq.infrastructure.mathfunc import MathConfig, compile_function
+
+program = compile_function(
+    "def f(x):\n return x*x", fmt=FixedFormat(16, 8),
+    config=MathConfig(checkpoint_size=0),
+).program()
+layout = export_strict(program)
+print(layout.text.splitlines()[0])  # Actual QINIT layout size.
+print(estimate_resources(program).toffoli)
+```
+
 The concrete quantum circuit implements exactly the reversible extension of its finite Boolean function F_tilde; how close F_tilde is to the ideal mathematical function F is not proven by this language. Integer constant powers use square-and-multiply with an absolute exponent bound of 128; general real powers use exp(y log(x)), and the real path requires a positive base. The complex path uses a chosen branch of the complex logarithm.
 
 ## Outputs and status

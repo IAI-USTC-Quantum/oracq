@@ -318,6 +318,25 @@ class BooleanNetwork:
             result = self.add(result, self.resize(row, width))[0]
         return result
 
+    def square(self, a: list[int], width: int) -> list[int]:
+        """Square one unsigned word, keeping the low ``width`` product bits.
+
+        Diagonal bit products are the input bits themselves. Each off-diagonal
+        product occurs twice, so emit it once at the next higher bit position:
+        x*x = sum(x_i*2**(2*i)) + sum(i<j, (x_i AND x_j)*2**(i+j+1)).
+        Carry propagation and truncation retain the ordinary integer product.
+        """
+        result = [0] * width
+        for i, bit in enumerate(a):
+            if 2*i < width:
+                result[2*i] = bit
+        for i, bit in enumerate(a):
+            row = [0] * width
+            for j in range(i+1, min(len(a), width-i-1)):
+                row[i+j+1] = self.and_(bit, a[j])
+            result = self.add(result, row)[0]
+        return result
+
     def div(self, a: list[int], b: list[int]) -> list[int]:
         """Restoring division, returning only the quotient.
 
@@ -585,7 +604,7 @@ def fixed_arithmetic(
     word width, not a precision bound.
 
     Args:
-        kind: Arithmetic kind, one of ``add``, ``sub``, ``neg``, ``abs``, ``mul``,
+        kind: Arithmetic kind, one of ``add``, ``sub``, ``neg``, ``abs``, ``mul``, ``square``,
             ``div``, ``reciprocal``, ``sqrt``, ``lt``, ``eq``, ``select``, ``and``,
             ``or`` or ``xor``.
         fmt: Fixed-point format of the operands, bit width, fraction bits and signedness;
@@ -599,7 +618,7 @@ def fixed_arithmetic(
     n, f, signed = fmt.width, fmt.fraction, fmt.signed
     net = BooleanNetwork()
     a = net.input("a", n)
-    unary = kind in {"neg", "abs", "sqrt", "reciprocal"}
+    unary = kind in {"neg", "abs", "sqrt", "reciprocal", "square"}
     b = None if unary else net.input("b", n)
     invalid, overflow = 0, 0
     sign_a = a[-1] if signed else 0
@@ -622,6 +641,12 @@ def fixed_arithmetic(
     elif kind in {"neg", "abs"}:
         out = net.neg(a) if kind == "neg" else net.abs(a, signed)
         overflow = net.and_(sign_a, net.inv(net.any(a[:-1])))
+    elif kind == "square":
+        # Match signed multiplication's magnitude, truncation and overflow
+        # semantics, including the most-negative representable input.
+        mag = net.square(net.abs(a, signed), 2*n)[f:]
+        overflow = net.any(mag[n-int(signed):])
+        out = net.resize(mag, n)
     elif kind in {"mul", "div", "reciprocal"}:
         ma = net.abs(a, signed)
         if kind == "reciprocal":

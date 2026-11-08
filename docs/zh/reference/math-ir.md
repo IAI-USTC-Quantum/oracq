@@ -34,6 +34,36 @@ MIR 表达函数结构；生成配置包括 FixedFormat 和 {obj}`MathConfig <or
 
 lowering 使用现有定点加减乘除/开方等 Boolean 电路。非多项式实函数采用 Chebyshev 采样系数与 Clenshaw 递推；采样数由阶数决定，独立于输入位模式总数，不生成整个函数的真值表。复数函数以实数核和代数关系分解。
 
+实数乘法的两个操作数引用同一个字时，lowering 使用单输入平方电路。对角位乘积
+复用原输入位，每对非对角乘积只计算一次并提升一位权重。其结果保留通用乘法的
+向零截断、模回绕及溢出状态，包括最小负数输入；不改变位宽、小数位或近似阶数。
+引用不同输入字时仍使用普通乘法，即使两者运行时数值偶然相同。
+
+对 `def f(x): return x*x`、`checkpoint_size=0`，实际严格后端布局和逻辑门
+台账相对 main 提交 `15a82e816b75e59bce2f2bf149aac6ae76927d4e` 如下。
+每一对采用相同有符号定点格式，比特数包含后端额外工作比特。这只是编译单元
+结果，不是应用全流程加速或数值精度证明。
+
+| 位宽 / 小数位 | 原比特数 | 平方比特数 | 原 Toffoli | 平方 Toffoli |
+| --- | ---: | ---: | ---: | ---: |
+| 8 / 3 | 297 | 157 | 828 | 402 |
+| 16 / 8 | 1098 | 616 | 3224 | 1694 |
+| 32 / 16 | 4242 | 2496 | 12632 | 6974 |
+
+```python
+from oracq import export_strict, estimate_resources
+from oracq.algorithms.common.arithmetic import FixedFormat
+from oracq.infrastructure.mathfunc import MathConfig, compile_function
+
+program = compile_function(
+    "def f(x):\n return x*x", fmt=FixedFormat(16, 8),
+    config=MathConfig(checkpoint_size=0),
+).program()
+layout = export_strict(program)
+print(layout.text.splitlines()[0])  # 实际 QINIT 布局大小。
+print(estimate_resources(program).toffoli)
+```
+
 具体量子电路精确实现其有限布尔函数 F_tilde 的可逆扩张；F_tilde 与理想数学函数 F 的接近程度不由本语言证明。整数常量幂采用平方-乘，绝对指数上限 128；一般实数幂采用 exp(y log(x))，实数路径要求正底数。复数路径使用选定的复对数分支。
 
 ## 输出和状态
