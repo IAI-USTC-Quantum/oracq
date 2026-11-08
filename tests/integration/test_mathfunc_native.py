@@ -14,6 +14,31 @@ from oracq.infrastructure.mathfunc import MathConfig, compile_function
 
 
 class MathFunctionNativeTests(unittest.TestCase):
+    def test_aliased_square_gates_with_negative_control_and_nonzero_outputs(self):
+        from oracq import Bits
+
+        op = compile_function("def f(x):\n return x*x", fmt=FixedFormat(3, 1)).operation
+        b = Builder("native_square_control", {
+            **{r.name: r.type for r in op.module.registers}, "control": Bits(1)})
+        b.h(b["x"])
+        b.h(b["control"])
+        b.x(b["out"])
+        b.x(b["status"][0])
+        with b.control(b["control"], 0):
+            b.call(op, x=b["x"], out=b["out"], status=b["status"])
+        program = b.finish().program()
+        # No native registry: execute the emitted logical gates on real PySparQ.
+        actual = run_pysparq(program)
+        expected = simulate(program)
+        self.assertEqual(set(actual.amplitudes), set(expected.amplitudes))
+        for key, amplitude in actual.amplitudes.items():
+            self.assertAlmostEqual(amplitude, expected.amplitudes[key], places=11)
+            word, output, status, control = key
+            value = word if word < 4 else word-8
+            raw = value*value >> 1
+            self.assertEqual((output, status), (7, 1) if control else
+                             ((raw & 7) ^ 7, (2*bool(raw >> 2)) ^ 1))
+
     def test_checkpoint_gate_execution_without_native_shortcuts(self):
         source = "def f(x):\n a=x+1\n b=a*a\n c=b+1\n d=c*c\n return d if x==0 else -c"
         before = compile_function(source, fmt=FixedFormat(3, 1), config=MathConfig(checkpoint_size=0))
