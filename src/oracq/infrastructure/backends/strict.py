@@ -65,13 +65,13 @@ def _emit_ry(lines: list[str], counts: Counter[str], target: str, angle: float) 
         return
     if not atoms:
         return  # Identity: RY(0) emits nothing
-    # RY(θ) = S·H·RZ(θ)·H·S†: S/H sandwich + exact rz sequence
-    lines.append(f"S {target}")
+    # Matrix order RY(θ) = S·H·RZ(θ)·H·S† is emitted right to left.
+    lines.append(f"SDG {target}")
     lines.append(f"H {target}")
     counts.update({"s": 1, "h": 2, "sdg": 1})
     _emit_rz(lines, counts, target, angle)
     lines.append(f"H {target}")
-    lines.append(f"SDG {target}")
+    lines.append(f"S {target}")
 
 
 def _emit_u3(
