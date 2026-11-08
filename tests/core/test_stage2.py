@@ -61,7 +61,7 @@ class Stage2StructureTests(unittest.TestCase):
         ):
             with self.subTest(kind=kind):
                 op = fixed_arithmetic(kind, fmt)
-                self.assertTrue(op.module.locals)
+                self.assertEqual(dict(op.module.attributes)["workspace_contract"], "zero_in_zero_out")
                 self.assertEqual(loads(dumps(op.program())), op.program())
                 text = export_toffoli_u3_cz(op.program()).text
                 for line in text.splitlines():

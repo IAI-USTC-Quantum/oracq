@@ -120,6 +120,30 @@ out/math-functions/ 包含 pressure、roe_speed、phase_response、guarded_recip
 
 ## 数值验证
 
+### 精确布尔综合与工作空间复用
+
+`BooleanNetwork.operation()` 默认传播 XOR/NOT 仿射表达式并删除死计算。
+共享仿射值只生成一次；被后续 AND 用作控制的非线性结果保留干净工作空间。
+仅被一次仿射复制使用的 AND 直接异或到目标。至多两个共享临时比特用于
+物化复合控制，每次使用后立即清零；最终反计算恢复所有局部比特。
+输出和状态仍是原来的 XOR 语义，支持非零初始输出、叠加态、零控制及逆操作。
+`operation(optimize=False)` 保留 SSA 参考实现供对照。
+
+数学发射器还在顺序调用间复用处理参数别名的复制缓冲区，并缓存相同的状态合并。
+编码后的常量操作数在综合前特化算术网络；全常量表达式用原有限布尔函数精确
+折叠，保留定义域及溢出标志，不经过浮点往返。特化辅助模块删除已绑定常量的输入端口。
+固定精度、溢出/定义域标志、近似阶数及原数学函数均保持不变；原生后端所用
+Boolean payload 不变。
+
+运行 `python tools/benchmark_boolean_synthesis.py` 可比较相同精度的实际电路
+比特数和门数。JSON 单列多控门辅助空间，并在 `lowered_qubits` 中合计；墙钟
+时间仅表示编译/分析耗时，不是量子运行时间。收益取决于程序和控制上下文，
+不能据此自动宣称应用加速比或 1000 比特限制已达标。下文既有数值验证的空间
+数字属于当时使用的电路，在新编译器上需重新生成。
+
+`tests/core/test_boolean_synthesis.py` 对小精度函数逐输入检查数值、状态、
+清零、相干控制及逆操作，并核对严格网表与计数器的一致性。
+
 论文级数值实验见 `tests/verification/verify_mathfunc.py`（真实后端执行，无模拟替身）。实验设计：本页 5 个函数（pressure、roe_speed、phase_response、guarded_reciprocal、polynomial）与 `roe_formulas.frozen_roe_face` 经 `compile_function` 编译为 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`(6,2)/(8,3) 两种格式（gamma、order、entropy_delta 等默认参数作生成期常量，roe_face 的 row/col 为 Index(2)、输出 left/right 双寄存器），在 rir-pysparq 上以叠加态一次穷举输入域——单输入函数全域 2^6/2^8 分支；多输入函数逐轴纤维穷举加联合立方体；roe_face 另做 row×col 全 16 组联合（含越界索引 3）与六实轴全幅值 16 点网格。期望值由独立的定点语义逐比特仿真（_Fx：mul/div/sqrt 幅度向零截断、add/sub 模 wrap、status 位 0 = 定义域失效、位 1 = 值域/字长越界、helper 调用合并全部参数旗标）与 float64 原式双层给出；phase_response 的初等核按模块属性 `math_approximation` 的 Chebyshev 系数逐比特复现（degree=3），另报系数配方与真函数的方法误差。status 旗标逐分支核对；reference / adapter-pysparq 在代表性程序上振幅级三方对拍。编译函数工作区实测 358–2178 量子比特，远超 OriginIR-ext 的 24 比特预算，故不走态向量路径。
 
 | 案例 | 规模 | 后端路径 | 指标 | 数值 |

@@ -120,6 +120,39 @@ Mathematical accuracy, complicated branch cuts, Roe numerical results, and resou
 
 ## Numerical validation
 
+### Exact Boolean synthesis and workspace reuse
+
+`BooleanNetwork.operation()` now propagates affine XOR/NOT expressions and
+removes dead operations before reversible synthesis. Shared affine values are
+materialized once; nonlinear values needed as controls retain clean workspace.
+A single-use AND feeding an affine copy is XORed directly into that copy's
+target. At most two shared scratch bits materialize compound AND controls and
+are cleaned immediately. The final adjoint restores all private values.
+Outputs and status retain their original XOR semantics, including nonzero
+initial outputs, superpositions, negative controls and inverse execution.
+`operation(optimize=False)` retains the SSA reference implementation.
+
+The math emitter also reuses alias-copy buffers across sequential calls and
+caches identical status merges. Encoded constant operands specialize arithmetic
+networks before synthesis; fully constant expressions are folded by the exact
+finite Boolean function, including domain and overflow flags, without a float
+round trip. Constant input ports are removed from specialized helper modules.
+These optimizations do not change fixed-point
+precision, overflow/domain flags, approximation degree or the mathematical
+function. The Boolean payload used by native backends is unchanged.
+
+Run `python tools/benchmark_boolean_synthesis.py` to compare actual circuit
+qubits and gate counts at identical precision. The JSON includes multi-control
+ancillas separately and in `lowered_qubits`; its wall times measure compilation
+and analysis, not quantum execution. Savings depend on the program and control
+context and do not establish any application speedup or 1000-qubit bound by
+themselves. Earlier numerical-verification workspace figures below refer to
+the circuits used for those experiments and must be regenerated for this compiler.
+
+The regression witnesses live in `tests/core/test_boolean_synthesis.py` and
+check small fixed-point functions exhaustively, status flags, clean workspaces,
+coherent control, the inverse, and emitted strict-netlist/count agreement.
+
 Paper-grade numerical experiments are in `tests/verification/verify_mathfunc.py` (real-backend execution, no mock substitutes). Experiment design: the 5 functions of this page (pressure, roe_speed, phase_response, guarded_reciprocal, polynomial) plus `roe_formulas.frozen_roe_face` are compiled by `compile_function` into both {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`(6,2)/(8,3) formats (default parameters such as gamma, order, and entropy_delta act as generation-time constants; roe_face's row/col are Index(2) with left/right dual output registers), then exhaust the input domain in one superposition on rir-pysparq — single-input functions cover all 2^6/2^8 branches of the full domain; multi-input functions are exhausted axis by axis in fibers plus a joint cube; roe_face additionally runs the full 16-combination row×col joint (including the out-of-range index 3) and a 16-point full-magnitude grid on six real axes. Expected values come from two layers: an independent bit-exact simulation of the fixed-point semantics (_Fx: mul/div/sqrt magnitudes truncated toward zero, add/sub modular wrap, status bit 0 = domain failure, bit 1 = range/word-length overflow, helper calls merge all parameter flags) and the original float64 expression. phase_response's elementary kernels reproduce the Chebyshev coefficients of the module attribute `math_approximation` bit for bit (degree=3), with the method error of the coefficient recipe versus the true function reported separately. Status flags are checked branch by branch; reference / adapter-pysparq are cross-checked three ways at the amplitude level on representative programs. Compiled function workspaces measure 358–2178 qubits, far exceeding the 24-qubit budget of OriginIR-ext, so the state-vector path is not used.
 
 | Case | Scale | Backend path | Metric | Value |

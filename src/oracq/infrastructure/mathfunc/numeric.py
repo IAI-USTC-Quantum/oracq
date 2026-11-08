@@ -156,6 +156,10 @@ class NumericEmitter:
         self.counter: int = 0
         self.constants: dict[tuple[str, bool | int | float | complex], Numeric] = {}
         self.zero_status: Ref = self.local(2)
+        self.alias_buffers: dict[int, list[Ref]] = {}
+        self.status_merges: dict[frozenset[Ref], Ref] = {}
+        self.constant_words: dict[Ref, int] = {}
+        self.literal_words: dict[tuple[int, int], Ref] = {}
 
     def local(self, width: int | None = None) -> Ref:
         """Allocate one math temporary register.
@@ -184,10 +188,16 @@ class NumericEmitter:
         from oracq.infrastructure.validation import locations
 
         actual: dict[str, Ref] = {}
+        used: dict[int, int] = {}
         for name, ref in arguments.items():
             loc = set(locations(ref))
             if loc & seen:
-                clone = self.local(ref.width)
+                slot = used.get(ref.width, 0)
+                buffers = self.alias_buffers.setdefault(ref.width, [])
+                if slot == len(buffers):
+                    buffers.append(self.local(ref.width))
+                clone = buffers[slot]
+                used[ref.width] = slot + 1
                 self.b.xor(ref, clone)
                 clones.append((ref, clone))
                 actual[name] = clone
@@ -236,9 +246,13 @@ class NumericEmitter:
                 unique.append(ref)
         if not unique:
             return self.zero_status
+        key = frozenset(unique)
+        if key in self.status_merges:
+            return self.status_merges[key]
         result = unique[0]
         for ref in unique[1:]:
             result = self.logic("or", result, ref)
+        self.status_merges[key] = result
         return result
 
     def constant(self, value: bool | int | float | complex, kind: str | None = None) -> Numeric:
@@ -273,18 +287,28 @@ class NumericEmitter:
                 if kind == "bool"
                 else self.fmt.encode(cast("int | float", value))
             )
-            ref = self.local(width)
-            for bit in range(width):
-                if (raw >> bit) & 1:
-                    self.b.x(ref[bit])
+            ref = self.literal_word(raw, width)
             status = self.zero_status
             limit = 2 ** (self.fmt.width - self.fmt.fraction - 1)
             if kind == "real" and not -limit <= value < limit:
                 status = self.local(2)
                 self.b.x(status[1])
             result = Numeric(kind, (ref,), status)
+            self.constant_words[ref] = raw
         self.constants[key] = result
         return result
+
+    def literal_word(self, raw: int, width: int) -> Ref:
+        """Materialize an exact encoded word once, without a float round trip."""
+        key = (width, raw)
+        if key not in self.literal_words:
+            ref = self.local(width)
+            for bit in range(width):
+                if (raw >> bit) & 1:
+                    self.b.x(ref[bit])
+            self.literal_words[key] = ref
+            self.constant_words[ref] = raw
+        return self.literal_words[key]
 
     def as_complex(self, value: Numeric) -> Numeric:
         """Promote a real value to the complex representation.
@@ -330,10 +354,24 @@ class NumericEmitter:
         Returns:
             Numeric: Comparisons yield bool, the rest real; the status merges the operand statuses with the newly produced flag bits.
         """
-        operation = fixed_arithmetic(kind, self.fmt)
+        all_args = {name: value.parts[0] for name, value in zip(("a", "b"), values, strict=False)}
+        constants = tuple(
+            (name, self.constant_words[ref])
+            for name, ref in all_args.items() if ref in self.constant_words
+        )
+        operation = fixed_arithmetic(kind, self.fmt, constants=constants)
         out_width = next(r.type.width for r in operation.module.registers if r.name == "out")
+        if len(constants) == len(all_args):
+            network = BooleanNetwork.from_payload(cast("str", dict(operation.module.attributes)["arithmetic_network"]))
+            evaluated = network.evaluate()
+            out = self.literal_word(evaluated["out"], out_width)
+            flag = self.literal_word(evaluated["status"], 2) if evaluated["status"] else self.zero_status
+            return Numeric(
+                "bool" if kind in {"lt", "eq"} else "real",
+                (out,), self.flags(*(v.status for v in values), flag),
+            )
         out, flag = self.local(out_width), self.local(2)
-        args = {name: value.parts[0] for name, value in zip(("a", "b"), values, strict=False)}
+        args = {name: ref for name, ref in all_args.items() if name not in dict(constants)}
         self.invoke(operation, {**args, "out": out, "status": flag})
         return Numeric(
             "bool" if kind in {"lt", "eq"} else "real",

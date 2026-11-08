@@ -407,6 +407,36 @@ class BooleanNetwork:
             dict(nodes=self.nodes, inputs=self.inputs, outputs=self.outputs), separators=(",", ":")
         )
 
+    def specialize(self, **constants: int) -> BooleanNetwork:
+        """Bind exact input words and constant-fold a new network without those ports.
+
+        Binding uses encoded bit patterns, not floating-point approximations.
+        The original network is unchanged, including when validation fails.
+        Output and status bits retain the exact finite-function semantics.
+        """
+        for port, word in constants.items():
+            if port not in self.inputs or type(word) is not int or not 0 <= word < 1 << len(self.inputs[port]):
+                raise ValidationError("invalid Boolean network constant binding: " + port)
+        result = BooleanNetwork()
+        mapped = {0: 0, 1: 1}
+        for port, bits in self.inputs.items():
+            actual = (
+                result.const(constants[port], len(bits))
+                if port in constants else result.input(port, len(bits))
+            )
+            mapped.update(zip(bits, actual, strict=True))
+        for index, (op, *args) in enumerate(self.nodes[2:], 2):
+            if op == "input":
+                continue
+            left = mapped[cast("int", args[0])]
+            if op == "not":
+                mapped[index] = result.inv(left)
+            else:
+                right = mapped[cast("int", args[1])]
+                mapped[index] = result.xor(left, right) if op == "xor" else result.and_(left, right)
+        result.outputs = {port: [mapped[node] for node in bits] for port, bits in self.outputs.items()}
+        return result
+
     @classmethod
     def from_payload(cls, value: str) -> BooleanNetwork:
         """Rebuild a network from a JSON payload, validating the payload fully as
@@ -465,25 +495,31 @@ class BooleanNetwork:
         name: str | None = None,
         *,
         attributes: Mapping[str, str | int | float | bool] | None = None,
+        optimize: bool = True,
     ) -> Operation:
         """Compile the network into a reversible quantum operation in compute/copy/uncompute
         form.
 
-        Every operation node is first computed forward into a private
-        ``ssa_``-prefixed bank grouped in 64-bit words (``not`` and ``xor``
-        via X/XOR copies, ``and`` via a controlled X); after the output bits
-        are XOR-copied into the public registers, the adjoint of the forward
-        compute frame is emitted to clean all banks, satisfying the
-        ``zero_in_zero_out`` workspace contract.
+        By default affine expressions are propagated without automatically
+        allocating XOR/NOT nodes; shared affine values are retained to avoid
+        repeated computation and dead operations are removed. The original
+        SSA implementation remains available with ``optimize=False`` for
+        independent resource and semantic comparisons. Both use exact
+        compute/copy/uncompute and restore every private qubit to zero.
 
         Args:
             name: Module name; when omitted, an ``arith_``-prefixed name is generated from
                 the hash of the network payload.
             attributes: Additional module attributes, which may override the built-in keys.
+            optimize: Use affine synthesis and dead-code elimination; False selects the reference SSA circuit.
 
         Returns:
             Operation: The public registers are all input and output ports of the network.
         """
+        if optimize:
+            from oracq.infrastructure.boolean_synthesis import lower_affine
+
+            return lower_affine(self, name, attributes=attributes)
         payload = self.payload()
         name = name or "arith_" + hashlib.sha256(payload.encode()).hexdigest()[:20]
         attrs = {
@@ -539,7 +575,12 @@ DEFAULT_FIXED_FORMAT = FixedFormat()
 
 
 @lru_cache(maxsize=256)
-def fixed_arithmetic(kind: str, fmt: FixedFormat = DEFAULT_FIXED_FORMAT) -> Operation:
+def fixed_arithmetic(
+    kind: str,
+    fmt: FixedFormat = DEFAULT_FIXED_FORMAT,
+    *,
+    constants: tuple[tuple[str, int], ...] = (),
+) -> Operation:
     """Outputs XOR; status[0] marks a domain failure and status[1] marks exceeding the
     word width, not a precision bound.
 
@@ -549,6 +590,7 @@ def fixed_arithmetic(kind: str, fmt: FixedFormat = DEFAULT_FIXED_FORMAT) -> Oper
             ``or`` or ``xor``.
         fmt: Fixed-point format of the operands, bit width, fraction bits and signedness;
             defaults to the signed 8-bit format with 3 fraction bits.
+        constants: Encoded constant input words; bound ports are omitted from the resulting operation.
 
     Returns:
         Operation: The reversible fixed-point arithmetic operation synthesized from the
@@ -621,6 +663,10 @@ def fixed_arithmetic(kind: str, fmt: FixedFormat = DEFAULT_FIXED_FORMAT) -> Oper
     else:
         raise ValidationError("Unknown arithmetic generator: " + kind)
     net.outputs = {"out": out, "status": [invalid, overflow]}
+    if len(dict(constants)) != len(constants):
+        raise ValidationError("duplicate fixed-point constant binding")
+    if constants:
+        net = net.specialize(**dict(constants))
     return net.operation(
         attributes={
             "arithmetic_kind": kind,
