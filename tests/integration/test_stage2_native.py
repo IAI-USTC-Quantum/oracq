@@ -96,6 +96,32 @@ class NativeFlipImpl : public SelfAdjointOperator {
             self.assertAlmostEqual(complex(actual), ref, places=10)
         self.assertLess(sum(abs(x) ** 2 for x in vector[16:]), 1e-20)
 
+    def test_strict_exact_ry_real_originir_execution(self):
+        from uniqc.simulator import Simulator
+
+        from oracq import export_strict
+
+        for sign in (-1, 1):
+            b = Builder("strict_ry_native", {"q": Bits(2)})
+            b.h(b["q"][0])
+            with b.control(b["q"][0], 0):
+                b.ry(b["q"][1], sign * math.pi / 2)
+            program = b.finish().program()
+            # This OriginIR consumer has S/T but no SDG/TDG tokens. Exact
+            # powers adapt the syntax without dropping phases or inverse gates.
+            lines = []
+            for line in export_strict(program).text.splitlines():
+                gate, _, target = line.partition(" ")
+                if gate in {"SDG", "TDG"}:
+                    lines.extend(f"{gate[0]} {target}" for _ in range(3 if gate == "SDG" else 7))
+                else:
+                    lines.append(line)
+            actual = Simulator(least_qubit_remapping=False).simulate_statevector("\n".join(lines) + "\n")
+            expected = simulate(program).statevector()
+            phase = next(complex(a) / e for a, e in zip(actual, expected, strict=True) if abs(e) > 1e-10)
+            for a, e in zip(actual, expected, strict=True):
+                self.assertAlmostEqual(complex(a), phase * e, places=11)
+
     def test_roe_face_compiled_arithmetic_smoke(self):
         from oracq.applications.roe import roe_face
 
