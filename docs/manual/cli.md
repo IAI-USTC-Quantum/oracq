@@ -76,9 +76,38 @@ non-zero exit code; unfinished modules are never silently skipped.
 
 ## Math functions and QHAM
 
+### Independent compiler studio
+
+```bash
+oracq gui
+oracq gui --no-browser --port 8000
+```
+
+The installed package contains its own local graphical interface; no separate
+demo-suite checkout or external web assets are needed. Edit a bounded pure
+function, select fixed-point width, fraction bits, kernel degree and checkpoint
+size, then compare the real compiler outputs against retained intermediates.
+Both variants use exactly the same numeric configuration. Checkpointing can
+reduce workspace while increasing gate counts; the table reports both.
+
+The qubit peak comes from the actual strict backend layout, including its
+additional scratch. Download the standard compressed RIR JSON, strict modular
+gate netlist, math IR and provenance report for downstream tools. These are
+logical costs before rotation synthesis, QRAM timing or fault-tolerant
+scheduling; compiling alone does not certify numerical accuracy.
+
+Each browser compilation runs in an isolated worker with a 60-second deadline.
+The editor accepts loop-free sources of at most 128 AST nodes, width 2..16 and
+kernel degree 1..8. The CLI below handles larger sources and static loops.
+Source is interpreted by the restricted compiler frontend, never executed as
+a Python script. The studio binds only to the loopback interface.
+
+### Function and PDE command lines
+
 ```bash
 oracq compile-function examples/math_functions.py --function pressure \
-  --width 12 --fraction 6 --mir-output out/pressure.mir.json -o out/pressure.rir.yaml
+  --width 12 --fraction 6 --checkpoint-size 16 \
+  --mir-output out/pressure.mir.json -o out/pressure.rir.yaml
 
 python -m oracq.applications.qham --example burgers --order 2 --eta=-0.4
 ```

@@ -56,9 +56,32 @@ oracq run closed.rir.yaml --memory memory.qram.yaml --backend originir
 
 ## 数学函数与 QHAM
 
+### 独立编译工作台
+
+```bash
+oracq gui
+oracq gui --no-browser --port 8000
+```
+
+安装包自带独立本地界面，不需要另取 demo-suite，也不访问外部网页资源。
+编辑有界的纯函数，选择定点位宽、小数位、数学核阶数和检查点大小，即可将真实
+编译结果与保留全部中间量的基线比较。两套程序使用完全相同的数值配置；检查点
+可能减少空间并增加门数，界面同时报告两者。
+
+峰值比特数来自实际严格门集后端布局，包含额外工作比特。可以下载标准压缩
+RIR JSON、严格模块化门表、数学 IR 和来源报告，供下游软件消费。这些是旋转
+综合、QRAM 时间建模和容错调度之前的逻辑成本；仅完成编译不等于认证数值精度。
+
+每次编译使用独立进程，限时60秒。编辑器支持不含循环、至多128个 AST 节点、
+位宽2..16、数学核阶数1..8的示例；下列 CLI 支持更大的源程序及静态循环。
+源码由受限编译前端解释，不作为 Python 脚本执行；服务只绑定本机回环地址。
+
+### 函数及 PDE 命令行
+
 ```bash
 oracq compile-function examples/math_functions.py --function pressure \
-  --width 12 --fraction 6 --mir-output out/pressure.mir.json -o out/pressure.rir.yaml
+  --width 12 --fraction 6 --checkpoint-size 16 \
+  --mir-output out/pressure.mir.json -o out/pressure.rir.yaml
 
 python -m oracq.applications.qham --example burgers --order 2 --eta=-0.4
 ```
