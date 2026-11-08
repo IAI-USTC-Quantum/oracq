@@ -71,6 +71,17 @@ Python's cmath distinguishes signed zeros on branch cuts; the current fixed-poin
 
 ## Approximation and status
 
+`checkpoint_size` defaults to 16. Long MIR functions are split into clean
+regions, retaining shared values and copying each region's result and path
+status before uncomputing its internal registers. Sequential calls reuse the
+region workspace. Explicit status inputs preserve errors masked by conditional
+expressions; flags from all region inputs are not blindly merged.
+`MathConfig(checkpoint_size=0)` retains the reference SSA implementation.
+Checkpointing can trade additional gates for lower peak space, and is not a
+claim of lower runtime. Compare full emitted counts at identical precision with
+`python tools/benchmark_math_checkpoints.py --roe`; the size is a generation
+budget, not a limit on the physical qubits of an arithmetic kernel or helper.
+
 {obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`.degree controls the Chebyshev polynomial degree of real functions; intervals can replace the interval of every math kernel. The default intervals are the BOUNDS in [numeric.py](../api/infrastructure/mathfunc/numeric.rst). The configuration must cover every **intermediate math-kernel input**, not just the outermost function's input. The status flags paths that leave the interval or hit domain/word-length problems. There is currently no automatic interval derivation, error proof, or optimal arithmetic-circuit selection.
 
 Function coefficients are generated from degree+1 classical sample points, followed by a quantum multiply-accumulate recursion; the function value for every input is never enumerated in advance. Word lengths, approximation degrees, intervals, and coefficients go into the generation configuration/module attributes; eps still does not enter the language core.

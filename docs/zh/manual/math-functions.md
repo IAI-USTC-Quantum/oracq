@@ -71,6 +71,13 @@ Python 的 cmath 在分支切线上区分有符号零；当前定点编码没有
 
 ## 近似与状态
 
+`checkpoint_size` 默认16。长MIR函数划为可清零分段，保留共享值，复制每段结果及
+路径状态后反算内部寄存器；顺序调用复用分段工作空间。状态作为显式输入传递，
+不会在调用处盲目合并所有输入的错误标志，因此条件选择仍可屏蔽未选中分支的错误。
+`MathConfig(checkpoint_size=0)` 保留参考SSA实现。分段可能以更多门换取更低峰值空间，
+不表示运行时间一定更短。用 `python tools/benchmark_math_checkpoints.py --roe` 在相同
+精度下比较完整发射账本；该参数限制生成分段的操作预算，不限制底层算术核/helper的物理比特数。
+
 {obj}`MathConfig <oracq.infrastructure.mathfunc.numeric.MathConfig>`.degree 控制实函数的 Chebyshev 多项式阶数；intervals 可替换每个数学核的区间。默认区间见 [numeric.py](../api/infrastructure/mathfunc/numeric.rst) 的 BOUNDS。配置必须覆盖各个**中间数学核输入**，不只是最外层函数的输入。状态会标记超出区间或发生定义域/字长问题的路径。当前没有自动区间推导、误差证明或最优算术电路选择。
 
 函数系数通过 degree+1 个经典采样点生成，然后执行量子乘加递推，没有预先枚举每个输入对应的函数值。字长、近似阶数、区间和系数进入生成配置/模块属性，eps 仍不进入语言核心。

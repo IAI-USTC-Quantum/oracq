@@ -22,7 +22,7 @@ through numerical validation and resource analysis.
 
 The Python package, import name, and command-line entry point are `oracq`.
 
-The current package version is **0.1.1** and the RIR format is **0.1**
+The current package version is **0.1.2** and the RIR format is **0.1**
 ([full specification](docs/reference/rir.md)). Algorithms declare inputs and
 outputs through plain Python protocols; no language-level type-system
 extension is required.
