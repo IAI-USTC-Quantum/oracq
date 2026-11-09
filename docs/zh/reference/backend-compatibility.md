@@ -73,6 +73,18 @@ System 注册表是进程全局的。适配器要求接管前注册表为空，�
 
 在审阅提交中，OriginIR_LineParser.parse_line("ENDCONTROL q[0]") 返回的量子位字段为 None，而 OriginIR_BaseParser._apply_op 随后会遍历该字段。这会触发 TypeError。适配器没有修改上游，而是生成 inline controlled_by。对受控模块调用，适配器生成带额外控制形式参数的 DEF，并将这些参数传到内部逐门控制。Repeat 的辅助模块采用同样方式。
 
+### 2026-11-09 补充：run_rir 稠密零控共享地址查询缺陷
+
+已在 pysparq 0.3.0 与 0.4.0 上复现：`pysparq.run_rir` 通过在受控体两侧用 X
+门翻转零控位来执行零控制（`_with_conditions`）。当 QRAM 查询的地址寄存器与
+零控位共享同一比特时，被翻转的位会把查询重定向到其他单元（追踪用例中读到
+地址 8 而非地址 0 的字）。门级适配器
+{obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` 按逻辑
+地址字解析零控，不受影响；宽逻辑字路径同样正确。该缺陷在
+`tests/integration/test_wide_registers_native.py::test_dense_rir_zero_control_shared_address_defect`
+中以受追踪的预期失败显式断言，并已与 SparQSim 负责人协调；在上游修复落地
+之前，稠密零控共享地址查询应经门级适配器执行。
+
 PySparQ 执行适配器默认限制最多 65536 个稀疏基态，并在原生门调用后检查。调用结束或异常退出都会清理适配器拥有的全局寄存器。
 
 

@@ -210,7 +210,7 @@ def run_pysparq(
                         if not ((expected >> bit_index) & 1):
                             zeros.append(pair)
                 for pair in zeros:
-                    ps.Xgate_Bool(*pair)(state)
+                    ps.X_Bool(*pair)(state)
                 if isinstance(node, NativeSite):
                     # NativeSite events are only produced when a native registry is provided, i.e. native_modules is non-empty.
                     entry = cast(NativeRegistry, native_registry).entries[node.module.name]
@@ -246,14 +246,14 @@ def run_pysparq(
                     ps.AddRegister(a, ps.StateStorageType.General, node.address.width)(state)
                     ps.AddRegister(d, ps.StateStorageType.General, node.data.width)(state)
                     for i, pair in enumerate(actual(node.address)):
-                        apply(ps.Xgate_Bool(a, i), (pair,))
+                        apply(ps.X_Bool(a, i), (pair,))
                     query = ps.QRAMLoad(qrams[node.resource], a, d)
                     query(state)
                     for i, pair in enumerate(actual(node.data)):
-                        apply(ps.Xgate_Bool(*pair), tuple(controls) + ((d, i),))
+                        apply(ps.X_Bool(*pair), tuple(controls) + ((d, i),))
                     query(state)
                     for i, pair in reversed(list(enumerate(actual(node.address)))):
-                        apply(ps.Xgate_Bool(a, i), (pair,))
+                        apply(ps.X_Bool(a, i), (pair,))
                     ps.RemoveRegister(d)(state)
                     ps.RemoveRegister(a)(state)
                 elif node.op == "gphase":
@@ -268,10 +268,10 @@ def run_pysparq(
                     for a, b in zip(
                         actual(node.operands[0]), actual(node.operands[1]), strict=True
                     ):
-                        apply(ps.Xgate_Bool(*b), tuple(controls) + (a,))
+                        apply(ps.X_Bool(*b), tuple(controls) + (a,))
                         if node.op == "swap":
-                            apply(ps.Xgate_Bool(*a), tuple(controls) + (b,))
-                            apply(ps.Xgate_Bool(*b), tuple(controls) + (a,))
+                            apply(ps.X_Bool(*a), tuple(controls) + (b,))
+                            apply(ps.X_Bool(*b), tuple(controls) + (a,))
                 elif node.op == "add_const":
                     bits = actual(node.operands[0])
                     value = (-cast(int, node.value) if inverse else cast(int, node.value)) % (
@@ -281,9 +281,9 @@ def run_pysparq(
                         if (value >> offset) & 1:
                             for i in reversed(range(offset + 1, len(bits))):
                                 apply(
-                                    ps.Xgate_Bool(*bits[i]), tuple(controls) + tuple(bits[offset:i])
+                                    ps.X_Bool(*bits[i]), tuple(controls) + tuple(bits[offset:i])
                                 )
-                            apply(ps.Xgate_Bool(*bits[offset]), controls)
+                            apply(ps.X_Bool(*bits[offset]), controls)
                 else:
                     matrix = gate_matrix(node.op, node.angle, inverse)
                     for pair in actual(node.operands[0]):
@@ -291,7 +291,7 @@ def run_pysparq(
                 if not isinstance(node, NativeSite):
                     cast("dict[str, int]", report)["gate_events"] += 1
                 for pair in reversed(zeros):
-                    ps.Xgate_Bool(*pair)(state)
+                    ps.X_Bool(*pair)(state)
             result: dict[tuple[int, ...], complex] = {}
             for basis in state.basis_states:
                 key = tuple(

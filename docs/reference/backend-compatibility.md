@@ -73,6 +73,22 @@ Supporting modularity in syntax export does not mean the downstream executor reu
 
 In the reviewed revision, the qubit field returned by OriginIR_LineParser.parse_line("ENDCONTROL q[0]") is None, while OriginIR_BaseParser._apply_op subsequently iterates over that field, triggering a TypeError. Instead of modifying upstream, the adapter emits inline controlled_by. For controlled module calls the adapter generates a DEF with extra control formal parameters and passes them to per-gate controls inside. Repeat's auxiliary modules work the same way.
 
+### 2026-11-09 addendum: dense zero-control shared-address queries in run_rir
+
+Reproduced against pysparq 0.3.0 and 0.4.0: `pysparq.run_rir` executes a zero
+control by toggling the control bit with X gates around the controlled body
+(`_with_conditions`). When the address register of a QRAM query shares a bit
+with a zero control, the toggled bit redirects the query to another cell
+(address 8 instead of 0 in the tracked witness). The gate-level
+{obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` adapter
+resolves zero controls against the logical address word and is unaffected, as
+is the wide logical-word path. The defect is asserted explicitly (as a tracked
+expected failure) in
+`tests/integration/test_wide_registers_native.py::test_dense_rir_zero_control_shared_address_defect`
+and is coordinated with the SparQSim owner; until the upstream fix lands,
+dense zero-controlled shared-address queries should run through the gate-level
+adapter.
+
 The PySparQ execution adapter limits sparse basis states to 65536 by default and checks after native gate calls. Both normal completion and exceptional exit clean up the global registers owned by the adapter.
 
 

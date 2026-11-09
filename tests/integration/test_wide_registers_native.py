@@ -37,10 +37,28 @@ class WideNativeTests(unittest.TestCase):
         program = b.finish().program()
         memory = {"bank": {0: 5, 3: 7, 1 << 3: 1}}
         expected = simulate(program, memory).amplitudes
-        # The dense run_rir query in pysparq 0.3.0 toggles zero controls around the
-        # query and would read redirected cells; only the gate-level adapter has
-        # the logical-word fallback until pysparq routes dense queries the same way.
+        # The gate-level adapter resolves the shared zero control against the
+        # logical address word, so it matches the reference here.
         actual = run_pysparq(program, memory).amplitudes
+        for key in expected.keys() | actual.keys():
+            self.assertAlmostEqual(abs(expected.get(key, 0)-actual.get(key, 0)), 0)
+
+    @unittest.expectedFailure
+    def test_dense_rir_zero_control_shared_address_defect(self):
+        # Reproduced against pysparq 0.3.0 and 0.4.0: the native run_rir
+        # executor toggles zero-control bits around a query with X gates, so a
+        # dense QRAM whose address register shares a bit with a zero control
+        # reads the redirected cell (address 8 instead of 0). Tracked with the
+        # SparQSim owner; when the upstream fix lands this expected failure
+        # becomes an unexpected success and the marker must be removed.
+        b = Builder("dense_query_defect", {"address": Bits(4), "data": Bits(3)}, {"bank": QRAM(4, 3)})
+        b.h(b["address"][3])
+        with b.control(b["address"][3], 0):
+            b.qram("bank", b["address"], b["data"])
+        program = b.finish().program()
+        memory = {"bank": {0: 5, 3: 7, 1 << 3: 1}}
+        expected = simulate(program, memory).amplitudes
+        actual = run_pysparq_rir(program, memory).amplitudes
         for key in expected.keys() | actual.keys():
             self.assertAlmostEqual(abs(expected.get(key, 0)-actual.get(key, 0)), 0)
 
