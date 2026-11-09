@@ -151,14 +151,14 @@ def fourier_phase(width: int, k: int) -> Operation:
     register and is invoked as a submodule.
 
     Args:
-        width: Target register bit width, in the range 1..64.
+        width: Target register bit width, a positive integer.
         k: Integer frequency, understood ``mod 2**width``.
 
     Returns:
         Operation: Diagonal phase operation built from a tensor product of single-bit phase gates.
     """
-    if type(width) is not int or not 1 <= width <= 64:
-        raise ValidationError("fourier_phase.width must be within 1..64")
+    if type(width) is not int or width < 1:
+        raise ValidationError("fourier_phase.width must be a positive integer")
     if type(k) is not int:
         raise ValidationError("fourier_phase.k must be an integer")
     k %= 1 << width
@@ -174,14 +174,14 @@ def fourier_phase_encoding(width: int, k: int) -> BlockEncoding:
     """(1, 0, 0) block encoding of fourier_phase: zero-width signal interface.
 
     Args:
-        width: Target register bit width, in the range 1..64.
+        width: Target register bit width, a positive integer.
         k: Integer frequency, understood ``mod 2**width``.
 
     Returns:
         BlockEncoding: Block encoding with normalization constant 1 and a zero-width signal.
     """
-    if type(width) is not int or not 1 <= width <= 64:
-        raise ValidationError("fourier_phase_encoding.width must be within 1..64")
+    if type(width) is not int or width < 1:
+        raise ValidationError("fourier_phase_encoding.width must be a positive integer")
     if type(k) is not int:
         raise ValidationError("fourier_phase_encoding.k must be an integer")
     k %= 1 << width

@@ -16,7 +16,7 @@ fourier_add(width)
 
 API entry point: {obj}`fourier_add <oracq.algorithms.common.fourier.fourier_add>`
 
-- `width`: the common bit width of `a` and `b`, range 1..64; non-positive integers or out-of-range values raise {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` at generation time.
+- `width`: the common bit width of `a` and `b`, any positive integer; non-positive integers raise {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` at generation time.
 
 Returns an {obj}`Operation <oracq.infrastructure.builder.Operation>` with registers `a: Bits(width)` and `b: Bits(width)`: `a` is preserved unchanged as the control, and `b` is updated to $(a+b) \bmod 2^{\text{width}}$, with no additional public workspace. This entry point consumes no oracle input (no input model).
 

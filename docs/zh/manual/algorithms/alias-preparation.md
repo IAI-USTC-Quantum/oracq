@@ -17,7 +17,7 @@ alias_prepare(coefficients, *, precision=8, database=None)
 
 API 入口：{obj}`alias_table <oracq.algorithms.common.prepare_select.alias_table>`、{obj}`alias_prepare <oracq.algorithms.common.prepare_select.alias_prepare>`
 
-- {obj}`alias_table <oracq.algorithms.common.prepare_select.alias_table>`：纯经典预处理。系数先补零到 $2^{\text{selector}}$ 再按均值分裂 keep / alt（零概率槽也可工作），数据字打包为 `keep | (alt << precision)`；`precision` 2..32 且 selector 位宽 + precision ≤ 64（QRAM 字宽上限）。
+- {obj}`alias_table <oracq.algorithms.common.prepare_select.alias_table>`：纯经典预处理。系数先补零到 $2^{\text{selector}}$ 再按均值分裂 keep / alt（零概率槽也可工作），数据字打包为 `keep | (alt << precision)`；`precision` 2..32；打包后的数据字可超过单个机器字，任意宽度的 QRAM bank 均可承载。
 - {obj}`alias_prepare <oracq.algorithms.common.prepare_select.alias_prepare>`：量子侧组装。`database` 缺省为 {obj}`qram_database(width, precision + width) <oracq.algorithms.input_model.oracles.qram_database>` 并返回默认 memory（键 `db__table`），也可注入 {obj}`gate_database <oracq.algorithms.input_model.oracles.gate_database>` 等任何 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`（须 address = selector 位宽、data = precision + selector 位宽，否则生成期拒绝）。
 
 返回对象：

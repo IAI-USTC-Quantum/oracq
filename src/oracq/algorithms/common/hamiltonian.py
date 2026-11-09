@@ -217,25 +217,25 @@ class PauliOperator:
     """A single Pauli word operator; satisfies HermitianProtocol and EvolvableProtocol.
 
     Attributes:
-        word: A nonempty string of I/X/Y/Z with width at most 64.
+        word: A nonempty string of I/X/Y/Z.
         hermitian: Always True; this is the HermitianProtocol declaration.
 
     Raises:
-        ValidationError: word is not a nonempty I/X/Y/Z string, or its width exceeds 64.
+        ValidationError: word is not a nonempty I/X/Y/Z string.
     """
 
     word: str
     hermitian = True
 
     def __post_init__(self) -> None:
-        """Validate that word is an I/X/Y/Z string of width at most 64."""
+        """Validate that word is a nonempty I/X/Y/Z string."""
         if (
             not isinstance(self.word, str)
             or not self.word
             or any(c not in "IXYZ" for c in self.word)
         ):
             raise ValidationError("A Pauli word must be a nonempty I/X/Y/Z string")
-        positive_integer(len(self.word), "PauliOperator.width", maximum=64)
+        positive_integer(len(self.word), "PauliOperator.width")
 
     def block_encoding(self) -> BlockEncoding:
         """Return the alpha=1.0 block encoding of this Pauli word: per-qubit single-qubit

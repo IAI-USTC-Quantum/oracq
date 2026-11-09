@@ -31,7 +31,7 @@ carleman_qode(problem, time, linear_solver, *, cutoff=2)
 
 API 入口：{obj}`PolynomialODE <oracq.algorithms.qnlss.carleman.PolynomialODE>`、{obj}`carleman_lift <oracq.algorithms.qnlss.carleman.carleman_lift>`、{obj}`carleman_initial <oracq.algorithms.qnlss.carleman.carleman_initial>`、{obj}`carleman_qode <oracq.algorithms.qnlss.carleman.carleman_qode>`
 
-- `width`：物理寄存器位数 $n$（维数 $d=2^n$，上限 64）。
+- `width`：物理寄存器位数 $n$（维数 $d=2^n$）。
 - `coefficients`：`((p, F_p 的 BE), ...)`，次数非负且不重复；$F_p$ 的 BE 宽度必须为 $\max(1,p)\cdot n$（补齐到方形的零信号块契约：前 $d$ 行有效、其余行声明为零）。
 - `initial` / `initial_norm`：物理初态的 {obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>`（SP）与原始向量范数；范数决定提升初态各阶的相对幅值，不是装饰属性。
 - `linear_solver`：三参数协议 `(generator, initial, time) -> StateOracle`，通常注入 {obj}`linear_qode(...) <oracq.algorithms.qode.ode.linear_qode>`。

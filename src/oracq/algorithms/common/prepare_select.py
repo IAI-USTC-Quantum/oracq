@@ -100,8 +100,8 @@ def abstract_prepare(
     Args:
         coefficients: LCU complex coefficient sequence, with at least two finite values,
             not all zero.
-        work_width: Bit width of the work register, in 0..64; must match the work width
-            of the implementation bound later.
+        work_width: Bit width of the work register, a nonnegative integer; must match
+            the work width of the implementation bound later.
         name: Declaration module name; generated automatically from the coefficients and
             width when omitted.
 
@@ -232,8 +232,8 @@ def alias_table(coefficients: Iterable[complex], *, precision: int = 8) -> Alias
     Args:
         coefficients: LCU complex coefficient sequence, with at least two finite values,
             not all zero.
-        precision: Quantization bit width of the keep probabilities, in 2..32; its sum
-            with the selector bit width must not exceed 64.
+        precision: Quantization bit width of the keep probabilities, in 2..32; the
+            packed data word may be wider than one machine word.
 
     Returns:
         AliasTable: Preprocessing result holding the probabilities, the keep and alt
@@ -242,8 +242,6 @@ def alias_table(coefficients: Iterable[complex], *, precision: int = 8) -> Alias
     values, alpha, width, _ = _normalized(coefficients)
     positive_integer(precision, "alias_table.precision", minimum=2, maximum=32)
     size = 1 << width
-    if width + precision > 64:
-        raise ValidationError("The alias data word exceeds the QRAM bit width limit")
     probabilities = [abs(c) / alpha for c in values] + [0.0] * (size - len(values))
     scaled = [p * size for p in probabilities]
     keep, alt = [0.0] * size, list(range(size))

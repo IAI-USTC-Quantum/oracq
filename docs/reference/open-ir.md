@@ -65,7 +65,7 @@ What is open is the implementation body; the widths in the signature and the con
 
 This matches the current two-stage model: Python decides structure and configuration, and RIR keeps the quantum implementations that have not been supplied. Arbitrary symbolic widths, deferred constant-expression solving, and general dependent-type inference are not part of this version.
 
-RIR allows multiple registers and multiple QRAM banks. banked_database demonstrates representing a 96-bit logical data word in 64/32-bit registers. Some algorithm convenience interfaces still pack the signal into a single register of at most 64 bits; larger instances should split the signal interface — that is a library-interface extension and should not widen the PySparQ single-register bit width.
+RIR allows multiple registers and multiple QRAM banks. banked_database demonstrates representing a 96-bit logical data word in 64/32-bit registers. A packed signal register may now be wider than 64 bits; backends split it into machine words rather than widening a native register. banked_database remains the demonstration of splitting one logical word across several banks.
 
 ## Migration from the old rules
 

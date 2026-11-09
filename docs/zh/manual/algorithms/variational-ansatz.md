@@ -16,7 +16,7 @@ hardware_efficient_ansatz(width, layers)
 
 API 入口：{obj}`hardware_efficient_ansatz <oracq.algorithms.optimization.variational.hardware_efficient_ansatz>`
 
-- `width`：target 位宽，范围 1..64。
+- `width`：target 位宽，任意正整数。
 - `layers`：角度张量，形状为 `[layer][qubit][Ry, Rz]`——非空、每层恰有 width 个角度对、每对恰有两个有限实数角度（弧度）。
 
 变分角度是经典数据直接参数化，input model 为 CP。返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器只有 `target`（width 位）。模块属性：

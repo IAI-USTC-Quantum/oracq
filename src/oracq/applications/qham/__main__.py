@@ -27,8 +27,8 @@ def main() -> None:
     parser.add_argument("-o", "--output", type=Path, default=Path("out/qham-general/derivation"))
     args = parser.parse_args()
     try:
-        if not 1 <= args.state_width <= 64 or args.max_blocks < 0:
-            raise ValueError("state-width must be in the range 1 to 64 and max-blocks must be non-negative")
+        if type(args.state_width) is not int or args.state_width < 1 or args.max_blocks < 0:
+            raise ValueError("state-width must be a positive integer and max-blocks must be non-negative")
         pde = (
             PolynomialPDE.loads(args.input.read_text()) if args.input else example_pde(args.example)
         )

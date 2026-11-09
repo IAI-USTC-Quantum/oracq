@@ -16,7 +16,7 @@ cycle_walk(width, *, steps=1)
 
 API entry point: {obj}`cycle_walk <oracq.algorithms.common.walks.cycle_walk>`
 
-- `width`: the `position` bit width $n$; the period length is $2^n$, capped at 64.
+- `width`: the `position` bit width $n$; the period length is $2^n$.
 - `steps`: a non-negative number of steps.
 - The input model is CP: the bit width and the step count are classical parameters, with no oracle input; the walk-space initial state is prepared by the caller, with the all-zero input corresponding to position 0 and coin 0.
 

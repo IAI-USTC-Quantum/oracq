@@ -88,7 +88,7 @@ def roe_qfvm_inputs(
     Args:
         cell_width: Bit width of cell indices, in the range 2..25.
         fmt: Fixed-point format of conserved variables; defaults to ``FixedFormat(6, 2)``.
-        angle_width: Bit width of rotation angle words, in the range 1..64.
+        angle_width: Bit width of rotation angle words, a positive integer.
         prefix: Prefix of the module names of the abstract slots.
 
     Returns:
@@ -100,8 +100,8 @@ def roe_qfvm_inputs(
         ValidationError: cell_width or angle_width out of range.
     """
     fmt = fmt or FixedFormat(6, 2)
-    if not 2 <= cell_width <= 25 or not 1 <= angle_width <= 64:
-        raise ValidationError("QFVM requires at least four cells and geometry or angle word lengths of at most 64 bits")
+    if not 2 <= cell_width <= 25 or type(angle_width) is not int or angle_width < 1:
+        raise ValidationError("QFVM requires at least four cells and a positive angle word length")
     width = cell_width + 3
     geometry_width = width + 4 + cell_width + 7
     return RoeQfvmInputs(

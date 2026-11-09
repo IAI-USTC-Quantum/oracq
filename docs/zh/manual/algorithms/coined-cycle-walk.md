@@ -16,7 +16,7 @@ cycle_walk(width, *, steps=1)
 
 API 入口：{obj}`cycle_walk <oracq.algorithms.common.walks.cycle_walk>`
 
-- `width`：`position` 位宽 $n$，周期长度为 $2^n$，上限 64。
+- `width`：`position` 位宽 $n$，周期长度为 $2^n$。
 - `steps`：非负步数。
 - 输入模型为 CP：位宽与步数经典参数化，无 oracle 输入；行走空间初态由调用方制备，零输入对应位置 0、硬币 0。
 

@@ -59,7 +59,7 @@ from oracq.algorithms.input_model.oracles import StatePreparation
 # prep = StatePreparation.from_unitary(operation, target="q", work="tmp", clean_work=True)
 ```
 
-`clean_work=True` is your algorithmic promise about this implementation; the language does not prove it. The default all-public-registers adaptation needs no such promise; the single target of the current BE/state-prep convenience wrappers is still limited to 64 bits.
+`clean_work=True` is your algorithmic promise about this implementation; the language does not prove it. The default all-public-registers adaptation needs no such promise; the single target of the current BE/state-prep convenience wrappers may now be wider than 64 bits; packed helper widths follow the RIR and are split into machine words at lowering.
 
 This also clarifies "whether an arbitrary unitary can serve as b": it always defines some `b=U|0>`. Whether that is the b of the problem you want to solve is defined by the application; whether it supports the inverse/controlled forms needed by QLSS is checked by the concrete QLSS.
 

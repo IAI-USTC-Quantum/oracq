@@ -17,7 +17,7 @@ alias_prepare(coefficients, *, precision=8, database=None)
 
 API entry points: {obj}`alias_table <oracq.algorithms.common.prepare_select.alias_table>`, {obj}`alias_prepare <oracq.algorithms.common.prepare_select.alias_prepare>`
 
-- {obj}`alias_table <oracq.algorithms.common.prepare_select.alias_table>`: purely classical preprocessing. The coefficients are first zero-padded to $2^{\text{selector}}$ and then split into keep / alt around the mean (zero-probability slots also work); the data word is packed as `keep | (alt << precision)`; `precision` is 2..32 and selector bit width + precision ≤ 64 (the QRAM word-width limit).
+- {obj}`alias_table <oracq.algorithms.common.prepare_select.alias_table>`: purely classical preprocessing. The coefficients are first zero-padded to $2^{\text{selector}}$ and then split into keep / alt around the mean (zero-probability slots also work); the data word is packed as `keep | (alt << precision)`; `precision` is 2..32; the packed data word may exceed one machine word and QRAM banks of any width accept it.
 - {obj}`alias_prepare <oracq.algorithms.common.prepare_select.alias_prepare>`: quantum-side assembly. `database` defaults to {obj}`qram_database(width, precision + width) <oracq.algorithms.input_model.oracles.qram_database>` and returns the default memory (key `db__table`); {obj}`gate_database <oracq.algorithms.input_model.oracles.gate_database>` or any other {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>` can also be injected (address must be the selector bit width and data the precision + selector bit widths, otherwise it is rejected at generation time).
 
 Returned objects:

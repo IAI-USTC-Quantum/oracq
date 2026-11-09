@@ -28,12 +28,12 @@ class FixedFormat:
     ``decode``.
 
     Attributes:
-        width: Total bit width, including the sign bit if present; the valid range is 2..64.
+        width: Total bit width, including the sign bit if present; at least 2.
         fraction: Number of fraction bits, which must not occupy the sign bit.
         signed: Whether the most significant bit is a two's-complement sign bit.
 
     Raises:
-        ValidationError: ``width`` falls outside 2..64, or ``fraction`` occupies the sign bit.
+        ValidationError: ``width`` is below 2, or ``fraction`` occupies the sign bit.
     """
     width: int = 8
     fraction: int = 3
@@ -41,8 +41,8 @@ class FixedFormat:
 
     def __post_init__(self) -> None:
         """Validate the static constraints on the width and fraction combination."""
-        if not 2 <= self.width <= 64 or not 0 <= self.fraction < self.width - int(self.signed):
-            raise ValidationError("Fixed-point format requires 2≤width≤64 and fraction bits that"
+        if type(self.width) is not int or self.width < 2 or not 0 <= self.fraction < self.width - int(self.signed):
+            raise ValidationError("Fixed-point format requires width≥2 and fraction bits that"
                                   " do not occupy the sign bit")
 
     def encode(self, value: float) -> int:

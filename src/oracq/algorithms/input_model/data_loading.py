@@ -49,7 +49,7 @@ def _normalize_table(
     address_bits = max(1, max(address for address, _ in pairs).bit_length())
     peak = max(value for _, value in pairs)
     if data_bits is not None:
-        positive_integer(data_bits, path + ".data_bits", maximum=64)
+        positive_integer(data_bits, path + ".data_bits")
         if peak >= 1 << data_bits:
             raise ValidationError(f"{path}: table word exceeds the data_bits width")
         width = data_bits
@@ -132,7 +132,7 @@ def qrom_cost(n_addresses: int, data_bits: int, partitions: int = 1) -> QromCost
         QromCost: Snapshot of the Toffoli/T counts and ancilla-qubit estimates for this configuration.
     """
     positive_integer(n_addresses, "qrom_cost.n_addresses")
-    positive_integer(data_bits, "qrom_cost.data_bits", maximum=64)
+    positive_integer(data_bits, "qrom_cost.data_bits")
     address_bits = max(1, (n_addresses - 1).bit_length())
     _check_partitions(partitions, address_bits, "qrom_cost")
     low_bits = partitions.bit_length() - 1

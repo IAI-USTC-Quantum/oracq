@@ -31,7 +31,7 @@ carleman_qode(problem, time, linear_solver, *, cutoff=2)
 
 API entries: {obj}`PolynomialODE <oracq.algorithms.qnlss.carleman.PolynomialODE>`, {obj}`carleman_lift <oracq.algorithms.qnlss.carleman.carleman_lift>`, {obj}`carleman_initial <oracq.algorithms.qnlss.carleman.carleman_initial>`, {obj}`carleman_qode <oracq.algorithms.qnlss.carleman.carleman_qode>`
 
-- `width`: the physical register width $n$ (dimension $d=2^n$, capped at 64).
+- `width`: the physical register width $n$ (dimension $d=2^n$).
 - `coefficients`: `((p, the BE of F_p), ...)`, with non-negative, non-repeating degrees; the BE width of $F_p$ must be $\max(1,p)\cdot n$ (the zero-signal block contract padded to a square: the first $d$ rows are valid, the remaining rows are declared zero).
 - `initial` / `initial_norm`: the {obj}`StatePreparation <oracq.algorithms.input_model.oracles.StatePreparation>` (SP) of the physical initial state and the raw vector norm; the norm determines the relative amplitudes of the orders in the lifted initial state — it is not a decorative attribute.
 - `linear_solver`: the three-argument protocol `(generator, initial, time) -> StateOracle`, usually injected as {obj}`linear_qode(...) <oracq.algorithms.qode.ode.linear_qode>`.

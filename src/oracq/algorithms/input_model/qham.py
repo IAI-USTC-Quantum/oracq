@@ -72,7 +72,7 @@ class QHAMBindings:
         Raises:
             ValidationError: The state bit width or initial-value width is illegal, the norm is not a finite nonnegative number, the port name set does not match, or some port's arity or encoding width disagrees with the specification.
         """
-        if not 1 <= self.state_width <= 64 or self.initial.width != self.state_width:
+        if type(self.state_width) is not int or self.state_width < 1 or self.initial.width != self.state_width:
             raise ValidationError("QHAM state space and initial-value register layout do not match")
         if not math.isfinite(self.initial_norm) or self.initial_norm < 0:
             raise ValidationError("the initial physical vector norm must be a finite nonnegative number")
@@ -357,12 +357,10 @@ def generator_encoding(
         BlockEncoding: Encoding of the whole lifted generator G, degenerating to the zero encoding with no couplings; module attributes record the plan, HAM order, explicit coupling count, and more.
 
     Raises:
-        ValidationError: Binding validation fails, the lifted register exceeds 64 bits, or the explicit coupling count exceeds the budget.
+        ValidationError: Binding validation fails, or the explicit coupling count exceeds the budget.
     """
     bindings.validate(plan)
     n = bindings.state_width
-    if plan.max_rank * n > 64:
-        raise ValidationError("the current BE target wrapper is limited to 64 bits; a lazy QCL plan is not subject to this materialization limit")
     dimension = 1 << n
     width = (plan.raw_dimension(dimension) - 1).bit_length()
     blocks = tuple(plan.blocks(max_blocks=max_blocks))
@@ -438,11 +436,9 @@ def lifted_initial(plan: QHAMPlan, bindings: QHAMBindings) -> tuple[StatePrepara
         tuple: ``(StatePreparation, log_initial_norm)``, the latter being the natural logarithm of the overall norm of the lifted initial state.
 
     Raises:
-        ValidationError: The lifted register exceeds 64 bits, or the initial value is zero with no forcing so no nonzero vector can be prepared.
+        ValidationError: The initial value is zero with no forcing so no nonzero vector can be prepared.
     """
     n = bindings.state_width
-    if plan.max_rank * n > 64:
-        raise ValidationError("the current initial-value target wrapper exceeds 64 bits; keep an open initial-value model instead")
     dimension = 1 << n
     width = (plan.raw_dimension(dimension) - 1).bit_length()
     candidates = [(Block("physical"), 1.0)]

@@ -22,7 +22,7 @@ qaoa_maxcut(width, edges, gammas, betas)
 
 API 入口：{obj}`qaoa_maxcut <oracq.algorithms.optimization.variational.qaoa_maxcut>`
 
-- `width`：图的顶点数，也是 target 位宽，范围 1..64。
+- `width`：图的顶点数，也是 target 位宽，任意正整数。
 - `edges`：`(u, v, weight)` 三元组；`u`、`v` 必须落在 `[0, width)`，权重为非负有限实数，不接受自环。
 - `gammas` / `betas`：各层 cost / mixer 演化角，两个列表非空且等长，角度须为有限实数。
 

@@ -272,7 +272,7 @@ def term_encoding(
         order-zero terms.
 
     Raises:
-        ValidationError: The port target width exceeds 64, or the coefficient
+        ValidationError: The coefficient
             encoder reports an exceeded budget.
     """
     n = discretization.width
@@ -281,8 +281,6 @@ def term_encoding(
     monomial = term.monomial
     arity = len(monomial.fields)
     width = max(1, arity) * n
-    if width > 64:
-        raise ValidationError("a single multilinear port exceeds the current BE target packing width")
     if derivative_encoder is None:
         if not isinstance(discretization.grid, Grid):
             raise ValidationError("this grid requires an explicit quantum derivative encoder")

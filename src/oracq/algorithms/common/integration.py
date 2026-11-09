@@ -75,7 +75,7 @@ def table_loader(
         raise ValidationError("Function values must be nonnegative integers")
     if data_width is None:
         data_width = max(1, max(values).bit_length())
-    positive_integer(data_width, "table_loader.data_width", maximum=64)
+    positive_integer(data_width, "table_loader.data_width")
     if any(v >= 1 << data_width for v in values):
         raise ValidationError("A function value exceeds the data_width word width")
     index_bits = max(1, (len(values) - 1).bit_length())
@@ -234,12 +234,12 @@ def mean_from_phase(value: int, precision: int, data_width: int) -> float:
         value: Integer count read out from the phase register.
         precision: Number of phase register bits, which must match the quantum_sum
             setting.
-        data_width: Function value bit width, in 1..64.
+        data_width: Function value bit width, a positive integer.
 
     Returns:
         float: Mean estimate ``E[v]`` in integer value units.
     """
-    positive_integer(data_width, "mean_from_phase.data_width", maximum=64)
+    positive_integer(data_width, "mean_from_phase.data_width")
     return amplitude_from_phase(value, precision) * (1 << data_width)
 
 
@@ -257,7 +257,7 @@ def heinrich_rate(smoothness: float, dimension: int) -> dict[str, float]:
         The quantum rate is exactly a quadratic improvement over the randomized
         classical rate, Heinrich 2002 and Novak 2001."""
     finite_real(smoothness, "heinrich_rate.smoothness", minimum=0, strict=True)
-    positive_integer(dimension, "heinrich_rate.dimension", minimum=1, maximum=64)
+    positive_integer(dimension, "heinrich_rate.dimension", minimum=1)
     return {
         "deterministic": smoothness / dimension,
         "randomized": smoothness / dimension + 0.5,
@@ -328,7 +328,7 @@ def integral_from_phase(
         value: Integer count read out from the phase register.
         precision: Number of phase register bits, which must match the quantum_sum
             setting.
-        data_width: Function value bit width, in 1..64.
+        data_width: Function value bit width, a positive integer.
         interval: Integration interval length; must be a positive real number.
         full_scale: Full-scale value of the function values; defaults to
             2**data_width − 1.

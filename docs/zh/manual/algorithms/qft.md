@@ -24,7 +24,7 @@ inverse_qft(width)
 
 API 入口：{obj}`qft <oracq.algorithms.common.fourier.qft>`、{obj}`qft_with_work <oracq.algorithms.common.fourier.qft_with_work>`、{obj}`inverse_qft <oracq.algorithms.common.fourier.inverse_qft>`
 
-- {obj}`qft(width) <oracq.algorithms.common.fourier.qft>`：`width` 范围 1..64，非正整数或超界在生成期抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，只有 `target: Bits(width)` 寄存器。
+- {obj}`qft(width) <oracq.algorithms.common.fourier.qft>`：`width` 为任意正整数，非正整数在生成期抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，只有 `target: Bits(width)` 寄存器。
 - {obj}`qft_with_work(width) <oracq.algorithms.common.fourier.qft_with_work>`：保留早期零宽 `work` 接口的适配，寄存器为 `target: Bits(width)` 与 `work: Bits(0)`，内部直接调用 `qft`。
 - {obj}`inverse_qft(width) <oracq.algorithms.common.fourier.inverse_qft>`：QFT 的伴随操作（逆变换），以 adjoint 上下文包裹模块调用实现。
 
@@ -34,7 +34,7 @@ API 入口：{obj}`qft <oracq.algorithms.common.fourier.qft>`、{obj}`qft_with_w
 
 `qft` 的生成顺序：从最高位向最低位遍历 `high`，先对 `target[high]` 加 H，再对每个 `low < high` 施加以 `target[low]` 控制的相位门，角度 $\pi / 2^{\text{high} - \text{low}}$；随后用 $\lfloor n/2 \rfloor$ 个 swap 交换镜像位，把变换末端的位序翻转为 little endian。`inverse_qft` 用 `with b.adjoint()` 包裹对 `qft` 的调用，变换本身保持为模块调用、不在生成或序列化阶段展开，逆与正变换共享同一子模块定义。
 
-适用边界：`width` 上限 64 由寄存器位宽契约给出；输出位序是 little endian，与外部位序对接时需要注意末尾 swap 已经完成。
+适用边界：`width` 无上限，超过一个机器字时由后端拆分为多字；输出位序是 little endian，与外部位序对接时需要注意末尾 swap 已经完成。
 
 ## 验证方案
 

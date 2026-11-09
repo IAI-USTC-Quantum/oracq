@@ -14,14 +14,14 @@ def qft(width: int) -> Operation:
     """Generate the positive-sign discrete Fourier transform.
 
     Args:
-        width: Target bit width, in the range 1..64.
+        width: Target bit width, a positive integer.
 
     Returns:
         Operation: Has only a target register, includes the trailing swaps, and the bit
         order is little endian.
 
     The matrix elements are exp(2πi*x*y/2**width)/sqrt(2**width)."""
-    positive_integer(width, "qft.width", maximum=64)
+    positive_integer(width, "qft.width")
     b = Builder(f"qft_{width}", {"target": Bits(width)})
     for high in reversed(range(width)):
         b.h(b["target"][high])
@@ -37,7 +37,7 @@ def qft_with_work(width: int) -> Operation:
     """QFT adapter preserving the earlier zero-width work interface.
 
     Args:
-        width: Target bit width, in the range 1..64.
+        width: Target bit width, a positive integer.
 
     Returns:
         Operation: QFT operation that additionally carries a zero-width work register
@@ -52,7 +52,7 @@ def inverse_qft(width: int) -> Operation:
     """Generate the adjoint of the QFT, keeping the module call.
 
     Args:
-        width: Target bit width, in the range 1..64.
+        width: Target bit width, a positive integer.
 
     Returns:
         Operation: Inverse QFT operation wrapped in an adjoint module call.
@@ -74,7 +74,7 @@ def fourier_add(width: int) -> Operation:
         additional public workspace.
 
     The Fourier transform and its inverse are kept as module calls."""
-    positive_integer(width, "fourier_add.width", maximum=64)
+    positive_integer(width, "fourier_add.width")
     b = Builder("fourier_add_" + str(width), {"a": Bits(width), "b": Bits(width)})
     b.call(qft(width), target=b["b"])
     for i in range(width):

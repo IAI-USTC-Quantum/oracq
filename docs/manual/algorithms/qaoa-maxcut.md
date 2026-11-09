@@ -22,7 +22,7 @@ qaoa_maxcut(width, edges, gammas, betas)
 
 API entry point: {obj}`qaoa_maxcut <oracq.algorithms.optimization.variational.qaoa_maxcut>`
 
-- `width`: the number of vertices of the graph, also the target bit width, range 1..64.
+- `width`: the number of vertices of the graph, also the target bit width, any positive integer.
 - `edges`: `(u, v, weight)` triples; `u` and `v` must lie in `[0, width)`, the weights must be non-negative finite real numbers, and self-loops are rejected.
 - `gammas` / `betas`: the per-layer cost / mixer evolution angles; the two lists must be non-empty and of equal length, and the angles must be finite real numbers.
 

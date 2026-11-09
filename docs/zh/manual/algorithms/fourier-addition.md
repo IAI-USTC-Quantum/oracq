@@ -16,7 +16,7 @@ fourier_add(width)
 
 API 入口：{obj}`fourier_add <oracq.algorithms.common.fourier.fourier_add>`
 
-- `width`：`a` 与 `b` 的共同位宽，范围 1..64，非正整数或超界在生成期抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
+- `width`：`a` 与 `b` 的共同位宽，任意正整数，非正整数在生成期抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`。
 
 返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `a: Bits(width)` 与 `b: Bits(width)`：`a` 作为控制保留原值，`b` 更新为 $(a+b) \bmod 2^{\text{width}}$，无额外公开工作区。本入口不消费 oracle 输入（无 input model）。
 

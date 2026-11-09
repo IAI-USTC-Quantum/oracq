@@ -12,7 +12,7 @@ $$
 |a,\,d\rangle \;\mapsto\; |a,\,d \oplus \mathtt{memory}[a]\rangle ,
 $$
 
-where both `address` and `data` are bits registers. This XOR semantics is self-inverse under arbitrary initial values and is the common foundation of downstream constructions such as function-table loading, matrix-element lookup, and LCU coefficient tables (QRAM in the input-model vocabulary). The module offers three binding layers — the abstract open declaration, the gate truth table, and the QRAM resource — plus a variant that splits words wider than 64 bits into multiple banks.
+where both `address` and `data` are bits registers. This XOR semantics is self-inverse under arbitrary initial values and is the common foundation of downstream constructions such as function-table loading, matrix-element lookup, and LCU coefficient tables (QRAM in the input-model vocabulary). The module offers three binding layers — the abstract open declaration, the gate truth table, and the QRAM resource — plus a variant that splits one wide word into several 64-bit banks when a consumer prefers machine-word banks.
 
 ## Interface and input model
 
@@ -28,7 +28,7 @@ API entry points: {obj}`abstract_database <oracq.algorithms.input_model.oracles.
 - {obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>`: an open declaration (the abstract layer for QRAM in the input model) with an empty body; the program closes after an implementation is bound via `linking.bind`.
 - {obj}`gate_database <oracq.algorithms.input_model.oracles.gate_database>`: a truth-table witness. `table` is a sparse dictionary or a sequence of words (enumerated by address); addresses and words are range-checked at generation time; each entry flips the data bits controlled by its address.
 - {obj}`qram_database <oracq.algorithms.input_model.oracles.qram_database>`: declares a {obj}`QRAM(address_width, data_width) <oracq.infrastructure.ir.QRAM>` resource (named `table`); at execution time the data is supplied as a memory dictionary and does not enter the IR.
-- {obj}`banked_database <oracq.algorithms.input_model.oracles.banked_database>`: splits `data_width` into `data0, data1, ...` registers of at most 64 bits and the corresponding QRAM banks (little-endian); with `abstract=True` it yields an open declaration carrying `logical_data_width`.
+- {obj}`banked_database <oracq.algorithms.input_model.oracles.banked_database>`: splits `data_width` into `data0, data1, ...` registers of at most 64 bits and the corresponding QRAM banks (little-endian), complementary to single-bank words of any width; with `abstract=True` it yields an open declaration carrying `logical_data_width`.
 
 All four entry points return {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>` (an {obj}`OracleView <oracq.algorithms.input_model.contracts.OracleView>`; `xor_database()` returns itself). Attributes:
 
