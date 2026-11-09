@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:oracq:qram-memory:0.2",
-  "title": "oracq QRAM 内存定义 0.2",
+  "$id": "urn:oracq:qram-memory:0.3",
+  "title": "oracq QRAM memory definition 0.3",
   "type": "object",
   "properties": {
     "qram_segments": {
@@ -17,6 +17,16 @@
   "additionalProperties": false,
   "$defs": {
     "Segment": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DenseSegment"
+        },
+        {
+          "$ref": "#/$defs/SparseSegment"
+        }
+      ]
+    },
+    "DenseSegment": {
       "type": "object",
       "properties": {
         "name": {
@@ -111,6 +121,145 @@
                   "type": "number",
                   "minimum": 0,
                   "exclusiveMaximum": 1
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SparseSegment": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "address_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "word_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "type": {
+          "enum": [
+            "uint",
+            "sint",
+            "fixedpoint"
+          ]
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "encoding": {
+          "const": "sparse"
+        }
+      },
+      "required": [
+        "name",
+        "address_length",
+        "word_length",
+        "type",
+        "data",
+        "encoding"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "uint"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "items": {
+                  "prefixItems": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "sint"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "items": {
+                  "prefixItems": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "fixedpoint"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "items": {
+                  "prefixItems": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 0,
+                      "exclusiveMaximum": 1
+                    }
+                  ]
                 }
               }
             }

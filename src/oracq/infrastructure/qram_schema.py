@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
@@ -105,7 +106,8 @@ class QramSegment:
         address_length: address bit width, 1..64, corresponding to the RIR QRAM address_width.
         word_length: data word bit width, 1..64, corresponding to the RIR QRAM data_width.
         type: data type, see QRAM_DATA_TYPES; data is interpreted under this type.
-        data: dense source data array with the index as the address; cells above it are zero-padded when shorter than 2^address_length.
+        data: source values, interpreted per type.
+        addresses: explicit sparse addresses, or None for a dense zero-padded array.
     """
 
     name: str
@@ -113,6 +115,7 @@ class QramSegment:
     word_length: int
     type: str
     data: tuple[int, ...] | tuple[float, ...]
+    addresses: tuple[int, ...] | None = None
 
 
 def _require_width(value: object, what: str) -> int:
@@ -165,7 +168,12 @@ def parse_qram_yaml(document: str) -> tuple[QramSegment, ...]:
             set by type and word_length.
     """
     try:
-        root = yaml.safe_load(document)
+        # Sparse snapshots can contain millions of pairs. JSON is also valid YAML,
+        # preserves integer addresses, and avoids a Python YAML node per scalar.
+        try:
+            root = json.loads(document)
+        except json.JSONDecodeError:
+            root = yaml.safe_load(document)
     except yaml.YAMLError as exc:
         raise ValidationError(f"QRAM memory definition is not valid YAML: {exc}") from exc
     if not isinstance(root, Mapping) or set(root) != {"qram_segments"}:
@@ -178,7 +186,7 @@ def parse_qram_yaml(document: str) -> tuple[QramSegment, ...]:
     seen: set[str] = set()
     for index, raw in enumerate(segments):
         where = f"segment {index}"
-        if not isinstance(raw, Mapping) or set(raw) != fields:
+        if not isinstance(raw, Mapping) or set(raw) not in (fields, fields | {"encoding"}):
             raise ValidationError(
                 f"{where} must contain exactly name, address_length, word_length, type and data"
             )
@@ -192,19 +200,32 @@ def parse_qram_yaml(document: str) -> tuple[QramSegment, ...]:
         if data_type not in QRAM_DATA_TYPES:
             raise ValidationError(f"data type of segment {name} must be one of {QRAM_DATA_TYPES}")
         words = raw["data"]
-        if isinstance(words, list) and len(words) > 1 << address_length:
+        addresses = None
+        if "encoding" in raw:
+            if raw["encoding"] != "sparse" or not isinstance(words, list):
+                raise ValidationError("encoding must be sparse with an array of address/value pairs")
+            pairs = words
+            if any(not isinstance(pair, list) or len(pair) != 2 for pair in pairs):
+                raise ValidationError("sparse data must contain address/value pairs")
+            if any(type(pair[0]) is not int or not 0 <= pair[0] < 1 << address_length for pair in pairs):
+                raise ValidationError("sparse address must be an integer within address_length")
+            addresses = tuple(pair[0] for pair in pairs)
+            if len(set(addresses)) != len(addresses):
+                raise ValidationError("sparse addresses must be unique")
+            words = [pair[1] for pair in pairs]
+        elif isinstance(words, list) and len(words) > 1 << address_length:
             raise ValidationError(f"data length of segment {name} cannot exceed 2^address_length")
         data = _parse_words(name, word_length, data_type, words)
-        result.append(QramSegment(name, address_length, word_length, data_type, data))
+        result.append(QramSegment(name, address_length, word_length, data_type, data, addresses))
     return tuple(result)
 
 
-def load_qram_yaml(path: str | Path) -> dict[str, list[int]]:
+def load_qram_yaml(path: str | Path) -> dict[str, list[int] | dict[int, int]]:
     """Load a qram YAML memory definition file into the memory mapping accepted by executors.
 
     Source data is encoded per segment type into unsigned words (sint takes the
     two's-complement bit pattern, fixedpoint multiplies by 2^word_length then
-    truncates toward zero) and zero-padded to 2^address_length length; the resource
+    truncates toward zero). Dense segments are zero-padded; sparse segments remain mappings; the resource
     name set and data ranges are cross-checked against program declarations by
     check_memory at execution time.
 
@@ -212,20 +233,25 @@ def load_qram_yaml(path: str | Path) -> dict[str, list[int]]:
         path: YAML file path.
 
     Returns:
-        dict: mapping from resource names to dense word arrays, the same shape as
+        dict: mapping from resource names to dense arrays or sparse address/word mappings, the same shape as
         the ``memory`` parameter of execution entry points such as ``simulate``.
     """
-    result = {}
+    result: dict[str, list[int] | dict[int, int]] = {}
     for segment in parse_qram_yaml(Path(path).read_text(encoding="utf-8")):
         words = _encode_words(segment)
-        words.extend([0] * ((1 << segment.address_length) - len(words)))
-        result[segment.name] = words
+        if segment.addresses is None:
+            words.extend([0] * ((1 << segment.address_length) - len(words)))
+            result[segment.name] = words
+        else:
+            result[segment.name] = dict(zip(segment.addresses, words, strict=True))
     return result
 
 
 def dump_qram_yaml(
     program: Program,
     memory: Mapping[str, Sequence[int] | Mapping[int, int]] | None,
+    *,
+    sparse: bool = False,
 ) -> str:
     """Write the entry's QRAM binding data as qram YAML text.
 
@@ -233,22 +259,29 @@ def dump_qram_yaml(
     densified, with zero cells and missing high cells both treated as zero), then
     segments are generated in entry resource declaration order; on the executor
     side the words are already unsigned integers within the bit width, so the
-    segment type is always uint; the dense array avoids the string-key ambiguity
-    of sparse dicts.
+    segment type is always uint; the default dense array preserves the legacy format. With sparse=True,
+    explicit address/value pairs avoid string-key ambiguity and expansion of zero cells.
 
     Args:
         program: closed RIR program providing resource name and bit width declarations.
         memory: data provided by resource name; each item is a word sequence or a sparse ``address -> word`` dict,
             and ``None`` is treated as all zeros. The resource set must exactly match the entry declaration.
+        sparse: Opt in to sparse pairs and JSON-compatible YAML output; omitted addresses read zero.
 
     Returns:
         str: qram YAML text, written to disk or hashed by the caller.
     """
+    if type(sparse) is not bool:
+        raise ValidationError("sparse must be a bool")
     cells = check_memory(program, memory)
     segments = []
     for resource in program.main.resources:
         bank = cells[resource.name]
-        words = [bank.get(address, 0) for address in range(1 << resource.type.address_width)]
+        words = (
+            [[address, value] for address, value in sorted(bank.items()) if value]
+            if sparse else
+            [bank.get(address, 0) for address in range(1 << resource.type.address_width)]
+        )
         segments.append(
             {
                 "name": resource.name,
@@ -258,6 +291,10 @@ def dump_qram_yaml(
                 "data": words,
             }
         )
+        if sparse:
+            segments[-1]["encoding"] = "sparse"
+    if sparse:
+        return json.dumps({"qram_segments": segments}, ensure_ascii=False, separators=(",", ":")) + "\n"
     return yaml.safe_dump(
         {"qram_segments": segments}, sort_keys=False, allow_unicode=True, default_flow_style=False
     )
