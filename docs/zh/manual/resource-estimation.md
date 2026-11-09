@@ -52,7 +52,19 @@ estimate.rotations         # 待合成旋转原子 [(axis, angle), ...]
 estimate.t_total(1e-10)    # 精确 T + 旋转 × ceil(3·log2(1/eps))
 estimate.qram_queries      # 逐资源查询数；estimate.qram_total 为总和
 estimate.to_dict()         # JSON 友好台账
+estimate.wall_time({"toffoli": 1e-6, "x": 2e-9, ...},
+                   qram_query_times={"bank": 4e-7},
+                   rotation_times={"rz": 3e-8})   # 用户定价时长 → 秒
 ```
+
+台账保持纯计数；{obj}`wall_time <oracq.infrastructure.estimate.ResourceEstimate.wall_time>`
+随后用**用户提供的时长**定价：逐门原子、逐 QRAM 应用（按入口资源名，查询与
+写入分开）、以及按旋转轴对待合成旋转定价。框架不内置统一门时间，也不强制
+设备校准：每个被计数的类别都必须显式定价——缺键直接报错而不是静默少算，
+因此错误的总时间不会冒充估计。命令行同样可用
+`oracq estimate program.rir.json --gate-times times.json` 附加时长表，JSON 对象
+包含 `atoms` 表与可选的 `qram_queries`、`qram_writes`、`rotations` 表；报告
+随附 `wall_time` 小节，而下游工具（如 QuantumTime）消费的扁平计数保持不变。
 
 计数模型与导出器逐行对齐（这不是理想化成本模型，而是**实际发射电路**
 的账本）：X 型多控走 `basis.mcx` 配方（c≥3 时 2c−3 Toffoli）；受控单比特

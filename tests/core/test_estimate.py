@@ -9,6 +9,7 @@ from oracq import (
     Bits,
     Builder,
     UInt,
+    ValidationError,
     estimate_resources,
     export_strict,
 )
@@ -189,6 +190,48 @@ class StrictNetlistCrossTests(unittest.TestCase):
         # Under the (θ,φ,λ)=(0,0,λ) parametrization of RZ, the controlled form needs only two rz rotation atoms
         self.assertEqual(len(estimate.rotations), 2)
         self.assertEqual(estimate.atoms, Counter({"h": 4, "cz": 2}))
+
+
+class WallTimeTests(unittest.TestCase):
+    def test_per_gate_and_per_application_seconds(self):
+        b = Builder("timed", {"a": UInt(4), "v": Bits(3)}, {"bank": QRAM(4, 3), "log": QRAM(4, 3)})
+        b.add_const(b["a"], 3)
+        b.qram("bank", b["a"], b["v"])
+        b.rz(b["v"][0], 0.37)
+        ledger = estimate_resources(b.finish().program())
+        per_atom = {"toffoli": 1e-6, "x": 2e-9, "h": 5e-9, "cz": 7e-9, "t": 1.1e-7, "tdg": 1.1e-7}
+        atom_times = {atom: per_atom[atom] for atom in ledger.atoms}
+        axes = dict(ledger.rotation_axes)
+        result = ledger.wall_time(
+            atom_times,
+            qram_query_times={"bank": 4e-7},
+            rotation_times={"rz": 3e-8},
+        )
+        self.assertEqual(result["atoms"]["toffoli"], ledger.toffoli * 1e-6)
+        self.assertEqual(result["qram_queries"], {"bank": 4e-7})
+        self.assertEqual(result["rotations"], {"rz": axes["rz"] * 3e-8})
+        expected = (sum(count * per_atom[atom] for atom, count in ledger.atoms.items())
+                    + 4e-7 + axes["rz"] * 3e-8)
+        self.assertAlmostEqual(result["total_s"], expected)
+
+    def test_unpriced_counted_cost_is_rejected(self):
+        b = Builder("unpriced", {"q": Bits(2)})
+        b.x(b["q"][0])
+        b.h(b["q"][1])
+        ledger = estimate_resources(b.finish().program())
+        with self.assertRaisesRegex(ValidationError, "gate atom 'h'"):
+            ledger.wall_time({"x": 1e-9})
+        with self.assertRaisesRegex(ValidationError, "nonnegative number of seconds"):
+            ledger.wall_time({"x": -1, "h": 1})
+        with self.assertRaisesRegex(ValidationError, "nonnegative number of seconds"):
+            ledger.wall_time({"x": True, "h": 1})
+
+    def test_qram_application_missing_time_is_rejected(self):
+        b = Builder("banked", {"a": UInt(3), "v": Bits(2)}, {"bank": QRAM(3, 2)})
+        b.qram("bank", b["a"], b["v"])
+        ledger = estimate_resources(b.finish().program())
+        with self.assertRaisesRegex(ValidationError, "QRAM query resource 'bank'"):
+            ledger.wall_time({})
 
 
 if __name__ == "__main__":

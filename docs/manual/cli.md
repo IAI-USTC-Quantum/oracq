@@ -52,10 +52,16 @@ example see [Tutorial: replacing oracles](../tutorials/oracle-binding.md).
 ```bash
 oracq estimate open.rir.yaml --allow-open -o open-cost.json
 oracq estimate closed.rir.yaml -o closed-cost.json
+oracq estimate closed.rir.yaml --gate-times times.json   # adds a wall_time section
 ```
 
 The open report keeps oracle call counts and unknown workspaces; known costs
-must not be taken as the final total cost. For counting conventions and known
+must not be taken as the final total cost. `--gate-times` prices the counted
+ledger with user-supplied durations — an `atoms` table plus optional
+`qram_queries`, `qram_writes` and `rotations` tables in a JSON object; every
+counted category must be priced, and a missing key is an error rather than a
+silent zero (see [resource estimation](resource-estimation.md)). For counting
+conventions and known
 gaps see [Resource estimation](resource-estimation.md). On binding failure the
 diagnostics named by `--report` are still written, and the command exits with
 a non-zero status.

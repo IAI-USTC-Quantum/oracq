@@ -33,7 +33,22 @@ estimate.rotations         # rotation atoms awaiting synthesis [(axis, angle), .
 estimate.t_total(1e-10)    # exact T + rotations × ceil(3·log2(1/eps))
 estimate.qram_queries      # queries per resource; estimate.qram_total is the total
 estimate.to_dict()         # JSON-friendly ledger
+estimate.wall_time({"toffoli": 1e-6, "x": 2e-9, ...},
+                   qram_query_times={"bank": 4e-7},
+                   rotation_times={"rz": 3e-8})   # user-priced durations → seconds
 ```
+
+The ledger stays a pure count; {obj}`wall_time <oracq.infrastructure.estimate.ResourceEstimate.wall_time>` prices it
+afterwards with **user-supplied durations**: per gate atom, per QRAM application
+(entry resource name, separately for queries and writes), and per rotation axis
+for rotations pending synthesis. No uniform gate time or device calibration is
+built in: every counted category must be priced explicitly — a missing key
+raises instead of silently undercounting, so a wrong total cannot pass as an
+estimate. The same tables can be attached on the command line with
+`oracq estimate program.rir.json --gate-times times.json`, where the JSON object
+holds an `atoms` table plus optional `qram_queries`, `qram_writes` and
+`rotations` tables; the report then carries a `wall_time` section while the
+flat counts consumed by downstream tools such as QuantumTime stay unchanged.
 
 The counting model aligns with the exporter line by line (this is not an idealized cost model but the ledger of the **actually emitted circuit**): X-type multi-controls go through the `basis.mcx` recipe (2c−3 Toffolis for c≥3); controlled single-bit gates go through the `basis.controlled_u3` recipe (a 2(c−1)-Toffoli ladder plus an intermediate network for c≥2); zero-valued control bits are flipped once on each side of every emitted line group; each {obj}`Load <oracq.infrastructure.ir.Load>` records one QRAM query. Rotations whose angle is exactly an integer multiple of π/4 are counted as exact Clifford+T (the S/T/Z families); the rest are recorded as rotations awaiting synthesis. Global phases are not counted (consistent with the strict export).
 

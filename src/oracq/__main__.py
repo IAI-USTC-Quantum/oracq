@@ -71,6 +71,7 @@ def main() -> None:
     parser.add_argument("--no-browser", action="store_true", help="print the GUI URL without opening a browser")
     parser.add_argument("--constants", default="{}", help="JSON object of generation-time constants")
     parser.add_argument("--inputs", help="JSON object of input types")
+    parser.add_argument("--gate-times", type=Path, help="estimate only: JSON with per-gate atom seconds and per-resource/axis 'qram_queries'/'qram_writes'/'rotations' tables")
     parser.add_argument("--mir-output", type=Path)
     args = parser.parse_args()
     try:
@@ -156,10 +157,24 @@ def main() -> None:
                 args.report.write_text(json.dumps(linked.report.to_dict(), ensure_ascii=False, indent=2) + "\n")
             result = dumps(linked.require(), format=args.format)
         elif args.command == "estimate":
-            result = json.dumps(
-                estimate_resources(program, require_closed=not args.allow_open).to_dict(),
-                ensure_ascii=False, indent=2,
-            ) + "\n"
+            ledger = estimate_resources(program, require_closed=not args.allow_open)
+            ledger_report: dict[str, object] = ledger.to_dict()
+            if args.gate_times:
+                tables = json.loads(args.gate_times.read_text())
+                if not isinstance(tables, dict) or not {"atoms"} <= set(tables) or not set(tables) <= {
+                    "atoms", "qram_queries", "qram_writes", "rotations",
+                }:
+                    raise ValueError(
+                        "--gate-times must be a JSON object with an 'atoms' table and optional "
+                        "'qram_queries', 'qram_writes' and 'rotations' tables"
+                    )
+                ledger_report["wall_time"] = ledger.wall_time(
+                    tables["atoms"],
+                    qram_query_times=tables.get("qram_queries"),
+                    qram_write_times=tables.get("qram_writes"),
+                    rotation_times=tables.get("rotations"),
+                )
+            result = json.dumps(ledger_report, ensure_ascii=False, indent=2) + "\n"
         elif args.command == "canonicalize":
             result = dumps(program, format=args.format)
         elif args.command == "emit":

@@ -38,9 +38,13 @@ oracq bind open.rir.yaml --bindings bindings.json --report binding-report.json -
 ```bash
 oracq estimate open.rir.yaml --allow-open -o open-cost.json
 oracq estimate closed.rir.yaml -o closed-cost.json
+oracq estimate closed.rir.yaml --gate-times times.json   # 追加 wall_time 小节
 ```
 
 开放报告保留 oracle 调用数与未知工作区；已知成本不能当作最终总成本。
+`--gate-times` 用用户提供的时长为计数台账定价——JSON 对象含 `atoms` 表与
+可选的 `qram_queries`、`qram_writes`、`rotations` 表；每个被计数的类别都
+必须定价，缺键报错而非静默记零（见[资源估计](resource-estimation.md)）。
 计数口径与已知差距见[资源估计](resource-estimation.md)。
 绑定失败时仍会写出 `--report` 指定的诊断，并以非零状态退出。
 
