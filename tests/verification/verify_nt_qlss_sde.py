@@ -1179,10 +1179,10 @@ def verify_cks_protocol(report):
 def verify_costa(report):
     """Costa building blocks: Dolph-Chebyshev weights against the closed-form window, the closed-form schedule, and unary preparation.
 
-    The kernel_status of costa_qlss is a prototype declared in the library (the
-    walk's initial state and readout channel are unverified), so the numerical
-    criteria cover only independently derivable components and assembly
-    determinism.
+    The kernel still declares uncalibrated finite-step accuracy and probability.
+    This group checks independently derivable components and assembly consistency;
+    tests/core/test_costa_channels.py and the native channel integration separately
+    validate initialization, readout, norm recovery and specified inverse systems.
     """
     import numpy as np
     from numpy.polynomial.chebyshev import chebval
