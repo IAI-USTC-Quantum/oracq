@@ -22,7 +22,8 @@ qram_segments:
 | `address_length` | integer | 1..64 | address bit width; corresponds to `address_width` of the RIR QRAM |
 | `word_length` | integer | 1..64 | data word bit width; corresponds to `data_width` of the RIR QRAM |
 | `type` | string | `uint` / `sint` / `fixedpoint` | source data type of `data`; encoded as an unsigned word on load |
-| `data` | array | see the table below | dense source data array; the index is the address |
+| `encoding` | string | optional; only `sparse` is supported | absent means the legacy dense array |
+| `data` | array | see the table below | dense values, or `[address, value]` pairs when `encoding: sparse` |
 
 Value ranges and encodings of the three data types:
 
@@ -50,7 +51,7 @@ state = simulate(program, memory)             # fully compatible with the existi
 text = dump_qram_yaml(program, memory)        # emits text after canonical validation; the caller writes it to disk
 ```
 
-{obj}`load_qram_yaml <oracq.infrastructure.qram_schema.load_qram_yaml>` returns a mapping from resource names to dense word arrays (already encoded per type and zero-padded to full length), shaped like the `memory` parameter of {obj}`simulate <oracq.infrastructure.execution.simulate>`, {obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>`, and {obj}`run_originir <oracq.infrastructure.backends.originir.run_originir>`. `dump_qram_yaml` first cross-validates through `check_memory` and densifies the sparse dictionary, then emits segments in the order of the entry's resource declarations; when the entry declares no QRAM resource it emits an empty `qram_segments`.
+{obj}`load_qram_yaml <oracq.infrastructure.qram_schema.load_qram_yaml>` returns a mapping from resource names to dense word arrays or sparse address/word dictionaries (already encoded per type), shaped like the `memory` parameter of {obj}`simulate <oracq.infrastructure.execution.simulate>`, {obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>`, and {obj}`run_originir <oracq.infrastructure.backends.originir.run_originir>`. By default, `dump_qram_yaml` first cross-validates through `check_memory` and densifies the sparse dictionary, then emits segments in the order of the entry's resource declarations; when the entry declares no QRAM resource it emits an empty `qram_segments`.
 
 ## CLI
 
@@ -58,8 +59,37 @@ text = dump_qram_yaml(program, memory)        # emits text after canonical valid
 oracq run closed.rir.yaml --memory memory.qram.yaml
 ```
 
-`--memory` accepts only this format. When the structure or data is invalid it reports a Chinese-language error with exit code 2 and never truncates silently. See [Command line](../manual/cli.md) for all subcommands.
+`--memory` accepts only this format. When the structure or data is invalid it reports a validation error with exit code 2 and never truncates silently. See [Command line](../manual/cli.md) for all subcommands.
 
 ## Schema
 
 The structural constraints are in [qram-memory.schema.json](schemas/qram-memory.schema.json), including the `data` element type constraints branched on `type`. Cross-field constraints (array length versus `address_length`, word value range versus `word_length` and `type`, segment-name uniqueness) cannot be expressed in JSON Schema and are enforced by the Python loader.
+
+## Sparse snapshots (memory schema 0.3)
+
+For a large address space, opt in with `dump_qram_yaml(program, memory, sparse=True)`.
+The writer emits compact JSON, which is valid YAML, using explicit pairs rather than
+object keys. Existing dense output remains the default.
+
+```yaml
+qram_segments:
+  - name: bank
+    address_length: 32
+    word_length: 8
+    type: uint
+    encoding: sparse
+    data: [[0, 7], [4294967295, 255]]
+```
+
+The loader returns `{"bank": {0: 7, 4294967295: 255}}` without allocating a dense
+array. Omitted addresses read zero. Addresses must be unique integers in the
+declared range; values retain the existing `uint`/`sint`/`fixedpoint` rules.
+`QramSegment.addresses` is `None` for a dense segment and a tuple of explicit
+addresses for a sparse segment; `data` retains the corresponding source values.
+Read/write work scales with stored records, not `2**address_length`. Sparse files
+require this reader version; older readers retain support for dense files only.
+
+Sparse interchange does not raise backend execution limits. The PySparQ adapter
+currently materializes banks only up to 20 address bits and retains that guard;
+large sparse snapshots can still be serialized, validated, and used in resource
+studies without claiming they were executed by that backend.

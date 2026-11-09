@@ -96,6 +96,17 @@ class QramMemorySchemaTests(unittest.TestCase):
         data = yaml.safe_load((ROOT / "examples/memory.qram.yaml").read_text(encoding="utf-8"))
         self.validator.validate(data)
 
+    def test_sparse_pairs_schema_and_type_specific_constraints(self):
+        for type_, value in (("uint", 7), ("sint", -1), ("fixedpoint", 0.5)):
+            segment = {"name": "s", "address_length": 64, "word_length": 3,
+                       "type": type_, "encoding": "sparse", "data": [[(1 << 64) - 1, value]]}
+            self.validator.validate({"qram_segments": [segment]})
+            for data in ([[True, value]], [[-1, value]], [[0]], [[0, "bad"]]):
+                self.assertTrue(list(self.validator.iter_errors({"qram_segments": [{**segment, "data": data}]})))
+        segment = {"name": "s", "address_length": 2, "word_length": 3,
+                   "type": "uint", "encoding": "sparse", "data": [[1, -1]]}
+        self.assertTrue(list(self.validator.iter_errors({"qram_segments": [segment]})))
+
     def test_rejects_unknown_type_and_extra_field(self):
         data = yaml.safe_load((ROOT / "examples/memory.qram.yaml").read_text(encoding="utf-8"))
         data["qram_segments"][0]["type"] = "float"
