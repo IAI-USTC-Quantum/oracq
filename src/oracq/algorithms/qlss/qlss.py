@@ -894,7 +894,7 @@ def costa_qlss(
     *,
     filtering: FilterPlan | None = None,
 ) -> StateOracle:
-    """Costa walk solve kernel: prepare the RHS, chain the walks at each schedule point, and apply the filter.
+    """Costa solve kernel: prepare the +1 walk eigenstate, follow the schedule, filter, and map the readout.
 
     Args:
         a: Block encoding of the matrix A.
@@ -931,7 +931,9 @@ def costa_qlss(
             "input_alpha": a.alpha,
             "encoded_inverse_bound": config.kappa,
             "normalization_assumption": "sigma_min(A / alpha) >= 1 / kappa",
-            "kernel_status": "prototype; initial walk eigenstate and readout channel unverified",
+            "kernel_status": "prototype; finite-step accuracy and success probability require validation",
+            "initial_walk_eigenvalue": 1,
+            "readout_mapping": "X(a1) after final filter",
             "validation_stage": "paradigm",
             "steps": config.steps,
             "filtering": plan.method,
@@ -940,9 +942,24 @@ def costa_qlss(
     )
     bw = b["signal"][a.signal_qubits : a.signal_qubits + bprep.work_width]
     invoke(b, bprep.operation, "prep", target=b["target"], work=bw)
+    start = a.signal_qubits + bprep.work_width
+    a1, a2, a3, a4 = (b["signal"][start + i] for i in range(4))
+    # For W(0) = i (2 Pi - I) U_H(0), let v be the clean RHS state.
+    # U_H(0) v = w has a4=a3=1 and a2=+. Then (v - i w)/sqrt(2)
+    # is its +1 eigenstate. Rz with this global phase is exactly S-dagger;
+    # retaining the phase matters when callers control the entire solve.
+    b.h(a4)
+    b.global_phase(-math.pi / 4)
+    b.rz(a4, -math.pi / 2)
+    with b.control(a4):
+        b.h(a2)
+        b.x(a3)
     for i, walk in enumerate(walks):
         invoke(b, walk, f"walk{i}", target=b["target"], signal=b["signal"][:ws])
     invoke(b, final_filter, "filter", target=b["target"], signal=b["signal"])
+    # At f=1 the solution occupies a1=1 in this A_f convention. Expose
+    # the same all-zero success interface as the other StateOracle kernels.
+    b.x(a1)
     return StateOracle(b.finish())
 
 
