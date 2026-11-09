@@ -9,7 +9,7 @@
 The baseline Chebyshev/LCU solution route for sparse Hermitian linear systems $Ax = b$ (the basic construction of Childs–Kothari–Somma, arXiv:1511.02306 §4). The variable-time VTAA layer of section 5 is covered in [VTAA-CKS solver](vtaa-cks.md). The truncated Chebyshev expansion of $1/x$ is applied to the spectrum of the encoded matrix $A/\alpha$:
 
 $$
-A^{-1} \approx \sum_{j=0}^{d-1} c_j\, T_{2j+1}(A/\alpha), \qquad
+(A/\alpha)^{-1} \approx \sum_{j=0}^{d-1} c_j\, T_{2j+1}(A/\alpha), \qquad
 c_j = 4\,(-1)^j\, 2^{-2d} \sum_{i=j+1}^{d} \binom{2d}{d+i},
 $$
 
@@ -20,6 +20,7 @@ The BE is obtained via [Sparse Matrix Block Encoding](sparse-block-encoding.md),
 ```python
 make_cks_qlss(config=None)          # returns QLSSProtocol (input_model="sparse")
 cks_chebyshev(system, config=None)  # low-level kernel, takes a SparseSystem
+cks_inverse_block(a, config=None)   # self-adjoint BE -> normalized inverse polynomial
 CKSConfig(order=2, terms=None)      # order 1..128; terms is the truncated term count, ≤ order
 ```
 
@@ -42,9 +43,17 @@ The problem input is {obj}`LinearSystem(sparse=...) <oracq.algorithms.qlss.qlss.
 
 Kernel output attributes: `algorithm = "cks_chebyshev_basic"`, `input_model = "sparse_location_inplace_and_entry_xor"`, `polynomial_order` / `polynomial_terms`, `inverse_lcu_normalization`, `implementation_scope = "CKS section 4 basic LCU; no VTAA"`, `correctness = "pending"`.
 
+## Shared walk SELECT
+
+{obj}`cks_inverse_block <oracq.algorithms.qlss.qlss.cks_inverse_block>` accepts an explicit self-adjoint matrix extension and keeps the same coefficients, normalization, order limit, and polynomial error as the generic LCU. With $W$ the degree-one Chebyshev walk, SELECT applies $W^{2j+1}$ using one unconditional $W$ and binary-controlled powers $W^{2^{k+1}}$. The alternating coefficient sign is the least significant selector bit.
+
+For $m$ power-of-two terms, the circuit invokes the underlying walk $2m-1$ times instead of $m^2$. These are emitted controlled walk invocations, not a change to resource accounting. Non-power-of-two term counts compute and uncompute a valid-selector flag; padded selector branches remain identities. Complete target/signal unitaries, including nonzero signal and padded input columns, negative controls, complex relative phases, and adjoints are compared with the original generic LCU. Every term uses the same matrix and therefore shares its input resources; independent matrices still use the general `lcu` constructor.
+
+This is a circuit and compilation optimization. It does not improve the approximation polynomial or certify the complete solver's precision, success rate, readout cost, or speedup. The numerical tables below are the previous baseline measurements; current-head validation is recorded separately with its exact source revision.
+
 ## Implementation notes
 
-Generation chain: {obj}`real_symmetric_sparse_encoding <oracq.algorithms.input_model.sparse.real_symmetric_sparse_encoding>` (CKS $T^\dagger S T$, $\alpha = s \cdot a_{\max}$) → `chebyshev_block(a, 2j+1)` odd powers → {obj}`lcu <oracq.algorithms.input_model.block_encoding.lcu>` combining the inverse-operator BEs → {obj}`apply_be_to_state <oracq.algorithms.common.state_preparation.apply_be_to_state>` applied to the RHS. The protocol layer's `solve()` uniformly performs: contract checking (`check()` does not run the kernel; it reports under `INPUT_TYPE` / `INPUT_ZERO_RHS` / `INPUT_ADAPTER` / `INPUT_PROMISE` / `INPUT_SPECTRUM`), physical-channel selection via {obj}`select_subspace <oracq.algorithms.common.state_preparation.select_subspace>`, and assembly of the independent norm probe — the success rate of Costa filtering cannot reuse the normalization factor of the CKS inverse-operator LCU, because the two success branches form in different ways; the probe attribute is `probability_contract = "joint solver success and fresh matrix-ancilla success"`. The output requires adjoint and controlled capabilities (for QFVM composition).
+Generation chain: {obj}`real_symmetric_sparse_encoding <oracq.algorithms.input_model.sparse.real_symmetric_sparse_encoding>` (CKS $T^\dagger S T$, $\alpha = s \cdot a_{\max}$) → {obj}`cks_inverse_block <oracq.algorithms.qlss.qlss.cks_inverse_block>` sharing the odd walk powers → {obj}`apply_be_to_state <oracq.algorithms.common.state_preparation.apply_be_to_state>` applied to the RHS. The protocol layer's `solve()` uniformly performs: contract checking (`check()` does not run the kernel; it reports under `INPUT_TYPE` / `INPUT_ZERO_RHS` / `INPUT_ADAPTER` / `INPUT_PROMISE` / `INPUT_SPECTRUM`), physical-channel selection via {obj}`select_subspace <oracq.algorithms.common.state_preparation.select_subspace>`, and assembly of the independent norm probe — the success rate of Costa filtering cannot reuse the normalization factor of the CKS inverse-operator LCU, because the two success branches form in different ways; the probe attribute is `probability_contract = "joint solver success and fresh matrix-ancilla success"`. The output requires adjoint and controlled capabilities (for QFVM composition).
 
 Applicability boundary: only the paper's §4 basic LCU, no VTAA; solution accuracy and the success channel are labeled prototype/pending and constitute no promise of solution accuracy. BE input cannot be automatically converted back to sparse oracles (the reverse adaptation does not exist); this protocol also has no two-parameter legacy call shape and only accepts `LinearSystem`.
 

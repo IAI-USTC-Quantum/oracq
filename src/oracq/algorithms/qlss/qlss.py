@@ -37,6 +37,7 @@ from oracq.algorithms.input_model.oracles import (
     StateOracle,
     StatePreparation,
     annotate,
+    gate_state_prep,
     invoke,
     resources_for,
 )
@@ -1011,6 +1012,80 @@ class CKSConfig:
         )
 
 
+def cks_inverse_block(a: BlockEncoding, config: CKSConfig | None = None) -> BlockEncoding:
+    """Encode the CKS inverse polynomial with a shared binary-controlled walk.
+
+    Args:
+        a: Matrix block encoding with an explicitly self-adjoint unitary extension.
+        config: The unchanged CKS coefficients, order, and truncation configuration.
+
+    Returns:
+        BlockEncoding: The same normalized polynomial as the generic LCU of
+            ``chebyshev_block(a, 2*j+1)``. Its normalization is the sum of the
+            absolute coefficients. All terms share one copy of the matrix resources.
+
+    Raises:
+        ValidationError: The matrix extension or coefficient configuration is invalid.
+
+    For m power-of-two terms, SELECT uses 2*m-1 shared walks instead of m*m.
+    Padded selector branches are explicitly identities, preserving the full
+    target/signal unitary of the generic LCU, including arbitrary selector inputs.
+    This optimization changes neither polynomial error nor success probability.
+    """
+    a = as_block_encoding(a)
+    config = CKSConfig() if config is None else config
+    require_instance(config, CKSConfig, "cks_inverse_block.config")
+    coefficients = config.coefficients()
+    walk = chebyshev_block(a, 1).operation
+    if len(coefficients) == 1:
+        return lcu([(coefficients[0], chebyshev_block(a, 1))])
+    count = len(coefficients)
+    selector_width = (count - 1).bit_length()
+    alpha = sum(abs(c) for c in coefficients)
+    weights = [math.sqrt(abs(c) / alpha) for c in coefficients]
+    weights += [0] * ((1 << selector_width) - count)
+    prep = gate_state_prep(weights)
+    b = Builder(
+        _name("cks_shared_walk", a.operation, config),
+        {"target": Bits(a.width), "signal": Bits(selector_width + a.signal_qubits)},
+        resources_for(("walk", walk)),
+        attributes={"construction": "cks_shared_walk_lcu", "polynomial_order": config.order,
+                    "polynomial_terms": count, "argument_scale": a.alpha},
+    )
+    selector, signal = b["signal"][:selector_width], b["signal"][selector_width:]
+    invoke(b, prep.operation, target=selector, work=selector[:0])
+
+    def select() -> None:
+        # CKS coefficient signs are (-1)^j, the parity of the binary selector.
+        b.z(selector[0])
+        invoke(b, walk, "walk", target=b["target"], signal=signal)
+        for bit in range(selector_width):
+            with b.control(selector[bit]):
+                with b.repeat(2 << bit):
+                    invoke(b, walk, "walk", target=b["target"], signal=signal)
+
+    if count < 1 << selector_width:
+        valid = b.local("valid_selector", Bits(1))
+
+        def toggle_valid() -> None:
+            # j<count has exactly one highest differing bit: count has 1, j has 0.
+            # These disjoint prefix conditions compute the flag with O(log m) MCX.
+            for bit in range(selector_width):
+                if (count >> bit) & 1:
+                    with b.control(selector[bit:], (count >> bit) - 1):
+                        b.x(valid)
+
+        toggle_valid()
+        with b.control(valid):
+            select()
+        toggle_valid()
+    else:
+        select()
+    with b.adjoint():
+        invoke(b, prep.operation, target=selector, work=selector[:0])
+    return BlockEncoding(annotate(b.finish(), "block_encoding", be_alpha=alpha))
+
+
 def cks_chebyshev(system: SparseSystem, config: CKSConfig | None = None) -> StateOracle:
     """CKS basic Chebyshev solve kernel, accepting the sparse Hermitian input model.
 
@@ -1037,9 +1112,7 @@ def cks_chebyshev(system: SparseSystem, config: CKSConfig | None = None) -> Stat
         diagonal_nonnegative=system.diagonal_nonnegative,
     )
     coefficients = config.coefficients()
-    inverse = lcu(
-        [(weight, chebyshev_block(a, 2 * j + 1)) for j, weight in enumerate(coefficients)]
-    )
+    inverse = cks_inverse_block(a, config)
     state = apply_be_to_state(inverse, system.rhs)
     return StateOracle(
         annotate(
