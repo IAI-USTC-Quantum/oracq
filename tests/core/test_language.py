@@ -86,9 +86,18 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(simulate(b.finish().program()).amplitudes, {(1 << 63, 2): 1 + 0j})
 
     def test_register_width_and_kind_validation(self):
-        for dtype in [Bits(65), UInt(-1), Bits(True), Bits(2.5)]:
+        for dtype in [UInt(-1), Bits(True), Bits(2.5)]:
             with self.subTest(dtype=dtype), self.assertRaises(ValidationError):
                 Builder("bad", {"q": dtype}).finish()
+        # Widths above one machine word are legal logical registers, not errors.
+        for width in (65, 129):
+            with self.subTest(width=width):
+                b = Builder("wide", {"q": Bits(width)})
+                b.x(b["q"][width - 1])
+                program = loads(dumps(b.finish().program(), format="json"))
+                self.assertEqual(
+                    simulate(program).amplitudes, {(1 << (width - 1),): 1 + 0j}
+                )
 
     def test_all_storage_kinds_have_raw_bit_semantics(self):
         b = Builder("main", {"a": SInt(3), "b": Rational(3)})

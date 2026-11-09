@@ -49,7 +49,7 @@ A Register consists of name and RegType. A RegType consists of kind and width. w
 | sint | two's-complement integer; bit operations still act on the raw word. |
 | rational | unsigned word divided by 2^width; corresponds to PySparQ Rational. |
 
-The width of a register or view must lie in 0..64. Zero width denotes an empty interface; native adapters create no physical register for it. The total qubit count and the number of registers are not capped at 64.
+The width of a register or view is any nonnegative integer; zero width denotes an empty interface, and native adapters create no physical register for it. The total qubit count and the number of registers are not capped at 64.
 
 Register index zero is the least significant bit. Suppose the entry signature declares registers r0, r1, and so on in order; then the exported state-vector index satisfies:
 
@@ -65,7 +65,7 @@ A Ref consists of parts and type. parts is an ordered list of Spans. A Span has 
 
 Ref.parts are concatenated from low bits to high bits. The sum of the segment widths must equal Ref.type.width. Every segment must lie within its root register's range. Segments within one Ref must not reference duplicate qubits.
 
-Slicing, fuse, and reinterpret form Refs at the Python generation stage and generate no quantum instructions. Slicing produces a bits interpretation; reinterpret explicitly changes the interpretation without changing the bit width or the quantum state. fuse may cross root registers, but the merged view still may not exceed 64 bits.
+Slicing, fuse, and reinterpret form Refs at the Python generation stage and generate no quantum instructions. Slicing produces a bits interpretation; reinterpret explicitly changes the interpretation without changing the bit width or the quantum state. fuse may cross root registers, and the merged view width is unbounded like any register width.
 
 If f is a formal register of some module and the call argument is a Ref spanning root registers, then a local slice of f must map to the sub-view of that Ref with the same low-bit offsets. The mapping must not assume that the actual argument is a contiguous run of physical qubits.
 
@@ -97,7 +97,7 @@ A broadcast gate remains a single register-level operation in the IR; it does no
 
 Load has resource, address, and data. resource references a QRAM formal parameter of the current module. The widths of address and data must match the declaration, and the two views must not overlap.
 
-The QRAM type has address_width and data_width, both in 1..64. Memory is a mapping M from addresses to unsigned data words, with unspecified cells equal to zero. Memory data is not written into the program serialization text but is bound separately as an execution input (the binding file format is defined in [QRAM memory definition](qram-memory.md)). In a program without Store, M is fixed; in a program with Store, M evolves in instruction order.
+The QRAM type has address_width and data_width, both positive integers. Memory is a mapping M from addresses to unsigned data words, with unspecified cells equal to zero. Memory data is not written into the program serialization text but is bound separately as an execution input (the binding file format is defined in [QRAM memory definition](qram-memory.md)). In a program without Store, M is fixed; in a program with Store, M evolves in instruction order.
 
 ```text
 |address>|data>  ↦  |address>|data XOR M[address]>
@@ -242,7 +242,7 @@ adjoint     = Adjoint { body: instruction* } .
 
 Whether angle and value appear is decided by op (see section 3.1); unused ones serialize as null. An open module's body is ∅ and it must not declare locals (see section 4.5). Modules of versions "0.1" and "0.2" carry no locals field.
 
-Main numeric ranges: RegType.width lies in 0..64; the two QRAM widths lie in 1..64; Repeat.count lies in 0..2^63−1; Control.value lies within the unsigned range of the control view; the value of add_const lies in 0..2^width−1; module call depth and structural-block nesting depth do not exceed 127.
+Main numeric ranges: RegType.width is a nonnegative integer; the two QRAM widths are positive integers; Repeat.count lies in 0..2^63−1; Control.value lies within the unsigned range of the control view; the value of add_const lies in 0..2^width−1; module call depth and structural-block nesting depth do not exceed 127.
 
 The text encoding maps each record to an object carrying "tag", with field names identical to the record fields; tuples map to arrays, and scalars and null pass through unchanged:
 

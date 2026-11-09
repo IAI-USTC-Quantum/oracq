@@ -26,9 +26,10 @@ registers into a single logical view; `reinterpret` only changes the numeric
 interpretation of the bit pattern (full semantics in the
 [RIR specification](../reference/rir.md#23-register-references-and-views)).
 
-A register or fused view is at most 64 bits wide — a limit kept consistent
-with the PySparQ storage model. A program may contain multiple registers; the
-total number of qubits is not restricted to 64.
+A register or fused view may have any nonnegative width. Native machine words
+stay 64 bits; wider logical registers are lowered to little-endian word
+sequences on backends that support them. A program may contain multiple
+registers; the total number of qubits is not restricted to 64.
 
 Slicing, fusing, and reinterpretation generate no gates. When calling a
 module, arguments must have the same width and storage type as the parameters

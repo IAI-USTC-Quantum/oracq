@@ -81,7 +81,7 @@ def name(value: object) -> None:
 
 
 def reg_type(dtype: RegType) -> None:
-    """Assert that ``dtype`` is a register type with a known kind and width 0..64.
+    """Assert that ``dtype`` has a known kind and a nonnegative logical qubit width.
 
     Args:
         dtype: storage type object to check.
@@ -90,7 +90,8 @@ def reg_type(dtype: RegType) -> None:
         ValidationError: ``dtype`` is not a ``RegType``, its kind is unknown, or its width is out of range.
     """
     require(isinstance(dtype, RegType) and dtype.kind in KINDS, "unknown register type")
-    integer(dtype.width, 0, 64, "width of every register or view must be 0..64")
+    require(type(dtype.width) is int and dtype.width >= 0,
+            "width of every register or view must be a nonnegative integer")
 
 
 def locations(ref: Ref) -> tuple[tuple[str, int], ...]:
@@ -169,8 +170,10 @@ def _validate(program: Program) -> Program:
         require(sum(reg.type.width for reg in module.registers) > 0, "module must have a nonempty quantum interface")
         for resource in module.resources:
             name(resource.name)
-            integer(resource.type.address_width, 1, 64, "QRAM address width must be 1..64")
-            integer(resource.type.data_width, 1, 64, "QRAM data width must be 1..64")
+            require(type(resource.type.address_width) is int and resource.type.address_width >= 1,
+                    "QRAM address width must be a positive integer")
+            require(type(resource.type.data_width) is int and resource.type.data_width >= 1,
+                    "QRAM data width must be a positive integer")
         if "binding_captures" in attributes:
             capture_map(module)
 
@@ -241,7 +244,11 @@ def _validate(program: Program) -> Program:
                 elif isinstance(node, Load):
                     require(node.resource in resources, "QRAM resource is not declared")
                     spec = resources[node.resource]
-                    distinct((node.address, node.data), protected)
+                    # A query only reads its address and XORs into the data word,
+                    # so the address view may share qubits with protected controls.
+                    address, data = check_ref(node.address), check_ref(node.data)
+                    require(not address & data, "operands alias or overlap")
+                    require(not data & protected, "operands modify a protected control register")
                     require(node.address.width == spec.address_width, "QRAM address width mismatch")
                     require(node.data.width == spec.data_width, "QRAM data width mismatch")
                 elif isinstance(node, Store):

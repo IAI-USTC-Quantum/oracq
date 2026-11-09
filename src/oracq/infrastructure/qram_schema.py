@@ -103,8 +103,8 @@ class QramSegment:
 
     Attributes:
         name: storage name, indexed by entry resource name at execution time.
-        address_length: address bit width, 1..64, corresponding to the RIR QRAM address_width.
-        word_length: data word bit width, 1..64, corresponding to the RIR QRAM data_width.
+        address_length: address bit width, a positive integer, corresponding to the RIR QRAM address_width.
+        word_length: data word bit width, a positive integer, corresponding to the RIR QRAM data_width.
         type: data type, see QRAM_DATA_TYPES; data is interpreted under this type.
         data: source values, interpreted per type.
         addresses: explicit sparse addresses, or None for a dense zero-padded array.
@@ -119,8 +119,8 @@ class QramSegment:
 
 
 def _require_width(value: object, what: str) -> int:
-    if type(value) is not int or not 1 <= value <= 64:
-        raise ValidationError(f"{what} must be an integer in 1..64")
+    if type(value) is not int or value < 1:
+        raise ValidationError(f"{what} must be a positive integer")
     return value
 
 

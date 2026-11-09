@@ -1,4 +1,4 @@
-"Optional PySparQ execution adapter. RIR root registers correspond to native integer registers."
+"Optional PySparQ execution adapter. RIR root registers map to native integer registers; registers wider than one 64-bit machine word are split into little-endian word sequences."
 
 from __future__ import annotations
 
@@ -20,6 +20,17 @@ from oracq.infrastructure.native import NativeContext, NativeRegistry, NativeSit
 from oracq.infrastructure.validation import locations, validate
 
 _LOCK = Lock()
+
+
+def _shares_zero_control(address: Ref, conditions: tuple[tuple[Ref, int], ...]) -> bool:
+    """Report whether any zero-expectation control bit also belongs to the query address view."""
+    seen = set(locations(address))
+    return any(
+        not ((expected >> bit_index) & 1)
+        for ref, expected in conditions
+        for bit_index, location in enumerate(locations(ref))
+        if location in seen
+    )
 
 
 def run_pysparq(
@@ -55,8 +66,9 @@ def run_pysparq(
 
     Raises:
         ValidationError: The program is illegal, contains a runtime Store, a native implementation is missing or mismatches the module description,
-        the QRAM materialization exceeds 2^20 entries, the expansion or sparse-state budget is exceeded, a local workspace is not restored to zero,
-        the PySparQ global register table is non-empty, or pysparq is not installed.
+        a wide register or QRAM needs a PySparQ interface that is not installed, the expansion or sparse-state budget is exceeded, a local workspace is not restored to zero,
+        the PySparQ global register table is non-empty, or pysparq is not installed. Dense QRAM materialization stays bounded by 2^20 entries;
+        wider banks execute through the logical-word sparse interface when the installed pysparq provides it.
     """
     from oracq.infrastructure.linking import uses_store
 
@@ -69,8 +81,6 @@ def run_pysparq(
     report = {} if report is None else report
     report.update(native_calls=0, gate_events=0, native_labels=[], correctness="pending")
     memories = check_memory(program, memory)
-    if any(r.type.address_width > 20 for r in program.main.resources):
-        raise ValidationError("the current adapter refuses to materialize QRAMs with more than 2^20 entries")
     # Finish the expansion budget check before taking over the global register table.
     from oracq.infrastructure.execution import expanded_steps
 
@@ -86,18 +96,47 @@ def run_pysparq(
             raise ValidationError("the PySparQ global register table is not empty; finish the existing simulation first")
         try:
             state = ps.SparseState()
+            needs_words = any(r.type.width > 64 for module in program.modules
+                              for r in module.registers + module.locals)
+            layout = None
+            if needs_words:
+                try:
+                    from pysparq.register_layout import RegisterLayout
+                except ImportError as error:
+                    raise ValidationError("wide logical registers require the PySparQ multiword register interface") from error
+                layout = RegisterLayout(state)
             names = {reg.name: f"pyqec_{i}" for i, reg in enumerate(program.main.registers)}
+            words: dict[str, tuple[tuple[str, int], ...]] = {}
             kinds = {
                 "bits": ps.StateStorageType.General,
                 "uint": ps.StateStorageType.UnsignedInteger,
                 "sint": ps.StateStorageType.SignedInteger,
                 "rational": ps.StateStorageType.Rational,
             }
+            def allocate(name: str, kind: str, width: int) -> None:
+                if layout is None:
+                    ps.AddRegister(names[name], kinds[kind], width)(state)
+                    words[name] = ((names[name], width),)
+                else:
+                    layout.add(names[name], kinds[kind], width)
+                    words[name] = layout.words[names[name]]
+
+            def read_value(name: str, basis) -> int:
+                return sum((int(basis.get(ps.System.get_id(native)).value) & ((1 << width)-1)) << (64*index)
+                           for index, (native, width) in enumerate(words[name]))
+
             for reg in program.main.registers:
                 if reg.type.width:
-                    ps.AddRegister(names[reg.name], kinds[reg.type.kind], reg.type.width)(state)
+                    allocate(reg.name, reg.type.kind, reg.type.width)
             qrams: dict[str, object] = {}
             for res in program.main.resources:
+                if res.type.address_width > 20 or res.type.address_width + res.type.data_width > 64:
+                    try:
+                        from pysparq._qram_words import SparseWordMemory
+                    except ImportError as error:
+                        raise ValidationError("wide or sparse QRAM execution requires the PySparQ logical-word QRAM interface") from error
+                    qrams[res.name] = SparseWordMemory(res.type.address_width, res.type.data_width, memories[res.name])
+                    continue
                 data = [0] * (1 << res.type.address_width)
                 for address, value in memories[res.name].items():
                     data[address] = value
@@ -116,7 +155,7 @@ def run_pysparq(
 
             def actual(ref: Ref) -> list[tuple[str, int]]:
                 """Resolve a view into the list of PySparQ ``(register name, bit)`` coordinates."""
-                return [(names[name], bit) for name, bit in locations(ref)]
+                return [(words[name][bit // 64][0], bit % 64) for name, bit in locations(ref)]
 
             # Store was already rejected above, so only the other five node kinds actually appear in the event stream.
             for node, conditions, inverse in cast(
@@ -125,19 +164,45 @@ def run_pysparq(
             ):
                 if isinstance(node, LocalEnter):
                     names[node.name] = "pyqec_" + node.name
-                    ps.AddRegister(names[node.name], kinds[node.type.kind], node.type.width)(state)
+                    allocate(node.name, node.type.kind, node.type.width)
                     continue
                 if isinstance(node, LocalExit):
                     native_name = names[node.name]
-                    rid = ps.System.get_id(native_name)
                     if any(
-                        int(basis.get(rid).value) & ((1 << node.width) - 1)
+                        read_value(node.name, basis)
                         for basis in state.basis_states
                     ):
                         raise ValidationError(f"the PySparQ local workspace was not restored to zero: {node.name}")
-                    ps.RemoveRegister(native_name)(state)
+                    if layout is None:
+                        ps.RemoveRegister(native_name)(state)
+                    else:
+                        layout.remove(native_name)
+                    del words[node.name]
                     del names[node.name]
                     continue
+                if isinstance(node, Load):
+                    bank = qrams[node.resource]
+                    if not hasattr(bank, "apply_xor") and _shares_zero_control(
+                        node.address, conditions
+                    ):
+                        # The dense path emulates zero controls by toggling address
+                        # bits, which would make the query read the wrong cells.
+                        try:
+                            from pysparq._qram_words import SparseWordMemory
+                        except ImportError as error:
+                            raise ValidationError(
+                                "a query sharing a zero control with its address needs the"
+                                " PySparQ logical-word QRAM interface"
+                            ) from error
+                        bank = SparseWordMemory(
+                            node.address.width, node.data.width, memories[node.resource]
+                        )
+                    if hasattr(bank, "apply_xor"):
+                        bank.apply_xor(  # type: ignore[attr-defined]
+                            state, actual(node.address), actual(node.data), ps,
+                            conditions=tuple((actual(ref), expected) for ref, expected in conditions))
+                        cast("dict[str, int]", report)["gate_events"] += 1
+                        continue
                 controls, zeros = [], []
                 for ref, expected in conditions:
                     for bit_index, pair in enumerate(actual(ref)):
@@ -149,7 +214,7 @@ def run_pysparq(
                 if isinstance(node, NativeSite):
                     # NativeSite events are only produced when a native registry is provided, i.e. native_modules is non-empty.
                     entry = cast(NativeRegistry, native_registry).entries[node.module.name]
-                    context = NativeContext(ps, node, names, qrams, memories)
+                    context = NativeContext(ps, node, names, qrams, memories, words)
                     untouched = (
                         ps.split_systems(
                             state,
@@ -198,7 +263,7 @@ def run_pysparq(
                     else:
                         root = next(r for r in program.main.registers if r.type.width)
                         phase = cmath.exp(1j * theta)
-                        apply(ps.Rot_Bool(names[root.name], 0, [phase, 0j, 0j, phase]))
+                        apply(ps.Rot_Bool(words[root.name][0][0], 0, [phase, 0j, 0j, phase]))
                 elif node.op in {"xor", "swap"}:
                     for a, b in zip(
                         actual(node.operands[0]), actual(node.operands[1]), strict=True
@@ -231,8 +296,7 @@ def run_pysparq(
             for basis in state.basis_states:
                 key = tuple(
                     (
-                        int(basis.get(ps.System.get_id(names[r.name])).value)
-                        & ((1 << r.type.width) - 1)
+                        read_value(r.name, basis)
                     )
                     if r.type.width
                     else 0

@@ -19,8 +19,8 @@ qram_segments:
 |------|------|------|------|
 | `qram_segments` | list | 必填，顶层唯一键 | 一组 QRAM 定义 |
 | `name` | string | 非空，文件内唯一 | 存储名字，执行时与入口资源名精确匹配 |
-| `address_length` | integer | 1..64 | 地址位宽，对应 RIR QRAM 的 `address_width` |
-| `word_length` | integer | 1..64 | 数据字位宽，对应 RIR QRAM 的 `data_width` |
+| `address_length` | integer | >= 1 | 地址位宽，对应 RIR QRAM 的 `address_width` |
+| `word_length` | integer | >= 1 | 数据字位宽，对应 RIR QRAM 的 `data_width` |
 | `type` | string | `uint` / `sint` / `fixedpoint` | data 的源数据类型，加载时按其编码为无符号字 |
 | `encoding` | string | 可选，仅支持 `sparse` | 缺省为原稠密数组 |
 | `data` | 数组 | 见下表 | 稠密值，或 `encoding: sparse` 的 `[地址, 值]` 对 |
@@ -65,7 +65,7 @@ oracq run closed.rir.yaml --memory memory.qram.yaml
 
 结构约束见 [qram-memory.schema.json](schemas/qram-memory.schema.json)，含按 `type` 分支的 `data` 元素类型约束。跨字段约束（数组长度对 `address_length`、字值范围对 `word_length` 与 `type`、段名唯一）无法用 JSON Schema 表达，由 Python 加载器强制。
 
-## 稀疏快照（内存格式0.3）
+## 稀疏快照（内存格式0.4）
 
 大地址空间使用`dump_qram_yaml(program, memory, sparse=True)`显式开启。写出紧凑JSON
 （也是合法YAML），以地址/值对避免对象键的歧义。缺省仍写出原稠密格式。
@@ -86,5 +86,7 @@ qram_segments:
 的源数值。读写工作量随存储记录数增长，不随`2**address_length`增长。新稀疏文件
 需要支持该格式的读取器；旧版本读取器仍只支持稠密文件。
 
-稀疏交换不改变后端执行上限。当前PySparQ适配器仍只物化最多20位地址的内存，并保留
-原限制；大稀疏快照可用于序列化、校验及资源研究，不能据此声称已在该后端执行。
+格式0.4解除`address_length`与`word_length`原有的64位上限；0.3下合法的文档在0.4下
+仍然合法，旧校验器会继续拒绝宽段。稀疏交换仍不等于执行：PySparQ适配器仅稠密物化
+最多20位地址的内存，更宽的内存在所装pysparq提供逻辑字稀疏查询接口时经其执行，
+否则给出明确的能力错误。

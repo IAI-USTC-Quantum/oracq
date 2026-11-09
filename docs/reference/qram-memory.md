@@ -19,8 +19,8 @@ qram_segments:
 |------|------|------|------|
 | `qram_segments` | list | required, sole top-level key | a set of QRAM definitions |
 | `name` | string | non-empty, unique within the file | storage name; matched exactly against entry resource names at execution |
-| `address_length` | integer | 1..64 | address bit width; corresponds to `address_width` of the RIR QRAM |
-| `word_length` | integer | 1..64 | data word bit width; corresponds to `data_width` of the RIR QRAM |
+| `address_length` | integer | >= 1 | address bit width; corresponds to `address_width` of the RIR QRAM |
+| `word_length` | integer | >= 1 | data word bit width; corresponds to `data_width` of the RIR QRAM |
 | `type` | string | `uint` / `sint` / `fixedpoint` | source data type of `data`; encoded as an unsigned word on load |
 | `encoding` | string | optional; only `sparse` is supported | absent means the legacy dense array |
 | `data` | array | see the table below | dense values, or `[address, value]` pairs when `encoding: sparse` |
@@ -65,7 +65,7 @@ oracq run closed.rir.yaml --memory memory.qram.yaml
 
 The structural constraints are in [qram-memory.schema.json](schemas/qram-memory.schema.json), including the `data` element type constraints branched on `type`. Cross-field constraints (array length versus `address_length`, word value range versus `word_length` and `type`, segment-name uniqueness) cannot be expressed in JSON Schema and are enforced by the Python loader.
 
-## Sparse snapshots (memory schema 0.3)
+## Sparse snapshots (memory schema 0.4)
 
 For a large address space, opt in with `dump_qram_yaml(program, memory, sparse=True)`.
 The writer emits compact JSON, which is valid YAML, using explicit pairs rather than
@@ -89,7 +89,9 @@ addresses for a sparse segment; `data` retains the corresponding source values.
 Read/write work scales with stored records, not `2**address_length`. Sparse files
 require this reader version; older readers retain support for dense files only.
 
-Sparse interchange does not raise backend execution limits. The PySparQ adapter
-currently materializes banks only up to 20 address bits and retains that guard;
-large sparse snapshots can still be serialized, validated, and used in resource
-studies without claiming they were executed by that backend.
+Schema 0.4 lifts the former 64-bit maximum on `address_length` and `word_length`;
+every document valid under 0.3 stays valid, and older validators keep rejecting
+wide segments. Sparse interchange still does not imply execution: the PySparQ
+adapter materializes dense banks only up to 20 address bits, and wider banks run
+through the logical-word sparse query interface when the installed pysparq
+provides it, with an explicit capability error otherwise.

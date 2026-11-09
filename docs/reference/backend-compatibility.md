@@ -41,7 +41,7 @@ Parse errors encountered in the recorded validations get wrapped by Simulator's 
 
 ## PySparQ's register model
 
-PySparQ uses named registers and a global registry; each basis state stores the integer value of each register. The C++ constructor of AddRegister rejects registers wider than 64 bits. This limit does not constrain the total number of system qubits, nor may it be read as at most 64 registers. The oracq-side adapter is documented in the API reference under [PySparQ backend](../api/infrastructure/backends/pysparq.rst).
+PySparQ uses named registers and a global registry; each basis state stores the integer value of each register. The C++ constructor of AddRegister rejects a single register wider than 64 bits. This is a machine-word limit: the oracq adapter splits a wider logical register into little-endian 64-bit native words (pysparq RegisterLayout) and reassembles logical values as Python integers, so no RIR width is truncated. The limit does not constrain the total number of system qubits, nor may it be read as at most 64 registers. The oracq-side adapter is documented in the API reference under [PySparQ backend](../api/infrastructure/backends/pysparq.rst).
 
 RIR's Bits, UInt, SInt, and Rational map to the General, UnsignedInteger, SignedInteger, and Rational storage interpretations respectively. Rational means an unsigned word divided by 2^width and is not the arbitrary-precision QFixed type. Current bit operations work on raw bit patterns, and add_const applies only to UInt with modulo-2^width addition semantics.
 
@@ -53,9 +53,9 @@ A single same-kind condition call in the native control API may overwrite the pr
 
 The System registry is process-global. The adapter requires the registry to be empty before takeover and refuses to clear registers of an existing simulation. The adapter uses its own mutex and cleans up the state it created in a finally block; this does not mean the registry may be modified concurrently with other PySparQ code that does not use this lock.
 
-For an arbitrary QRAM view, the adapter XOR-copies the address in low-bit order into a temporary integer register, performs the native QRAMLoad, XORs the result into the original target under the control condition, and then performs the inverse query and the inverse copy. The temporary space is removed only after being uncomputed. It supports non-zero targets and cross-register views and does not rely on copying unknown quantum states.
+For an arbitrary QRAM view, the adapter XOR-copies the address in low-bit order into a temporary integer register, performs the native QRAMLoad, XORs the result into the original target under the control condition, and then performs the inverse query and the inverse copy. The temporary space is removed only after being uncomputed. It supports non-zero targets and cross-register views and does not rely on copying unknown quantum states. A query whose address shares a zero control cannot use the bit-flip emulation, because flipping would redirect the address; such queries run through the logical-word sparse interface, which merges control expectations without toggling address bits.
 
-This version of the adapter limits materialized QRAM data to at most 2^20 entries. RIR itself stores only declarations and can represent external memory with a sparse dictionary; this execution limit does not change the IR in return.
+Dense QRAM materialization stays bounded by 2^20 entries. Banks wider than that, or whose address and data widths exceed one 64-bit word, execute through the logical-word sparse query interface when the installed pysparq provides it, and raise an explicit capability error otherwise. RIR itself stores only declarations and can represent external memory with a sparse dictionary; the dense materialization bound does not change the IR in return.
 
 Reviewed locations include:
 - QRAM-Simulator/PySparQ/pysparq/_core.pyi.

@@ -65,6 +65,26 @@ class QramYamlTests(unittest.TestCase):
             simulate(program, inline, initial={"a": 3, "d": 5}),
         )
 
+    def test_wide_word_memory_roundtrips_beyond_one_machine_word(self):
+        word = (1 << 128) + 5
+        document = (
+            "qram_segments:\n"
+            "  - {name: bank, address_length: 65, word_length: 129, type: uint,\n"
+            f"     encoding: sparse, data: [[0, {word}], [{1 << 64}, 1]]}}\n"
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "wide.qram.yaml"
+            path.write_text(document, encoding="utf-8")
+            self.assertEqual(
+                load_qram_yaml(path), {"bank": {0: word, 1 << 64: 1}}
+            )
+        b = Builder("wide", {"a": UInt(65), "d": UInt(129)}, {"bank": QRAM(65, 129)})
+        b.qram("bank", b["a"], b["d"])
+        self.assertEqual(
+            simulate(b.finish().program(), {"bank": {0: word}}, initial={"a": 0}).amplitudes,
+            {(0, word): 1 + 0j},
+        )
+
     def _load_document(self, document: str) -> dict[str, list[int]]:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "memory.qram.yaml"
@@ -126,8 +146,8 @@ class QramYamlTests(unittest.TestCase):
                 "qram_segments: [{name: a, address_length: 0, word_length: 1, "
                 "type: uint, data: [0]}]"
             ),
-            "word_length is 65": (
-                "qram_segments: [{name: a, address_length: 1, word_length: 65, "
+            "word_length is zero": (
+                "qram_segments: [{name: a, address_length: 1, word_length: 0, "
                 "type: uint, data: [0]}]"
             ),
             "address_length is boolean": (

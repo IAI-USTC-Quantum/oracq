@@ -80,6 +80,63 @@ class _Exporter:
         from oracq.infrastructure.layout import workspace_table
 
         self.workspace: dict[str, int] = workspace_table(program)
+        self._address_wires: dict[str, frozenset[str]] = {}
+
+    def _body_address_wires(
+        self,
+        nodes: tuple[Instruction, ...],
+        module: Module,
+        mapping: Mapping[str, tuple[str, ...]],
+        resources: Mapping[str, str],
+    ) -> frozenset[str]:
+        """Collect the module wires a node subtree reads as QRAM query addresses, following call bindings."""
+        collected: set[str] = set()
+
+        def call_wires(node: Call) -> None:
+            target = self.modules[node.module]
+            inner = self._module_address_wires(target)
+            if not inner:
+                return
+            formal_wires = self._args(target, self._mapping(target)) + self._workspace_args(target)
+            offset = sum(r.type.width for r in module.locals)
+            actual_wires = [bit for ref in node.arguments for bit in self._bits(ref, mapping)]
+            actual_wires += [
+                f"pw_work[{i}]" for i in range(offset, offset + self.workspace[target.name])
+            ]
+            table = dict(zip(formal_wires, actual_wires, strict=True))
+            collected.update(table[wire] for wire in inner if wire in table)
+
+        for node in nodes:
+            if isinstance(node, Load):
+                collected.update(self._bits(node.address, mapping))
+            elif isinstance(node, Call):
+                call_wires(node)
+            elif isinstance(node, Repeat):
+                if node.body:
+                    collected.update(self._body_address_wires(node.body, module, mapping, resources))
+            elif isinstance(node, (Control, Adjoint)):
+                collected.update(self._body_address_wires(node.body, module, mapping, resources))
+        return frozenset(collected)
+
+    def _module_address_wires(self, module: Module) -> frozenset[str]:
+        """Collect the formal wires a module subtree reads as QRAM query addresses."""
+        if module.name not in self._address_wires:
+            body = cast("tuple[Instruction, ...]", module.body)
+            self._address_wires[module.name] = self._body_address_wires(
+                body, module, self._mapping(module), {r.name: r.name for r in module.resources}
+            )
+        return self._address_wires[module.name]
+
+    def _reject_shared_zero_controls(
+        self, controls: tuple[tuple[str, int], ...], address_bits: frozenset[str]
+    ) -> None:
+        """Refuse zero controls on query address wires: toggling them would redirect the query."""
+        shared = {bit for bit, value in controls if not value} & address_bits
+        if shared:
+            raise ValidationError(
+                "OriginIR export cannot express a query whose address shares a zero control"
+                f" (toggling would redirect it): {', '.join(sorted(shared))}"
+            )
 
     def _symbol(self, key: _DefinitionKey) -> str:
         """Generate a deterministic ``DEF`` symbol name from the cache key."""
@@ -257,6 +314,10 @@ class _Exporter:
             elif isinstance(node, Repeat):
                 if node.count and node.body:
                     symbol = self.repeat(node.body, node.count, module, resources, len(controls))
+                    self._reject_shared_zero_controls(
+                        controls,
+                        self._body_address_wires(node.body, module, mapping, resources),
+                    )
                     lines.extend(
                         self._call(
                             symbol,
@@ -276,9 +337,16 @@ class _Exporter:
                 args += [
                     f"pw_work[{i}]" for i in range(offset, offset + self.workspace[target.name])
                 ]
+                self._reject_shared_zero_controls(
+                    controls,
+                    self._body_address_wires((node,), module, mapping, resources),
+                )
                 lines.extend(self._call(symbol, args, controls))
             elif isinstance(node, Load):
                 args = self._bits(node.address, mapping) + self._bits(node.data, mapping)
+                self._reject_shared_zero_controls(
+                    controls, frozenset(self._bits(node.address, mapping))
+                )
                 lines.extend(
                     self._wrap([f"{resources[node.resource]} {', '.join(args)}"], controls)
                 )

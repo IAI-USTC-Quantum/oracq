@@ -41,7 +41,7 @@ Simulator.simulate_preprocess 创建 QRAM 对象。适配器填入 qram_objects 
 
 ## PySparQ 的寄存器模型
 
-PySparQ 使用命名寄存器与全局注册表，每个基态保存寄存器的整数值。AddRegister 的 C++ 构造器拒绝超过 64 位的寄存器。这个限制不约束全系统总位数，也不能被解释为最多 64 个寄存器。oracq 侧的适配器见 API 参考[PySparQ 后端](../api/infrastructure/backends/pysparq.rst)。
+PySparQ 使用命名寄存器与全局注册表，每个基态保存寄存器的整数值。AddRegister 的 C++ 构造器拒绝单个超过 64 位的寄存器。这是机器字限制：oracq 适配器把更宽的逻辑寄存器拆分为低位在前的多个 64 位原生字（pysparq RegisterLayout），并以 Python 整数重组逻辑值，因此 RIR 宽度不被截断。该限制不约束全系统总位数，也不能被解释为最多 64 个寄存器。oracq 侧的适配器见 API 参考[PySparQ 后端](../api/infrastructure/backends/pysparq.rst)。
 
 RIR 的 Bits、UInt、SInt、Rational 分别对应 General、UnsignedInteger、SignedInteger、Rational 存储解释。Rational 表示无符号字除以 2^width，并不等于任意精度的 QFixed 类型。当前位操作处理原始位模式，add_const 只作用于 UInt，语义为模 2^width 加法。
 
@@ -53,9 +53,9 @@ PySparQ 的 SplitRegister 会把父寄存器的低位取出，并改变父寄存
 
 System 注册表是进程全局的。适配器要求接管前注册表为空，拒绝清除已有模拟的寄存器。适配器使用自身互斥锁，并在 finally 中清理自己创建的状态；这不意味着可以与其他不使用此锁的 PySparQ 代码并发修改注册表。
 
-对任意 QRAM 视图，适配器将地址按低位顺序 XOR 复制到临时整数寄存器，执行原生 QRAMLoad，把结果按控制条件 XOR 到原目标，再执行逆查询和逆复制。临时空间复净后才移除。它支持非零目标和跨寄存器视图，不依赖未知量子态的复制。
+对任意 QRAM 视图，适配器将地址按低位顺序 XOR 复制到临时整数寄存器，执行原生 QRAMLoad，把结果按控制条件 XOR 到原目标，再执行逆查询和逆复制。临时空间复净后才移除。它支持非零目标和跨寄存器视图，不依赖未知量子态的复制。地址与零控制共享的查询不能使用位翻转模拟，因为翻转会改变查询地址；这类查询经逻辑字稀疏接口执行，其在不翻转地址位的前提下合并控制期望值。
 
-本版适配器物化 QRAM 数据时限制最多 2^20 项。RIR 本身只保存声明，并可以使用稀疏字典表示外部内存；这个执行限制不反向改变 IR。
+稠密 QRAM 物化仍以 2^20 项为上限。超过该规模，或地址与数据宽度超过单个 64 位字的内存，在所装 pysparq 提供逻辑字稀疏查询接口时经其执行，否则给出明确的能力错误。RIR 本身只保存声明，并可以使用稀疏字典表示外部内存；稠密物化上限不反向改变 IR。
 
 审阅位置包括：
 - QRAM-Simulator/PySparQ/pysparq/_core.pyi。
