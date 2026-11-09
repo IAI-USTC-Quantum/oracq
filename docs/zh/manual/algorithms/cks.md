@@ -9,7 +9,7 @@
 稀疏 Hermitian 线性系统 $Ax = b$ 的基础 Chebyshev/LCU 求解路线（Childs–Kothari–Somma, arXiv:1511.02306 §4 的基础构造）。第 5 节的 VTAA 变时层见 [VTAA-CKS 求解器](vtaa-cks.md)。把 $1/x$ 的截断 Chebyshev 展开作用到编码矩阵 $A/\alpha$ 的谱上：
 
 $$
-A^{-1} \approx \sum_{j=0}^{d-1} c_j\, T_{2j+1}(A/\alpha), \qquad
+(A/\alpha)^{-1} \approx \sum_{j=0}^{d-1} c_j\, T_{2j+1}(A/\alpha), \qquad
 c_j = 4\,(-1)^j\, 2^{-2d} \sum_{i=j+1}^{d} \binom{2d}{d+i},
 $$
 
@@ -20,6 +20,7 @@ $$
 ```python
 make_cks_qlss(config=None)          # 返回 QLSSProtocol（input_model="sparse"）
 cks_chebyshev(system, config=None)  # 底层内核，接收 SparseSystem
+cks_inverse_block(a, config=None)   # 自伴BE → 归一化逆多项式
 CKSConfig(order=2, terms=None)      # order 1..128；terms 为截断项数，≤ order
 ```
 
@@ -42,9 +43,17 @@ API 入口：{obj}`make_cks_qlss <oracq.algorithms.qlss.qlss.make_cks_qlss>`、{
 
 内核输出属性：`algorithm = "cks_chebyshev_basic"`、`input_model = "sparse_location_inplace_and_entry_xor"`、`polynomial_order` / `polynomial_terms`、`inverse_lcu_normalization`、`implementation_scope = "CKS section 4 basic LCU; no VTAA"`、`correctness = "pending"`。
 
+## 共享游走SELECT
+
+{obj}`cks_inverse_block <oracq.algorithms.qlss.qlss.cks_inverse_block>`接收明确声明自伴酉扩展的矩阵BE，保留原有系数、归一化、阶数上限与多项式误差。令W为一次Chebyshev游走，SELECT用一次无条件W及二进制位控制的W^(2^(k+1))实现W^(2j+1)，交替系数符号对应selector最低位。
+
+m为二次幂时，实际游走调用从m²变为2m−1；这是改变发射线路，并非改写台账。非二次幂项数计算并反算有效selector标志，补零selector支路仍为恒等。回归对拍完整target/signal酉作用，包含非零signal、补零输入、负控制、复相对相位与伴随。同一矩阵的各项共用其输入资源；不同矩阵仍使用通用lcu。
+
+该改动只优化线路与编译，不改变近似多项式，不认证完整求解器精度、成功率、读出开销或加速比。下方数值表保留为旧基线实测，新head验证另附精确源码版本。
+
 ## 实现要点
 
-生成链：{obj}`real_symmetric_sparse_encoding <oracq.algorithms.input_model.sparse.real_symmetric_sparse_encoding>`（CKS $T^\dagger S T$，$\alpha = s \cdot a_{\max}$）→ `chebyshev_block(a, 2j+1)` 奇次幂 → {obj}`lcu <oracq.algorithms.input_model.block_encoding.lcu>` 组合逆算子 BE → {obj}`apply_be_to_state <oracq.algorithms.common.state_preparation.apply_be_to_state>` 作用到 RHS。协议层 `solve()` 统一做：契约检查（`check()` 不运行内核，按 `INPUT_TYPE` / `INPUT_ZERO_RHS` / `INPUT_ADAPTER` / `INPUT_PROMISE` / `INPUT_SPECTRUM` 出报告）、{obj}`select_subspace <oracq.algorithms.common.state_preparation.select_subspace>` 选取物理通道、组装独立范数探针——Costa filtering 的成功率不能套用 CKS 逆算子 LCU 的归一化因子，两者成功分支形成方式不同；探针属性 `probability_contract = "joint solver success and fresh matrix-ancilla success"`。输出要求 adjoint 与 controlled 能力（供 QFVM 组合）。
+生成链：{obj}`real_symmetric_sparse_encoding <oracq.algorithms.input_model.sparse.real_symmetric_sparse_encoding>`（CKS $T^\dagger S T$，$\alpha = s \cdot a_{\max}$）→ {obj}`cks_inverse_block <oracq.algorithms.qlss.qlss.cks_inverse_block>` 共享奇次游走幂 → {obj}`apply_be_to_state <oracq.algorithms.common.state_preparation.apply_be_to_state>` 作用到 RHS。协议层 `solve()` 统一做：契约检查（`check()` 不运行内核，按 `INPUT_TYPE` / `INPUT_ZERO_RHS` / `INPUT_ADAPTER` / `INPUT_PROMISE` / `INPUT_SPECTRUM` 出报告）、{obj}`select_subspace <oracq.algorithms.common.state_preparation.select_subspace>` 选取物理通道、组装独立范数探针——Costa filtering 的成功率不能套用 CKS 逆算子 LCU 的归一化因子，两者成功分支形成方式不同；探针属性 `probability_contract = "joint solver success and fresh matrix-ancilla success"`。输出要求 adjoint 与 controlled 能力（供 QFVM 组合）。
 
 适用边界：仅论文 §4 基础 LCU，无 VTAA；解精度与成功通道标注 prototype/pending，不构成求解精度承诺。BE 输入不能自动恢复稀疏 oracle（反向适配不存在）；本 protocol 也没有两参数 legacy 调用形状，只接收 `LinearSystem`。
 
