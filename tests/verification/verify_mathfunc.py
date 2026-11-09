@@ -689,7 +689,10 @@ def build_tasks():
     idx_fix62 = {k: v for k, v in roe_face_fix62.items() if k not in ("row", "col")}
     idx_fix83 = {k: v for k, v in roe_face_fix83.items() if k not in ("row", "col")}
     add("roe-face-index-6.2", "frozen_roe_face", "6.2", {"row": [0, 1], "col": [0, 1]}, idx_fix62)
-    add("roe-face-index-8.3", "frozen_roe_face", "8.3", {"row": [0, 1], "col": [0, 1]}, idx_fix83)
+    # The frozen Roe face at 8.3 expands to about 1.04e6 rir events (the 6.2 fibers stay at 0.63e6),
+    # just above the default 1e6 runaway guard; the budget is relaxed to 2e6 on the same grounds
+    # as the reference/adapter relaxation below, keeping the guard against unbounded expansion.
+    add("roe-face-index-8.3", "frozen_roe_face", "8.3", {"row": [0, 1], "col": [0, 1]}, idx_fix83, "rir", 2_000_000)
     # Reduced 8-branch version for the cross-backend check (reference/adapter are slower)
     add("roe-face-cross-rir", "frozen_roe_face", "6.2", {"row": [0, 1], "col": [0]}, idx_fix62)
     add("roe-face-cross-ref", "frozen_roe_face", "6.2", {"row": [0, 1], "col": [0]}, idx_fix62, "reference", 8_000_000)
@@ -699,7 +702,7 @@ def build_tasks():
         f83 = {k: v for k, v in roe_face_fix83.items() if k != axis}
         # Full-magnitude uniform grid: 6.2 sweeps bits[2..6) (step 1.0), 8.3 sweeps bits[4..8) (step 2.0)
         add(f"roe-face-fiber-{axis}-6.2", "frozen_roe_face", "6.2", {axis: [2, 3, 4, 5]}, f62)
-        add(f"roe-face-fiber-{axis}-8.3", "frozen_roe_face", "8.3", {axis: [4, 5, 6, 7]}, f83)
+        add(f"roe-face-fiber-{axis}-8.3", "frozen_roe_face", "8.3", {axis: [4, 5, 6, 7]}, f83, "rir", 2_000_000)
 
     # Basis-state determinism spot checks (single basis state -> single basis state, inputs preserved, outputs match the reference)
     basis_points = {
