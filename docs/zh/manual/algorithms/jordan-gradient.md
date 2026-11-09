@@ -24,7 +24,7 @@ API 入口：{obj}`gradient_estimation <oracq.algorithms.optimization.gradient.g
 
 - `oracle`：{obj}`PhaseOracle <oracq.algorithms.optimization.gradient.PhaseOracle>` 或具 `target` 签名的相位 oracle 操作，input model 为 FO（相位 oracle）；`phase_scale` 属性必须等于 $2^{\text{grid\_bits}}$，不符时按 INPUT_PROMISE 违例抛错。
 - `dimension`：网格维数 $d$，范围 1..16。
-- `grid_bits`：每个坐标的位数 $m$，范围 1..32；总宽度 $d \cdot m$ 不超过 64。
+- `grid_bits`：每个坐标的位数 $m$，范围 1..32；打包后的坐标寄存器 $d \cdot m$ 位可超过单个机器字，下沉时拆分为多字。
 
 oracle 的三个构造入口：{obj}`abstract_phase_oracle(name, width, *, phase_scale) <oracq.algorithms.optimization.gradient.abstract_phase_oracle>`（开放声明，实现留待 {obj}`bind <oracq.infrastructure.linking.bind>`）、{obj}`gate_phase_oracle(width, angles, *, phase_scale, name=None) <oracq.algorithms.optimization.gradient.gate_phase_oracle>`（显式相位表，长度须为 $2^{\text{width}}$）、{obj}`function_phase_oracle(source, *, dimension, grid_bits, fmt=None, scale=None, ...) <oracq.algorithms.optimization.gradient.function_phase_oracle>`（由 mathfunc 算术编译 $f$ 后做相位踢回）。
 

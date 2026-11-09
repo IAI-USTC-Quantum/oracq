@@ -28,7 +28,8 @@ export standard RIR JSON or a strict modular gate netlist. See the
 [CLI manual](docs/manual/cli.md#independent-compiler-studio) for its bounded
 editor and the general `compile-function` command.
 
-The current package version is **0.2.0** and the RIR format is **0.1**
+The package follows the [releases](https://github.com/IAI-USTC-Quantum/oracq/releases)
+page for its current version; the RIR format is **0.1**
 ([full specification](docs/reference/rir.md)). Algorithms declare inputs and
 outputs through plain Python protocols; no language-level type-system
 extension is required.

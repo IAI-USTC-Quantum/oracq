@@ -29,7 +29,7 @@ def hardware_efficient_ansatz(
     Returns:
         Operation: target only. Parameter optimization and repeated execution
         are organized by the caller."""
-    positive_integer(width, "ansatz.width", maximum=64)
+    positive_integer(width, "ansatz.width")
     layers = tuple(tuple(tuple(pair) for pair in layer) for layer in layers)
     if not layers or any(
         len(layer) != width or any(len(pair) != 2 for pair in layer) for layer in layers
@@ -75,7 +75,7 @@ def qaoa_maxcut(
 
     The cost is Σw(1-ZuZv)/2. This function does not run a classical
     optimizer."""
-    positive_integer(width, "qaoa.width", maximum=64)
+    positive_integer(width, "qaoa.width")
     edges = tuple(cast("tuple[int, int, float]", tuple(edge)) for edge in edges)
     gammas, betas = tuple(gammas), tuple(betas)
     if not gammas or len(gammas) != len(betas):

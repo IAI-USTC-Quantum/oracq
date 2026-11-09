@@ -18,9 +18,10 @@ requirements.
 
 ## Scale limits
 
-A single register or fused view is at most 64 bits. Some algorithm
-convenience interfaces place the target or signal in one register and
-therefore hit this limit first; the RIR itself can use multiple registers.
+A single register or fused view may have any width; native backends split
+widths beyond one 64-bit machine word into word sequences. Some algorithm
+convenience interfaces still bound their own packed target or signal width;
+those bounds are documented per interface and are not language limits.
 
 The [reference executor](backends.md#reference-executor) and the backend
 adapters have step-count, state-count, and QRAM materialization budgets.

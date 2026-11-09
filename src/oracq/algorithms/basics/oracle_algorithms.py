@@ -76,7 +76,7 @@ def affine_boolean_oracle(width: int, secret: int, *, bias: int = 0) -> XorDatab
     """Build a plain gate oracle for BV; bit i of secret corresponds to bit i of the address.
 
     Args:
-        width: Address register bit width, in 1..64.
+        width: Address register bit width, a positive integer.
         secret: Integer encoding of the secret string, in 0..2^width−1.
         bias: Constant bias c, either 0 or 1.
 
@@ -84,7 +84,7 @@ def affine_boolean_oracle(width: int, secret: int, *, bias: int = 0) -> XorDatab
         XorDatabase: Gate-level XOR database handle implementing f(x)=s·x
         XOR c.
     """
-    positive_integer(width, "affine_boolean_oracle.width", maximum=64)
+    positive_integer(width, "affine_boolean_oracle.width")
     positive_integer(secret, "affine_boolean_oracle.secret", minimum=0, maximum=(1 << width) - 1)
     positive_integer(bias, "affine_boolean_oracle.bias", minimum=0, maximum=1)
     b = Builder(
@@ -140,7 +140,7 @@ def simon_nullspace(samples: Iterable[int], width: int) -> tuple[int, ...]:
         tuple: Null space basis vectors. Only a one-dimensional null space
         determines the nonzero period directly; with insufficient samples
         several basis vectors remain."""
-    positive_integer(width, "simon.width", maximum=64)
+    positive_integer(width, "simon.width")
     rows = []
     for sample in samples:
         positive_integer(sample, "simon.sample", minimum=0, maximum=(1 << width) - 1)

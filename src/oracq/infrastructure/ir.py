@@ -19,7 +19,7 @@ class RegType:
 
     Attributes:
         kind: bit pattern interpretation; one of ``bits``, ``uint``, ``sint`` or ``rational``.
-        width: bit width in 0..64; zero width denotes an empty interface.
+        width: nonnegative logical bit width; zero width denotes an empty interface.
     """
 
     kind: str
@@ -30,7 +30,7 @@ def Bits(width: int) -> RegType:
     """Return a ``RegType`` with the ``bits`` interpretation, denoting a bit string without numeric meaning.
 
     Args:
-        width: bit width in 0..64; zero width denotes an empty interface.
+        width: nonnegative logical bit width; zero width denotes an empty interface.
 
     Returns:
         RegType: storage type with kind ``bits`` and bit width equal to ``width``.
@@ -42,7 +42,7 @@ def UInt(width: int) -> RegType:
     """Return a ``RegType`` with the ``uint`` interpretation, denoting an unsigned integer from 0 to 2^width-1.
 
     Args:
-        width: bit width in 0..64; zero width denotes an empty interface.
+        width: nonnegative logical bit width; zero width denotes an empty interface.
 
     Returns:
         RegType: storage type with kind ``uint`` and bit width equal to ``width``.
@@ -54,7 +54,7 @@ def SInt(width: int) -> RegType:
     """Return a ``RegType`` with the ``sint`` interpretation, denoting a two's-complement integer; bit operations still act on the raw word.
 
     Args:
-        width: bit width in 0..64; zero width denotes an empty interface.
+        width: nonnegative logical bit width; zero width denotes an empty interface.
 
     Returns:
         RegType: storage type with kind ``sint`` and bit width equal to ``width``.
@@ -66,7 +66,7 @@ def Rational(width: int) -> RegType:
     """Return a ``RegType`` with the ``rational`` interpretation, denoting an unsigned word divided by 2^width.
 
     Args:
-        width: bit width in 0..64; also the base-2 exponent of the denominator.
+        width: nonnegative logical bit width; also the base-2 exponent of the denominator.
 
     Returns:
         RegType: storage type with kind ``rational`` and bit width equal to ``width``.
@@ -177,8 +177,8 @@ class QRAM:
     separately as execution input.
 
     Attributes:
-        address_width: bit width of an address word in 1..64.
-        data_width: bit width of a data word in 1..64.
+        address_width: bit width of an address word, a positive integer.
+        data_width: bit width of a data word, a positive integer.
     """
 
     address_width: int

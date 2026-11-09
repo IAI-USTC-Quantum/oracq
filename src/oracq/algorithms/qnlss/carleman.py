@@ -54,7 +54,7 @@ class PolynomialODE:
 
     def __post_init__(self) -> None:
         """Validate construction-time constraints on width, the coefficient table, and the initial-state layout."""
-        positive_integer(self.width, "PolynomialODE.width", maximum=64)
+        positive_integer(self.width, "PolynomialODE.width")
         object.__setattr__(self, "initial", as_state_preparation(self.initial))
         finite_real(self.initial_norm, "PolynomialODE.initial_norm", minimum=0)
         object.__setattr__(self, "coefficients", tuple(self.coefficients))

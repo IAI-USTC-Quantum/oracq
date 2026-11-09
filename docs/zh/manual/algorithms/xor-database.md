@@ -12,7 +12,7 @@ $$
 |a,\,d\rangle \;\mapsto\; |a,\,d \oplus \mathtt{memory}[a]\rangle ,
 $$
 
-其中 `address` 与 `data` 均为 bits 寄存器。该 XOR 语义在任意初值下自逆，是函数表加载、矩阵元素查询、LCU 系数表等下游构造的公共底座（input model 词汇中的 QRAM）。模块提供 abstract 开放声明、gate 真值表与 QRAM 资源三种绑定层，另有把超过 64 位的宽字拆成多个 bank 的变体。
+其中 `address` 与 `data` 均为 bits 寄存器。该 XOR 语义在任意初值下自逆，是函数表加载、矩阵元素查询、LCU 系数表等下游构造的公共底座（input model 词汇中的 QRAM）。模块提供 abstract 开放声明、gate 真值表与 QRAM 资源三种绑定层，另有把一个宽字拆成多个 64 位 bank 的变体，供偏好机器字 bank 的消费方使用。
 
 ## 接口与输入模型
 
@@ -28,7 +28,7 @@ API 入口：{obj}`abstract_database <oracq.algorithms.input_model.oracles.abstr
 - {obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>`：开放声明（input model 为 QRAM 的 abstract 层），体为空，经 `linking.bind` 绑定实现后程序闭合。
 - {obj}`gate_database <oracq.algorithms.input_model.oracles.gate_database>`：真值表见证。`table` 为稀疏字典或字序列（按地址枚举），地址与字在生成期校验范围；逐条目按地址受控翻转数据位。
 - {obj}`qram_database <oracq.algorithms.input_model.oracles.qram_database>`：声明 {obj}`QRAM(address_width, data_width) <oracq.infrastructure.ir.QRAM>` 资源（名为 `table`），执行时数据以 memory 字典提供，不进入 IR。
-- {obj}`banked_database <oracq.algorithms.input_model.oracles.banked_database>`：把 `data_width` 拆成不超过 64 位的 `data0, data1, ...` 寄存器与对应 QRAM bank（小端序），`abstract=True` 时给出带 `logical_data_width` 的开放声明。
+- {obj}`banked_database <oracq.algorithms.input_model.oracles.banked_database>`：把 `data_width` 拆成不超过 64 位的 `data0, data1, ...` 寄存器与对应 QRAM bank（小端序），与任意宽度的单 bank 字互为补充，`abstract=True` 时给出带 `logical_data_width` 的开放声明。
 
 四个入口均返回 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`（{obj}`OracleView <oracq.algorithms.input_model.contracts.OracleView>`，`xor_database()` 返回自身）。属性：
 

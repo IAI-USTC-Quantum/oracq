@@ -85,15 +85,15 @@ class QVector:
         Args:
             values: Sequence of components; the length must be a power of two no smaller than 2.
             fmt: Fixed-point format of the components; defaults to ``FixedFormat(10, 5)``.
-            angle_width: Bit width of the rotation angle word, range 1..64.
+            angle_width: Bit width of the rotation angle word, a positive integer.
             name: Naming prefix of the QRAM banks.
 
         Raises:
             ValidationError: The component length is invalid or angle_width is out of range.
         """
         self.fmt: FixedFormat = fmt or FixedFormat(10, 5)
-        if not 1 <= angle_width <= 64:
-            raise ValidationError("angle_width must be in the range 1..64")
+        if type(angle_width) is not int or angle_width < 1:
+            raise ValidationError("angle_width must be a positive integer")
         values = tuple(float(v) for v in values)
         self.width: int = _check_shape(values, "QVector").bit_length() - 1
         self.angle_width: int = angle_width
@@ -232,15 +232,15 @@ class QMatrix:
         Args:
             matrix: Nonnegative real matrix; both the row count and the column count must be powers of two no smaller than 2.
             fmt: Fixed-point format of the entries; defaults to ``FixedFormat(10, 5)``.
-            angle_width: Bit width of the rotation angle word, range 1..64.
+            angle_width: Bit width of the rotation angle word, a positive integer.
             name: Naming prefix of the QRAM banks.
 
         Raises:
             ValidationError: The matrix shape is invalid, or an entry falls outside the nonnegative range of the fixed-point format.
         """
         self.fmt: FixedFormat = fmt or FixedFormat(10, 5)
-        if not 1 <= angle_width <= 64:
-            raise ValidationError("angle_width must be in the range 1..64")
+        if type(angle_width) is not int or angle_width < 1:
+            raise ValidationError("angle_width must be a positive integer")
         rows = _check_shape(matrix, "QMatrix rows")
         cols = _check_shape(matrix[0], "QMatrix columns")
         if any(len(row) != cols for row in matrix):

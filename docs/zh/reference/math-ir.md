@@ -8,7 +8,7 @@ MIR 是 Python 纯函数前端与 RIR 之间的生成层表示。它可以独立
 
 {obj}`MathProgram <oracq.infrastructure.mathfunc.graph.MathProgram>` 包含 version="0.1"、entry 和 functions。每个 {obj}`MathFunction <oracq.infrastructure.mathfunc.graph.MathFunction>` 包含唯一 name、源码 label、parameters、有序 nodes 和 returns。函数图无递归，helper 调用保留为 call 节点。
 
-参数类型为 real、complex、bool 或 index。index 另带 1..64 的无符号位宽；其他参数 width=0，具体量子字长由 lowering 的 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>` 决定。{obj}`Index <oracq.infrastructure.mathfunc.graph.Index>` 在进入数学计算时转换为当前定点表示，格式必须容纳它的完整范围。值节点只有 real、complex、bool 三类；复数 lowering 到两个独立实数寄存器。
+参数类型为 real、complex、bool 或 index。index 另带任意正整数的无符号位宽；其他参数 width=0，具体量子字长由 lowering 的 {obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>` 决定。{obj}`Index <oracq.infrastructure.mathfunc.graph.Index>` 在进入数学计算时转换为当前定点表示，格式必须容纳它的完整范围。值节点只有 real、complex、bool 三类；复数 lowering 到两个独立实数寄存器。
 
 {obj}`MathNode <oracq.infrastructure.mathfunc.graph.MathNode>` 包含 op、kind、args 和 data。节点编号为其在 nodes 中的位置，args 只能引用编号更小的节点。returns 是非空节点编号数组；返回 tuple 在这里表示多个独立结果，不允许递归嵌套 tuple 输出。函数参数、节点类型、元数、调用接口以及 DAG 均由 MathProgram.validate 核对。
 

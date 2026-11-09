@@ -79,7 +79,7 @@ def abstract_phase_oracle(name: str, width: int, *, phase_scale: float) -> Phase
 
     Args:
         name: Declared module name of the phase oracle slot.
-        width: Bit width of the target register, in 1..64.
+        width: Bit width of the target register, a positive integer.
         phase_scale: Phase scaling factor, a positive real, registered along
             with the attribute declaration.
 
@@ -87,7 +87,7 @@ def abstract_phase_oracle(name: str, width: int, *, phase_scale: float) -> Phase
         PhaseOracle: Handle of the phase oracle slot with an empty body,
         whose implementation is bound later by bind.
     """
-    positive_integer(width, "abstract_phase_oracle.width", maximum=64)
+    positive_integer(width, "abstract_phase_oracle.width")
     finite_real(phase_scale, "abstract_phase_oracle.phase_scale", minimum=0, strict=True)
     return PhaseOracle(
         declare(
@@ -113,7 +113,7 @@ def gate_phase_oracle(
     implementation.
 
     Args:
-        width: Bit width of the target register, in 1..64.
+        width: Bit width of the target register, a positive integer.
         angles: Table of phases in radians per basis state, of length exactly
             2**width.
         phase_scale: Phase scaling factor, a positive real, registered into
@@ -125,7 +125,7 @@ def gate_phase_oracle(
         PhaseOracle: Oracle handle that applies the diagonal phase per basis
         state according to the phase table.
     """
-    positive_integer(width, "gate_phase_oracle.width", maximum=64)
+    positive_integer(width, "gate_phase_oracle.width")
     finite_real(phase_scale, "gate_phase_oracle.phase_scale", minimum=0, strict=True)
     angles = tuple(angles)
     if len(angles) != 1 << width:
@@ -193,8 +193,6 @@ def function_phase_oracle(
     and a subsequent inverse invocation restores all work bits."""
     positive_integer(dimension, "function_phase_oracle.dimension", maximum=16)
     positive_integer(grid_bits, "function_phase_oracle.grid_bits", maximum=32)
-    if dimension * grid_bits > 64:
-        raise ValidationError("the total grid width must not exceed 64 bits")
     fmt = fmt or FixedFormat(grid_bits + 12, grid_bits + 8)
     if not isinstance(fmt, FixedFormat):
         raise ValidationError("fmt must be a FixedFormat")
@@ -285,8 +283,6 @@ def gradient_estimation(
     positive_integer(dimension, "gradient.dimension", maximum=16)
     positive_integer(grid_bits, "gradient.grid_bits", maximum=32)
     width = dimension * grid_bits
-    if width > 64:
-        raise ValidationError("the total grid width must not exceed 64 bits")
     view = oracle if isinstance(oracle, PhaseOracle) else PhaseOracle(oracle)
     if view.width != width:
         raise ValidationError("the phase oracle width must equal dimension times grid_bits")

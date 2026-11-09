@@ -376,8 +376,8 @@ class SparseAccess(OracleView):
             with signature ``column``, ``index``, ``work``.
         entry: Entry operation ``P_A(2)``, queryable at any row and column,
             with signature ``row``, ``column``, ``data``.
-        width: Number of bits of the matrix dimension, range 1..64.
-        value_width: Word width of an entry value, range 1..64.
+        width: Number of bits of the matrix dimension, a positive integer.
+        value_width: Word width of an entry value, a positive integer.
         sparsity: Upper bound on nonzeros per column, range 1..2**width.
     """
 
@@ -432,14 +432,16 @@ class SparseAccess(OracleView):
 
     def __post_init__(self) -> None:
         """Validate the bit widths, the sparsity value, and the register signatures of the two component operations."""
-        positive_integer(self.width, "SparseAccess.width", maximum=64)
-        positive_integer(self.value_width, "SparseAccess.value_width", maximum=64)
+        positive_integer(self.width, "SparseAccess.width")
+        positive_integer(self.value_width, "SparseAccess.value_width")
         positive_integer(self.sparsity, "SparseAccess.sparsity", maximum=1 << self.width)
         validate_signature(self.location, ("column", "index", "work"), "SparseAccess.position")
         validate_signature(self.entry, ("row", "column", "data"), "SparseAccess.entry")
         if (
-            not 1 <= self.width <= 64
-            or not 1 <= self.value_width <= 64
+            type(self.width) is not int
+            or self.width < 1
+            or type(self.value_width) is not int
+            or self.value_width < 1
             or not 1 <= self.sparsity <= 1 << self.width
         ):
             raise ValidationError("SparseAccess bit width or sparsity is invalid")

@@ -24,7 +24,7 @@ inverse_qft(width)
 
 API entry points: {obj}`qft <oracq.algorithms.common.fourier.qft>`, {obj}`qft_with_work <oracq.algorithms.common.fourier.qft_with_work>`, {obj}`inverse_qft <oracq.algorithms.common.fourier.inverse_qft>`
 
-- {obj}`qft(width) <oracq.algorithms.common.fourier.qft>`: `width` ranges over 1..64; non-positive integers or out-of-range values raise {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` at generation time. Returns an {obj}`Operation <oracq.infrastructure.builder.Operation>` with only a `target: Bits(width)` register.
+- {obj}`qft(width) <oracq.algorithms.common.fourier.qft>`: `width` is any positive integer; non-positive integers raise {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>` at generation time. Returns an {obj}`Operation <oracq.infrastructure.builder.Operation>` with only a `target: Bits(width)` register.
 - {obj}`qft_with_work(width) <oracq.algorithms.common.fourier.qft_with_work>`: an adapter preserving the earlier zero-width `work` interface; the registers are `target: Bits(width)` and `work: Bits(0)`, and it calls `qft` directly internally.
 - {obj}`inverse_qft(width) <oracq.algorithms.common.fourier.inverse_qft>`: the adjoint (inverse transform) of the QFT, implemented by wrapping the module call in an adjoint context.
 

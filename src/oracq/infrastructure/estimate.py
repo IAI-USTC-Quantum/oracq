@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from typing import cast, overload
 
@@ -49,6 +49,13 @@ from oracq.infrastructure.linking import unresolved
 from oracq.infrastructure.validation import validate
 
 _PI = math.pi
+
+
+def _seconds(value: object, what: str) -> float:
+    """Validate one user-supplied duration; bool is not a duration."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        raise ValidationError(f"the wall time of {what} must be a nonnegative number of seconds")
+    return float(value)
 
 CLIFFORD_ATOMS = ("h", "x", "y", "z", "s", "sdg", "cnot", "cz")
 """Set of Clifford atom names; ``ResourceEstimate.clifford`` summarizes ``atoms`` counts over these names."""
@@ -387,6 +394,63 @@ class ResourceEstimate:
         """
         return self.t_exact + self.t_synthesis(epsilon)
 
+    def wall_time(
+        self,
+        atom_times: Mapping[str, float],
+        *,
+        qram_query_times: Mapping[str, float] | None = None,
+        qram_write_times: Mapping[str, float] | None = None,
+        rotation_times: Mapping[str, float] | None = None,
+    ) -> dict[str, object]:
+        """Apply user-supplied durations to the counted ledger, per gate and per application.
+
+        Times are keyed per gate atom (``toffoli``, ``t``, ``h``, ...), per QRAM
+        application (the entry resource name) for queries and writes, and per
+        rotation axis (``x``/``z``) for rotations pending synthesis. No default
+        uniform gate time is assumed: every category with a nonzero count must
+        be fully priced, and a missing key raises instead of silently dropping
+        that cost from the total.
+
+        Args:
+            atom_times: duration in seconds of each gate atom with a nonzero count.
+            qram_query_times: duration of one query against each queried resource.
+            qram_write_times: duration of one write into each written resource.
+            rotation_times: duration of one pending rotation per axis; counted before synthesis.
+
+        Returns:
+            dict: seconds per atom, per QRAM application and per rotation axis, plus ``total_s``.
+
+        Raises:
+            ValidationError: a counted atom, QRAM application or rotation axis has no supplied time,
+                or a supplied time is not a nonnegative real number.
+        """
+
+        def priced(table: Mapping[str, float], counts: Counter[str], what: str) -> dict[str, float]:
+            seconds: dict[str, float] = {}
+            for key, count in sorted(counts.items()):
+                if count <= 0:
+                    continue
+                if key not in table:
+                    raise ValidationError(f"wall time is missing the {what} '{key}'")
+                seconds[key] = count * _seconds(table[key], f"{what} '{key}'")
+            return seconds
+
+        sections = {
+            "atoms": priced(atom_times, self.atoms, "gate atom"),
+            "qram_queries": priced(qram_query_times or {}, self.qram_queries, "QRAM query resource"),
+            "qram_writes": priced(qram_write_times or {}, self.qram_writes, "QRAM write resource"),
+            "rotations": priced(rotation_times or {}, Counter(self.rotation_axes), "rotation axis"),
+        }
+        return {**sections, "total_s": sum(sum(part.values()) for part in sections.values())}
+
+    @property
+    def rotation_axes(self) -> Counter[str]:
+        """Rotation counts pending synthesis aggregated by axis, as multiplicities."""
+        axes: Counter[str] = Counter()
+        for (axis, _), count in self.rotations.counts.items():
+            axes[axis] += count
+        return axes
+
     def to_dict(self, epsilon: float = 1e-10) -> dict[str, object]:
         """Export a JSON-friendly flat resource ledger.
 
@@ -399,9 +463,7 @@ class ResourceEstimate:
             T cost estimates, per-atom ``atoms`` details, per-resource QRAM
             query/write counts and totals, plus ``gate_total``.
         """
-        axes: Counter[str] = Counter()
-        for (axis, _), count in self.rotations.counts.items():
-            axes[axis] += count
+        axes = self.rotation_axes
         return {
             "complete": self.complete,
             "qubits": self.qubits,

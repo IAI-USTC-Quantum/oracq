@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import ModuleType
 from typing import cast
 
@@ -151,6 +151,7 @@ class NativeContext:
     names: dict
     qrams: dict
     memories: dict
+    register_words: dict[str, tuple[tuple[str, int], ...]] = field(default_factory=dict)
 
     def register_id(self, parameter: str) -> int:
         """Resolve a quantum formal parameter of the module to a PySparQ integer register id.
@@ -164,16 +165,28 @@ class NativeContext:
         Raises:
             ValidationError: the argument is not a single view covering exactly one whole register, such as a slice or concatenation.
         """
+        ids = self.register_ids(parameter)
+        if len(ids) != 1:
+            raise ValidationError("this native factory requires one machine word; use register_ids for wide logical registers")
+        return ids[0][0]
+
+    def register_ids(self, parameter: str) -> tuple[tuple[int, int], ...]:
+        """Resolve a whole logical register to little-endian native (id, width) words."""
         index = next(i for i, r in enumerate(self.site.module.registers) if r.name == parameter)
         ref = self.site.arguments[index]
         if len(ref.parts) != 1:
             raise ValidationError("the current native factory requires whole-register arguments")
         span = ref.parts[0]
         name = self.names[span.register]
+        words = self.register_words.get(span.register)
+        if words is not None:
+            if span.start or span.width != sum(width for _, width in words):
+                raise ValidationError("the current native factory does not accept slices; use whole registers or gate-level implementations")
+            return tuple((cast(ModuleType, self.ps).System.get_id(native), width) for native, width in words)
         # ps is the imported pysparq module object; the System attribute comes from the dynamic module.
         if span.start != 0 or span.width != cast(ModuleType, self.ps).System.size_of(name):
             raise ValidationError("the current native factory does not accept slices; use whole registers or gate-level implementations")
-        return cast(ModuleType, self.ps).System.get_id(name)
+        return ((cast(ModuleType, self.ps).System.get_id(name), span.width),)
 
     def qram(self, parameter: str) -> object:
         """Resolve a resource formal parameter of the module to the QRAM object bound at this call site.

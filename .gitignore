@@ -10,3 +10,6 @@ out/
 .zcode/
 .zcodeignore
 /backend-revisions.json
+
+# 本地并行开发交接资料
+/.agent-task/

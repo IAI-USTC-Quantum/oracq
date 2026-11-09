@@ -17,7 +17,7 @@ fixed_arithmetic(kind, fmt=DEFAULT_FIXED_FORMAT)
 
 API 入口：{obj}`FixedFormat <oracq.algorithms.common.arithmetic.FixedFormat>`、{obj}`fixed_arithmetic <oracq.algorithms.common.arithmetic.fixed_arithmetic>`
 
-- `FixedFormat`：要求 $2 \le \text{width} \le 64$ 且 $0 \le \text{fraction} < \text{width} - \text{signed}$（小数位不占用符号位），违例抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`；{obj}`encode(value) <oracq.infrastructure.serialization.encode>` / {obj}`decode(value) <oracq.infrastructure.serialization.decode>` 在实数与补码整数间换算。`DEFAULT_FIXED_FORMAT` 即默认的 (8, 3, 有符号)。
+- `FixedFormat`：要求 $2 \le \text{width}$ 且 $0 \le \text{fraction} < \text{width} - \text{signed}$（小数位不占用符号位），违例抛 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`；{obj}`encode(value) <oracq.infrastructure.serialization.encode>` / {obj}`decode(value) <oracq.infrastructure.serialization.decode>` 在实数与补码整数间换算。`DEFAULT_FIXED_FORMAT` 即默认的 (8, 3, 有符号)。
 - {obj}`fixed_arithmetic(kind, fmt) <oracq.algorithms.common.arithmetic.fixed_arithmetic>`：`kind` 取 `add` / `sub` / `neg` / `abs` / `mul` / `div` / `reciprocal` / `sqrt` / `lt` / `eq` / `select` / `and` / `or` / `xor` 之一，未知值抛 `ValidationError`；结果按 `(kind, fmt)` 以 `lru_cache` 缓存复用。
 
 返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为输入 `a`（一元 `kind` 只有 `a`；`select` 另有 1 位 `select`）加输出 `out`（`lt` / `eq` 为 1 位，其余 `width` 位）与 `status: Bits(2)`。本入口不消费 oracle 输入（CP：定点格式与操作种类直接参数化）。模块属性：

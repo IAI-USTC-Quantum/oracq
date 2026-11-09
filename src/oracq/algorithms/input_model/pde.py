@@ -181,8 +181,8 @@ class UnstructuredGridConfig:
         ``value_scale*pi/2**word_length``. The negative endpoint is saturated
         to the largest word instead of wrapping a full turn to zero.
         """
-        if type(word_length) is not int or not 1 <= word_length <= 64:
-            raise ValidationError("derivative angle word length must be an integer in 1..64")
+        if type(word_length) is not int or word_length < 1:
+            raise ValidationError("derivative angle word length must be a positive integer")
         if set(matrices) != set(self.derivative_offsets):
             raise ValidationError("derivative matrices must match the configured table keys")
         storage = 1 << max(1, (self.size - 1).bit_length())

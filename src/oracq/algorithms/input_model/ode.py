@@ -119,7 +119,7 @@ class QRAMMatrixConfig:
 
     def encode_matrix(self, values: Sequence[Sequence[complex]], word_length: int) -> dict[int, int]:
         """Quantize a real matrix, saturating the negative endpoint instead of wrapping."""
-        positive_integer(word_length, "ODE.qram_matrix.word_length", maximum=64)
+        positive_integer(word_length, "ODE.qram_matrix.word_length")
         matrix = _matrix(values, self.size)
         if any(v.imag or abs(v.real) > self.value_scale for row in matrix for v in row):
             raise ValidationError("QRAM matrix entries must be real and bounded by value_scale")
@@ -193,7 +193,7 @@ class MatrixInput:
         object.__setattr__(self, "values", _matrix(self.values, len(self.values)))
         if self.encoding not in {"gates", "qram"}:
             raise ValidationError("ODE matrix encoding must be gates or qram")
-        positive_integer(self.angle_width, "ODE.matrix.angle_width", maximum=64)
+        positive_integer(self.angle_width, "ODE.matrix.angle_width")
         finite_real(self.value_scale, "ODE.matrix.value_scale", minimum=0, strict=True)
 
     @property

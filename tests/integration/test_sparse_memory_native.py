@@ -1,4 +1,4 @@
-"""Sparse interchange is checked on the real backend within its existing materialization limit."""
+"""Sparse interchange and wide sparse banks are checked on the real backend."""
 
 import tempfile
 import unittest
@@ -8,10 +8,10 @@ from oracq import (
     QRAM,
     Builder,
     UInt,
-    ValidationError,
     dump_qram_yaml,
     load_qram_yaml,
     run_pysparq,
+    run_pysparq_rir,
     simulate,
 )
 
@@ -40,12 +40,24 @@ class SparseMemoryNativeTests(unittest.TestCase):
             self.assertAlmostEqual(abs(expected.amplitudes.get(key, 0) - actual.amplitudes.get(key, 0)), 0, places=11)
         self.assertEqual(report["native_calls"], 0)
 
-    def test_backend_materialization_limit_is_retained(self):
-        b = Builder("large_memory_limit", {"a": UInt(32), "v": UInt(3)},
+    def test_wide_sparse_bank_executes_via_logical_word_interface(self):
+        # Since the 64-bit logical width cap was lifted, banks with address
+        # width over 20 no longer raise a materialization refusal: the dense
+        # path stays structurally bounded at 2^20 entries (it is only chosen
+        # for address widths <= 20) and wider banks route through the PySparQ
+        # logical-word sparse interface instead of expanding the address space.
+        b = Builder("large_memory_query", {"a": UInt(32), "v": UInt(3)},
                     {"bank": QRAM(32, 3)})
+        b.x(b["a"][31])
+        b.x(b["a"][29])
         b.qram("bank", b["a"], b["v"])
-        with self.assertRaisesRegex(ValidationError, r"more than 2\^20"):
-            run_pysparq(b.finish().program(), {"bank": {(1 << 32) - 1: 7}})
+        program = b.finish().program()
+        memory = {"bank": {(1 << 31) + (1 << 29): 7, 0: 5}}
+        expected = simulate(program, memory).amplitudes
+        for actual in (run_pysparq(program, memory).amplitudes,
+                       run_pysparq_rir(program, memory).amplitudes):
+            for key in expected.keys() | actual.keys():
+                self.assertAlmostEqual(abs(expected.get(key, 0) - actual.get(key, 0)), 0, places=11)
 
 
 if __name__ == "__main__":

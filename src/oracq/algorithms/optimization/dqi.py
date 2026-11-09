@@ -63,7 +63,7 @@ class XorSatInstance:
 
     def __post_init__(self) -> None:
         """Normalize and validate the construction-time constraints on constraint rows, the right-hand side, and variable indices."""
-        positive_integer(self.num_variables, "XorSatInstance.num_variables", maximum=64)
+        positive_integer(self.num_variables, "XorSatInstance.num_variables")
         rows = tuple(tuple(row) for row in self.rows)
         rhs = tuple(self.rhs)
         if not rows or len(rows) != len(rhs):
@@ -171,15 +171,15 @@ def abstract_decoder(name: str, syndrome_width: int, error_width: int) -> Decode
 
     Args:
         name: Declared module name of the decoder slot.
-        syndrome_width: Bit width of the syndrome register, in 1..64.
-        error_width: Bit width of the error register, in 1..64.
+        syndrome_width: Bit width of the syndrome register, a positive integer.
+        error_width: Bit width of the error register, a positive integer.
 
     Returns:
         DecoderOracle: Handle of the decoder slot with an empty body, whose
         implementation is bound later by bind.
     """
-    positive_integer(syndrome_width, "abstract_decoder.syndrome_width", maximum=64)
-    positive_integer(error_width, "abstract_decoder.error_width", maximum=64)
+    positive_integer(syndrome_width, "abstract_decoder.syndrome_width")
+    positive_integer(error_width, "abstract_decoder.error_width")
     return DecoderOracle(
         declare(
             name,
@@ -206,8 +206,8 @@ def table_decoder(
 
     Returns:
         DecoderOracle: Syndromes not listed map to the zero error pattern."""
-    positive_integer(syndrome_width, "table_decoder.syndrome_width", maximum=64)
-    positive_integer(error_width, "table_decoder.error_width", maximum=64)
+    positive_integer(syndrome_width, "table_decoder.syndrome_width")
+    positive_integer(error_width, "table_decoder.error_width")
     items = tuple(sorted(table.items()))
     b = Builder(
         name or _name("decoder_table", syndrome_width, error_width, items),

@@ -51,7 +51,7 @@ API 入口：{obj}`QHAMPlan <oracq.applications.qham.linearization.QHAMPlan>`、
 
 提升初态保留各张量字的相对范数 $r, r, r^2, \dots, r^K$（r = ‖u_in‖，有强迫再加 one 分支）：按缩放权重制备分支标签，对相应目标区间多次调用可重复的初值 oracle（不是克隆未知量子态），再从地址区间经布尔网络反算标签；每次对已知零输入的制备都复净 work，同一段工作寄存器顺序复用。u_in = 0 且有强迫时初态只剩 one 分量；无强迫的零初值对应零解，应在经典侧直接返回。
 
-适用边界：单个 BE 的 target 包装受 64 位限制（`plan.max_rank * n > 64` 报错，惰性 plan 与逐行算法不受此限）；`correctness="linearization_witnessed; solver pending"` 表明已见证的是线性化代数，HAM/PDE 收敛认证与 QODE 求解精度属于求解器一侧；自动选择收敛的 h/m、时间依赖绑定与 IQHAM 外层重启未实现（完整边界见用户指南第 9 节）。
+适用边界：单个 BE 的急切打包不再受位宽限制（耦合枚举仍由显式块预算约束，惰性 plan 与逐行算法保持可用）；`correctness="linearization_witnessed; solver pending"` 表明已见证的是线性化代数，HAM/PDE 收敛认证与 QODE 求解精度属于求解器一侧；自动选择收敛的 h/m、时间依赖绑定与 IQHAM 外层重启未实现（完整边界见用户指南第 9 节）。
 
 ## 验证方案
 

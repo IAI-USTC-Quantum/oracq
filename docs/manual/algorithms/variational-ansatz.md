@@ -16,7 +16,7 @@ hardware_efficient_ansatz(width, layers)
 
 API entry point: {obj}`hardware_efficient_ansatz <oracq.algorithms.optimization.variational.hardware_efficient_ansatz>`
 
-- `width`: the target bit width, range 1..64.
+- `width`: the target bit width, any positive integer.
 - `layers`: the angle tensor, of shape `[layer][qubit][Ry, Rz]` — non-empty, exactly width angle pairs per layer, and exactly two finite real angles per pair (radians).
 
 The variational angles are classical data parameterized directly, so the input model is CP. Returns an {obj}`Operation <oracq.infrastructure.builder.Operation>` whose only register is `target` (width bits). Module attributes:

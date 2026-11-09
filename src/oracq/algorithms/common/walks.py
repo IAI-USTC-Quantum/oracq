@@ -21,7 +21,7 @@ def cycle_walk(width: int, *, steps: int = 1) -> Operation:
 
     The input state is prepared by the caller; the zero input corresponds to starting
     at position zero with coin zero."""
-    positive_integer(width, "cycle_walk.width", maximum=64)
+    positive_integer(width, "cycle_walk.width")
     positive_integer(steps, "cycle_walk.steps", minimum=0)
     b = Builder(
         _name("cycle_walk", width, steps),

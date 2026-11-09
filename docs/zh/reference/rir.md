@@ -53,7 +53,7 @@ Register 由 name 和 RegType 构成。RegType 由 kind 和 width 构成。width
 | sint | 二补码整数，位操作仍作用于原始字。 |
 | rational | 无符号字除以 2^width，对应 PySparQ Rational。 |
 
-一个寄存器或视图的宽度必须处于 0..64。零宽度表示空接口；原生适配器不为它创建实际寄存器。总量子位数和寄存器数量不以 64 为上限。
+一个寄存器或视图的宽度是任意非负整数。零宽度表示空接口；原生适配器不为它创建实际寄存器。总量子位数和寄存器数量不以 64 为上限。
 
 寄存器下标零表示最低位。假设入口签名依次声明 r0、r1 等寄存器，那么状态向量导出索引满足：
 
@@ -69,7 +69,7 @@ Ref 由 parts 和 type 构成。parts 是 Span 的有序列表。Span 具有 reg
 
 Ref.parts 按低位到高位拼接。各段宽度的和必须等于 Ref.type.width。每个段都必须处于根寄存器范围内。同一 Ref 中的段不能引用重复量子位。
 
-切片、fuse 和 reinterpret 在 Python 生成阶段形成 Ref，不生成量子指令。切片产生 bits 解释；reinterpret 明确改变解释但不改变位宽或量子状态。fuse 可以跨根寄存器，但合并后的视图仍然不能超过 64 位。
+切片、fuse 和 reinterpret 在 Python 生成阶段形成 Ref，不生成量子指令。切片产生 bits 解释；reinterpret 明确改变解释但不改变位宽或量子状态。fuse 可以跨根寄存器，合并后的视图宽度与寄存器宽度一样不受上限限制。
 
 如果 f 是某模块的形式寄存器，调用实参是跨根寄存器的 Ref，那么 f 的局部切片必须映射为该 Ref 相同低位偏移的子视图。映射不能假定实际参数是连续物理量子位。
 
@@ -101,7 +101,7 @@ Primitive 具有 op、operands、angle 和 value。operands 是 Ref 列表。没
 
 Load 具有 resource、address 和 data。resource 引用当前模块的 QRAM 形式参数。address 和 data 的宽度必须与声明一致，两个视图不能重叠。
 
-QRAM 类型具有 address_width 与 data_width，两者均为 1..64。内存是由地址到无符号数据字的映射 M，未指定的单元为零。内存数据不写入程序序列化文本，而是作为执行输入另行绑定（绑定文件格式见 [QRAM 内存定义](qram-memory.md)）。不含 Store 的程序中 M 固定不变；含 Store 的程序中 M 按指令序演化。
+QRAM 类型具有 address_width 与 data_width，两者均为正整数。内存是由地址到无符号数据字的映射 M，未指定的单元为零。内存数据不写入程序序列化文本，而是作为执行输入另行绑定（绑定文件格式见 [QRAM 内存定义](qram-memory.md)）。不含 Store 的程序中 M 固定不变；含 Store 的程序中 M 按指令序演化。
 
 ```text
 |address>|data>  ↦  |address>|data XOR M[address]>
@@ -246,7 +246,7 @@ adjoint     = Adjoint { body: instruction* } .
 
 angle 与 value 是否出现由 op 决定（见 3.1 节），未使用者序列化为 null。开放模块的 body 为 ∅ 且不得声明 locals（见 4.5 节）。
 
-主要数值范围：RegType.width 处于 0..64；QRAM 两个宽度处于 1..64；Repeat.count 处于 0..2^63−1；Control.value 处于控制视图的无符号范围；add_const 的 value 处于 0..2^width−1；模块调用深度和结构块嵌套深度不超过 127。
+主要数值范围：RegType.width 为非负整数；QRAM 两个宽度为正整数；Repeat.count 处于 0..2^63−1；Control.value 处于控制视图的无符号范围；add_const 的 value 处于 0..2^width−1；模块调用深度和结构块嵌套深度不超过 127。
 
 文本编码把每条记录映射为携带 "tag" 的对象，字段名与记录字段一致；元组映射为数组，标量与 null 原样传递：
 

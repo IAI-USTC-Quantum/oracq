@@ -18,7 +18,7 @@ affine_boolean_oracle(width, secret, *, bias=0)
 API 入口：{obj}`bernstein_vazirani <oracq.algorithms.basics.oracle_algorithms.bernstein_vazirani>`、{obj}`affine_boolean_oracle <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>`
 
 - {obj}`bernstein_vazirani(function) <oracq.algorithms.basics.oracle_algorithms.bernstein_vazirani>`：`function` 为单结果位 XOR database（input model 为 FO：仿射布尔函数真值表），内部先经 {obj}`deutsch_jozsa <oracq.algorithms.basics.oracle_algorithms.deutsch_jozsa>` 校验 `data_width == 1`；仿射承诺由调用者承担。oracle 可以保留为开放声明（{obj}`abstract_database <oracq.algorithms.input_model.oracles.abstract_database>`），生成后再绑定 gate 或 QRAM 实现。
-- {obj}`affine_boolean_oracle(width, secret, *, bias=0) <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>`：构造 $f(x) = s \cdot x \oplus c$ 的门级 oracle，返回 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`。`width` 范围 1..64，`secret` 范围 $0 .. 2^{\text{width}}-1$，`bias` 取 0 或 1；`secret` 的第 $i$ 位对应地址第 $i$ 位（little endian）。
+- {obj}`affine_boolean_oracle(width, secret, *, bias=0) <oracq.algorithms.basics.oracle_algorithms.affine_boolean_oracle>`：构造 $f(x) = s \cdot x \oplus c$ 的门级 oracle，返回 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>`。`width` 为任意正整数，`secret` 范围 $0 .. 2^{\text{width}}-1$，`bias` 取 0 或 1；`secret` 的第 $i$ 位对应地址第 $i$ 位（little endian）。
 
 `bernstein_vazirani` 返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器与 DJ 相同：`input: Bits(address_width)` 与 `answer: Bits(1)`。模块属性：
 

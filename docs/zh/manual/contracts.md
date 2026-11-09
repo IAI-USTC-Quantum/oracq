@@ -59,7 +59,7 @@ from oracq.algorithms.input_model.oracles import StatePreparation
 # prep = StatePreparation.from_unitary(operation, target="q", work="tmp", clean_work=True)
 ```
 
-`clean_work=True` 是你对这个实现的算法承诺，语言不证明它。默认的全公开寄存器适配无需这个承诺；当前 BE/state-prep 便捷包装器的单个 target 仍受 64 位限制。
+`clean_work=True` 是你对这个实现的算法承诺，语言不证明它。默认的全公开寄存器适配无需这个承诺；当前 BE/state-prep 便捷包装器的单个 target 可超过 64 位；打包的辅助宽度随 RIR 下沉并在后端拆分为机器字。
 
 这也澄清“任意 unitary 能否作为 b”：它一定定义了某个 `b=U|0>`。是否是你要解的问题中的那个 b，由应用定义；是否支持 QLSS 所需的 inverse/controlled，由具体 QLSS 检查。
 

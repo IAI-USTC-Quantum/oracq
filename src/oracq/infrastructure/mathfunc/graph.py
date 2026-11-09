@@ -25,9 +25,9 @@ class Index:
     width: int
 
     def __post_init__(self) -> None:
-        """Validate that the bit width is in 1..64."""
-        if type(self.width) is not int or not 1 <= self.width <= 64:
-            raise ValidationError("Index bit width must be between 1 and 64")
+        """Validate that the bit width is a positive integer."""
+        if type(self.width) is not int or self.width < 1:
+            raise ValidationError("Index bit width must be a positive integer")
 
 
 @dataclass(frozen=True)
@@ -138,7 +138,7 @@ class MathProgram:
                 if type(p.width) is not int or (p.kind != "index" and p.width != 0):
                     raise ValidationError("width must be 0 for non-index MIR parameters")
                 if p.kind not in {"real", "complex", "bool", "index"} or (
-                    p.kind == "index" and not 1 <= p.width <= 64
+                    p.kind == "index" and (type(p.width) is not int or p.width < 1)
                 ):
                     raise ValidationError("invalid MIR parameter kind")
             if not f.returns or any(

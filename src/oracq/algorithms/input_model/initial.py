@@ -98,8 +98,8 @@ class ArrayInput:
     def __post_init__(self) -> None:
         if self.encoding not in {"gates", "qram"}:
             raise ValidationError("initial array encoding must be gates or qram")
-        if type(self.angle_width) is not int or not 1 <= self.angle_width <= 64:
-            raise ValidationError("initial angle width must be an integer in 1..64")
+        if type(self.angle_width) is not int or self.angle_width < 1:
+            raise ValidationError("initial angle width must be a positive integer")
         values = MappingProxyType({k: tuple(v) for k, v in self.values.items()}) if isinstance(self.values, Mapping) else tuple(self.values)
         object.__setattr__(self, "values", values)
 

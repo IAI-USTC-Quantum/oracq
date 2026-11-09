@@ -18,7 +18,7 @@ simon_nullspace(samples, width)
 API 入口：{obj}`simon_sample <oracq.algorithms.basics.oracle_algorithms.simon_sample>`、{obj}`simon_nullspace <oracq.algorithms.basics.oracle_algorithms.simon_nullspace>`
 
 - {obj}`simon_sample(function) <oracq.algorithms.basics.oracle_algorithms.simon_sample>`：`function` 必须是 {obj}`XorDatabase <oracq.algorithms.input_model.oracles.XorDatabase>` 实例（input model 为 FO：二对一函数真值表），其他类型在生成期抛出 {obj}`ValidationError <oracq.infrastructure.ir.ValidationError>`；二对一承诺由属性 `input_promise` 声明、由调用者承担。
-- {obj}`simon_nullspace(samples, width) <oracq.algorithms.basics.oracle_algorithms.simon_nullspace>`：纯经典后处理。`samples` 为按 little endian 编码的整数样本列表，`width`（1..64）为秘密串位宽，返回样本行空间在 GF(2) 上零空间的基向量元组。样本恰好撑满 $s^\perp$ 时零空间一维，其非零元即周期 $s$；样本不足时保留多个基向量，调用方继续采样。
+- {obj}`simon_nullspace(samples, width) <oracq.algorithms.basics.oracle_algorithms.simon_nullspace>`：纯经典后处理。`samples` 为按 little endian 编码的整数样本列表，`width` 为秘密串位宽（任意正整数），返回样本行空间在 GF(2) 上零空间的基向量元组。样本恰好撑满 $s^\perp$ 时零空间一维，其非零元即周期 $s$；样本不足时保留多个基向量，调用方继续采样。
 
 `simon_sample` 返回 {obj}`Operation <oracq.infrastructure.builder.Operation>`，寄存器为 `input: Bits(address_width)` 与 `output: Bits(data_width)`。模块属性：
 

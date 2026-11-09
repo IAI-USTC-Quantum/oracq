@@ -131,7 +131,7 @@ class GradientTests(unittest.TestCase):
             lambda: gradient_estimation(oracle, dimension=1, grid_bits=0),
             lambda: gate_phase_oracle(2, [0.0, 0.0], phase_scale=4),
             lambda: gate_phase_oracle(2, [0.0] * 4, phase_scale=0),
-            lambda: abstract_phase_oracle("Bad", 65, phase_scale=1),
+            lambda: abstract_phase_oracle("Bad", 0, phase_scale=1),
             lambda: function_phase_oracle(
                 "def f(x0):\n    return x0\n", dimension=1, grid_bits=0
             ),

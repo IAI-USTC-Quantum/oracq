@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:oracq:rir:0.3",
-  "title": "oracq register-level IR 0.3",
+  "$id": "urn:oracq:rir:0.4",
+  "title": "oracq register-level IR 0.4",
   "$ref": "#/$defs/Program",
   "$defs": {
     "RegType": {
@@ -20,8 +20,7 @@
         },
         "width": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 64
+          "minimum": 0
         }
       },
       "required": [
@@ -64,13 +63,11 @@
         },
         "start": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 64
+          "minimum": 0
         },
         "width": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 64
+          "minimum": 0
         }
       },
       "required": [
@@ -112,13 +109,11 @@
         },
         "address_width": {
           "type": "integer",
-          "minimum": 1,
-          "maximum": 64
+          "minimum": 1
         },
         "data_width": {
           "type": "integer",
-          "minimum": 1,
-          "maximum": 64
+          "minimum": 1
         }
       },
       "required": [

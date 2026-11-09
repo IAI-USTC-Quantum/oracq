@@ -24,7 +24,7 @@ API entry point: {obj}`gradient_estimation <oracq.algorithms.optimization.gradie
 
 - `oracle`: a {obj}`PhaseOracle <oracq.algorithms.optimization.gradient.PhaseOracle>` or a phase-oracle operation with a `target` signature, input model FO (phase oracle); its `phase_scale` attribute must equal $2^{\text{grid\_bits}}$, otherwise it raises as an INPUT_PROMISE violation.
 - `dimension`: the grid dimension $d$, range 1..16.
-- `grid_bits`: the bits per coordinate $m$, range 1..32; the total width $d \cdot m$ must not exceed 64.
+- `grid_bits`: the bits per coordinate $m$, range 1..32; the packed coordinate register $d \cdot m$ bits may exceed one machine word and is split at lowering.
 
 The oracle's three construction entry points: {obj}`abstract_phase_oracle(name, width, *, phase_scale) <oracq.algorithms.optimization.gradient.abstract_phase_oracle>` (an open declaration, with the implementation left for {obj}`bind <oracq.infrastructure.linking.bind>`), {obj}`gate_phase_oracle(width, angles, *, phase_scale, name=None) <oracq.algorithms.optimization.gradient.gate_phase_oracle>` (an explicit phase table, whose length must be $2^{\text{width}}$), and {obj}`function_phase_oracle(source, *, dimension, grid_bits, fmt=None, scale=None, ...) <oracq.algorithms.optimization.gradient.function_phase_oracle>` (compiles $f$ via mathfunc arithmetic and then applies phase kickback).
 
