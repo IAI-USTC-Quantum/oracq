@@ -1,6 +1,7 @@
 """Wide logical registers must execute on actual native sparse states."""
 
 import unittest
+from importlib.metadata import PackageNotFoundError, version
 
 from oracq import QRAM, Bits, Builder, UInt, run_pysparq, run_pysparq_rir, simulate
 
@@ -43,14 +44,10 @@ class WideNativeTests(unittest.TestCase):
         for key in expected.keys() | actual.keys():
             self.assertAlmostEqual(abs(expected.get(key, 0)-actual.get(key, 0)), 0)
 
-    @unittest.expectedFailure
     def test_dense_rir_zero_control_shared_address_defect(self):
-        # Reproduced against pysparq 0.3.0 and 0.4.0: the native run_rir
-        # executor toggles zero-control bits around a query with X gates, so a
-        # dense QRAM whose address register shares a bit with a zero control
-        # reads the redirected cell (address 8 instead of 0). Tracked with the
-        # SparQSim owner; when the upstream fix lands this expected failure
-        # becomes an unexpected success and the marker must be removed.
+        # PySparQ 0.4.1 fixes the recorded shared-address zero-control defect.
+        # Legacy 0.3.0/0.4.0 remain explicit expected failures below; current
+        # backends must execute the complete amplitude comparison normally.
         b = Builder("dense_query_defect", {"address": Bits(4), "data": Bits(3)}, {"bank": QRAM(4, 3)})
         b.h(b["address"][3])
         with b.control(b["address"][3], 0):
@@ -72,6 +69,16 @@ class WideNativeTests(unittest.TestCase):
             b.x(scratch[128])
         b.add_const(b["q"], (1 << 96)+3)
         self.compare(b.finish().program())
+
+
+try:
+    backend_version = version("pysparq")
+except PackageNotFoundError:
+    backend_version = None
+if backend_version in {"0.3.0", "0.4.0"}:
+    WideNativeTests.test_dense_rir_zero_control_shared_address_defect = unittest.expectedFailure(
+        WideNativeTests.test_dense_rir_zero_control_shared_address_defect
+    )
 
 
 if __name__ == "__main__":

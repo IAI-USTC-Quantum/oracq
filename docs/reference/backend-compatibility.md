@@ -82,12 +82,13 @@ with a zero control, the toggled bit redirects the query to another cell
 (address 8 instead of 0 in the tracked witness). The gate-level
 {obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` adapter
 resolves zero controls against the logical address word and is unaffected, as
-is the wide logical-word path. The defect is asserted explicitly (as a tracked
-expected failure) in
+is the wide logical-word path. PySparQ 0.4.1 fixes this defect. The regression
 `tests/integration/test_wide_registers_native.py::test_dense_rir_zero_control_shared_address_defect`
-and is coordinated with the SparQSim owner; until the upstream fix lands,
-dense zero-controlled shared-address queries should run through the gate-level
-adapter.
+remains an expected failure only for the reproduced 0.3.0/0.4.0 versions;
+it must pass normally with 0.4.1. Use the gate-level adapter for these queries
+on those older versions. OracQ 0.4.1 with PySparQ 0.4.1 supports both paths,
+including shared zero-address controls, without a source overlay.
+
 
 The PySparQ execution adapter limits sparse basis states to 65536 by default and checks after native gate calls. Both normal completion and exceptional exit clean up the global registers owned by the adapter.
 
