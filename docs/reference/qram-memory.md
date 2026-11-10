@@ -95,3 +95,35 @@ wide segments. Sparse interchange still does not imply execution: the PySparQ
 adapter materializes dense banks only up to 20 address bits, and wider banks run
 through the logical-word sparse query interface when the installed pysparq
 provides it, with an explicit capability error otherwise.
+
+
+## Optional QRAM-assisted compilation
+
+`compile_qram(program)` returns `(compiled, extra_memory, report)`. Execute or
+export **both** the returned program and merged memory. This is an explicit
+resource tradeoff; it does not declare QRAM to have zero latency.
+
+The compiler recognizes exact dyadic, bit-controlled Ry words and shares one
+phase-gradient register across the coherent entry execution. Gradient preparation
+and inverse preparation are in the circuit. Controlled modular addition preserves
+the angle-word-dependent phase, including negative outer controls. Arbitrary
+non-dyadic rotations remain unchanged. Clean carry, padding and predicate work
+registers count toward the algorithmic logical peak.
+
+A four-word, one-bit read-only AND table (`{3: 1}`, other words zero) replaces
+nonlinear Boolean gates by reversible XOR queries. Its nominal capacity, query
+count and routing requirements remain external QRAM resources. Applications must
+explicitly choose their timing policy; removing those queries from a gate-only
+time total is a model assumption, not a hardware speed measurement.
+
+Calls and Repeat nodes stay compressed. The public register interface, angle
+words, output protocol and coherent complex amplitudes are preserved. Programs
+with writes, unresolved modules, or reserved `__qr_` names are rejected. The
+transformation is optional (`phase_gradient=False` or `boolean=False`) and
+idempotent. Sparse-state simulation of a large gradient can itself be expensive;
+this does not change the compressed circuit resource estimate.
+
+Phase-gradient kickback and reversible arithmetic follow standard constructions;
+see [Gidney, 2018](https://arxiv.org/abs/1709.06648) and
+[Babbush et al., 2018](https://arxiv.org/abs/1805.03662). This implementation keeps
+its preparation/cleanup and coherent-control phase in the serialized RIR.

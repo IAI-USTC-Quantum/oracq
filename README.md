@@ -198,3 +198,13 @@ If you use OracQ in your research, please cite the preprint:
   url           = {https://arxiv.org/abs/2610.41431}
 }
 ```
+
+
+### Optional QRAM-assisted compilation
+
+`compiled, extra_memory, report = oracq.compile_qram(program)` shares a prepared
+phase-gradient register for finite-angle words and uses an explicit four-word
+read-only Boolean table. Merge `extra_memory` before execution/export. The pass
+preserves coherent phases and compressed calls/repeats; auxiliary qubits and
+QRAM resources remain in the ledger. See the bilingual QRAM memory reference for
+timing assumptions and scope. Native verification uses PySparQ 0.4.2 or newer.

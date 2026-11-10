@@ -156,6 +156,7 @@ from oracq.infrastructure.mathfunc import (
 )
 from oracq.infrastructure.native import DynamicCppFactory, NativeRegistry
 from oracq.infrastructure.qmem import QMem, QPtr
+from oracq.infrastructure.qram_compile import compile_qram
 from oracq.infrastructure.qram_schema import (
     RegisteredQRAM,
     dump_qram_yaml,
@@ -300,3 +301,6 @@ __all__ += [
 
 _install_compatibility()
 del _install_compatibility
+
+
+__all__ += ["compile_qram"]
