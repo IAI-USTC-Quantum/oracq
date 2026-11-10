@@ -1,5 +1,7 @@
 # OracQ
 
+0.4.2 将验证命令改为本仓环境可复现的入口；编译器及后端行为不变。
+
 [English](README.md) · **简体中文**
 
 [![CI](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml/badge.svg)](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml)
