@@ -78,7 +78,7 @@ copies 翻倍（即 $\Delta t$ 减半）时迹距离比率稳定在约 0.51，�
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+PYTHONPATH=src python tests/verification/verify_misc_algorithms.py
 ```
 
 产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `dm-exponentiation-*` 两个案例）。

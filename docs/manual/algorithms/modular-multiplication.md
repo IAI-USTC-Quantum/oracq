@@ -82,7 +82,7 @@ Paper-grade numerical experiments are in `tests/verification/verify_nt_qlss_sde.
 **Reproduce**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 Output: `out/verification/nt_qlss_sde.json` (`modmul-*`, 6 cases in total).

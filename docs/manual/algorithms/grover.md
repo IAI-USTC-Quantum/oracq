@@ -74,7 +74,7 @@ The theoretical success rates of instance 1 over the iteration counts are 0.125,
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 Artifacts: `out/verification/search_walks.json` (cases `grover-phase-marks-n3-t1` and `grover-xor-database-n3-t2`, with per-iteration values).

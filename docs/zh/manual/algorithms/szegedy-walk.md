@@ -74,7 +74,7 @@ API 入口：{obj}`szegedy_walk <oracq.algorithms.input_model.graph_walks.szeged
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `szegedy-walk-cycle8`；MNRS 端到端搜索见 [MNRS 量子行走搜索](mnrs-search.md) 的数值验证一节）。

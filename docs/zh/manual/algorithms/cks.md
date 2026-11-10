@@ -102,7 +102,7 @@ recover_norm = 2.7018 对照 $\lVert A^{-1}b\rVert = 3.1623$（$b=(2,0)$）：0.
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 产物：`out/verification/nt_qlss_sde.json`（`cks-*`、`costa-*` 共 7 个案例）。

@@ -72,7 +72,7 @@ API 入口：{obj}`hadamard_test <oracq.algorithms.common.estimation.hadamard_te
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_estimation.py
+PYTHONPATH=src python tests/verification/verify_estimation.py
 ```
 
 产物路径：`out/verification/estimation.json`（案例名前缀 `hadamard-`）。

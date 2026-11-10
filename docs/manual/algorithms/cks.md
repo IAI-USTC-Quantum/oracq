@@ -102,7 +102,7 @@ recover_norm = 2.7018 against $\lVert A^{-1}b\rVert = 3.1623$ ($b=(2,0)$): the r
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 Artifacts: `out/verification/nt_qlss_sde.json` (7 cases in total: `cks-*`, `costa-*`).

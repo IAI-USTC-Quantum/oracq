@@ -75,7 +75,7 @@ Per-modulus success rates (measured vs textbook prediction): $m=15$: 0.500 vs 0.
 **Reproduce**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 Output: `out/verification/nt_qlss_sde.json` (`order-finding-*`, `factors-from-phase-exhaustive`, 8 cases in total).

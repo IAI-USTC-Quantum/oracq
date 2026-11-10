@@ -70,7 +70,7 @@ Theoretical values over the iteration counts: 0.146447, 0.853553, 0.853553, 0.14
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 Artifacts: `out/verification/search_walks.json` (case `amplify-success-curve`).

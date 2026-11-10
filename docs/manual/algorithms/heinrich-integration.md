@@ -80,7 +80,7 @@ Paper-grade numerical experiments are in `tests/verification/verify_nt_qlss_sde.
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 Artifact: `out/verification/nt_qlss_sde.json` (`quantum-integral-*` — 2 cases in total).

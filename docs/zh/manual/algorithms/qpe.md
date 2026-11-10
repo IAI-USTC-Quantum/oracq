@@ -77,7 +77,7 @@ API 入口：{obj}`phase_estimation <oracq.algorithms.common.estimation.phase_es
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_estimation.py
+PYTHONPATH=src python tests/verification/verify_estimation.py
 ```
 
 产物路径：`out/verification/estimation.json`（案例名前缀 `qpe-`）。

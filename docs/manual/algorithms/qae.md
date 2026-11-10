@@ -84,7 +84,7 @@ Consistent with `docs/development/validation-coverage.md`: the QAE confidence-in
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_estimation.py
+PYTHONPATH=src python tests/verification/verify_estimation.py
 ```
 
 Artifact path: `out/verification/estimation.json` (case names prefixed `qae-`).

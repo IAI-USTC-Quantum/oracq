@@ -81,7 +81,7 @@ API 入口：{obj}`lchs_qode <oracq.algorithms.qode.lchs.lchs_qode>`、{obj}`Qua
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 产物：`out/verification/ode.json`（`lchs-*` 共 12 个案例）。

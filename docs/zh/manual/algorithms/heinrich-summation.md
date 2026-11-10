@@ -79,7 +79,7 @@ QAE 期望误差按 $\Theta(\log M / M)$ 收缩（Dirichlet 核重尾的一阶�
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 产物：`out/verification/nt_qlss_sde.json`（`sum-preparation-*`、`quantum-sum-*`、`table-loader-*`、`heinrich-rate-*` 共 10 个案例）。

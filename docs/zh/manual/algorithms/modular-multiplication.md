@@ -82,7 +82,7 @@ API 入口：{obj}`modular_multiply <oracq.algorithms.basics.number_theory.modul
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 产物：`out/verification/nt_qlss_sde.json`（`modmul-*` 共 6 个案例）。

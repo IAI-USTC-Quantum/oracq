@@ -77,7 +77,7 @@ API 入口：{obj}`abstract_adjacency <oracq.algorithms.input_model.graph_walks.
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `adjacency-superposition-hypercube`、`mnrs-search-qram-k4`）。

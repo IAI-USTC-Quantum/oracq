@@ -74,7 +74,7 @@ Experiment design: an even cycle on 8 vertices (alternating edge-coloring neighb
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 Artifacts: `out/verification/search_walks.json` (case `szegedy-walk-cycle8`; the MNRS end-to-end search is covered in the Numerical validation section of [MNRS Quantum Walk Search](mnrs-search.md)).

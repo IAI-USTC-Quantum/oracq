@@ -71,7 +71,7 @@ API 入口：{obj}`vqe_measurements <oracq.algorithms.optimization.variational.v
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+PYTHONPATH=src python tests/verification/verify_misc_algorithms.py
 ```
 
 产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `vqe-pauli-expectations` 案例）。

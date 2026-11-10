@@ -75,7 +75,7 @@ API 入口：{obj}`order_finding <oracq.algorithms.basics.number_theory.order_fi
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 产物：`out/verification/nt_qlss_sde.json`（`order-finding-*`、`factors-from-phase-exhaustive` 共 8 个案例）。

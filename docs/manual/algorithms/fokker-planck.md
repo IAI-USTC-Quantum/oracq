@@ -85,7 +85,7 @@ Paper-grade numerical experiments are in `tests/verification/verify_nt_qlss_sde.
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 Artifacts: `out/verification/nt_qlss_sde.json` (7 `sde-*` cases in total).
@@ -108,7 +108,7 @@ This section is the ode group's supplementary validation of the `QODEProblem` co
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 Artifacts: `out/verification/ode.json` (the `lchs-fokker-planck-ou` case).
