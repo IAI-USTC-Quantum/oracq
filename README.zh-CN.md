@@ -130,3 +130,20 @@ PYTHONPATH=src /path/to/backend/python examples/algorithm_gallery.py --native
 语言核心要求 Python 3.11 及以上，运行期只依赖 PyYAML 做文本序列化；可选 `pyqsp` extra（`uv sync --extra pyqsp`）安装 pyqsp，用于可替换的 QSP 相位合成适配器。可选后端在执行入口导入；生成产物、环境和构建文件均不提交。开发流程见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) 与[文档编写规范](docs/zh/development/writing-docs.md)；源码分类与迁移说明见[架构](docs/zh/manual/architecture.md)与[导入路径](docs/zh/manual/compatibility.md)。
 
 QLSS/QODE/QHAM 等高级算法仍有数值精度、成功通道或收敛性待核验项（逐项状态见[验证覆盖矩阵](docs/zh/development/validation-coverage.md)）。通用 QSP-HamSim 内核尚需提供；当前模乘采用有限规模置换合成，VQE/QAOA 的经典优化器由应用选择。
+
+## 引用
+
+如果在研究中使用了 OracQ，请引用预印本：
+
+```bibtex
+@misc{chen2026oracq,
+  title         = {oracq: A Modular Framework for Implementing and Analyzing
+                   Quantum Scientific Computing Algorithms},
+  author        = {Zhao-Yun Chen and Ming-Yang Tan and Guo-Ping Guo},
+  year          = {2026},
+  eprint        = {2610.41431},
+  archivePrefix = {arXiv},
+  primaryClass  = {quant-ph},
+  url           = {https://arxiv.org/abs/2610.41431}
+}
+```

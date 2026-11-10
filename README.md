@@ -179,3 +179,20 @@ in the [validation coverage matrix](docs/development/validation-coverage.md)).
 A general-purpose QSP-HamSim kernel is still to be provided; the current
 modular multiplication uses finite-size permutation synthesis, and classical
 optimizers for VQE/QAOA are chosen by the application.
+
+## Citation
+
+If you use OracQ in your research, please cite the preprint:
+
+```bibtex
+@misc{chen2026oracq,
+  title         = {oracq: A Modular Framework for Implementing and Analyzing
+                   Quantum Scientific Computing Algorithms},
+  author        = {Zhao-Yun Chen and Ming-Yang Tan and Guo-Ping Guo},
+  year          = {2026},
+  eprint        = {2610.41431},
+  archivePrefix = {arXiv},
+  primaryClass  = {quant-ph},
+  url           = {https://arxiv.org/abs/2610.41431}
+}
+```
