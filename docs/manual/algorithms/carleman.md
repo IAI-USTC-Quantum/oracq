@@ -89,7 +89,7 @@ The truncation error drops by about one order of magnitude per added order — d
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 Artifacts: `out/verification/ode.json` (5 `carleman-*` cases in total).

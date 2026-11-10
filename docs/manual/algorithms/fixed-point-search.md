@@ -74,7 +74,7 @@ The above-threshold instance satisfies the $1-\delta^2$ guarantee (0.991311 ≥ 
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 Artifacts: `out/verification/search_walks.json` (cases `fixed-point-search-above-threshold` and `fixed-point-search-below-threshold`).

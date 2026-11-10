@@ -64,7 +64,7 @@ API 入口：{obj}`cycle_walk <oracq.algorithms.common.walks.cycle_walk>`
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `cycle-walk-w2`、`cycle-walk-w3`）。

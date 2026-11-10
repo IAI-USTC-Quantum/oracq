@@ -95,7 +95,7 @@ PYTHONPATH=src <含 pysparq+uniqc 的解释器> tests/verification/verify_fourie
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `qubitization-walk-chebyshev`）。

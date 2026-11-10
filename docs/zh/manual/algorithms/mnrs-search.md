@@ -79,7 +79,7 @@ API 入口：{obj}`quantum_walk_search <oracq.algorithms.input_model.graph_walks
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `mnrs-search-complete-k4`、`mnrs-search-hypercube-q3`、`mnrs-search-qram-k4`，另含经典参考例程对拍案例 `markov-chain-helpers`）。

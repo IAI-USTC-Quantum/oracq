@@ -74,7 +74,7 @@ $Q$ 由 Chebyshev 奇次系数加 $(1 - x^2)$ 幂解析展开；$P$ 的谱分解
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `fixed-point-search-above-threshold`、`fixed-point-search-below-threshold`）。

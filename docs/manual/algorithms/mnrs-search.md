@@ -79,7 +79,7 @@ Informative metrics: $\text{steps}/\sqrt{H_{\rm avg}}=1.0$ for K4 and 0.903 for 
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 Artifacts: `out/verification/search_walks.json` (cases `mnrs-search-complete-k4`, `mnrs-search-hypercube-q3`, `mnrs-search-qram-k4`, plus the classical-reference routine cross-check case `markov-chain-helpers`).

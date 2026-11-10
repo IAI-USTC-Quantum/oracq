@@ -153,7 +153,7 @@ eigendecomposition / `eigvalsh` / closed-form expressions).
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+PYTHONPATH=src python tests/verification/verify_misc_algorithms.py
 ```
 
 Artifacts: `out/verification/misc_algorithms.json` (24 cases, all passing; this section covers the eight `purification-*`, `gibbs-*`, `trace-estimate-*`, and `qsdp-*` cases). Numerical validation of the group's remaining algorithms is on their own pages (density-matrix exponentiation, QPCA, DQI, variational ansätze, VQE, QAOA, repetition codes).
@@ -196,7 +196,7 @@ tests + cross-backend comparison" rather than independent numerical oracles.
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 Artifacts: `out/verification/nt_qlss_sde.json` (`gallery-*` 22 examples, `catalog-*` 33 examples).

@@ -74,7 +74,7 @@ API 入口：{obj}`grover <oracq.algorithms.common.search.grover>`
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `grover-phase-marks-n3-t1`、`grover-xor-database-n3-t2`，含逐迭代数值）。

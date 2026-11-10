@@ -71,7 +71,7 @@ Paper-grade numerical experiments are in `tests/verification/verify_misc_algorit
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+PYTHONPATH=src python tests/verification/verify_misc_algorithms.py
 ```
 
 Artifacts: `out/verification/misc_algorithms.json` (24 cases all passing; this page corresponds to the four `repetition-*` cases).

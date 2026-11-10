@@ -126,7 +126,7 @@ groups/applications
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+PYTHONPATH=src python tests/verification/verify_misc_algorithms.py
 ```
 
 产物：`out/verification/misc_algorithms.json`（24 个案例全过，本节对应 `purification-*`、`gibbs-*`、`trace-estimate-*`、`qsdp-*` 八个案例）。组内其余算法的数值验证见各自页面（密度矩阵指数化、QPCA、DQI、变分拟设、VQE、QAOA、重复码）。
@@ -149,7 +149,7 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 产物：`out/verification/nt_qlss_sde.json`（`gallery-*` 22 例、`catalog-*` 33 例）。

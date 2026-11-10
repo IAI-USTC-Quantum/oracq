@@ -85,7 +85,7 @@ SDE 与 LCHS 的端到端 catalog 案例缺失（离散化 → QODEProblem → �
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 产物：`out/verification/nt_qlss_sde.json`（`sde-*` 共 7 个案例）。
@@ -108,7 +108,7 @@ PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/pyth
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 产物：`out/verification/ode.json`（`lchs-fokker-planck-ou` 案例）。

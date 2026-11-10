@@ -84,7 +84,7 @@ $P$ 用 `fourier_momentum` 逐位构造：每位一个投影 BE（alpha 为 1）
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 产物：`out/verification/ode.json`（`schrodingerization-*` 与 `fourier-momentum-block` 共 6 个案例）。

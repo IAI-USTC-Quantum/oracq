@@ -77,7 +77,7 @@ Experiment design (end-to-end walk numerics; the adjacency query itself is alrea
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 Artifact: `out/verification/search_walks.json` (cases `adjacency-superposition-hypercube`, `mnrs-search-qram-k4`).

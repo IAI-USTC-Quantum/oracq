@@ -79,7 +79,7 @@ The QAE expected error shrinks as $\Theta(\log M / M)$ (the first moment of the 
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_nt_qlss_sde.py
+PYTHONPATH=src python tests/verification/verify_nt_qlss_sde.py
 ```
 
 Artifact: `out/verification/nt_qlss_sde.json` (`sum-preparation-*`, `quantum-sum-*`, `table-loader-*`, `heinrich-rate-*` — 10 cases in total).

@@ -71,7 +71,7 @@ API 入口：{obj}`repetition_encode <oracq.algorithms.qec.error_correction.repe
 **复现**：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+PYTHONPATH=src python tests/verification/verify_misc_algorithms.py
 ```
 
 产物：`out/verification/misc_algorithms.json`（24 个案例全过，本页对应 `repetition-*` 四个案例）。

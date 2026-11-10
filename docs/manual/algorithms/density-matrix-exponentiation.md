@@ -78,7 +78,7 @@ When copies double (i.e. $\Delta t$ halves), the trace-distance ratio stabilizes
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_misc_algorithms.py
+PYTHONPATH=src python tests/verification/verify_misc_algorithms.py
 ```
 
 Artifacts: `out/verification/misc_algorithms.json` (all 24 cases pass; this page corresponds to the two `dm-exponentiation-*` cases).

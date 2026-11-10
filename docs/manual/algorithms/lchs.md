@@ -81,7 +81,7 @@ The success probability (all-signal-zero subspace) matches the classical value (
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 Artifacts: `out/verification/ode.json` (12 `lchs-*` cases in total).

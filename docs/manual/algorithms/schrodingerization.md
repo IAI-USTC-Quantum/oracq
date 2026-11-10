@@ -84,7 +84,7 @@ Paper-grade numerical experiments are in `tests/verification/verify_ode.py` (the
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 Artifacts: `out/verification/ode.json` (6 cases in total: `schrodingerization-*` and `fourier-momentum-block`).

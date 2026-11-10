@@ -537,7 +537,7 @@ Two library-level findings came out of the validation and have been fixed: (1) a
 **Reproduction**:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_ode.py
+PYTHONPATH=src python tests/verification/verify_ode.py
 ```
 
 Artifacts: `out/verification/ode.json` (27 cases).

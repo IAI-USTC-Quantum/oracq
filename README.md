@@ -1,5 +1,7 @@
 # OracQ
 
+Version 0.4.2 makes verification commands portable across local environments; compiler and backend behavior is unchanged.
+
 **English** · [简体中文](README.zh-CN.md)
 
 [![CI](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml/badge.svg)](https://github.com/IAI-USTC-Quantum/oracq/actions/workflows/python-ci.yml)

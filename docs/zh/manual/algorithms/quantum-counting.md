@@ -66,7 +66,7 @@ operation = amplitude_estimation(uniform_state(n), marked, precision=p)
 复现命令：
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 产物：`out/verification/search_walks.json`（案例 `quantum-counting-n3-t3`）。

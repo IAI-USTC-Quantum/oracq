@@ -77,7 +77,7 @@ This algorithm has no gap of its own. The only gap registered for `estimation.py
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_estimation.py
+PYTHONPATH=src python tests/verification/verify_estimation.py
 ```
 
 Artifact path: `out/verification/estimation.json` (case names prefixed `qpe-`).

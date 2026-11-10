@@ -95,7 +95,7 @@ Premise: the $T_k$ rotation relation requires the BE unitary to be Hermitian; fo
 Reproduction command:
 
 ```bash
-PYTHONPATH=src /home/agony/projects/qcfd-dev/quantum-cfd-software/.venv/bin/python tests/verification/verify_search_walks.py
+PYTHONPATH=src python tests/verification/verify_search_walks.py
 ```
 
 Artifacts: `out/verification/search_walks.json` (the case `qubitization-walk-chebyshev`).
