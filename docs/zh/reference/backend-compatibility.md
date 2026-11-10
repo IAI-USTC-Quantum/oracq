@@ -80,10 +80,12 @@ System 注册表是进程全局的。适配器要求接管前注册表为空，�
 零控位共享同一比特时，被翻转的位会把查询重定向到其他单元（追踪用例中读到
 地址 8 而非地址 0 的字）。门级适配器
 {obj}`run_pysparq <oracq.infrastructure.backends.pysparq.run_pysparq>` 按逻辑
-地址字解析零控，不受影响；宽逻辑字路径同样正确。该缺陷在
+地址字解析零控，不受影响；宽逻辑字路径同样正确。PySparQ 0.4.1已修复该缺陷。
 `tests/integration/test_wide_registers_native.py::test_dense_rir_zero_control_shared_address_defect`
-中以受追踪的预期失败显式断言，并已与 SparQSim 负责人协调；在上游修复落地
-之前，稠密零控共享地址查询应经门级适配器执行。
+仅在已复现的0.3.0/0.4.0版本标记预期失败；使用0.4.1时必须正常通过。
+旧版的此类查询应经门级适配器执行。OracQ 0.4.1与PySparQ 0.4.1正式组合
+无需源码覆盖即可支持两条路径及共享地址零控制。
+
 
 PySparQ 执行适配器默认限制最多 65536 个稀疏基态，并在原生门调用后检查。调用结束或异常退出都会清理适配器拥有的全局寄存器。
 
